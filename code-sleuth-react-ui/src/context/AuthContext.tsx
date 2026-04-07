@@ -22,6 +22,15 @@ async function fetchSession() {
     headers: { Accept: "application/json" },
   });
 
+  if (!response.ok) {
+    throw new Error(`Session request failed: ${response.status}`);
+  }
+
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    throw new Error("Session response was not JSON");
+  }
+
   const payload = (await response.json()) as SessionResponse;
   setCsrfToken(payload.csrfToken);
   return payload;

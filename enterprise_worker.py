@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime
 import logging
 import signal
 import time
@@ -32,15 +33,14 @@ class EnterpriseScanWorker:
 
     def reclaim_stale_jobs(self) -> int:
         reclaimed = 0
-        cutoff = utcnow().timestamp() - float(self.settings.reclaim_stale_after_seconds)
+        cutoff = datetime.datetime.utcnow() - datetime.timedelta(seconds=self.settings.reclaim_stale_after_seconds)
         with app.app_context():
             with session_scope() as db_session:
                 stale_jobs = db_session.execute(
                     select(ScanJob).where(ScanJob.status == "running")
                 ).scalars().all()
                 for job in stale_jobs:
-                    started_at = job.started_at.timestamp() if job.started_at else 0.0
-                    if started_at and started_at < cutoff:
+                    if job.started_at and job.started_at.replace(tzinfo=None) < cutoff:
                         job.status = "queued"
                         job.started_at = None
                         job.error_message = "Job was reclaimed by worker after stale execution timeout."
@@ -54,6 +54,7 @@ class EnterpriseScanWorker:
                     select(ScanJob)
                     .where(ScanJob.status == "queued")
                     .order_by(ScanJob.created_at.asc(), ScanJob.id.asc())
+                    .with_for_update(skip_locked=True)
                 ).scalar_one_or_none()
                 if not next_job:
                     return None

@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { DocumentTitleSync } from "@/components/common/DocumentTitleSync";
+import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { AuthProvider } from "@/context/AuthContext";
 import { AnalysisProvider } from "@/context/AnalysisContext";
@@ -38,6 +39,7 @@ const App = () => (
               <BrowserRouter>
                 <DocumentTitleSync />
                 <MainLayout>
+                  <ErrorBoundary>
                   <Routes>
                     <Route path="/" element={<Home />} />
                     <Route path="/help" element={<Help />} />
@@ -117,6 +119,7 @@ const App = () => (
                     />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
+                  </ErrorBoundary>
                 </MainLayout>
               </BrowserRouter>
             </TooltipProvider>

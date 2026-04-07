@@ -18,7 +18,8 @@ const Auth = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  const redirectTarget = (location.state as { from?: string } | null)?.from || "/analysis";
+  const rawFrom = (location.state as { from?: string })?.from;
+  const redirectTarget = rawFrom && rawFrom.startsWith("/") && !rawFrom.startsWith("//") ? rawFrom : "/analysis";
   const copy =
     language === "ar"
       ? {

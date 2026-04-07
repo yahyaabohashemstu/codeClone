@@ -1,5 +1,6 @@
 import { FileText } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 export function AnalysisReport({ html }: { html: string }) {
   const { language } = useLanguage();
@@ -27,7 +28,7 @@ export function AnalysisReport({ html }: { html: string }) {
           {copy.description}
         </p>
       </div>
-      <div className="analysis-markdown px-6 py-5" dangerouslySetInnerHTML={{ __html: html || copy.empty }} />
+      <div className="analysis-markdown px-6 py-5" dangerouslySetInnerHTML={{ __html: sanitizeHtml(html || copy.empty) }} />
     </div>
   );
 }

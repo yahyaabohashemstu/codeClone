@@ -15,19 +15,35 @@ from enterprise_platform.scans import *
 
 api_bp = Blueprint("enterprise_api", __name__)
 
+
+def _require_int_variable(variables: dict, *keys: str) -> int:
+    """Extract a required positive integer from GraphQL variables, with proper validation."""
+    for key in keys:
+        raw = variables.get(key)
+        if raw is not None:
+            try:
+                value = int(raw)
+            except (TypeError, ValueError):
+                raise EnterpriseError(400, f"Variable '{key}' must be an integer.", code="invalid_variable_type")
+            if value <= 0:
+                raise EnterpriseError(400, f"Variable '{key}' must be a positive integer.", code="invalid_variable_value")
+            return value
+    raise EnterpriseError(400, f"Required variable '{'/'.join(keys)}' is missing.", code="missing_variable")
+
+
 def graphql_dispatch(db_session, actor: dict[str, Any], query: str, variables: dict[str, Any]) -> dict[str, Any]:
     root_match = re.search(r"\{\s*(\w+)", query)
     if not root_match:
         raise EnterpriseError(400, "GraphQL query root field is required.", code="invalid_graphql_query")
     root_field = root_match.group(1)
     if root_field == "workspace":
-        workspace_id = int(variables.get("id") or variables.get("workspaceId") or 0)
+        workspace_id = _require_int_variable(variables, "id", "workspaceId")
         workspace = require_workspace_access(db_session, workspace_id, actor, "student")
         membership = load_workspace_membership(db_session, workspace.id, actor.get("legacy_user_id"))
         repositories = db_session.execute(select(RepositoryConnection).where(RepositoryConnection.workspace_id == workspace.id)).scalars().all()
         return {"workspace": {**serialize_workspace(workspace, membership), "repositories": [serialize_repository(repository) for repository in repositories]}}
     if root_field == "reviewCases":
-        workspace_id = int(variables.get("workspaceId") or 0)
+        workspace_id = _require_int_variable(variables, "workspaceId")
         require_workspace_access(db_session, workspace_id, actor, "reviewer")
         review_cases = db_session.execute(select(ReviewCase).where(ReviewCase.workspace_id == workspace_id).order_by(ReviewCase.created_at.desc())).scalars().all()
         payload = []
@@ -36,12 +52,12 @@ def graphql_dispatch(db_session, actor: dict[str, Any], query: str, variables: d
             payload.append(serialize_review_case(*case_bundle))
         return {"reviewCases": payload}
     if root_field == "analytics":
-        workspace_id = int(variables.get("workspaceId") or 0)
+        workspace_id = _require_int_variable(variables, "workspaceId")
         require_workspace_access(db_session, workspace_id, actor, "reviewer")
         return {"analytics": build_workspace_analytics(db_session, workspace_id)}
     if root_field == "createScan":
-        workspace_id = int(variables.get("workspaceId") or 0)
-        repository_id = int(variables.get("repositoryId") or 0)
+        workspace_id = _require_int_variable(variables, "workspaceId")
+        repository_id = _require_int_variable(variables, "repositoryId")
         workspace = require_workspace_access(db_session, workspace_id, actor, "reviewer")
         repository = db_session.get(RepositoryConnection, repository_id)
         if not repository or repository.workspace_id != workspace.id:
@@ -488,9 +504,15 @@ def update_case(case_id: int):
             raise EnterpriseError(404, "Review case not found.", code="case_not_found")
         require_workspace_access(db_session, review_case.workspace_id, actor, "reviewer")
         if "status" in payload:
-            review_case.status = (payload.get("status") or review_case.status).strip().lower()
+            new_status = (payload.get("status") or review_case.status).strip().lower()
+            if new_status not in ("open", "confirmed", "disputed", "resolved", "dismissed"):
+                raise EnterpriseError(400, "Invalid case status.", code="invalid_case_status")
+            review_case.status = new_status
         if "severity" in payload:
-            review_case.severity = (payload.get("severity") or review_case.severity).strip().lower()
+            new_severity = (payload.get("severity") or review_case.severity).strip().lower()
+            if new_severity not in ("critical", "high", "medium", "low", "info", "none"):
+                raise EnterpriseError(400, "Invalid case severity.", code="invalid_case_severity")
+            review_case.severity = new_severity
         if "assignedToLegacyUserId" in payload:
             assigned_to = payload.get("assignedToLegacyUserId")
             review_case.assigned_to_legacy_user_id = int(assigned_to) if assigned_to else None
@@ -604,7 +626,7 @@ def create_api_credential(workspace_id: int):
             scopes_json=dumps(scopes),
             created_by_legacy_user_id=actor.get("legacy_user_id"),
             created_at=utcnow(),
-            expires_at=utcnow() + dt.timedelta(days=int(payload.get("expiresInDays") or 365)) if payload.get("expiresInDays") else None,
+            expires_at=utcnow() + dt.timedelta(days=int(payload.get("expiresInDays") or 365)),
         )
         db_session.add(api_credential)
         db_session.flush()
@@ -646,13 +668,17 @@ def github_webhook(repository_id: int):
         if not verify_webhook_secret(repository.webhook_secret_hint, repository.webhook_secret_hash, secret_header):
             raise EnterpriseError(401, "Invalid webhook secret.", code="invalid_webhook_secret")
         github_signature = (request.headers.get("X-Hub-Signature-256") or "").strip()
-        if github_signature and not verify_hmac_signature(secret_header.split(".", 1)[1], payload_bytes, github_signature, "sha256"):
+        if not github_signature:
+            raise EnterpriseError(401, "Missing webhook signature", code="missing_webhook_signature")
+        if not verify_hmac_signature(secret_header.split(".", 1)[1], payload_bytes, github_signature, "sha256"):
             raise EnterpriseError(401, "Invalid GitHub webhook signature.", code="invalid_github_signature")
         branch_ref = (payload.get("ref") or "").strip()
         branch = branch_ref.split("/")[-1] if branch_ref else repository.default_branch
         commit_sha = (payload.get("after") or "").strip() or None
-        actor = {"kind": "webhook", "legacy_user_id": repository.created_by_legacy_user_id, "workspace_id": repository.workspace_id, "scopes": ["*"], "is_admin": False}
+        actor = {"kind": "webhook", "legacy_user_id": repository.created_by_legacy_user_id, "workspace_id": repository.workspace_id, "scopes": ["scan:create", "scan:read"], "is_admin": False}
         workspace = db_session.get(Workspace, repository.workspace_id)
+        if not workspace:
+            raise EnterpriseError(404, "Workspace not found", code="workspace_not_found")
         repository.last_webhook_at = utcnow()
         scan_job = create_repository_scan_job(db_session, actor, workspace, repository, "github_webhook", {"branch": branch, "commitSha": commit_sha, "deliveryId": request.headers.get("X-GitHub-Delivery")})
         audit(db_session, actor, "webhook.github", "scan_job", scan_job.id, workspace.id, {"repositoryId": repository.id, "branch": branch, "commitSha": commit_sha})
@@ -679,8 +705,10 @@ def gitlab_webhook(repository_id: int):
             last_commit = commits[-1] or {}
             if isinstance(last_commit, dict):
                 commit_sha = (last_commit.get("id") or "").strip() or None
-        actor = {"kind": "webhook", "legacy_user_id": repository.created_by_legacy_user_id, "workspace_id": repository.workspace_id, "scopes": ["*"], "is_admin": False}
+        actor = {"kind": "webhook", "legacy_user_id": repository.created_by_legacy_user_id, "workspace_id": repository.workspace_id, "scopes": ["scan:create", "scan:read"], "is_admin": False}
         workspace = db_session.get(Workspace, repository.workspace_id)
+        if not workspace:
+            raise EnterpriseError(404, "Workspace not found", code="workspace_not_found")
         repository.last_webhook_at = utcnow()
         scan_job = create_repository_scan_job(db_session, actor, workspace, repository, "gitlab_webhook", {"branch": branch, "commitSha": commit_sha, "event": request.headers.get("X-Gitlab-Event")})
         audit(db_session, actor, "webhook.gitlab", "scan_job", scan_job.id, workspace.id, {"repositoryId": repository.id, "branch": branch, "commitSha": commit_sha})

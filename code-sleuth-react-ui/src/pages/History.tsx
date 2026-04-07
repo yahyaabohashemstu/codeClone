@@ -18,10 +18,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { apiFetch } from "@/lib/api";
+import { downloadText } from "@/lib/download";
 import { useAnalysis } from "@/context/AnalysisContext";
 import { useLanguage } from "@/context/LanguageContext";
 import type { AnalysisResult, HistoryResponse, HistorySummary } from "@/types/api";
 import { cn } from "@/lib/utils";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 function severityBadge(severity: HistorySummary["severity"]) {
   if (severity === "high") return "badge-error";
@@ -29,15 +31,6 @@ function severityBadge(severity: HistorySummary["severity"]) {
   return "badge-success";
 }
 
-function downloadText(filename: string, content: string) {
-  const blob = new Blob([content], { type: "text/plain" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
-}
 
 const History = () => {
   const navigate = useNavigate();
@@ -195,7 +188,8 @@ const History = () => {
     void loadHistory().catch((loadError) => {
       setError(loadError instanceof Error ? localizeRuntimeMessage(loadError.message) : copy.errors.loadHistory);
     });
-  }, [copy.errors.loadHistory, localizeRuntimeMessage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [language]);
 
   const items = historyData?.items ?? [];
   const languages = useMemo(() => ["all", ...Array.from(new Set(items.map((item) => item.language).filter(Boolean)))], [items]);
@@ -499,7 +493,7 @@ const History = () => {
                 </div>
               </div>
 
-              <div className="analysis-markdown max-h-72 overflow-auto rounded-xl border border-border/50 bg-card/60 px-5 py-4 scrollbar-thin" dangerouslySetInnerHTML={{ __html: selectedAnalysis.analysis_html }} />
+              <div className="analysis-markdown max-h-72 overflow-auto rounded-xl border border-border/50 bg-card/60 px-5 py-4 scrollbar-thin" dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedAnalysis.analysis_html ?? "") }} />
 
               <div className="flex justify-end gap-3">
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>

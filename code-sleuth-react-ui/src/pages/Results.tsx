@@ -33,6 +33,7 @@ import { useAnalysis } from "@/context/AnalysisContext";
 import { useLanguage, type AppLanguage } from "@/context/LanguageContext";
 import type { AnalysisResult, CloneItem, SimilarityItem } from "@/types/api";
 import { cn } from "@/lib/utils";
+import { downloadText } from "@/lib/download";
 
 type ResultTab = "overview" | "diff" | "graphs" | "metrics" | "quality" | "report" | "chat";
 
@@ -113,15 +114,6 @@ function formatSimilarityValue(item: SimilarityItem) {
   return `${item.value.toFixed(2)}%`;
 }
 
-function downloadText(filename: string, content: string, type = "text/plain") {
-  const blob = new Blob([content], { type });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
-}
 
 function exportAsJson(result: AnalysisResult) {
   downloadText(`analysis-${result.saved_analysis_id ?? "current"}.json`, JSON.stringify(result, null, 2), "application/json");

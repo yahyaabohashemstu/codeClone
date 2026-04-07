@@ -46,6 +46,10 @@ def run_repository_scan(scan_job_id: int) -> None:
                 clone_url = storage.decrypt_text(repository.clone_url_encrypted) if repository.clone_url_encrypted else None
                 branch = trigger_payload.get("branch") or repository.default_branch or "main"
                 commit_sha = trigger_payload.get("commitSha")
+                if branch and not re.match(r'^[a-zA-Z0-9._/\-]+$', branch):
+                    raise EnterpriseError(400, "Invalid branch name.", code="invalid_branch_name")
+                if commit_sha and not re.match(r'^[0-9a-fA-F]{4,40}$', commit_sha):
+                    raise EnterpriseError(400, "Invalid commit SHA.", code="invalid_commit_sha")
                 if local_path:
                     repository_root = Path(normalize_local_repository_path(local_path, require_exists=True))
                 elif clone_url:

@@ -41,6 +41,8 @@ from flask_login import (
     logout_user,
     current_user,
 )
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.sql import func
 from werkzeug.exceptions import RequestEntityTooLarge
@@ -70,12 +72,6 @@ except ImportError as mistral_client_import_error:
         Mistral = None
         MISTRAL_SDK_IMPORT_PATH = None
         MISTRAL_SDK_IMPORT_ERROR = mistral_root_import_error or mistral_client_import_error
-
-# Previous Gemini integration kept for possible rollback.
-# try:
-#     from google import genai as google_genai
-# except ImportError:
-#     google_genai = None
 import pandas as pd
 import markdown2
 import subprocess
@@ -152,6 +148,12 @@ def get_analysis_progress_for_user(user_id):
     if not user_id:
         return {'stage': 'idle', 'progress': 0, 'timestamp': datetime.datetime.utcnow().isoformat() + 'Z'}
     with analysis_progress_lock:
+        # Clean stale entries older than 5 minutes
+        cutoff = (datetime.datetime.utcnow() - datetime.timedelta(minutes=5)).isoformat() + 'Z'
+        stale_keys = [k for k, v in analysis_progress.items()
+                      if v.get('timestamp', '') < cutoff]
+        for k in stale_keys:
+            del analysis_progress[k]
         return analysis_progress.get(user_id, {'stage': 'idle', 'progress': 0, 'timestamp': datetime.datetime.utcnow().isoformat() + 'Z'})
 
 
@@ -167,31 +169,38 @@ def set_current_user_progress(stage, progress=None):
         update_analysis_progress(current_user.id, stage, progress)
 
 
-# Previous Gemini integration kept for possible rollback.
-# def load_gemini_api_key():
-#     env_key = os.environ.get("GEMINI_API_KEY")
-#     if env_key:
-#         return env_key.strip()
-#
-#     key_path = os.path.join(app.instance_path, "gemini_api_key")
-#     if os.path.exists(key_path):
-#         with open(key_path, "r", encoding="utf-8") as key_file:
-#             return key_file.read().strip()
-#
-#     return None
-
 
 app.config['SECRET_KEY'] = load_or_create_secret_key()
 app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'uploads')
 app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(app.instance_path, 'clonedetector.db')}"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['MAX_CONTENT_LENGTH'] = MAX_ANALYSIS_REQUEST_BYTES
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 db = SQLAlchemy(app)
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
+
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=[],
+    storage_uri="memory://",
+)
+
+
+@app.after_request
+def set_security_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
+    return response
+
 
 MISTRAL_API_KEY = load_mistral_api_key()
 MISTRAL_MODEL = os.environ.get('MISTRAL_MODEL', 'mistral-small-latest')
@@ -225,19 +234,6 @@ if MISTRAL_API_KEY:
         mistral_backend = None
         mistral_client_init_error = str(exc)
         app.logger.warning('Failed to initialize Mistral client: %s', mistral_client_init_error)
-
-# Previous Gemini integration kept for possible rollback.
-# GEMINI_API_KEY = load_gemini_api_key()
-# gemini_client = None
-# gemini_backend = None
-#
-# if GEMINI_API_KEY and google_genai is not None:
-#     try:
-#         gemini_client = google_genai.Client(api_key=GEMINI_API_KEY)
-#         gemini_backend = 'google-genai'
-#     except Exception:
-#         gemini_client = None
-#         gemini_backend = None
 
 # Database Models
 class User(UserMixin, db.Model):
@@ -327,15 +323,24 @@ def derive_source_label(code, fallback):
     return fallback
 
 
+_UNSAFE_URL_RE = re.compile(
+    r'(href|src)\s*=\s*["\']?\s*(javascript|data|vbscript)\s*:[^"\'>]*["\']?',
+    re.IGNORECASE,
+)
+
+
 def render_analysis_markdown(text):
     if not text:
         return ''
 
-    return markdown2.markdown(
+    html = markdown2.markdown(
         text,
         safe_mode='escape',
         extras=['fenced-code-blocks', 'tables', 'code-friendly', 'break-on-newline', 'cuddled-lists'],
     )
+    # Strip dangerous URL protocols that markdown may generate from link targets
+    html = _UNSAFE_URL_RE.sub(r'\1="#"', html)
+    return html
 
 
 def json_dumps_compact(payload):
@@ -399,7 +404,15 @@ def validate_csrf_token():
     sent_token = (request.headers.get('X-CSRF-Token') or '').strip() or (request.form.get('csrf_token') or '').strip()
     expected_token = (session.get('_csrf_token') or '').strip()
 
-    if sent_token and expected_token and hmac.compare_digest(sent_token, expected_token):
+    # Reject if either token is missing — prevents bypass when session has no token
+    if not sent_token or not expected_token:
+        wants_json = request.is_json or bool(request.headers.get('X-CSRF-Token'))
+        if wants_json:
+            return jsonify({"success": False, "message": "Missing CSRF token"}), 400
+        flash('Invalid request token. Please try again.', 'danger')
+        return redirect(request.referrer or url_for('index'))
+
+    if hmac.compare_digest(sent_token, expected_token):
         return None
 
     wants_json = request.is_json or bool(request.headers.get('X-CSRF-Token'))
@@ -487,10 +500,10 @@ def login():
     """React entry point for authentication."""
     return serve_frontend_app()
 
-@app.route('/logout')
+@app.route('/logout', methods=['POST'])
 @login_required
 def logout():
-    """User logout route."""
+    """User logout route — POST only to prevent CSRF-based forced logout."""
     invalidate_cached_analysis_for_user(current_user.id)
     logout_user()
     return redirect(url_for('login'))
@@ -554,7 +567,8 @@ def save_analysis():
         db.session.commit()
         return jsonify({"success": True, "message": "Analysis saved successfully", "id": analysis.id})
     except Exception as exc:
-        return jsonify({"success": False, "message": str(exc)}), 500
+        app.logger.error('Error saving analysis: %s', exc)
+        return jsonify({"success": False, "message": "An internal error occurred while saving the analysis."}), 500
 
 def get_overall_similarity(analysis_data):
     """Extract the overall similarity percentage from the analysis data."""
@@ -947,7 +961,7 @@ class CloneDetector:
 
         # Token-based metrics from the existing tokenizer
         try:
-            tokens = self.tokenize(code)
+            tokens = self.parse_code(code, with_order=True)
             token_count = len(tokens)
             unique_tokens = len(set(tokens))
             token_density = round(token_count / max(sloc, 1), 2)
@@ -1158,26 +1172,28 @@ def create_similarity_chart(values_list):
     values = [item[1] for item in values_list]
 
     fig, ax = plt.subplots(figsize=(10, 6))
-    bars = ax.barh(labels, values, color='purple')
-    ax.set_xlabel('Similarity Ratio')
-    ax.set_title('Code Similarity Metrics')
-    fig.subplots_adjust(left=0.3)
+    try:
+        bars = ax.barh(labels, values, color='purple')
+        ax.set_xlabel('Similarity Ratio')
+        ax.set_title('Code Similarity Metrics')
+        fig.subplots_adjust(left=0.3)
 
-    for label in ax.get_yticklabels():
-        label.set_fontsize(10)
+        for label in ax.get_yticklabels():
+            label.set_fontsize(10)
 
-    for bar in bars:
-        width = bar.get_width()
-        ax.text(
-            width, bar.get_y() + bar.get_height() / 2,
-            f'{width:.2f}%', ha='left', va='center'
-        )
+        for bar in bars:
+            width = bar.get_width()
+            ax.text(
+                width, bar.get_y() + bar.get_height() / 2,
+                f'{width:.2f}%', ha='left', va='center'
+            )
 
-    buf = io.BytesIO()
-    fig.savefig(buf, format='png')
-    buf.seek(0)
-    plt.close(fig)
-    return buf
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png')
+        buf.seek(0)
+        return buf
+    finally:
+        plt.close(fig)
 
 _ZIP_MAX_UNCOMPRESSED_BYTES = 25 * 1024 * 1024  # 25 MB per member
 _ZIP_MAX_TOTAL_BYTES = 50 * 1024 * 1024          # 50 MB total across all members
@@ -1301,9 +1317,9 @@ def read_spreadsheet_code(excel_file, excel_row=None):
 
     try:
         if extension == '.csv':
-            dataframe = pd.read_csv(spreadsheet_stream)
+            dataframe = pd.read_csv(spreadsheet_stream, dtype=str)
         else:
-            dataframe = pd.read_excel(spreadsheet_stream)
+            dataframe = pd.read_excel(spreadsheet_stream, dtype=str)
     except Exception as exc:
         raise ValueError(f"Error processing spreadsheet file: {exc}") from exc
 
@@ -1413,10 +1429,13 @@ def analyze_similarities(detector, code1, code2, clean_code1=None, clean_code2=N
         app.logger.error("Error during similarity analysis: %s", exc, exc_info=True)
         return {"error": str(exc)}
 
+_MAX_SINGLE_FILE_BYTES = 5 * 1024 * 1024   # 5 MB
+_MAX_PASTE_BYTES = 1 * 1024 * 1024          # 1 MB
+
 def read_uploaded_code(existing_code, uploaded_file=None, uploaded_zip=None, excel_file=None, excel_row=None):
     code = existing_code or ''
-    if code and len(code.encode('utf-8', errors='ignore')) > MAX_SOURCE_UPLOAD_BYTES:
-        max_mb = MAX_SOURCE_UPLOAD_BYTES / (1024 * 1024)
+    if code and len(code.encode('utf-8', errors='ignore')) > _MAX_PASTE_BYTES:
+        max_mb = _MAX_PASTE_BYTES / (1024 * 1024)
         raise ValueError(f'Pasted source code exceeds the {max_mb:.0f} MB input limit.')
 
     if uploaded_zip and getattr(uploaded_zip, 'filename', ''):
@@ -1428,7 +1447,11 @@ def read_uploaded_code(existing_code, uploaded_file=None, uploaded_zip=None, exc
     elif uploaded_file and uploaded_file.filename:
         ensure_uploaded_file_within_limit(uploaded_file, MAX_SOURCE_UPLOAD_BYTES, 'Source upload')
         file_stream = rewind_uploaded_stream(uploaded_file)
-        code = file_stream.read().decode('utf-8', errors='replace')
+        raw = file_stream.read(_MAX_SINGLE_FILE_BYTES + 1)
+        if len(raw) > _MAX_SINGLE_FILE_BYTES:
+            max_mb = _MAX_SINGLE_FILE_BYTES / (1024 * 1024)
+            raise ValueError(f'Uploaded file exceeds the {max_mb:.0f} MB limit.')
+        code = raw.decode('utf-8', errors='replace')
     elif excel_file and getattr(excel_file, 'filename', ''):
         code = read_spreadsheet_code(excel_file, excel_row)
 
@@ -1609,7 +1632,7 @@ def generate_ai_text(prompt):
         return classify_ai_health_error(str(exc))['message']
 
 
-def generate_textual_analysis_gemini(code1, code2, results):
+def generate_textual_analysis_ai(code1, code2, results):
     # Compatibility name retained so the surrounding analysis flow stays unchanged.
     # Returns a tuple: (prose_text: str, structured: dict | None)
     results_text = []
@@ -2178,7 +2201,7 @@ def build_analysis_context(code1, code2, language, persist_analysis, analysis_te
     if analysis_text_override is not None:
         analysis_text = analysis_text_override
     else:
-        analysis_text, analysis_structured = generate_textual_analysis_gemini(code1, code2, values_list1 + values_list2)
+        analysis_text, analysis_structured = generate_textual_analysis_ai(code1, code2, values_list1 + values_list2)
     analysis_html = render_analysis_markdown(analysis_text)
 
     response_context = {
@@ -2334,7 +2357,7 @@ def api_session():
     return jsonify({
         'authenticated': current_user.is_authenticated,
         'user': serialize_user(current_user) if current_user.is_authenticated else None,
-        'csrfToken': get_csrf_token(),
+        'csrfToken': get_csrf_token() if current_user.is_authenticated else None,
         'supportedLanguages': languages,
         'ai': health,
     })
@@ -2366,6 +2389,7 @@ def api_home():
 
 
 @app.route('/api/auth/login', methods=['POST'])
+@limiter.limit("10 per minute")
 def api_login():
     payload = request.get_json(silent=True) or request.form
     username = (payload.get('username') or '').strip()
@@ -2387,6 +2411,7 @@ def api_login():
 
 
 @app.route('/api/auth/register', methods=['POST'])
+@limiter.limit("5 per minute")
 @login_required
 def api_register():
     if not current_user.is_admin:
@@ -2397,6 +2422,11 @@ def api_register():
 
     if not username or not password:
         return jsonify({'success': False, 'message': 'Username and password are required.'}), 400
+
+    if len(password) < 8:
+        return jsonify({'success': False, 'message': 'Password must be at least 8 characters.'}), 400
+    if password.lower() in INSECURE_DEFAULT_ADMIN_PASSWORDS:
+        return jsonify({'success': False, 'message': 'Password is too common. Choose a stronger password.'}), 400
 
     existing_user = User.query.filter_by(username=username).first()
     if existing_user:
@@ -2422,6 +2452,7 @@ def api_logout():
 
 
 @app.route('/api/analysis', methods=['POST'])
+@limiter.limit("20 per minute")
 @login_required
 def api_analysis():
     language = request.form.get('language', 'python')
@@ -2654,6 +2685,15 @@ def api_delete_analysis(analysis_id):
     return jsonify({'success': True})
 
 
+@app.route('/health')
+def health_check():
+    try:
+        db.session.execute(db.text('SELECT 1'))
+        return jsonify({'status': 'healthy', 'database': 'connected'}), 200
+    except Exception:
+        return jsonify({'status': 'unhealthy', 'database': 'disconnected'}), 503
+
+
 @app.route('/health-ai', methods=['GET'])
 @app.route('/api/health-ai', methods=['GET'])
 @login_required
@@ -2685,16 +2725,31 @@ def chat():
     with results_lock:
         analysis_data = user_results.get(current_user.id, {})
 
-    context = ''
-    if analysis_data:
-        context = 'Here are the latest analysis results:\n' + json.dumps(analysis_data, indent=2)
-
     response_language = get_ai_response_language_name()
-    prompt = (
-        f"Respond in {response_language}. Keep code identifiers, filenames, metrics, and rule IDs in their original form when needed.\n\n"
-        f"{context}\n\nUser Message: {user_message}"
+    system_content = (
+        f"Respond in {response_language}. Keep code identifiers, filenames, metrics, and rule IDs in their original form when needed.\n"
     )
-    response_text = generate_ai_text(prompt)
+    if analysis_data:
+        system_content += '\nHere are the latest analysis results:\n' + json.dumps(analysis_data, indent=2)
+
+    health = check_ai_health(run_live_check=False)
+    if health['status'] in ('not_configured', 'client_unavailable'):
+        return jsonify({'response': health.get('message', 'AI is unavailable.')})
+
+    try:
+        response = mistral_client.chat.complete(
+            model=MISTRAL_MODEL,
+            messages=[
+                {'role': 'system', 'content': system_content},
+                {'role': 'user', 'content': user_message},
+            ],
+        )
+        response_text = extract_mistral_text(response) or localize_ui_message(
+            'AI analysis returned an empty response.',
+            'أعاد الذكاء الاصطناعي استجابة فارغة.',
+        )
+    except Exception as exc:
+        response_text = classify_ai_health_error(str(exc))['message']
     return jsonify({'response': response_text})
 
 
@@ -2705,6 +2760,8 @@ def spa_catch_all(path):
 
     if frontend_build_available():
         candidate = os.path.join(FRONTEND_DIST_DIR, path)
+        if not os.path.realpath(candidate).startswith(os.path.realpath(FRONTEND_DIST_DIR)):
+            abort(404)
         if os.path.isfile(candidate):
             return send_from_directory(os.path.dirname(candidate), os.path.basename(candidate))
 

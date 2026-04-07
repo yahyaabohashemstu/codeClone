@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import base64
 import datetime as dt
 import hashlib
 import hmac
 import ipaddress
 import json
-import math
 import os
 import re
 import secrets
@@ -204,7 +204,7 @@ def compute_similarity_bundle(extraction_a: ArtifactExtraction, extraction_b: Ar
     semantic = max(0.0, cosine_similarity(vector_a, vector_b))
     token_score_value = token_overlap_score(tokens_a, tokens_b)
     structure = structural_score(extraction_a, extraction_b, tokens_a, tokens_b)
-    is_cross_language = LANGUAGE_FAMILY.get(extraction_a.language, "generic") != LANGUAGE_FAMILY.get(extraction_b.language, "generic") or extraction_a.language != extraction_b.language
+    is_cross_language = LANGUAGE_FAMILY.get(extraction_a.language, "generic") != LANGUAGE_FAMILY.get(extraction_b.language, "generic") and extraction_a.language != extraction_b.language
     overall = (0.55 * semantic) + (0.25 * token_score_value) + (0.20 * structure)
     raw_hash_equal = sha256_hex(extraction_a.source_text) == sha256_hex(extraction_b.source_text)
     canonical_hash_equal = sha256_hex(canonical_a) == sha256_hex(canonical_b)

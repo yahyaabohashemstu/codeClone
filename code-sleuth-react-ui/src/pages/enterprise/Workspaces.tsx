@@ -103,7 +103,8 @@ export default function Workspaces() {
       .then(setWorkspaces)
       .catch((e) => setError(e?.message ?? copy.errorMsg))
       .finally(() => setLoading(false));
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [language]);
 
   const handleCreate = async () => {
     if (!wsName.trim()) return;

@@ -104,7 +104,7 @@ export default function ReviewCases() {
     listWorkspaces()
       .then(setWorkspaces)
       .catch(() => {});
-  }, []);
+  }, [language]);
 
   useEffect(() => {
     setLoading(true);
@@ -130,7 +130,8 @@ export default function ReviewCases() {
         toast({ variant: "destructive", title: copy.errorMsg, description: e?.message });
       })
       .finally(() => setLoading(false));
-  }, [selectedWs, statusFilter, workspaces]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedWs, statusFilter, workspaces, toast, language]);
 
   const filtered = cases.filter((c) => {
     if (!search.trim()) return true;

@@ -95,19 +95,25 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }) {
     setIsAnalyzing(true);
     setAnalysisProgress({ stage: "Starting analysis...", progress: 0, timestamp: new Date().toISOString() });
 
-    if (progressPollRef.current) {
-      clearInterval(progressPollRef.current);
+    if (progressPollRef.current !== null) {
+      clearTimeout(progressPollRef.current);
       progressPollRef.current = null;
     }
 
-    progressPollRef.current = window.setInterval(async () => {
-      try {
-        const progress = await apiFetch<AnalysisProgressResponse>("/api/analysis/progress");
-        setAnalysisProgress(progress);
-      } catch {
-        // ignore polling errors, server may be temporarily unavailable during analysis finalization
-      }
-    }, 1000);
+    const schedulePoll = () => {
+      progressPollRef.current = window.setTimeout(async () => {
+        try {
+          const progress = await apiFetch<AnalysisProgressResponse>("/api/analysis/progress");
+          setAnalysisProgress(progress);
+        } catch {
+          // ignore polling errors
+        }
+        if (progressPollRef.current !== null) {
+          schedulePoll();
+        }
+      }, 1000);
+    };
+    schedulePoll();
 
     try {
       const result = await apiFetch<AnalysisResult>("/api/analysis", {
@@ -118,8 +124,8 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }) {
       return result;
     } finally {
       setIsAnalyzing(false);
-      if (progressPollRef.current) {
-        clearInterval(progressPollRef.current);
+      if (progressPollRef.current !== null) {
+        clearTimeout(progressPollRef.current);
         progressPollRef.current = null;
       }
       setAnalysisProgress(null);
@@ -163,8 +169,8 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     return () => {
-      if (progressPollRef.current) {
-        clearInterval(progressPollRef.current);
+      if (progressPollRef.current !== null) {
+        clearTimeout(progressPollRef.current);
       }
     };
   }, []);

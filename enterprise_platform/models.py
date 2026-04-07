@@ -553,8 +553,14 @@ class EnterpriseStorage:
             Base.metadata.create_all(self._engine)
 
     def _derive_fernet_key(self, app) -> bytes:
-        raw_key = (os.environ.get("ENTERPRISE_DATA_KEY") or app.config.get("SECRET_KEY") or "enterprise-default-key").encode("utf-8")
-        digest = hashlib.sha256(raw_key).digest()
+        raw_key = os.environ.get("ENTERPRISE_DATA_KEY") or app.config.get("SECRET_KEY")
+        if not raw_key:
+            raise RuntimeError(
+                "Enterprise encryption key is not configured. "
+                "Set the ENTERPRISE_DATA_KEY environment variable or ensure "
+                "SECRET_KEY is present in the Flask app configuration."
+            )
+        digest = hashlib.sha256(raw_key.encode("utf-8")).digest()
         return base64.urlsafe_b64encode(digest)
 
     def session(self):

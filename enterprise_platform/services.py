@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import math
 from collections import Counter, defaultdict
 from typing import Any, Optional
 
@@ -626,7 +627,9 @@ def recalibrate_thresholds(db_session, workspace_id: int) -> None:
     ).all()
     grouped: dict[tuple[str, str], list[tuple[str, float]]] = defaultdict(list)
     for feedback, review_case, similarity_match in feedback_rows:
-        grouped[("generic", review_case.clone_type)].append((feedback.label, similarity_match.similarity_score))
+        artifact_a = db_session.get(CodeArtifact, similarity_match.artifact_a_id)
+        language_family = artifact_a.language_family if artifact_a else "generic"
+        grouped[(language_family, review_case.clone_type)].append((feedback.label, similarity_match.similarity_score))
     for (language_family, clone_type), values in grouped.items():
         confirmed = [score for label, score in values if label in {"confirmed_clone", "confirmed_plagiarism"}]
         false_positive = [score for label, score in values if label in {"false_positive", "benign_similarity"}]

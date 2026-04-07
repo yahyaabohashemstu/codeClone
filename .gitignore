@@ -47,7 +47,7 @@ instance/bootstrap_admin_credentials.txt
 
 
 #Ignore vscode AI rules
-.github\instructions\codacy.instructions.md
+.github/instructions/codacy.instructions.md
 
 # Archive files
 *.rar
