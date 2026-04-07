@@ -1,0 +1,231 @@
+/* Dark Mode CSS Variables */
+:root {
+  --primary-color: #6a0dad;
+  --secondary-color: #f0f0f0;
+  --font-color: #333;
+  --input-bg-color: #fff;
+  --placeholder-color: #888;
+  --label-color: black;
+  --circle-bg-color: white;
+  --color1: #d2b4de;
+  --color2: #c39bd3;
+  --color3: #9b59b6;
+  --color4: #8e44ad;
+  --color5: #7d3c98;
+  --color6: var(--primary-color);
+  --color7: #5e35b1;
+  --color8: #4b0082;
+  --border-color: #ddd;
+  --box-shadow-color: rgba(0, 0, 0, 0.1);
+  --chart-background: white;
+}
+
+[data-theme="dark"] {
+  --primary-color: #9b59b6;
+  --secondary-color: #2d2d2d;
+  --font-color: #f0f0f0;
+  --input-bg-color: #3d3d3d;
+  --placeholder-color: #aaa;
+  --label-color: #f0f0f0;
+  --circle-bg-color: #444;
+  --color1: #d2b4de;
+  --color2: #c39bd3;
+  --color3: #9b59b6;
+  --color4: #8e44ad;
+  --color5: #7d3c98;
+  --color6: var(--primary-color);
+  --color7: #5e35b1;
+  --color8: #4b0082;
+  --border-color: #555;
+  --box-shadow-color: rgba(0, 0, 0, 0.3);
+  --chart-background: #2d2d2d;
+}
+
+/* Dark Mode Core Elements */
+[data-theme="dark"] body {
+  background-color: var(--secondary-color);
+  color: var(--font-color);
+}
+
+[data-theme="dark"] .container {
+  background-color: var(--secondary-color);
+}
+
+[data-theme="dark"] .form-group textarea,
+[data-theme="dark"] .form-group select,
+[data-theme="dark"] .form-group input {
+  background-color: var(--input-bg-color);
+  color: var(--font-color);
+  border: 1px solid var(--border-color);
+}
+
+[data-theme="dark"] .form-group textarea::placeholder,
+[data-theme="dark"] .form-group input::placeholder {
+  color: var(--placeholder-color);
+}
+
+[data-theme="dark"] .upload-button {
+  background-color: var(--input-bg-color);
+  border: 1px solid var(--border-color);
+}
+
+[data-theme="dark"] .upload-button .text {
+  color: var(--font-color);
+}
+
+/* Dark Mode for Results */
+[data-theme="dark"] .results {
+  background-color: var(--secondary-color);
+}
+
+[data-theme="dark"] .result-label {
+  color: var(--font-color);
+}
+
+[data-theme="dark"] .toggle-status {
+  color: var(--font-color);
+}
+
+/* Dark Mode for Code Blocks */
+[data-theme="dark"] pre {
+  background-color: var(--input-bg-color);
+  border: 1px solid var(--border-color);
+}
+
+[data-theme="dark"] code {
+  color: var(--font-color);
+}
+
+/* Dark Mode for Tables */
+[data-theme="dark"] .metrics-table th,
+[data-theme="dark"] .metrics-table td {
+  border-color: var(--border-color);
+}
+
+[data-theme="dark"] .metrics-table th {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+[data-theme="dark"] .metrics-table tr:nth-child(even) {
+  background-color: var(--input-bg-color);
+}
+
+[data-theme="dark"] .metrics-table tr:hover {
+  background-color: rgba(155, 89, 182, 0.2);
+}
+
+/* Dark Mode for Chat */
+[data-theme="dark"] .chat-container {
+  background-color: var(--input-bg-color);
+  border: 1px solid var(--border-color);
+}
+
+[data-theme="dark"] .chat-box {
+  border-color: var(--border-color);
+  background-color: var(--secondary-color);
+}
+
+[data-theme="dark"] .chat-box .message.user .text {
+  background-color: #4a4a4a;
+  color: var(--font-color);
+}
+
+[data-theme="dark"] .chat-input-container input {
+  background-color: var(--input-bg-color);
+  color: var(--font-color);
+  border-color: var(--border-color);
+}
+
+/* Dark Mode for highlight.js */
+[data-theme="dark"] .hljs {
+  background-color: #2d2d2d;
+  color: #f0f0f0;
+}
+
+[data-theme="dark"] .hljs-keyword,
+[data-theme="dark"] .hljs-selector-tag,
+[data-theme="dark"] .hljs-built_in,
+[data-theme="dark"] .hljs-name,
+[data-theme="dark"] .hljs-tag {
+  color: #e8bf6a;
+}
+
+[data-theme="dark"] .hljs-string,
+[data-theme="dark"] .hljs-title,
+[data-theme="dark"] .hljs-section,
+[data-theme="dark"] .hljs-attribute,
+[data-theme="dark"] .hljs-literal,
+[data-theme="dark"] .hljs-template-tag,
+[data-theme="dark"] .hljs-template-variable,
+[data-theme="dark"] .hljs-type,
+[data-theme="dark"] .hljs-addition {
+  color: #a8cc8c;
+}
+
+[data-theme="dark"] .hljs-comment,
+[data-theme="dark"] .hljs-quote,
+[data-theme="dark"] .hljs-deletion,
+[data-theme="dark"] .hljs-meta {
+  color: #7f848e;
+}
+
+/* Dark Mode for Markdown Content */
+[data-theme="dark"] .markdown-content h1,
+[data-theme="dark"] .markdown-content h2,
+[data-theme="dark"] .markdown-content h3,
+[data-theme="dark"] .markdown-content h4,
+[data-theme="dark"] .markdown-content h5,
+[data-theme="dark"] .markdown-content h6 {
+  color: var(--primary-color);
+}
+
+[data-theme="dark"] .markdown-content blockquote {
+  background-color: #3d3d3d;
+  border-left-color: var(--primary-color);
+}
+
+[data-theme="dark"] .markdown-content code {
+  background-color: #444;
+  color: #f0a5a5;
+}
+
+[data-theme="dark"] .markdown-content pre {
+  background-color: #333;
+}
+
+[data-theme="dark"] .markdown-content a {
+  color: var(--primary-color);
+}
+
+/* Dark Mode for Progress Bar and Export Buttons */
+[data-theme="dark"] .progress-container {
+  background-color: #444;
+}
+
+[data-theme="dark"] .export-btn {
+  background-color: var(--primary-color);
+}
+
+[data-theme="dark"] .export-btn:hover {
+  background-color: #8e44ad;
+}
+
+/* Transition for dark mode toggle */
+body,
+.container,
+.form-group textarea,
+.form-group select,
+.form-group input,
+.upload-button,
+.results,
+.metrics-table th,
+.metrics-table td,
+.chat-container,
+.chat-box,
+.chat-input-container input,
+.progress-container,
+.export-btn {
+  transition: background-color 0.3s ease, color 0.3s ease,
+    border-color 0.3s ease;
+}

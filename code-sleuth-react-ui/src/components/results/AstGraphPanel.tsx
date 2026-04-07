@@ -1,0 +1,864 @@
+import { memo, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import {
+  type Edge,
+  Handle,
+  type Node,
+  type NodeProps,
+  Position,
+  ReactFlow,
+  type ReactFlowInstance,
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useLanguage } from "@/context/LanguageContext";
+import { cn } from "@/lib/utils";
+import { Cpu, Maximize2, MousePointerClick, ZoomIn, ZoomOut } from "lucide-react";
+
+type GraphTone = "primary" | "accent";
+
+function getGraphEdgePalette(color: GraphTone) {
+  return {
+    base: color === "primary" ? "rgba(173, 184, 255, 0.42)" : "rgba(118, 226, 244, 0.42)",
+    highlighted: color === "primary" ? "rgba(210, 216, 255, 0.98)" : "rgba(164, 248, 255, 0.98)",
+  };
+}
+
+type RawPoint = [number, number] | null | undefined;
+
+type RawNodeEntry = {
+  data?: {
+    id?: string | number;
+    label?: string;
+    type?: string;
+    start?: RawPoint;
+    end?: RawPoint;
+  };
+};
+
+type RawEdgeEntry = {
+  data?: {
+    id?: string | number;
+    source?: string | number;
+    target?: string | number;
+  };
+};
+
+type NormalizedGraph = {
+  nodes: RawNodeEntry[];
+  edges: RawEdgeEntry[];
+};
+
+type AstFlowNodeData = {
+  id: string;
+  label: string;
+  title: string;
+  tone: GraphTone;
+  isRoot: boolean;
+  isPathNode: boolean;
+  isPathTerminal: boolean;
+  lineRange: string;
+  childCount: number;
+  parentCount: number;
+  depth: number;
+};
+
+type LayoutNode = {
+  id: string;
+  label: string;
+  title: string;
+  isRoot: boolean;
+  lineRange: string;
+  childCount: number;
+  parentCount: number;
+  depth: number;
+  width: number;
+  height: number;
+  x: number;
+  y: number;
+};
+
+type AstNodeDetail = {
+  id: string;
+  label: string;
+  title: string;
+  tone: GraphTone;
+  isRoot: boolean;
+  lineRange: string;
+  childCount: number;
+  parentCount: number;
+  depth: number;
+};
+
+type FlowGraph = {
+  nodes: Node<AstFlowNodeData>[];
+  edges: Edge[];
+  nodeDetails: Record<string, AstNodeDetail>;
+  parentIdsByNode: Record<string, string[]>;
+  incomingEdgeIdsByNode: Record<string, string[]>;
+  summary: {
+    nodeCount: number;
+    edgeCount: number;
+    rootCount: number;
+  };
+};
+
+interface AstGraphPanelProps {
+  title: string;
+  color: GraphTone;
+  elements: unknown;
+}
+
+interface GraphExplorerProps {
+  color: GraphTone;
+  flowGraph: FlowGraph;
+  graphNodes: Node<AstFlowNodeData>[];
+  graphEdges: Edge[];
+  selectedNode: AstNodeDetail | null;
+  onSelectNodeId: (nodeId: string | null) => void;
+  copy: {
+    rootNode: string;
+    nestedNode: string;
+    rootNodeDescription: string;
+    nestedNodeDescription: string;
+    clearSelection: string;
+    nodeId: string;
+    lineRange: string;
+    noLineMetadata: string;
+    depthLevel: string;
+    connections: string;
+    incomingOutgoing: (incoming: number, outgoing: number) => string;
+    clickNodeTitle: string;
+    clickNodeDescription: string;
+    fullScreen: string;
+    fitView: string;
+  };
+  onOpenFullscreen?: () => void;
+  surfaceStyle?: CSSProperties;
+  containerClassName?: string;
+  fitPadding?: number;
+  minZoom?: number;
+}
+
+function isEdgeEntry(entry: unknown): entry is RawEdgeEntry {
+  if (!entry || typeof entry !== "object") return false;
+  const data = (entry as { data?: RawEdgeEntry["data"] }).data;
+  return !!data && data.source !== undefined && data.target !== undefined;
+}
+
+function normalizeElements(elements: unknown): NormalizedGraph {
+  if (Array.isArray(elements)) {
+    return {
+      nodes: elements.filter((item) => !isEdgeEntry(item)) as RawNodeEntry[],
+      edges: elements.filter(isEdgeEntry),
+    };
+  }
+
+  if (elements && typeof elements === "object") {
+    const candidate = elements as { nodes?: unknown[]; edges?: unknown[]; elements?: { nodes?: unknown[]; edges?: unknown[] } };
+    const nested = candidate.elements;
+    return {
+      nodes: Array.isArray(candidate.nodes)
+        ? (candidate.nodes as RawNodeEntry[])
+        : Array.isArray(nested?.nodes)
+          ? (nested.nodes as RawNodeEntry[])
+          : [],
+      edges: Array.isArray(candidate.edges)
+        ? (candidate.edges as RawEdgeEntry[])
+        : Array.isArray(nested?.edges)
+          ? (nested.edges as RawEdgeEntry[])
+          : [],
+    };
+  }
+
+  return { nodes: [], edges: [] };
+}
+
+function formatNodeLabel(node: RawNodeEntry, index: number) {
+  const value = node.data?.type || node.data?.label || `Node ${index + 1}`;
+  return String(value).replace(/_/g, " ");
+}
+
+function formatLineRange(start: RawPoint, end: RawPoint, language: "en" | "ar") {
+  if (!Array.isArray(start) || typeof start[0] !== "number") return "";
+  const startLine = start[0] + 1;
+  const endLine = Array.isArray(end) && typeof end[0] === "number" ? end[0] + 1 : startLine;
+  if (language === "ar") {
+    return endLine === startLine ? `السطر ${startLine}` : `الأسطر ${startLine}-${endLine}`;
+  }
+  return endLine === startLine ? `Line ${startLine}` : `Lines ${startLine}-${endLine}`;
+}
+
+function estimateNodeBox(label: string) {
+  const normalized = label.trim() || "node";
+  const width = Math.min(170, Math.max(84, normalized.length * 6.4 + 28));
+  const charsPerLine = Math.max(10, Math.floor((width - 20) / 6.15));
+  const lineCount = Math.min(2, Math.max(1, Math.ceil(normalized.length / charsPerLine)));
+  const labelHeight = lineCount === 1 ? 28 : 42;
+  const height = 18 + 8 + labelHeight;
+
+  return { width, height };
+}
+
+const TREE_LEVEL_GAP = 118;
+const TREE_SIBLING_GAP = 16;
+const TREE_LEVEL_TOP_PADDING = 18;
+const TREE_CANVAS_LEFT_PADDING = 24;
+
+function buildTreeLayout(
+  baseNodes: LayoutNode[],
+  childrenByParent: Map<string, string[]>,
+  orderedRootIds: string[],
+) {
+  const nodesById = new Map(baseNodes.map((node) => [node.id, node]));
+  const parentIdsByNode = new Map<string, string[]>();
+  const nodeOrderIndex = new Map(baseNodes.map((node, index) => [node.id, index]));
+  const depthByNodeId = new Map<string, number>();
+  const queue = [...orderedRootIds];
+
+  for (const rootId of orderedRootIds) {
+    depthByNodeId.set(rootId, 0);
+  }
+
+  for (const [parentId, childIds] of childrenByParent.entries()) {
+    for (const childId of childIds) {
+      const parents = parentIdsByNode.get(childId) ?? [];
+      parents.push(parentId);
+      parentIdsByNode.set(childId, parents);
+    }
+  }
+
+  while (queue.length > 0) {
+    const currentId = queue.shift();
+    if (!currentId) {
+      continue;
+    }
+
+    const currentDepth = depthByNodeId.get(currentId) ?? 0;
+    for (const childId of childrenByParent.get(currentId) ?? []) {
+      const nextDepth = currentDepth + 1;
+      const knownDepth = depthByNodeId.get(childId);
+      if (knownDepth === undefined || nextDepth < knownDepth) {
+        depthByNodeId.set(childId, nextDepth);
+      }
+      queue.push(childId);
+    }
+  }
+
+  let fallbackDepth = Math.max(0, ...depthByNodeId.values());
+  for (const node of baseNodes) {
+    if (!depthByNodeId.has(node.id)) {
+      fallbackDepth += 1;
+      depthByNodeId.set(node.id, fallbackDepth);
+    }
+  }
+
+  const levels = new Map<number, LayoutNode[]>();
+  for (const node of baseNodes) {
+    const depth = depthByNodeId.get(node.id) ?? 0;
+    node.depth = depth;
+    const levelNodes = levels.get(depth) ?? [];
+    levelNodes.push(node);
+    levels.set(depth, levelNodes);
+  }
+
+  const depthKeys = [...levels.keys()].sort((left, right) => left - right);
+  const orderByNodeId = new Map<string, number>();
+
+  for (const depth of depthKeys) {
+    const levelNodes = levels.get(depth) ?? [];
+    levelNodes.sort((leftNode, rightNode) => {
+      const leftParents = parentIdsByNode.get(leftNode.id) ?? [];
+      const rightParents = parentIdsByNode.get(rightNode.id) ?? [];
+      const leftAnchor = leftParents.length
+        ? leftParents.reduce((total, parentId) => total + (orderByNodeId.get(parentId) ?? 0), 0) / leftParents.length
+        : orderByNodeId.get(leftNode.id) ?? nodeOrderIndex.get(leftNode.id) ?? 0;
+      const rightAnchor = rightParents.length
+        ? rightParents.reduce((total, parentId) => total + (orderByNodeId.get(parentId) ?? 0), 0) / rightParents.length
+        : orderByNodeId.get(rightNode.id) ?? nodeOrderIndex.get(rightNode.id) ?? 0;
+
+      if (leftAnchor !== rightAnchor) {
+        return leftAnchor - rightAnchor;
+      }
+
+      return (nodeOrderIndex.get(leftNode.id) ?? 0) - (nodeOrderIndex.get(rightNode.id) ?? 0);
+    });
+
+    levelNodes.forEach((node, index) => {
+      orderByNodeId.set(node.id, index);
+    });
+  }
+
+  const widestLevelWidth = Math.max(
+    ...depthKeys.map((depth) => {
+      const levelNodes = levels.get(depth) ?? [];
+      return levelNodes.reduce((total, node, index) => total + node.width + (index > 0 ? TREE_SIBLING_GAP : 0), 0);
+    }),
+    0,
+  );
+
+  for (const depth of depthKeys) {
+    const levelNodes = levels.get(depth) ?? [];
+    const levelWidth = levelNodes.reduce((total, node, index) => total + node.width + (index > 0 ? TREE_SIBLING_GAP : 0), 0);
+    let currentLeft = TREE_CANVAS_LEFT_PADDING + (widestLevelWidth - levelWidth) / 2;
+
+    for (const node of levelNodes) {
+      node.x = currentLeft + node.width / 2;
+      node.y = TREE_LEVEL_TOP_PADDING + depth * TREE_LEVEL_GAP + node.height / 2;
+      currentLeft += node.width + TREE_SIBLING_GAP;
+    }
+  }
+
+  return baseNodes;
+}
+
+const AstNode = memo(({ data, selected }: NodeProps<AstFlowNodeData>) => {
+  return (
+    <div
+      className={cn(
+        "ast-flow-compact-node",
+        data.tone === "primary" ? "ast-flow-node-primary" : "ast-flow-node-accent",
+        data.isRoot && "ast-flow-node-root",
+        data.isPathNode && "ast-flow-node-in-path",
+        data.isPathTerminal && "ast-flow-node-terminal-path",
+        selected && "ast-flow-node-selected",
+      )}
+      title={data.title || data.label}
+    >
+      <Handle type="target" position={Position.Top} className="ast-flow-handle ast-flow-handle-target" />
+      <div className="ast-flow-compact-dot" />
+      <div className="ast-flow-label-card">
+        <div className="ast-flow-compact-label">{data.label}</div>
+      </div>
+      <Handle type="source" position={Position.Bottom} className="ast-flow-handle ast-flow-handle-source" />
+    </div>
+  );
+});
+AstNode.displayName = "AstNode";
+
+const nodeTypes = {
+  astNode: AstNode,
+};
+
+function GraphExplorer({
+  color,
+  flowGraph,
+  graphNodes,
+  graphEdges,
+  selectedNode,
+  onSelectNodeId,
+  copy,
+  onOpenFullscreen,
+  surfaceStyle,
+  containerClassName,
+  fitPadding = 0.1,
+  minZoom = 0.08,
+}: GraphExplorerProps) {
+  const flowRef = useRef<ReactFlowInstance<Node<AstFlowNodeData>, Edge> | null>(null);
+
+  const fitGraph = () => {
+    flowRef.current?.fitView({ padding: fitPadding, duration: 280, minZoom, maxZoom: 1.25 });
+  };
+
+  const zoomIn = () => {
+    flowRef.current?.zoomIn({ duration: 180 });
+  };
+
+  const zoomOut = () => {
+    flowRef.current?.zoomOut({ duration: 180 });
+  };
+
+  return (
+    <div className={cn("flex flex-col overflow-hidden", containerClassName)}>
+      <div className="border-b border-border/40 bg-muted/10 px-5 py-4">
+        {selectedNode ? (
+          <div className="ast-node-detail-panel">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={cn("ast-node-detail-dot", selectedNode.tone === "primary" ? "is-primary" : "is-accent")} />
+                  <span className="text-sm font-semibold text-foreground">{selectedNode.label}</span>
+                  <span className={selectedNode.isRoot ? "badge-success" : "badge-info"}>
+                    {selectedNode.isRoot ? copy.rootNode : copy.nestedNode}
+                  </span>
+                </div>
+                <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">
+                  {selectedNode.isRoot
+                    ? copy.rootNodeDescription
+                    : copy.nestedNodeDescription}
+                </p>
+              </div>
+              <Button variant="outline" size="sm" className="h-8 border-border/60 text-xs" onClick={() => onSelectNodeId(null)}>
+                {copy.clearSelection}
+              </Button>
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="ast-node-detail-card">
+                <div className="ast-node-detail-label">{copy.nodeId}</div>
+                <div className="ast-node-detail-value font-mono">{selectedNode.id}</div>
+              </div>
+              <div className="ast-node-detail-card">
+                <div className="ast-node-detail-label">{copy.lineRange}</div>
+                <div className="ast-node-detail-value">{selectedNode.lineRange || copy.noLineMetadata}</div>
+              </div>
+              <div className="ast-node-detail-card">
+                <div className="ast-node-detail-label">{copy.depthLevel}</div>
+                <div className="ast-node-detail-value">{selectedNode.depth}</div>
+              </div>
+              <div className="ast-node-detail-card">
+                <div className="ast-node-detail-label">{copy.connections}</div>
+                <div className="ast-node-detail-value">{copy.incomingOutgoing(selectedNode.parentCount, selectedNode.childCount)}</div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="ast-node-detail-empty">
+            <div className="ast-node-detail-empty-icon">
+              <MousePointerClick className="h-4 w-4" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-foreground">{copy.clickNodeTitle}</p>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                {copy.clickNodeDescription}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-wrap items-center justify-end gap-2 border-b border-border/40 bg-background/70 px-5 py-3">
+        {onOpenFullscreen && (
+          <Button variant="outline" size="sm" className="h-8 gap-1.5 border-border/60 text-xs" onClick={onOpenFullscreen}>
+            <Maximize2 className="h-3.5 w-3.5" />
+            {copy.fullScreen}
+          </Button>
+        )}
+        <Button variant="outline" size="icon" className="h-8 w-8 border-border/60" onClick={zoomOut}>
+          <ZoomOut className="h-3.5 w-3.5" />
+        </Button>
+        <Button variant="outline" size="sm" className="h-8 border-border/60 px-3 text-xs" onClick={fitGraph}>
+          {copy.fitView}
+        </Button>
+        <Button variant="outline" size="icon" className="h-8 w-8 border-border/60" onClick={zoomIn}>
+          <ZoomIn className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+
+      <div className="ast-graph-surface ast-flow-canvas" style={surfaceStyle}>
+        <ReactFlow
+          nodes={graphNodes}
+          edges={graphEdges}
+          nodeTypes={nodeTypes}
+          onInit={(instance) => {
+            flowRef.current = instance;
+            requestAnimationFrame(() => {
+              instance.fitView({ padding: fitPadding, duration: 280, minZoom, maxZoom: 1.25 });
+            });
+          }}
+          onNodeClick={(_, node) => {
+            onSelectNodeId(node.id);
+          }}
+          onPaneClick={() => {
+            onSelectNodeId(null);
+          }}
+          fitView
+          fitViewOptions={{ padding: 0.14, maxZoom: 1.25 }}
+          proOptions={{ hideAttribution: true }}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          elementsSelectable
+          zoomOnPinch
+          panOnDrag
+          panOnScroll
+          minZoom={minZoom}
+          maxZoom={2}
+          defaultEdgeOptions={{ type: "straight" }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function buildFlowGraph(elements: unknown, color: GraphTone, language: "en" | "ar"): FlowGraph {
+  const normalized = normalizeElements(elements);
+
+  const parsedEdges = normalized.edges
+    .map((edge, index) => {
+      const source = edge.data?.source;
+      const target = edge.data?.target;
+      if (source === undefined || target === undefined) {
+        return null;
+      }
+
+      return {
+        id: String(edge.data?.id ?? `edge-${source}-${target}-${index}`),
+        source: String(source),
+        target: String(target),
+      };
+    })
+    .filter((edge): edge is { id: string; source: string; target: string } => Boolean(edge));
+
+  const incomingCount = new Map<string, number>();
+  const outgoingCount = new Map<string, number>();
+  const childrenByParent = new Map<string, string[]>();
+  const parentIdsByNode = new Map<string, string[]>();
+  const incomingEdgeIdsByNode = new Map<string, string[]>();
+
+  for (const edge of parsedEdges) {
+    incomingCount.set(edge.target, (incomingCount.get(edge.target) ?? 0) + 1);
+    outgoingCount.set(edge.source, (outgoingCount.get(edge.source) ?? 0) + 1);
+    const children = childrenByParent.get(edge.source) ?? [];
+    children.push(edge.target);
+    childrenByParent.set(edge.source, children);
+    const parents = parentIdsByNode.get(edge.target) ?? [];
+    parents.push(edge.source);
+    parentIdsByNode.set(edge.target, parents);
+    const incomingEdgeIds = incomingEdgeIdsByNode.get(edge.target) ?? [];
+    incomingEdgeIds.push(edge.id);
+    incomingEdgeIdsByNode.set(edge.target, incomingEdgeIds);
+  }
+
+  const baseNodes = normalized.nodes.map((node, index) => {
+    const id = String(node.data?.id ?? `node-${index}`);
+    const label = formatNodeLabel(node, index);
+    const range = formatLineRange(node.data?.start, node.data?.end, language);
+    const isRoot = (incomingCount.get(id) ?? 0) === 0;
+    const { width, height } = estimateNodeBox(label);
+
+    return {
+      id,
+      label,
+      title: range ? `${label} • ${range}` : label,
+      isRoot,
+      lineRange: range,
+      childCount: outgoingCount.get(id) ?? 0,
+      parentCount: incomingCount.get(id) ?? 0,
+      depth: 0,
+      width,
+      height,
+      x: 0,
+      y: 0,
+    } satisfies LayoutNode;
+  });
+
+  const nodesById = new Map(baseNodes.map((node) => [node.id, node]));
+  const rootIds = baseNodes.filter((node) => node.isRoot).map((node) => node.id);
+  const orderedRootIds = rootIds.length ? [...rootIds] : baseNodes.slice(0, 1).map((node) => node.id);
+  const queue = orderedRootIds.map((id) => ({ id, depth: 0 }));
+  const visited = new Set<string>();
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current || visited.has(current.id)) continue;
+
+    visited.add(current.id);
+    const currentNode = nodesById.get(current.id);
+    if (currentNode) {
+      currentNode.depth = current.depth;
+    }
+
+    for (const childId of childrenByParent.get(current.id) ?? []) {
+      if (!visited.has(childId)) {
+        queue.push({ id: childId, depth: current.depth + 1 });
+      }
+    }
+  }
+  const resolvedNodes = buildTreeLayout(baseNodes, childrenByParent, orderedRootIds);
+
+  const nodes: Node<AstFlowNodeData>[] = resolvedNodes.map((node) => ({
+    id: node.id,
+    type: "astNode",
+    position: {
+      x: node.x - node.width / 2,
+      y: node.y - node.height / 2,
+    },
+    sourcePosition: Position.Bottom,
+    targetPosition: Position.Top,
+    data: {
+      id: node.id,
+      label: node.label,
+      title: node.title,
+      tone: color,
+      isRoot: node.isRoot,
+      isPathNode: false,
+      isPathTerminal: false,
+      lineRange: node.lineRange,
+      childCount: node.childCount,
+      parentCount: node.parentCount,
+      depth: node.depth,
+    },
+    draggable: false,
+    selectable: true,
+    connectable: false,
+    style: {
+      width: node.width,
+      height: node.height,
+      padding: 0,
+      border: "none",
+      borderRadius: 0,
+      background: "transparent",
+      boxShadow: "none",
+    },
+    className: "ast-flow-node-shell",
+  }));
+
+  const edgePalette = getGraphEdgePalette(color);
+
+  const edges: Edge[] = parsedEdges.map((edge) => ({
+    id: edge.id,
+    source: edge.source,
+    target: edge.target,
+    type: "straight",
+    animated: false,
+    style: {
+      stroke: edgePalette.base,
+      strokeWidth: 1,
+      opacity: 0.88,
+    },
+  }));
+
+  return {
+    nodes,
+    edges,
+    nodeDetails: Object.fromEntries(
+      resolvedNodes.map((node) => [
+        node.id,
+        {
+          id: node.id,
+          label: node.label,
+          title: node.title,
+          tone: color,
+          isRoot: node.isRoot,
+          lineRange: node.lineRange,
+          childCount: node.childCount,
+          parentCount: node.parentCount,
+          depth: node.depth,
+        } satisfies AstNodeDetail,
+      ]),
+    ),
+    parentIdsByNode: Object.fromEntries(parentIdsByNode),
+    incomingEdgeIdsByNode: Object.fromEntries(incomingEdgeIdsByNode),
+    summary: {
+      nodeCount: nodes.length,
+      edgeCount: edges.length,
+      rootCount: baseNodes.filter((node) => node.isRoot).length,
+    },
+  };
+}
+
+export function AstGraphPanel({ title, color, elements }: AstGraphPanelProps) {
+  const { language } = useLanguage();
+  const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const copy =
+    language === "ar"
+      ? {
+          compactDescription: "شجرة AST مدمجة بعقد معنونة لقراءة بنيوية مباشرة.",
+          nodes: "عقد",
+          edges: "روابط",
+          rootSignals: "إشارات جذرية",
+          noGraphTitle: "لا يوجد جراف",
+          noGraphDescription: "هذا المصدر لم يُنتج بيانات AST للجلسة الحالية.",
+          fullScreenDescription: "مستكشف AST بملء الشاشة لتتبّع الفروع وفحص العقد والمسح البنيوي بسهولة أكبر.",
+          rootNode: "عقدة جذرية",
+          nestedNode: "عقدة متفرعة",
+          rootNodeDescription: "هذه العقدة تمثل نقطة دخول بنيوية في شجرة AST وتثبّت أحد الفروع الرئيسية في الجراف.",
+          nestedNodeDescription: "تنتمي هذه العقدة إلى فرع أعمق من AST وتساعد على شرح كيفية تركيب الشيفرة المحيطة بنيويًا.",
+          clearSelection: "مسح التحديد",
+          nodeId: "معرّف العقدة",
+          lineRange: "نطاق الأسطر",
+          noLineMetadata: "لا توجد بيانات أسطر",
+          depthLevel: "مستوى العمق",
+          connections: "الارتباطات",
+          incomingOutgoing: (incoming: number, outgoing: number) => `${incoming} وارد · ${outgoing} صادر`,
+          clickNodeTitle: "انقر على أي عقدة لفحصها",
+          clickNodeDescription: "اختيار العقدة يكشف هويتها ونطاق الأسطر وعمقها وروابطها البنيوية دون مغادرة عرض الجراف.",
+          fullScreen: "ملء الشاشة",
+          fitView: "احتواء العرض",
+        }
+      : {
+          compactDescription: "Compact AST tree with labeled nodes for direct structural reading.",
+          nodes: "nodes",
+          edges: "edges",
+          rootSignals: "root signals",
+          noGraphTitle: "No graph available",
+          noGraphDescription: "This source did not produce AST graph data for the current analysis.",
+          fullScreenDescription: "Full-screen AST explorer for easier branch tracking, node inspection, and structural scanning.",
+          rootNode: "Root node",
+          nestedNode: "Nested node",
+          rootNodeDescription: "This node is a structural entry point in the AST and anchors one of the main graph branches.",
+          nestedNodeDescription: "This node belongs to a deeper AST branch and helps explain how the surrounding code is structurally composed.",
+          clearSelection: "Clear selection",
+          nodeId: "Node ID",
+          lineRange: "Line Range",
+          noLineMetadata: "No line metadata",
+          depthLevel: "Depth Level",
+          connections: "Connections",
+          incomingOutgoing: (incoming: number, outgoing: number) => `${incoming} incoming · ${outgoing} outgoing`,
+          clickNodeTitle: "Click any node to inspect it",
+          clickNodeDescription: "Selecting a node reveals its identity, line range, depth, and structural connections without leaving the graph view.",
+          fullScreen: "Full Screen",
+          fitView: "Fit View",
+        };
+  const edgePalette = useMemo(() => getGraphEdgePalette(color), [color]);
+  const flowGraph = useMemo(() => buildFlowGraph(elements, color, language), [color, elements, language]);
+  const selectedNode = selectedNodeId ? flowGraph.nodeDetails[selectedNodeId] ?? null : null;
+  const highlightedPath = useMemo(() => {
+    const nodeIds = new Set<string>();
+    const edgeIds = new Set<string>();
+
+    if (!selectedNodeId) {
+      return { nodeIds, edgeIds };
+    }
+
+    const stack = [selectedNodeId];
+
+    while (stack.length > 0) {
+      const currentNodeId = stack.pop();
+      if (!currentNodeId || nodeIds.has(currentNodeId)) {
+        continue;
+      }
+
+      nodeIds.add(currentNodeId);
+
+      const parentNodeIds = flowGraph.parentIdsByNode[currentNodeId] ?? [];
+      const incomingEdgeIds = flowGraph.incomingEdgeIdsByNode[currentNodeId] ?? [];
+
+      for (const edgeId of incomingEdgeIds) {
+        edgeIds.add(edgeId);
+      }
+
+      for (const parentNodeId of parentNodeIds) {
+        if (!nodeIds.has(parentNodeId)) {
+          stack.push(parentNodeId);
+        }
+      }
+    }
+
+    return { nodeIds, edgeIds };
+  }, [flowGraph.incomingEdgeIdsByNode, flowGraph.parentIdsByNode, selectedNodeId]);
+
+  const graphNodes = useMemo(
+    () =>
+      flowGraph.nodes.map((node) => ({
+        ...node,
+        data: {
+          ...node.data,
+          isPathNode: highlightedPath.nodeIds.has(node.id),
+          isPathTerminal: node.id === selectedNodeId,
+        },
+        selected: node.id === selectedNodeId,
+        className: node.className,
+      })),
+    [flowGraph.nodes, highlightedPath.nodeIds, selectedNodeId],
+  );
+  const graphEdges = useMemo(
+    () =>
+      flowGraph.edges.map((edge) => {
+        const isHighlighted = highlightedPath.edgeIds.has(edge.id);
+        return {
+          ...edge,
+          className: cn(
+            edge.className,
+            isHighlighted && "ast-flow-edge-highlighted",
+            isHighlighted && (color === "primary" ? "ast-flow-edge-highlighted-primary" : "ast-flow-edge-highlighted-accent"),
+          ),
+          style: {
+            ...edge.style,
+            opacity: isHighlighted ? 1 : edge.style?.opacity ?? 0.88,
+            stroke: isHighlighted ? edgePalette.highlighted : edge.style?.stroke ?? edgePalette.base,
+            strokeWidth: isHighlighted ? 3.4 : edge.style?.strokeWidth ?? 1,
+          },
+        } satisfies Edge;
+      }),
+    [color, edgePalette.base, edgePalette.highlighted, flowGraph.edges, highlightedPath.edgeIds],
+  );
+
+  useEffect(() => {
+    if (selectedNodeId && !flowGraph.nodeDetails[selectedNodeId]) {
+      setSelectedNodeId(null);
+    }
+  }, [flowGraph.nodeDetails, selectedNodeId]);
+
+  return (
+    <>
+      <div className="card-premium overflow-hidden">
+        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border/50 px-5 py-4">
+          <div>
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Cpu className={`h-4 w-4 ${color === "primary" ? "text-primary" : "text-accent"}`} />
+              {title}
+            </h3>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              {copy.compactDescription}
+            </p>
+            {!!flowGraph.nodes.length && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                <span className="badge-info">{flowGraph.summary.nodeCount} {copy.nodes}</span>
+                <span className="badge-info">{flowGraph.summary.edgeCount} {copy.edges}</span>
+                <span className="badge-info">{flowGraph.summary.rootCount} {copy.rootSignals}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {!flowGraph.nodes.length ? (
+          <div className="graph-empty-state">
+            <Cpu className="mb-3 h-8 w-8 text-muted-foreground/40" />
+            <h4 className="text-sm font-medium text-foreground">{copy.noGraphTitle}</h4>
+            <p className="mt-1 max-w-sm text-center text-xs text-muted-foreground">
+              {copy.noGraphDescription}
+            </p>
+          </div>
+        ) : (
+          <GraphExplorer
+            color={color}
+            flowGraph={flowGraph}
+            graphNodes={graphNodes}
+            graphEdges={graphEdges}
+            selectedNode={selectedNode}
+            onSelectNodeId={setSelectedNodeId}
+            copy={copy}
+            onOpenFullscreen={() => setIsFullscreenOpen(true)}
+            fitPadding={0.1}
+            minZoom={0.08}
+          />
+        )}
+      </div>
+
+      <Dialog open={isFullscreenOpen} onOpenChange={setIsFullscreenOpen}>
+        <DialogContent className="flex h-[calc(100vh-1.5rem)] max-w-[calc(100vw-1.5rem)] flex-col gap-0 overflow-hidden border-border/60 bg-background p-0">
+          <DialogHeader className="border-b border-border/50 px-6 py-4 pr-14">
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Cpu className={`h-4 w-4 ${color === "primary" ? "text-primary" : "text-accent"}`} />
+              {title}
+            </DialogTitle>
+            <DialogDescription className="mt-1 text-xs leading-relaxed">
+              {copy.fullScreenDescription}
+            </DialogDescription>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className="badge-info">{flowGraph.summary.nodeCount} {copy.nodes}</span>
+              <span className="badge-info">{flowGraph.summary.edgeCount} {copy.edges}</span>
+              <span className="badge-info">{flowGraph.summary.rootCount} {copy.rootSignals}</span>
+            </div>
+          </DialogHeader>
+
+          <GraphExplorer
+            color={color}
+            flowGraph={flowGraph}
+            graphNodes={graphNodes}
+            graphEdges={graphEdges}
+            selectedNode={selectedNode}
+            onSelectNodeId={setSelectedNodeId}
+            copy={copy}
+            containerClassName="min-h-0 flex-1"
+            surfaceStyle={{ height: "100%" }}
+            fitPadding={0.045}
+            minZoom={0.035}
+          />
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}

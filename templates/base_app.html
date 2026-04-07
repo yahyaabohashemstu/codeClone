@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}Clone Detector{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.4.0/styles/default.min.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app-shell.css') }}" />
+    <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.4.0/highlight.min.js"></script>
+    {% block extra_head %}{% endblock %}
+  </head>
+  <body>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+    <div class="app-shell">
+      <aside class="sidebar" id="appSidebar">
+        <div class="sidebar-brand">
+          <img src="{{ url_for('static', filename='logo.png') }}" alt="Clone Detector logo" />
+          <div>
+            <strong>Clone Detector</strong>
+            <span>Intelligent code analysis workspace</span>
+          </div>
+        </div>
+
+        <nav class="sidebar-nav">
+          <a href="{{ url_for('index') }}" class="nav-link {% if active_page == 'home' %}active{% endif %}">
+            <i class="fas fa-house"></i>
+            <span>Home</span>
+          </a>
+          <a href="{{ url_for('analysis') }}" class="nav-link {% if active_page == 'analysis' %}active{% endif %}">
+            <i class="fas fa-code-branch"></i>
+            <span>Analysis</span>
+          </a>
+          <a href="{{ url_for('account') }}" class="nav-link {% if active_page == 'history' %}active{% endif %}">
+            <i class="fas fa-clock-rotate-left"></i>
+            <span>History</span>
+          </a>
+          <a href="{{ url_for('health_ai') }}?live=0" class="nav-link" target="_blank" rel="noreferrer">
+            <i class="fas fa-heart-pulse"></i>
+            <span>AI Health</span>
+          </a>
+          {% block sidebar_extra %}{% endblock %}
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="sidebar-note">
+            <strong>{{ current_user.username if current_user.is_authenticated else 'Guest' }}</strong>
+            Compare pasted code, uploaded files, ZIP projects, and spreadsheets from one unified review surface.
+          </div>
+          <div style="margin-top: 10px; display: grid; gap: 6px;">
+            <a href="{{ url_for('logout') }}" class="nav-link-button">
+              <i class="fas fa-arrow-right-from-bracket"></i>
+              <span>Logout</span>
+            </a>
+          </div>
+        </div>
+      </aside>
+
+      <div class="main-region">
+        <header class="topbar">
+          <div class="topbar-left">
+            <button type="button" class="menu-toggle" id="menuToggle" aria-label="Toggle navigation">
+              <i class="fas fa-bars"></i>
+            </button>
+            <div class="page-meta">
+              <small>{% block page_kicker %}Analysis Platform{% endblock %}</small>
+              <strong>{% block page_heading %}Clone Detector{% endblock %}</strong>
+            </div>
+          </div>
+
+          <div class="topbar-actions">
+            {% block topbar_actions %}{% endblock %}
+            <button type="button" class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+              <i class="fas fa-moon"></i>
+            </button>
+            <a href="{{ url_for('account') }}" class="secondary-btn">
+              <i class="fas fa-user-shield"></i>
+              <span>Account</span>
+            </a>
+          </div>
+        </header>
+
+        <main class="page-content">
+          <div class="page-stack">
+            {% block content %}{% endblock %}
+          </div>
+        </main>
+
+        <footer class="app-footer">© 2026 Clone Detector — Intelligent Code Analysis Platform</footer>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        const body = document.body;
+        const storedTheme = localStorage.getItem('theme-preference');
+        const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+        if (storedTheme === 'light' || (!storedTheme && prefersLight)) {
+          body.classList.add('theme-light');
+        }
+
+        const themeToggle = document.getElementById('themeToggle');
+        function renderThemeIcon() {
+          if (!themeToggle) return;
+          themeToggle.innerHTML = body.classList.contains('theme-light')
+            ? '<i class="fas fa-sun"></i>'
+            : '<i class="fas fa-moon"></i>';
+        }
+
+        renderThemeIcon();
+
+        if (themeToggle) {
+          themeToggle.addEventListener('click', function () {
+            body.classList.toggle('theme-light');
+            localStorage.setItem('theme-preference', body.classList.contains('theme-light') ? 'light' : 'dark');
+            renderThemeIcon();
+          });
+        }
+
+        const sidebar = document.getElementById('appSidebar');
+        const backdrop = document.getElementById('sidebarBackdrop');
+        const menuToggle = document.getElementById('menuToggle');
+
+        function closeSidebar() {
+          if (!sidebar || !backdrop) return;
+          sidebar.classList.remove('is-open');
+          backdrop.classList.remove('is-open');
+        }
+
+        function openSidebar() {
+          if (!sidebar || !backdrop) return;
+          sidebar.classList.add('is-open');
+          backdrop.classList.add('is-open');
+        }
+
+        if (menuToggle) {
+          menuToggle.addEventListener('click', function () {
+            if (!sidebar) return;
+            if (sidebar.classList.contains('is-open')) {
+              closeSidebar();
+            } else {
+              openSidebar();
+            }
+          });
+        }
+
+        if (backdrop) {
+          backdrop.addEventListener('click', closeSidebar);
+        }
+
+        document.querySelectorAll('pre code').forEach((block) => {
+          if (window.hljs) {
+            window.hljs.highlightElement(block);
+          }
+        });
+      })();
+    </script>
+    {% block extra_scripts %}{% endblock %}
+  </body>
+</html>

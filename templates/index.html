@@ -1,0 +1,109 @@
+{% extends 'base_app.html' %}
+{% from '_workspace_macros.html' import source_card %}
+
+{% block title %}Analysis Workspace | Clone Detector{% endblock %}
+{% set active_page = 'analysis' %}
+{% block page_kicker %}Clone Detection Workspace{% endblock %}
+{% block page_heading %}New Analysis{% endblock %}
+
+{% block extra_head %}
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.21.0/cytoscape.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+{% endblock %}
+
+{% block topbar_actions %}
+  {% if has_results %}<a href="#resultsAnchor" class="secondary-btn"><i class="fas fa-chart-column"></i><span>Latest Results</span></a>{% endif %}
+  <a href="{{ url_for('health_ai') }}?live=0" target="_blank" rel="noreferrer" class="secondary-btn"><i class="fas fa-heart-pulse"></i><span>AI Health</span></a>
+{% endblock %}
+
+{% block content %}
+  {% set overall_score = similarities.combined_similarity * 100 if similarities else 0 %}
+  {% set token_score = similarities.token_sim_with_order_without_comments * 100 if similarities else 0 %}
+  {% set graph_score = similarities.graph_sim * 100 if similarities else 0 %}
+  {% set ai_score = similarities.ai_similarity_score * 100 if similarities else 0 %}
+  {% if overall_score >= 80 %}{% set score_state = 'danger' %}{% set score_label = 'High Similarity' %}{% set score_message = 'The combined score is high enough to warrant manual review. Inspect clone types, structural graphs, and code smell notes below.' %}
+  {% elif overall_score >= 50 %}{% set score_state = 'warning' %}{% set score_label = 'Moderate Similarity' %}{% set score_message = 'The analysis indicates notable overlap across multiple dimensions. Review the detailed evidence across tokens, AST structure, and AI interpretation.' %}
+  {% else %}{% set score_state = 'success' %}{% set score_label = 'Low Similarity' %}{% set score_message = 'Similarity remains comparatively low. You can still inspect the detailed signals to understand where overlap is coming from.' %}{% endif %}
+
+  <section class="hero-card">
+    <div class="hero-copy">
+      <span class="hero-kicker"><i class="fas fa-bolt"></i> Multi-dimensional analysis</span>
+      <h1>Detect clone patterns with structure, metrics, graphs, and AI reasoning in one workspace.</h1>
+      <p>Compare pasted snippets, uploaded source files, ZIP projects, or spreadsheet rows. The engine combines text, token, graph, and semantic signals, then stores the full result in your account history automatically.</p>
+      <div class="utility-row" style="margin-top: 20px;">
+        <a href="#analysisForm" class="primary-btn"><i class="fas fa-play"></i><span>Start Analysis</span></a>
+        {% if has_results %}<a href="#resultsAnchor" class="secondary-btn"><i class="fas fa-arrow-down"></i><span>Jump to Results</span></a>{% else %}<a href="{{ url_for('account') }}" class="secondary-btn"><i class="fas fa-clock-rotate-left"></i><span>Open History</span></a>{% endif %}
+      </div>
+    </div>
+    <div class="hero-stats">
+      <div class="hero-stat"><i class="fas fa-code"></i><strong>{{ language|upper }}</strong><span>Active comparison language</span></div>
+      <div class="hero-stat"><i class="fas fa-user-shield"></i><strong>{{ current_user.username }}</strong><span>Signed-in workspace</span></div>
+      <div class="hero-stat"><i class="fas fa-diagram-project"></i><strong>AST + AI</strong><span>Graphs, clone types, metrics, and narrative analysis</span></div>
+      <div class="hero-stat"><i class="fas fa-database"></i><strong>Auto-saved</strong><span>Each completed analysis is stored in your account history</span></div>
+    </div>
+  </section>
+
+  {% if error_message and not has_results %}
+    <div class="alert-card"><i class="fas fa-triangle-exclamation"></i><div><strong>Analysis could not be completed</strong><div style="margin-top: 6px; line-height: 1.7;">{{ error_message }}</div></div></div>
+  {% endif %}
+
+  <form id="analysisForm" class="analysis-form" method="POST" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+    <section class="card">
+      <div class="form-toolbar">
+        <div><div class="toolbar-title">Configure the comparison</div><div class="toolbar-copy">Choose a language, feed in two sources, and run a full structural and semantic analysis.</div></div>
+        <div class="toolbar-controls"><div class="select-shell" style="min-width: 220px;"><select name="language" aria-label="Programming language">{{ language_options_html|safe }}</select><i class="fas fa-chevron-down"></i></div></div>
+      </div>
+      <div class="source-grid" style="padding: 0 20px 20px;">
+        {{ source_card('1', 'A', 'primary', 'Source A', 'Paste code or upload a file, archive, or spreadsheet row.', code1) }}
+        {{ source_card('2', 'B', 'accent', 'Source B', 'Provide the second comparison target using the same supported input methods.', code2) }}
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="form-toolbar" style="border-bottom: 1px solid var(--panel-border);"><div><div class="toolbar-title">Enabled analysis layers</div><div class="toolbar-copy">The engine computes all signals below in a single run. Sections missing from the delivered React UI are preserved here.</div></div></div>
+      <div class="capabilities-grid">
+        <div class="capability-chip"><i class="fas fa-font"></i><span>Text similarity</span></div>
+        <div class="capability-chip"><i class="fas fa-bars-progress"></i><span>Ordered and unordered token analysis</span></div>
+        <div class="capability-chip"><i class="fas fa-diagram-project"></i><span>AST graph generation</span></div>
+        <div class="capability-chip"><i class="fas fa-sitemap"></i><span>Clone-type classification</span></div>
+        <div class="capability-chip"><i class="fas fa-chart-line"></i><span>Complexity and maintainability metrics</span></div>
+        <div class="capability-chip"><i class="fas fa-robot"></i><span>AI report and follow-up chat</span></div>
+      </div>
+    </section>
+
+    <section class="action-bar">
+      <div class="run-copy">Typical analysis time is only a few seconds, and successful runs are saved automatically to your account.</div>
+      <div class="utility-row"><a href="{{ url_for('analysis') }}" class="secondary-btn"><i class="fas fa-eraser"></i><span>Clear Inputs</span></a><button type="submit" class="primary-btn"><i class="fas fa-wand-magic-sparkles"></i><span>Run Analysis</span></button></div>
+    </section>
+  </form>
+
+  {% if has_results %}
+    <section class="results-shell" id="resultsAnchor">
+      <div class="results-header"><div class="results-header-copy"><h2>Analysis Results</h2><p>{{ language|capitalize }} comparison ready. Explore all evidence layers below, including graphs, metrics, clone flags, the AI report, and contextual chat.</p></div><div class="results-actions"><button type="button" class="secondary-btn" onclick="captureResults()"><i class="fas fa-camera"></i><span>Capture Screenshot</span></button><a href="{{ url_for('account') }}" class="secondary-btn"><i class="fas fa-book-bookmark"></i><span>Open History</span></a></div></div>
+
+      <section class="score-banner" id="results"><div class="score-ring"><svg viewBox="0 0 100 100"><circle class="score-bg" cx="50" cy="50" r="42"></circle><circle class="score-progress {{ score_state }}" cx="50" cy="50" r="42" stroke-dasharray="263.89" stroke-dashoffset="{{ 263.89 - (overall_score / 100 * 263.89) }}" stroke-linecap="round"></circle></svg><span>{{ '%.1f'|format(overall_score) }}%</span></div><div class="score-copy"><h3>{{ score_label }}</h3><p>{{ score_message }}</p><div class="badge-row"><span class="badge {{ score_state }}"><i class="fas fa-flask"></i> Auto-saved to account history</span><span class="badge primary"><i class="fas fa-shield-heart"></i> AI analysis available</span></div></div><div class="metric-pills"><div class="metric-pill"><strong>{{ '%.1f'|format(token_score) }}%</strong><span>Ordered Token</span></div><div class="metric-pill"><strong>{{ '%.1f'|format(graph_score) }}%</strong><span>Graph</span></div><div class="metric-pill"><strong>{{ '%.1f'|format(ai_score) }}%</strong><span>AI</span></div><div class="metric-pill"><strong>{{ '%.1f'|format(similarities.text_sim * 100) }}%</strong><span>Text</span></div></div></section>
+
+      <div class="results-tabs" role="tablist"><button type="button" class="results-tab active" data-tab="overview"><i class="fas fa-chart-pie"></i><span>Overview</span></button><button type="button" class="results-tab" data-tab="code"><i class="fas fa-code"></i><span>Code</span></button><button type="button" class="results-tab" data-tab="graphs"><i class="fas fa-diagram-project"></i><span>Graphs</span></button><button type="button" class="results-tab" data-tab="metrics"><i class="fas fa-ruler-combined"></i><span>Metrics</span></button><button type="button" class="results-tab" data-tab="report"><i class="fas fa-file-lines"></i><span>AI Report</span></button><button type="button" class="results-tab" data-tab="chat"><i class="fas fa-comments"></i><span>Ask AI</span></button></div>
+
+      <div class="result-panel active" data-panel="overview"><div class="panel-grid two-up"><section class="section-card"><div class="section-header"><div><h3><i class="fas fa-arrow-trend-up"></i> Similarity Indicators</h3><p>Every percentage produced by the engine, rendered from the real analysis output.</p></div></div><div class="metric-stack">{{ description_list1|safe }}</div></section><section class="section-card"><div class="section-header"><div><h3><i class="fas fa-code-compare"></i> Clone-Type Detection</h3><p>Boolean clone categories preserved exactly from the backend output.</p></div></div><div class="clone-stack">{{ description_list2|safe }}</div></section></div><div class="panel-grid two-up"><section class="section-card"><div class="section-header"><div><h3><i class="fas fa-chart-area"></i> Similarity Distribution</h3><p>Backend-generated chart covering the complete metric set.</p></div></div><div class="chart-frame">{% if chart_url %}<img src="data:image/png;base64,{{ chart_url }}" alt="Similarity chart" />{% else %}<div class="empty-state" style="padding: 18px;"><i class="fas fa-chart-area"></i><h3>No chart available</h3><p>The similarity chart will appear after a successful analysis.</p></div>{% endif %}</div></section><section class="section-card"><div class="section-header"><div><h3><i class="fas fa-stethoscope"></i> Code Smell Review</h3><p>This section was missing in the delivered React UI, so it is preserved and restyled here.</p></div></div><div class="metric-grid" style="grid-template-columns: 1fr;"><div class="metric-card"><strong>Source A</strong><div class="muted-copy">{{ code_smell.code1_analysis }}</div></div><div class="metric-card"><strong>Source B</strong><div class="muted-copy">{{ code_smell.code2_analysis }}</div></div></div></section></div>{% if excel_analysis_results %}<section class="section-card"><div class="section-header"><div><h3><i class="fas fa-table-list"></i> Spreadsheet-derived Results</h3><p>Rows extracted from Excel or CSV inputs and analyzed in the current session.</p></div></div><ul class="excel-results">{% for excel_code1, excel_code2, excel_result in excel_analysis_results %}<li><strong>Code 1:</strong> {{ excel_code1[:120] }}{% if excel_code1|length > 120 %}...{% endif %}<br /><strong>Code 2:</strong> {{ excel_code2[:120] }}{% if excel_code2|length > 120 %}...{% endif %}<br /><strong>Result:</strong> {{ excel_result }}</li>{% endfor %}</ul></section>{% endif %}</div>
+
+      <div class="result-panel" data-panel="code"><div class="code-grid"><section class="code-card"><div class="code-toolbar"><div><strong>Source A</strong><span>Raw submitted code preserved from the analysis run</span></div><span class="badge primary">Code 1</span></div><pre class="code-surface"><code class="language-{{ language }}">{{ code1|e }}</code></pre></section><section class="code-card"><div class="code-toolbar"><div><strong>Source B</strong><span>Raw submitted code preserved from the analysis run</span></div><span class="badge primary">Code 2</span></div><pre class="code-surface"><code class="language-{{ language }}">{{ code2|e }}</code></pre></section></div></div>
+
+      <div class="result-panel" data-panel="graphs"><div class="graph-grid"><section class="graph-card"><div class="graph-toolbar"><div><strong>Code 1 Graph</strong><span>Rendered from the real AST graph payload produced by the backend.</span></div><div class="graph-actions"><button type="button" class="small-icon-btn" id="zoom-out1" aria-label="Zoom out graph 1"><i class="fas fa-search-minus"></i></button><button type="button" class="small-icon-btn" id="zoom-in1" aria-label="Zoom in graph 1"><i class="fas fa-search-plus"></i></button></div></div><div id="cy1" class="graph-surface"></div></section><section class="graph-card"><div class="graph-toolbar"><div><strong>Code 2 Graph</strong><span>Preserved explicitly because the graph section was overlooked in the delivered UI.</span></div><div class="graph-actions"><button type="button" class="small-icon-btn" id="zoom-out2" aria-label="Zoom out graph 2"><i class="fas fa-search-minus"></i></button><button type="button" class="small-icon-btn" id="zoom-in2" aria-label="Zoom in graph 2"><i class="fas fa-search-plus"></i></button></div></div><div id="cy2" class="graph-surface graph-large"></div></section></div></div>
+
+      <div class="result-panel" data-panel="metrics"><section class="section-card"><div class="section-header"><div><h3><i class="fas fa-table-columns"></i> Code Metrics Comparison</h3><p>Full side-by-side metrics preserved from the original project, including Python-only indicators.</p></div></div><div class="history-table-wrap"><table class="metrics-table"><thead><tr><th>Metric</th><th>Code 1</th><th>Code 2</th></tr></thead><tbody><tr><td>LOC</td><td>{{ metrics1.raw.loc if language == 'python' else 'Only for Python' }}</td><td>{{ metrics2.raw.loc if language == 'python' else 'Only for Python' }}</td></tr><tr><td>LLOC</td><td>{{ metrics1.raw.lloc if language == 'python' else 'Only for Python' }}</td><td>{{ metrics2.raw.lloc if language == 'python' else 'Only for Python' }}</td></tr><tr><td>SLOC</td><td>{{ metrics1.raw.sloc if language == 'python' else 'Only for Python' }}</td><td>{{ metrics2.raw.sloc if language == 'python' else 'Only for Python' }}</td></tr><tr><td>Comments</td><td>{{ metrics1.raw.comments if language == 'python' else 'Only for Python' }}</td><td>{{ metrics2.raw.comments if language == 'python' else 'Only for Python' }}</td></tr><tr><td>Multi</td><td>{{ metrics1.raw.multi if language == 'python' else 'Only for Python' }}</td><td>{{ metrics2.raw.multi if language == 'python' else 'Only for Python' }}</td></tr><tr><td>Blank</td><td>{{ metrics1.raw.blank if language == 'python' else 'Only for Python' }}</td><td>{{ metrics2.raw.blank if language == 'python' else 'Only for Python' }}</td></tr><tr><td>Halstead Difficulty</td><td>{{ metrics1.halstead.difficulty if language == 'python' else 'Only for Python' }}</td><td>{{ metrics2.halstead.difficulty if language == 'python' else 'Only for Python' }}</td></tr><tr><td>Halstead Effort</td><td>{{ metrics1.halstead.effort if language == 'python' else 'Only for Python' }}</td><td>{{ metrics2.halstead.effort if language == 'python' else 'Only for Python' }}</td></tr><tr><td>Halstead Length</td><td>{{ metrics1.halstead.length if language == 'python' else 'Only for Python' }}</td><td>{{ metrics2.halstead.length if language == 'python' else 'Only for Python' }}</td></tr><tr><td>Halstead Time</td><td>{{ metrics1.halstead.time if language == 'python' else 'Only for Python' }}</td><td>{{ metrics2.halstead.time if language == 'python' else 'Only for Python' }}</td></tr><tr><td>Halstead Vocabulary</td><td>{{ metrics1.halstead.vocabulary if language == 'python' else 'Only for Python' }}</td><td>{{ metrics2.halstead.vocabulary if language == 'python' else 'Only for Python' }}</td></tr><tr><td>Halstead Volume</td><td>{{ metrics1.halstead.volume if language == 'python' else 'Only for Python' }}</td><td>{{ metrics2.halstead.volume if language == 'python' else 'Only for Python' }}</td></tr><tr><td>Cyclomatic Complexity</td><td>{{ metrics1.cyclomatic_complexity if language == 'python' else 'Only for Python' }}</td><td>{{ metrics2.cyclomatic_complexity if language == 'python' else 'Only for Python' }}</td></tr><tr><td>Maintainability Index</td><td>{{ metrics1.maintainability_index if language == 'python' else 'Only for Python' }}</td><td>{{ metrics2.maintainability_index if language == 'python' else 'Only for Python' }}</td></tr></tbody></table></div></section></div>
+
+      <div class="result-panel" data-panel="report"><section class="section-card report-shell markdown-content"><div class="analysis-report markdown-content"><h3>Inter-Code Analysis</h3><div class="analysis-report-body">{{ analysis_html|safe }}</div></div></section></div>
+
+      <div class="result-panel" data-panel="chat"><section class="section-card chat-shell" id="chat-panel"><div class="section-header"><div><h3><i class="fas fa-comments"></i> Ask about this analysis</h3><p>Continue the investigation with grounded follow-up questions based on the latest run.</p></div><span class="badge success"><i class="fas fa-sparkles"></i> AI Available</span></div><div class="utility-row"><button type="button" class="ghost-btn suggestion-btn" data-suggestion="Why are these two sources similar?">Why are these two sources similar?</button><button type="button" class="ghost-btn suggestion-btn" data-suggestion="Explain the strongest clone type detected.">Explain the strongest clone type detected.</button><button type="button" class="ghost-btn suggestion-btn" data-suggestion="What do the graph and token scores imply?">What do the graph and token scores imply?</button></div><div class="chat-box" id="chat-box"></div><div class="chat-input-row"><input type="text" id="chat-input" class="chat-input" placeholder="Ask about similarity, clone types, graphs, metrics, or security findings..." /><button type="button" id="chat-send" class="primary-btn"><i class="fas fa-paper-plane"></i><span>Send</span></button></div></section></div>
+    </section>
+  {% elif not error_message %}
+    <section class="empty-state"><i class="fas fa-wave-square"></i><h3>No analysis yet</h3><p>Feed in two sources above, run the engine, and the full results workspace will appear here.</p></section>
+  {% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+  <script>window.workspaceConfig={csrfToken:{{ csrf_token|tojson }},graph1:{{ graph_json1|tojson }},graph2:{{ graph_json2|tojson }}};</script>
+  <script src="{{ url_for('static', filename='js/workspace-ui.js') }}"></script>
+{% endblock %}

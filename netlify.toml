@@ -1,0 +1,22 @@
+[build]
+  command = "pip install -r requirements.txt && cd code-sleuth-react-ui && npm ci && npm run build"
+  publish = "code-sleuth-react-ui/dist"
+  functions = "functions"
+
+[build.environment]
+  PYTHON_VERSION = "3.11"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/server"
+  status = 200
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[dev]
+  command = "python wsgi.py"
+  port = 8080
+  publish = "code-sleuth-react-ui/dist"

@@ -1,0 +1,70 @@
+node_modules
+*.env
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+env/
+venv/
+ENV/
+.coverage
+.pytest_cache/
+htmlcov/
+.idea/
+.vscode/
+*.swp
+*.swo
+.vs/
+node_modules/
+*.db
+logs/
+*.log
+.history/
+.mypy_cache/
+SourcererCC/
+LinkedDataHub/
+vendor/
+chrome*/
+instance/gemini_api_key
+instance/mistral_api_key
+instance/secret_key
+instance/bootstrap_admin_credentials.txt
+
+
+#Ignore vscode AI rules
+.github\instructions\codacy.instructions.md
+
+# Archive files
+*.rar
+
+# Temporary output files
+tmp_app_stderr.txt
+tmp_app_stdout.txt
+
+# PDF reports generated at runtime
+*.pdf
+
+# Uploads directory (user-submitted files)
+uploads/
+
+# Backup files
+*.backup
+app.py.react_migration_backup
+
+# Claude Code local settings (may contain sensitive paths)
+.claude/

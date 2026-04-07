@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login | Clone Detector</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app-shell.css') }}" />
+  </head>
+  <body>
+    <button type="button" class="theme-toggle" id="themeToggleStandalone" style="position: fixed; top: 20px; right: 20px; z-index: 30;"><i class="fas fa-moon"></i></button>
+
+    <main class="auth-shell">
+      <section class="auth-hero">
+        <div class="auth-brand">
+          <img src="{{ url_for('static', filename='logo.png') }}" alt="Clone Detector logo" />
+          <div>
+            <strong style="display:block;font-size:1.1rem;">Clone Detector</strong>
+            <span style="color: var(--text-soft); font-size:0.88rem;">Intelligent code analysis platform</span>
+          </div>
+        </div>
+
+        <span class="hero-kicker" style="margin-top: 26px;"><i class="fas fa-lock"></i> Secure access</span>
+        <h1>Sign in to a modern code analysis workspace built for deep comparison.</h1>
+        <p>Access clone detection, AST graph visualization, metrics, AI reporting, saved analysis history, and grounded follow-up chat from one refined interface.</p>
+
+        <div class="auth-feature-list">
+          <div class="auth-feature"><strong>Multi-source input</strong><span>Compare pasted snippets, uploaded files, ZIP projects, or spreadsheet rows from the same workspace.</span></div>
+          <div class="auth-feature"><strong>Evidence-first results</strong><span>Review token and graph signals, clone-type detection, metrics, code smell output, and the AI narrative together.</span></div>
+          <div class="auth-feature"><strong>Account-scoped memory</strong><span>Every completed run is preserved in your history, ready to reopen, export, or replay.</span></div>
+        </div>
+      </section>
+
+      <section class="auth-card">
+        <span class="hero-kicker"><i class="fas fa-user-shield"></i> Login</span>
+        <h2>Welcome back</h2>
+        <p>Enter your account credentials to open the comparison workspace.</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form method="POST" class="auth-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+
+          <div>
+            <label class="form-label" for="username">Username</label>
+            <div class="form-field">
+              <i class="fas fa-user"></i>
+              <input id="username" type="text" name="username" class="text-input" placeholder="Enter your username" required />
+            </div>
+          </div>
+
+          <div>
+            <label class="form-label" for="password">Password</label>
+            <div class="form-field">
+              <i class="fas fa-key"></i>
+              <input id="password" type="password" name="password" class="text-input" placeholder="Enter your password" required />
+            </div>
+          </div>
+
+          <button type="submit" class="primary-btn" style="width: 100%; justify-content: center; min-height: 50px;">
+            <i class="fas fa-arrow-right-to-bracket"></i>
+            <span>Login to Workspace</span>
+          </button>
+        </form>
+
+        <div class="auth-footer">
+          Account creation is currently managed by the administrator. If you need access, ask your project owner to create a user for you.
+        </div>
+      </section>
+    </main>
+
+    <script>
+      (function () {
+        const body = document.body;
+        const button = document.getElementById('themeToggleStandalone');
+        const storedTheme = localStorage.getItem('theme-preference');
+        const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+        if (storedTheme === 'light' || (!storedTheme && prefersLight)) {
+          body.classList.add('theme-light');
+        }
+        function renderIcon() {
+          if (!button) return;
+          button.innerHTML = body.classList.contains('theme-light')
+            ? '<i class="fas fa-sun"></i>'
+            : '<i class="fas fa-moon"></i>';
+        }
+        renderIcon();
+        button && button.addEventListener('click', function () {
+          body.classList.toggle('theme-light');
+          localStorage.setItem('theme-preference', body.classList.contains('theme-light') ? 'light' : 'dark');
+          renderIcon();
+        });
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,75 @@
+{% macro source_card(source_id, badge, badge_class, title, subtitle, code_value) -%}
+<section class="card source-card" data-source-card>
+  <div class="source-header">
+    <div class="source-badge {{ badge_class }}">{{ badge }}</div>
+    <div class="source-copy">
+      <strong>{{ title }}</strong>
+      <span>{{ subtitle }}</span>
+    </div>
+    <i class="fas fa-circle-check source-status {% if code_value %}active{% endif %}"></i>
+  </div>
+
+  <div class="method-tabs">
+    <button type="button" class="method-btn active" data-method-trigger="source{{ source_id }}" data-method="paste">
+      <i class="fas fa-code"></i>
+      <span>Paste Code</span>
+    </button>
+    <button type="button" class="method-btn" data-method-trigger="source{{ source_id }}" data-method="file">
+      <i class="fas fa-file-code"></i>
+      <span>Code File</span>
+    </button>
+    <button type="button" class="method-btn" data-method-trigger="source{{ source_id }}" data-method="zip">
+      <i class="fas fa-file-zipper"></i>
+      <span>ZIP Project</span>
+    </button>
+    <button type="button" class="method-btn" data-method-trigger="source{{ source_id }}" data-method="excel">
+      <i class="fas fa-file-excel"></i>
+      <span>Excel / CSV</span>
+    </button>
+  </div>
+
+  <div class="method-panes">
+    <div class="method-pane active" data-method-panel="source{{ source_id }}" data-method="paste">
+      <textarea class="text-area" id="code{{ source_id }}" name="code{{ source_id }}" placeholder="Paste source {{ badge }} here...">{{ code_value|e }}</textarea>
+    </div>
+
+    <div class="method-pane" data-method-panel="source{{ source_id }}" data-method="file">
+      <label class="drop-zone" for="file{{ source_id }}">
+        <input type="file" id="file{{ source_id }}" name="file{{ source_id }}" class="file-input" accept=".java,.py,.js,.ts,.jsx,.tsx,.c,.cpp,.cs,.go,.rb,.php,.swift,.kt" />
+        <i class="fas fa-file-code"></i>
+        <div>
+          <strong data-file-title>Drop a source file or click to browse</strong>
+          <span data-file-meta>Supported formats: .py .java .js .ts .go .c .cpp and more</span>
+        </div>
+      </label>
+    </div>
+
+    <div class="method-pane" data-method-panel="source{{ source_id }}" data-method="zip">
+      <label class="drop-zone" for="zip{{ source_id }}">
+        <input type="file" id="zip{{ source_id }}" name="zip{{ source_id }}" class="file-input" accept=".zip,.tar.gz,.tgz" />
+        <i class="fas fa-file-zipper"></i>
+        <div>
+          <strong data-file-title>Drop a project archive</strong>
+          <span data-file-meta>Use a ZIP or compressed project folder for repository-level comparison.</span>
+        </div>
+      </label>
+    </div>
+
+    <div class="method-pane" data-method-panel="source{{ source_id }}" data-method="excel">
+      <label class="drop-zone" for="excel_file{{ source_id }}">
+        <input type="file" id="excel_file{{ source_id }}" name="excel_file{{ source_id }}" class="file-input" accept=".xlsx,.xls,.csv" />
+        <i class="fas fa-file-excel"></i>
+        <div>
+          <strong data-file-title>Drop a spreadsheet file</strong>
+          <span data-file-meta>Use an Excel or CSV file, then specify the row containing the code sample.</span>
+        </div>
+      </label>
+      <div class="inline-meta">
+        <i class="fas fa-circle-info"></i>
+        <span>Spreadsheet row containing the source code</span>
+        <input class="inline-number" type="number" min="1" id="excel_row{{ source_id }}" name="excel_row{{ source_id }}" placeholder="2" />
+      </div>
+    </div>
+  </div>
+</section>
+{%- endmacro %}
