@@ -411,13 +411,13 @@ const History = () => {
             <table className="w-full min-w-[980px]">
               <thead>
                 <tr className="border-b border-border/40 bg-muted/20">
-                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground">{copy.table.sourceA}</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground">{copy.table.sourceB}</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground">{copy.table.language}</th>
+                  <th className={cn("px-5 py-3 text-xs font-medium text-muted-foreground", isRTL ? "text-right" : "text-left")}>{copy.table.sourceA}</th>
+                  <th className={cn("px-5 py-3 text-xs font-medium text-muted-foreground", isRTL ? "text-right" : "text-left")}>{copy.table.sourceB}</th>
+                  <th className={cn("px-5 py-3 text-xs font-medium text-muted-foreground", isRTL ? "text-right" : "text-left")}>{copy.table.language}</th>
                   <th className="px-5 py-3 text-center text-xs font-medium text-muted-foreground">{copy.table.score}</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground">{copy.table.severity}</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground">{copy.table.date}</th>
-                  <th className="px-5 py-3 text-right text-xs font-medium text-muted-foreground">{copy.table.actions}</th>
+                  <th className={cn("px-5 py-3 text-xs font-medium text-muted-foreground", isRTL ? "text-right" : "text-left")}>{copy.table.severity}</th>
+                  <th className={cn("px-5 py-3 text-xs font-medium text-muted-foreground", isRTL ? "text-right" : "text-left")}>{copy.table.date}</th>
+                  <th className={cn("px-5 py-3 text-xs font-medium text-muted-foreground", isRTL ? "text-left" : "text-right")}>{copy.table.actions}</th>
                 </tr>
               </thead>
               <tbody>
@@ -431,19 +431,19 @@ const History = () => {
                     <td className="px-5 py-3 text-xs text-muted-foreground">{getDisplayDate(item)}</td>
                     <td className="px-5 py-3">
                       <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => void openPreview(item)} disabled={isBusy}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => void openPreview(item)} disabled={isBusy} aria-label="View details">
                           <Info className="h-3.5 w-3.5" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => void openInResults(item)} disabled={isBusy}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => void openInResults(item)} disabled={isBusy} aria-label="View details">
                           <ExternalLink className="h-3.5 w-3.5" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => void rerunAnalysis(item)} disabled={isBusy}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => void rerunAnalysis(item)} disabled={isBusy} aria-label="Rerun analysis">
                           <RefreshCw className="h-3.5 w-3.5" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => void exportAnalysis(item)} disabled={isBusy}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => void exportAnalysis(item)} disabled={isBusy} aria-label="Download">
                           <Download className="h-3.5 w-3.5" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => confirmDelete(item)} disabled={isBusy}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => confirmDelete(item)} disabled={isBusy} aria-label="Delete">
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>

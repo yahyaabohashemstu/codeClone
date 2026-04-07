@@ -213,7 +213,8 @@ export default function CaseDetail() {
       })
       .catch((e) => setError(e?.message ?? copy.errorMsg))
       .finally(() => setLoading(false));
-  }, [caseId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [caseId, language]);
 
   const handleUpdate = async () => {
     if (!caseData) return;

@@ -18,6 +18,7 @@ import difflib
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tempfile import NamedTemporaryFile, TemporaryDirectory
+import copy
 import datetime
 
 from flask import (
@@ -177,6 +178,8 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['MAX_CONTENT_LENGTH'] = MAX_ANALYSIS_REQUEST_BYTES
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
+app.config['PERMANENT_SESSION_LIFETIME'] = datetime.timedelta(hours=12)
 
 db = SQLAlchemy(app)
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -396,9 +399,17 @@ def inject_csrf_token():
     return {'csrf_token': get_csrf_token()}
 
 
+# Endpoints that must be accessible before the user has a CSRF token in their session.
+_CSRF_EXEMPT_ENDPOINTS = frozenset({'api_login', 'api_session', 'health_check'})
+
+
 @app.before_request
 def validate_csrf_token():
     if request.method not in {'POST', 'PUT', 'PATCH', 'DELETE'}:
+        return None
+
+    # Allow login and session endpoints (unauthenticated users have no CSRF token yet)
+    if request.endpoint in _CSRF_EXEMPT_ENDPOINTS:
         return None
 
     sent_token = (request.headers.get('X-CSRF-Token') or '').strip() or (request.form.get('csrf_token') or '').strip()
@@ -515,6 +526,7 @@ def account():
     return redirect('/history')
 
 @app.route('/delete_analysis/<int:analysis_id>', methods=['POST'])
+@limiter.limit("10 per minute")
 @login_required
 def delete_analysis(analysis_id):
     """Delete a saved analysis."""
@@ -1155,7 +1167,8 @@ class CodeSmellAnalyzer:
                         os.remove(temp_file_path)
 
             except Exception as e:
-                return f'Unable to generate quality report: {e}'
+                app.logger.error("Unable to generate quality report: %s", e, exc_info=True)
+                return 'Unable to generate quality report.'
 
         result_code1 = analyze_code(code1, file1)
         result_code2 = analyze_code(code2, file2)
@@ -1321,7 +1334,7 @@ def read_spreadsheet_code(excel_file, excel_row=None):
         else:
             dataframe = pd.read_excel(spreadsheet_stream, dtype=str)
     except Exception as exc:
-        raise ValueError(f"Error processing spreadsheet file: {exc}") from exc
+        raise ValueError("Error processing spreadsheet file. Ensure the file is a valid CSV or Excel document.") from exc
 
     if dataframe.empty or dataframe.shape[1] == 0:
         raise ValueError('Spreadsheet file does not contain any readable rows or columns.')
@@ -1427,7 +1440,7 @@ def analyze_similarities(detector, code1, code2, clean_code1=None, clean_code2=N
         }
     except Exception as exc:
         app.logger.error("Error during similarity analysis: %s", exc, exc_info=True)
-        return {"error": str(exc)}
+        return {"error": "An internal error occurred during similarity analysis."}
 
 _MAX_SINGLE_FILE_BYTES = 5 * 1024 * 1024   # 5 MB
 _MAX_PASTE_BYTES = 1 * 1024 * 1024          # 1 MB
@@ -1530,8 +1543,8 @@ def classify_ai_health_error(error_text):
     return {
         'status': 'error',
         'message': localize_ui_message(
-            f'AI analysis is unavailable: {error_text}',
-            f'تحليل الذكاء الاصطناعي غير متاح: {error_text}',
+            'AI analysis is temporarily unavailable. Please try again later.',
+            'تحليل الذكاء الاصطناعي غير متاح مؤقتًا. يرجى المحاولة مرة أخرى لاحقًا.',
         ),
     }
 
@@ -2089,12 +2102,12 @@ def build_analysis_context(code1, code2, language, persist_analysis, analysis_te
         clean_code2 = detector.remove_comments_and_whitespace(code2)
         similarities = analyze_similarities(detector, code1, code2, clean_code1, clean_code2)
     except Exception as exc:
-        set_current_user_progress(f'Error during analysis: {exc}', 0)
+        set_current_user_progress('Error during analysis', 0)
         return {
             'language': language,
             'code1': code1,
             'code2': code2,
-            'error_message': f'Error during analysis: {exc}',
+            'error_message': 'An error occurred during analysis. Please try again.',
             'has_results': False,
         }
 
@@ -2357,7 +2370,7 @@ def api_session():
     return jsonify({
         'authenticated': current_user.is_authenticated,
         'user': serialize_user(current_user) if current_user.is_authenticated else None,
-        'csrfToken': get_csrf_token() if current_user.is_authenticated else None,
+        'csrfToken': get_csrf_token(),
         'supportedLanguages': languages,
         'ai': health,
     })
@@ -2422,6 +2435,9 @@ def api_register():
 
     if not username or not password:
         return jsonify({'success': False, 'message': 'Username and password are required.'}), 400
+
+    if len(username) > 80 or not re.match(r'^[a-zA-Z0-9_.\-]+$', username):
+        return jsonify({'success': False, 'message': 'Username must be 1-80 characters and contain only letters, digits, underscores, dots, or hyphens.'}), 400
 
     if len(password) < 8:
         return jsonify({'success': False, 'message': 'Password must be at least 8 characters.'}), 400
@@ -2498,7 +2514,7 @@ def api_analysis():
 @login_required
 def api_current_analysis():
     with results_lock:
-        current_context = user_analysis_contexts.get(current_user.id)
+        current_context = copy.deepcopy(user_analysis_contexts.get(current_user.id))
 
     if isinstance(current_context, dict):
         cached_analysis_id = current_context.get('saved_analysis_id')
@@ -2530,7 +2546,7 @@ def api_analysis_diff():
             code1, code2 = analysis.code1, analysis.code2
     else:
         with results_lock:
-            ctx = user_analysis_contexts.get(current_user.id)
+            ctx = copy.deepcopy(user_analysis_contexts.get(current_user.id))
         if ctx:
             code1, code2 = ctx.get('code1'), ctx.get('code2')
 
@@ -2653,6 +2669,7 @@ def api_history():
 
 
 @app.route('/api/history/<int:analysis_id>/rerun', methods=['POST'])
+@limiter.limit("10 per minute")
 @login_required
 def api_rerun_analysis(analysis_id):
     analysis = Analysis.query.filter_by(id=analysis_id, user_id=current_user.id).first()
@@ -2696,6 +2713,7 @@ def health_check():
 
 @app.route('/health-ai', methods=['GET'])
 @app.route('/api/health-ai', methods=['GET'])
+@limiter.limit("5 per minute")
 @login_required
 def health_ai():
     live_param = (request.args.get('live', '1') or '1').strip().lower()
@@ -2715,6 +2733,7 @@ def health_ai():
 
 @app.route('/chat', methods=['POST'])
 @app.route('/api/chat', methods=['POST'])
+@limiter.limit("10 per minute")
 @login_required
 def chat():
     payload = request.get_json(silent=True) or {}
@@ -2722,27 +2741,31 @@ def chat():
     if not user_message:
         return jsonify({'response': localize_ui_message('Please enter a message.', 'يرجى إدخال رسالة.')}), 400
 
+    if len(user_message) > 10000:
+        return jsonify({'error': 'Message is too long. Maximum 10,000 characters.'}), 400
+
     with results_lock:
-        analysis_data = user_results.get(current_user.id, {})
+        analysis_data = copy.deepcopy(user_results.get(current_user.id, {}))
 
     response_language = get_ai_response_language_name()
     system_content = (
         f"Respond in {response_language}. Keep code identifiers, filenames, metrics, and rule IDs in their original form when needed.\n"
     )
-    if analysis_data:
-        system_content += '\nHere are the latest analysis results:\n' + json.dumps(analysis_data, indent=2)
 
     health = check_ai_health(run_live_check=False)
     if health['status'] in ('not_configured', 'client_unavailable'):
         return jsonify({'response': health.get('message', 'AI is unavailable.')})
 
+    messages = [{'role': 'system', 'content': system_content}]
+    if analysis_data:
+        messages.append({'role': 'user', 'content': '[Analysis Context]\n' + json.dumps(analysis_data, ensure_ascii=False, indent=2)})
+        messages.append({'role': 'assistant', 'content': 'I have reviewed the analysis context. How can I help?'})
+    messages.append({'role': 'user', 'content': user_message})
+
     try:
         response = mistral_client.chat.complete(
             model=MISTRAL_MODEL,
-            messages=[
-                {'role': 'system', 'content': system_content},
-                {'role': 'user', 'content': user_message},
-            ],
+            messages=messages,
         )
         response_text = extract_mistral_text(response) or localize_ui_message(
             'AI analysis returned an empty response.',

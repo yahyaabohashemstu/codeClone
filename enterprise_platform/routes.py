@@ -31,6 +31,28 @@ def _require_int_variable(variables: dict, *keys: str) -> int:
     raise EnterpriseError(400, f"Required variable '{'/'.join(keys)}' is missing.", code="missing_variable")
 
 
+def _validated_threshold(raw_value, default: float) -> float:
+    """Parse a threshold value, validate it is a float between 0.0 and 1.0."""
+    try:
+        value = float(raw_value or default)
+    except (TypeError, ValueError):
+        raise EnterpriseError(400, "Threshold must be a number.", code="invalid_input")
+    if not 0.0 <= value <= 1.0:
+        raise EnterpriseError(400, "Threshold must be between 0.0 and 1.0.", code="invalid_input")
+    return value
+
+
+def _validated_expires_at(payload: dict):
+    """Parse expiresInDays and return a validated expiration datetime."""
+    try:
+        expires_days = int(payload.get("expiresInDays") or 365)
+    except (TypeError, ValueError):
+        raise EnterpriseError(400, "expiresInDays must be an integer.", code="invalid_input")
+    if expires_days < 1 or expires_days > 3650:
+        raise EnterpriseError(400, "expiresInDays must be between 1 and 3650.", code="invalid_input")
+    return utcnow() + dt.timedelta(days=expires_days)
+
+
 def graphql_dispatch(db_session, actor: dict[str, Any], query: str, variables: dict[str, Any]) -> dict[str, Any]:
     root_match = re.search(r"\{\s*(\w+)", query)
     if not root_match:
@@ -198,7 +220,10 @@ def create_workspace():
     with session_scope() as db_session:
         actor = resolve_actor(db_session)
         require_enterprise_admin(actor, "Only platform administrators can create workspaces.")
-        organization_id = int(payload.get("organizationId") or 0)
+        try:
+            organization_id = int(payload.get("organizationId") or 0)
+        except (TypeError, ValueError):
+            raise EnterpriseError(400, "organizationId must be an integer.", code="invalid_input")
         organization = db_session.get(Organization, organization_id)
         if not organization:
             raise EnterpriseError(404, "Organization not found.", code="organization_not_found")
@@ -208,8 +233,8 @@ def create_workspace():
             name=(payload.get("name") or "").strip(),
             description=(payload.get("description") or "").strip() or None,
             storage_region=ensure_region_supported(payload.get("storageRegion") or organization.storage_region),
-            default_similarity_threshold=float(payload.get("defaultSimilarityThreshold") or DEFAULT_WORKSPACE_THRESHOLD),
-            semantic_threshold=float(payload.get("semanticThreshold") or DEFAULT_SEMANTIC_THRESHOLD),
+            default_similarity_threshold=_validated_threshold(payload.get("defaultSimilarityThreshold"), DEFAULT_WORKSPACE_THRESHOLD),
+            semantic_threshold=_validated_threshold(payload.get("semanticThreshold"), DEFAULT_SEMANTIC_THRESHOLD),
             created_by_legacy_user_id=actor.get("legacy_user_id"),
             created_at=utcnow(),
         )
@@ -254,7 +279,10 @@ def add_workspace_member(workspace_id: int):
     with session_scope() as db_session:
         actor = resolve_actor(db_session)
         require_workspace_access(db_session, workspace_id, actor, "admin")
-        legacy_user_id = int(payload.get("legacyUserId") or 0)
+        try:
+            legacy_user_id = int(payload.get("legacyUserId") or 0)
+        except (TypeError, ValueError):
+            raise EnterpriseError(400, "legacyUserId must be an integer.", code="invalid_input")
         role = (payload.get("role") or "student").strip().lower()
         if role not in ROLE_ORDER:
             raise EnterpriseError(400, "Invalid workspace role.", code="invalid_workspace_role")
@@ -505,7 +533,7 @@ def update_case(case_id: int):
         require_workspace_access(db_session, review_case.workspace_id, actor, "reviewer")
         if "status" in payload:
             new_status = (payload.get("status") or review_case.status).strip().lower()
-            if new_status not in ("open", "confirmed", "disputed", "resolved", "dismissed"):
+            if new_status not in ("open", "confirmed", "disputed", "resolved", "dismissed", "confirmed_clone", "false_positive"):
                 raise EnterpriseError(400, "Invalid case status.", code="invalid_case_status")
             review_case.status = new_status
         if "severity" in payload:
@@ -515,7 +543,10 @@ def update_case(case_id: int):
             review_case.severity = new_severity
         if "assignedToLegacyUserId" in payload:
             assigned_to = payload.get("assignedToLegacyUserId")
-            review_case.assigned_to_legacy_user_id = int(assigned_to) if assigned_to else None
+            try:
+                review_case.assigned_to_legacy_user_id = int(assigned_to) if assigned_to else None
+            except (TypeError, ValueError):
+                raise EnterpriseError(400, "assignedToLegacyUserId must be an integer.", code="invalid_input")
         if "resolutionLabel" in payload:
             review_case.resolution_label = (payload.get("resolutionLabel") or "").strip() or None
         if "resolutionNotes" in payload:
@@ -546,7 +577,7 @@ def create_feedback(case_id: int):
                 case_id=review_case.id,
                 legacy_user_id=actor.get("legacy_user_id"),
                 label=label,
-                confidence_override=float(payload["confidenceOverride"]) if payload.get("confidenceOverride") is not None else None,
+                confidence_override=_validated_threshold(payload["confidenceOverride"], 0.0) if payload.get("confidenceOverride") is not None else None,
                 notes_encrypted=storage.encrypt_text((payload.get("notes") or "").strip() or None),
                 created_at=utcnow(),
             )
@@ -594,7 +625,7 @@ def create_policy_set(workspace_id: int):
                 name=(rule_payload.get("name") or "").strip() or "Policy Rule",
                 condition_type=(rule_payload.get("conditionType") or "similarity_score").strip(),
                 comparator=(rule_payload.get("comparator") or ">=").strip(),
-                threshold_value=float(rule_payload.get("thresholdValue") or DEFAULT_WORKSPACE_THRESHOLD),
+                threshold_value=_validated_threshold(rule_payload.get("thresholdValue"), DEFAULT_WORKSPACE_THRESHOLD),
                 clone_types_json=dumps(rule_payload.get("cloneTypes") or []),
                 action=(rule_payload.get("action") or "create_case").strip(),
                 severity=(rule_payload.get("severity") or "medium").strip().lower(),
@@ -626,7 +657,7 @@ def create_api_credential(workspace_id: int):
             scopes_json=dumps(scopes),
             created_by_legacy_user_id=actor.get("legacy_user_id"),
             created_at=utcnow(),
-            expires_at=utcnow() + dt.timedelta(days=int(payload.get("expiresInDays") or 365)),
+            expires_at=_validated_expires_at(payload),
         )
         db_session.add(api_credential)
         db_session.flush()
@@ -670,7 +701,9 @@ def github_webhook(repository_id: int):
         github_signature = (request.headers.get("X-Hub-Signature-256") or "").strip()
         if not github_signature:
             raise EnterpriseError(401, "Missing webhook signature", code="missing_webhook_signature")
-        if not verify_hmac_signature(secret_header.split(".", 1)[1], payload_bytes, github_signature, "sha256"):
+        secret_parts = secret_header.split(".", 1)
+        hmac_key = secret_parts[1] if len(secret_parts) > 1 else secret_header
+        if not verify_hmac_signature(hmac_key, payload_bytes, github_signature, "sha256"):
             raise EnterpriseError(401, "Invalid GitHub webhook signature.", code="invalid_github_signature")
         branch_ref = (payload.get("ref") or "").strip()
         branch = branch_ref.split("/")[-1] if branch_ref else repository.default_branch

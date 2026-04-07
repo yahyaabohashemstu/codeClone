@@ -6,7 +6,6 @@ import hashlib
 import hmac
 from io import BytesIO
 import json
-import math
 import os
 import re
 import secrets

@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           user: null,
           csrfToken: "",
           supportedLanguages: [],
-          ai: null as unknown as SessionResponse["ai"],
+          ai: null,
         });
       })
       .finally(() => setIsLoading(false));

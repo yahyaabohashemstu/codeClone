@@ -18,7 +18,7 @@ export interface SessionResponse {
   user: UserSummary | null;
   csrfToken: string;
   supportedLanguages: string[];
-  ai: AiHealth;
+  ai: AiHealth | null;
 }
 
 export interface HomeResponse {

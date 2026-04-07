@@ -158,7 +158,8 @@ export default function WorkspaceDetail() {
       const ws = list.find((w) => w.id === wsId);
       if (ws) setWorkspace(ws);
     });
-  }, [wsId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wsId, language]);
 
   // Load active tab data
   useEffect(() => {

@@ -37,7 +37,7 @@ class EnterpriseScanWorker:
         with app.app_context():
             with session_scope() as db_session:
                 stale_jobs = db_session.execute(
-                    select(ScanJob).where(ScanJob.status == "running")
+                    select(ScanJob).where(ScanJob.status == "running").with_for_update(skip_locked=True)
                 ).scalars().all()
                 for job in stale_jobs:
                     if job.started_at and job.started_at.replace(tzinfo=None) < cutoff:
