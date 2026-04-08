@@ -650,3 +650,29 @@ def require_json_body() -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise EnterpriseError(400, "JSON request body is required.", code="invalid_json_body")
     return payload
+
+
+def parse_pagination_params(default_limit: int = 25, max_limit: int = 100) -> tuple[int, int, int]:
+    """Parse page and limit from request query parameters. Returns (offset, limit, page)."""
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except (TypeError, ValueError):
+        page = 1
+    try:
+        limit = min(max_limit, max(1, int(request.args.get("limit", default_limit))))
+    except (TypeError, ValueError):
+        limit = default_limit
+    offset = (page - 1) * limit
+    return offset, limit, page
+
+
+def paginated_response(items: list, total: int, page: int, limit: int) -> dict:
+    """Build a standardized paginated response dict."""
+    return {
+        "success": True,
+        "items": items,
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "hasMore": (page * limit) < total,
+    }

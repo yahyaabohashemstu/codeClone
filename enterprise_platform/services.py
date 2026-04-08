@@ -664,6 +664,59 @@ def fetch_case_bundle(db_session, case_id: int) -> tuple[ReviewCase, SimilarityM
     return review_case, match, artifacts, evidence_rows
 
 
+def fetch_case_bundles_batch(
+    db_session, cases: list[ReviewCase]
+) -> list[tuple[ReviewCase, SimilarityMatch, dict[int, CodeArtifact], list[ReviewEvidence]]]:
+    """Batch-load all related data for a list of review cases in 3 queries (not 3N)."""
+    if not cases:
+        return []
+
+    # 1) Load all matches in one query
+    match_ids = [c.match_id for c in cases if c.match_id]
+    matches_by_id: dict[int, SimilarityMatch] = {}
+    if match_ids:
+        match_rows = db_session.execute(
+            select(SimilarityMatch).where(SimilarityMatch.id.in_(match_ids))
+        ).scalars().all()
+        matches_by_id = {m.id: m for m in match_rows}
+
+    # 2) Load all artifacts referenced by those matches in one query
+    artifact_ids: set[int] = set()
+    for m in matches_by_id.values():
+        artifact_ids.add(m.artifact_a_id)
+        artifact_ids.add(m.artifact_b_id)
+    artifacts_by_id: dict[int, CodeArtifact] = {}
+    if artifact_ids:
+        artifact_rows = db_session.execute(
+            select(CodeArtifact).where(CodeArtifact.id.in_(artifact_ids))
+        ).scalars().all()
+        artifacts_by_id = {a.id: a for a in artifact_rows}
+
+    # 3) Load all evidence for these cases in one query
+    case_ids = [c.id for c in cases]
+    evidence_by_case: dict[int, list[ReviewEvidence]] = defaultdict(list)
+    if case_ids:
+        evidence_rows = db_session.execute(
+            select(ReviewEvidence).where(ReviewEvidence.case_id.in_(case_ids))
+        ).scalars().all()
+        for ev in evidence_rows:
+            evidence_by_case[ev.case_id].append(ev)
+
+    # Assemble bundles
+    bundles = []
+    for case in cases:
+        match = matches_by_id.get(case.match_id)
+        if not match:
+            continue
+        case_artifacts = {
+            aid: artifacts_by_id[aid]
+            for aid in (match.artifact_a_id, match.artifact_b_id)
+            if aid in artifacts_by_id
+        }
+        bundles.append((case, match, case_artifacts, evidence_by_case.get(case.id, [])))
+    return bundles
+
+
 def build_review_case_report_payload(
     db_session,
     review_case: ReviewCase,

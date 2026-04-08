@@ -1,3 +1,9 @@
+/**
+ * DEPRECATED: This serverless function is no longer used.
+ * The Flask backend must be deployed separately (e.g., Railway, Render, Fly.io, Docker).
+ * The React frontend is deployed as static files on Netlify.
+ * See README.md for deployment instructions.
+ */
 const http = require('http');
 const net = require('net');
 const path = require('path');

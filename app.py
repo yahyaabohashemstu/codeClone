@@ -165,9 +165,12 @@ def clear_analysis_progress(user_id):
         analysis_progress.pop(user_id, None)
 
 
-def set_current_user_progress(stage, progress=None):
-    if getattr(current_user, 'is_authenticated', False):
-        update_analysis_progress(current_user.id, stage, progress)
+def set_current_user_progress(stage, progress=None, user_id=None):
+    uid = user_id
+    if uid is None and has_request_context() and getattr(current_user, 'is_authenticated', False):
+        uid = current_user.id
+    if uid:
+        update_analysis_progress(uid, stage, progress)
 
 
 
@@ -498,13 +501,64 @@ def initialize_database():
         ensure_default_admin()
 
 
-# Temporary storage for storing analysis results for current session.
-# OrderedDict gives O(1) LRU eviction: when the cache exceeds _MAX_CACHED_USERS
-# the oldest entry is discarded, bounding memory independently of logout behaviour.
+# ──────────────────────────────────────────────────────────────────────────────
+# In-memory LRU analysis cache
+#
+# Stores the most recent analysis result and context for up to _MAX_CACHED_USERS
+# users. OrderedDict provides O(1) LRU eviction: when the cache exceeds the
+# limit, the oldest (least-recently-used) entry is discarded.
+#
+# Thread safety: all reads/writes are guarded by `results_lock`.
+#
+# Limitations (single-instance only):
+#   - Data is lost on server restart
+#   - Not shared across multiple server processes/instances
+#   - Memory usage: ~2-5 MB per cached user (code + base64 chart images)
+#   - At 200 users: up to ~1 GB worst case
+#
+# Production upgrade path (Redis):
+#   1. pip install redis
+#   2. Replace OrderedDict with Redis HASH (HSET/HGET per user)
+#   3. Use Redis EXPIRE for automatic TTL (e.g., 1 hour)
+#   4. Set maxmemory-policy to allkeys-lru for automatic eviction
+#   5. Configure via REDIS_URL environment variable
+#   6. This enables multi-instance deployments behind a load balancer
+# ──────────────────────────────────────────────────────────────────────────────
 _MAX_CACHED_USERS = 200
 user_results: OrderedDict = OrderedDict()
 user_analysis_contexts: OrderedDict = OrderedDict()
 results_lock = threading.Lock()
+
+# Background analysis task tracking
+_analysis_tasks: dict[str, dict] = {}
+_analysis_tasks_lock = threading.Lock()
+_analysis_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="bg-analysis")
+
+
+def _run_analysis_background(task_id: str, user_id: int, code1: str, code2: str, language: str):
+    """Execute analysis in a background thread."""
+    try:
+        with app.app_context():
+            context = build_analysis_context(code1, code2, language, persist_analysis=True, _bg_user_id=user_id)
+            with _analysis_tasks_lock:
+                _analysis_tasks[task_id] = {
+                    'status': 'completed',
+                    'result': context,
+                    'user_id': user_id,
+                    'completed_at': datetime.datetime.utcnow(),
+                }
+    except Exception as exc:
+        app.logger.error("Background analysis failed: %s", exc, exc_info=True)
+        with _analysis_tasks_lock:
+            _analysis_tasks[task_id] = {
+                'status': 'failed',
+                'error': 'An error occurred during analysis. Please try again.',
+                'user_id': user_id,
+                'completed_at': datetime.datetime.utcnow(),
+            }
+    finally:
+        clear_analysis_progress(user_id)
+
 
 @app.route('/login', methods=['GET'])
 def login():
@@ -1375,9 +1429,9 @@ def analyze_code_pairs(detector, code_pairs):
                 results.append((code1, code2, str(e)))
     return results
 
-def analyze_similarities(detector, code1, code2, clean_code1=None, clean_code2=None):
+def analyze_similarities(detector, code1, code2, clean_code1=None, clean_code2=None, _bg_user_id=None):
     """Analyze similarities between two code snippets."""
-    set_current_user_progress('Similarity analysis: preprocessing', 5)
+    set_current_user_progress('Similarity analysis: preprocessing', 5, user_id=_bg_user_id)
 
     try:
         if clean_code1 is None:
@@ -1385,7 +1439,7 @@ def analyze_similarities(detector, code1, code2, clean_code1=None, clean_code2=N
         if clean_code2 is None:
             clean_code2 = detector.remove_comments_and_whitespace(code2)
 
-        set_current_user_progress('Similarity analysis: computing base similarity scores', 20)
+        set_current_user_progress('Similarity analysis: computing base similarity scores', 20, user_id=_bg_user_id)
         text_sim = detector.text_similarity(code1, code2)
         token_sim = detector.token_similarity(code1, code2)
         token_sim_without_comments = detector.token_similarity(clean_code1, clean_code2)
@@ -1405,17 +1459,17 @@ def analyze_similarities(detector, code1, code2, clean_code1=None, clean_code2=N
         gapped_clone_result = detector.gapped_clone_similarity(code1, code2)
         intertwined_clone_result = detector.intertwined_clone_similarity(code1, code2)
 
-        set_current_user_progress('Similarity analysis: advanced clone metrics', 60)
+        set_current_user_progress('Similarity analysis: advanced clone metrics', 60, user_id=_bg_user_id)
         semantic_clone_result = detector.semantic_clone_similarity(code1, code2)
         graph_sim = detector.graph_similarity(code1, code2)
 
-        set_current_user_progress('Similarity analysis: combining metrics', 75)
+        set_current_user_progress('Similarity analysis: combining metrics', 75, user_id=_bg_user_id)
         combined_similarity = detector.combined_similarity(code1, code2)
 
-        set_current_user_progress('Similarity analysis: AI similarity scoring', 85)
+        set_current_user_progress('Similarity analysis: AI similarity scoring', 85, user_id=_bg_user_id)
         ai_similarity_score = detector.ai_based_similarity(code1, code2)
 
-        set_current_user_progress('Similarity analysis: finished calculations', 90)
+        set_current_user_progress('Similarity analysis: finished calculations', 90, user_id=_bg_user_id)
         return {
             "text_sim": text_sim,
             "token_sim": token_sim,
@@ -2075,11 +2129,11 @@ def build_analysis_context_from_snapshot(analysis, snapshot_payload):
     return context
 
 
-def build_analysis_context(code1, code2, language, persist_analysis, analysis_text_override=None, snapshot_target_analysis=None):
-    set_current_user_progress('Starting analysis', 0)
+def build_analysis_context(code1, code2, language, persist_analysis, analysis_text_override=None, snapshot_target_analysis=None, _bg_user_id=None):
+    set_current_user_progress('Starting analysis', 0, user_id=_bg_user_id)
     detector = clone_detectors.get(language)
     if not detector:
-        set_current_user_progress('Unsupported language', 0)
+        set_current_user_progress('Unsupported language', 0, user_id=_bg_user_id)
         return {
             'language': language,
             'code1': code1,
@@ -2100,9 +2154,9 @@ def build_analysis_context(code1, code2, language, persist_analysis, analysis_te
     try:
         clean_code1 = detector.remove_comments_and_whitespace(code1)
         clean_code2 = detector.remove_comments_and_whitespace(code2)
-        similarities = analyze_similarities(detector, code1, code2, clean_code1, clean_code2)
+        similarities = analyze_similarities(detector, code1, code2, clean_code1, clean_code2, _bg_user_id=_bg_user_id)
     except Exception as exc:
-        set_current_user_progress('Error during analysis', 0)
+        set_current_user_progress('Error during analysis', 0, user_id=_bg_user_id)
         return {
             'language': language,
             'code1': code1,
@@ -2141,7 +2195,7 @@ def build_analysis_context(code1, code2, language, persist_analysis, analysis_te
     combined_similarity = similarities['combined_similarity']
     ai_similarity_score = float(similarities['ai_similarity_score'] * 100)
 
-    set_current_user_progress('Computing code metrics', 70)
+    set_current_user_progress('Computing code metrics', 70, user_id=_bg_user_id)
     metrics1 = detector.get_metrics(code1, language)
     metrics2 = detector.get_metrics(code2, language)
 
@@ -2200,7 +2254,7 @@ def build_analysis_context(code1, code2, language, persist_analysis, analysis_te
     buf = create_similarity_chart(values_list1)
     chart_url = base64.b64encode(buf.getvalue()).decode('utf-8')
 
-    set_current_user_progress('Generating code graph data', 80)
+    set_current_user_progress('Generating code graph data', 80, user_id=_bg_user_id)
     graph_json1 = []
     if code1:
         graph_json1 = nx.cytoscape_data(detector.code_to_graph(code1))['elements']
@@ -2209,7 +2263,7 @@ def build_analysis_context(code1, code2, language, persist_analysis, analysis_te
     if code2:
         graph_json2 = nx.cytoscape_data(detector.code_to_graph(code2))['elements']
 
-    set_current_user_progress('Generating AI analysis text', 90)
+    set_current_user_progress('Generating AI analysis text', 90, user_id=_bg_user_id)
     analysis_structured = None
     if analysis_text_override is not None:
         analysis_text = analysis_text_override
@@ -2252,10 +2306,12 @@ def build_analysis_context(code1, code2, language, persist_analysis, analysis_te
         'saved_analysis_id': None,
     }
 
+    _effective_user_id = _bg_user_id or (current_user.id if getattr(current_user, 'is_authenticated', False) else None)
+
     if persist_analysis:
         snapshot_payload = build_analysis_snapshot(response_context)
         analysis = Analysis(
-            user_id=current_user.id,
+            user_id=_effective_user_id,
             operation='code clone analysis',
             result='successful',
             language=language,
@@ -2279,10 +2335,10 @@ def build_analysis_context(code1, code2, language, persist_analysis, analysis_te
     else:
         response_context['summary'] = None
 
-    if getattr(current_user, 'is_authenticated', False):
-        cache_analysis_context_for_user(current_user.id, response_context)
+    if _effective_user_id:
+        cache_analysis_context_for_user(_effective_user_id, response_context)
 
-    set_current_user_progress('Analysis complete', 100)
+    set_current_user_progress('Analysis complete', 100, user_id=_bg_user_id)
 
     return response_context
 
@@ -2380,7 +2436,40 @@ def api_session():
 @login_required
 def api_analysis_progress():
     progress = get_analysis_progress_for_user(current_user.id)
+
+    # Check for active/completed/failed background tasks for this user
+    with _analysis_tasks_lock:
+        for tid, task in _analysis_tasks.items():
+            if task.get('user_id') == current_user.id:
+                progress['taskId'] = tid
+                progress['taskStatus'] = task['status']
+                break
+
     return jsonify(progress)
+
+
+@app.route('/api/analysis/task/<task_id>', methods=['GET'])
+@login_required
+def api_analysis_task(task_id):
+    with _analysis_tasks_lock:
+        task = _analysis_tasks.get(task_id)
+
+    if not task or task.get('user_id') != current_user.id:
+        return jsonify({'error': 'Task not found.'}), 404
+
+    if task['status'] == 'running':
+        return jsonify({'status': 'running'}), 202
+
+    if task['status'] == 'failed':
+        with _analysis_tasks_lock:
+            _analysis_tasks.pop(task_id, None)
+        return jsonify({'status': 'failed', 'error': task.get('error', 'Analysis failed.')}), 200
+
+    # Completed -- return result and clean up
+    result = task.get('result', {})
+    with _analysis_tasks_lock:
+        _analysis_tasks.pop(task_id, None)
+    return jsonify(result), 200
 
 
 @app.route('/api/home', methods=['GET'])
@@ -2499,15 +2588,43 @@ def api_analysis():
             has_results=False,
         )), 400
 
-    context = build_analysis_context(code1, code2, language, persist_analysis=True)
-    if context.get('has_results'):
-        return jsonify(context), 200
+    # Validate language
+    if language not in clone_detectors:
+        return jsonify(build_error_response_payload(
+            'Unsupported language selected.',
+            language=language,
+            code1=code1,
+            code2=code2,
+            has_results=False,
+        )), 400
 
-    message = context.get('error_message') or 'Analysis failed.'
-    return jsonify({
-        **context,
-        **build_error_response_payload(message),
-    }), 400
+    # Validate that both code inputs are provided
+    if not code1 or not code2:
+        return jsonify(build_error_response_payload(
+            'Please provide both code inputs before running the analysis.',
+            language=language,
+            code1=code1,
+            code2=code2,
+            has_results=False,
+        )), 400
+
+    # Clean up stale background tasks (older than 30 minutes)
+    cutoff = datetime.datetime.utcnow() - datetime.timedelta(minutes=30)
+    with _analysis_tasks_lock:
+        stale = [k for k, v in _analysis_tasks.items() if v.get('completed_at') and v['completed_at'] < cutoff]
+        for k in stale:
+            del _analysis_tasks[k]
+
+    user_id = current_user.id
+    task_id = secrets.token_hex(16)
+
+    with _analysis_tasks_lock:
+        _analysis_tasks[task_id] = {'status': 'running', 'user_id': user_id}
+
+    set_current_user_progress('Starting analysis...', 0)
+    _analysis_executor.submit(_run_analysis_background, task_id, user_id, code1, code2, language)
+
+    return jsonify({'success': True, 'taskId': task_id, 'status': 'accepted'}), 202
 
 
 @app.route('/api/analysis/current', methods=['GET'])

@@ -5,7 +5,7 @@ from io import BytesIO
 from typing import Any
 
 from flask import Blueprint, current_app, jsonify, request, send_file
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from enterprise_platform.models import *
@@ -68,11 +68,8 @@ def graphql_dispatch(db_session, actor: dict[str, Any], query: str, variables: d
         workspace_id = _require_int_variable(variables, "workspaceId")
         require_workspace_access(db_session, workspace_id, actor, "reviewer")
         review_cases = db_session.execute(select(ReviewCase).where(ReviewCase.workspace_id == workspace_id).order_by(ReviewCase.created_at.desc())).scalars().all()
-        payload = []
-        for review_case in review_cases:
-            case_bundle = fetch_case_bundle(db_session, review_case.id)
-            payload.append(serialize_review_case(*case_bundle))
-        return {"reviewCases": payload}
+        bundles = fetch_case_bundles_batch(db_session, review_cases)
+        return {"reviewCases": [serialize_review_case(*bundle) for bundle in bundles]}
     if root_field == "analytics":
         workspace_id = _require_int_variable(variables, "workspaceId")
         require_workspace_access(db_session, workspace_id, actor, "reviewer")
@@ -199,19 +196,30 @@ def create_organization():
 def list_workspaces():
     with session_scope() as db_session:
         actor = resolve_actor(db_session)
+        offset, limit, page = parse_pagination_params()
         if actor.get("is_admin"):
-            workspaces = db_session.execute(select(Workspace).order_by(Workspace.created_at.desc())).scalars().all()
+            base_query = select(Workspace)
+            total = db_session.execute(select(func.count()).select_from(base_query.subquery())).scalar() or 0
+            workspaces = db_session.execute(base_query.order_by(Workspace.created_at.desc()).offset(offset).limit(limit)).scalars().all()
             memberships = {}
         else:
-            rows = db_session.execute(
+            base_query = (
                 select(Workspace, WorkspaceMembership)
                 .join(WorkspaceMembership, WorkspaceMembership.workspace_id == Workspace.id)
                 .where(WorkspaceMembership.legacy_user_id == actor.get("legacy_user_id"), WorkspaceMembership.is_active.is_(True))
-                .order_by(Workspace.created_at.desc())
-            ).all()
+            )
+            count_query = (
+                select(func.count())
+                .select_from(Workspace)
+                .join(WorkspaceMembership, WorkspaceMembership.workspace_id == Workspace.id)
+                .where(WorkspaceMembership.legacy_user_id == actor.get("legacy_user_id"), WorkspaceMembership.is_active.is_(True))
+            )
+            total = db_session.execute(count_query).scalar() or 0
+            rows = db_session.execute(base_query.order_by(Workspace.created_at.desc()).offset(offset).limit(limit)).all()
             workspaces = [row[0] for row in rows]
             memberships = {row[0].id: row[1] for row in rows}
-        return jsonify({"success": True, "items": [serialize_workspace(workspace, memberships.get(workspace.id)) for workspace in workspaces]})
+        serialized = [serialize_workspace(workspace, memberships.get(workspace.id)) for workspace in workspaces]
+        return jsonify(paginated_response(serialized, total, page, limit))
 
 
 @api_bp.route(f"{ENTERPRISE_PUBLIC_PREFIX}/workspaces", methods=["POST"])
@@ -466,15 +474,22 @@ def list_cases(workspace_id: int):
         actor = resolve_actor(db_session)
         require_workspace_access(db_session, workspace_id, actor, "reviewer")
         status_filter = (request.args.get("status") or "").strip().lower()
-        query = select(ReviewCase).where(ReviewCase.workspace_id == workspace_id)
+        base_query = select(ReviewCase).where(ReviewCase.workspace_id == workspace_id)
         if status_filter:
-            query = query.where(ReviewCase.status == status_filter)
-        cases = db_session.execute(query.order_by(ReviewCase.created_at.desc())).scalars().all()
-        serialized = []
-        for review_case in cases:
-            case_bundle = fetch_case_bundle(db_session, review_case.id)
-            serialized.append(serialize_review_case(*case_bundle))
-        return jsonify({"success": True, "items": serialized})
+            base_query = base_query.where(ReviewCase.status == status_filter)
+
+        # Count total
+        total = db_session.execute(select(func.count()).select_from(base_query.subquery())).scalar() or 0
+
+        # Paginate
+        offset, limit, page = parse_pagination_params()
+        cases = db_session.execute(
+            base_query.order_by(ReviewCase.created_at.desc()).offset(offset).limit(limit)
+        ).scalars().all()
+
+        bundles = fetch_case_bundles_batch(db_session, cases)
+        serialized = [serialize_review_case(*bundle) for bundle in bundles]
+        return jsonify(paginated_response(serialized, total, page, limit))
 
 
 @api_bp.route(f"{ENTERPRISE_PUBLIC_PREFIX}/cases/<int:case_id>", methods=["GET"])

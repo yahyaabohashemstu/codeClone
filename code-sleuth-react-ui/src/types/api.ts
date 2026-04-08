@@ -109,6 +109,8 @@ export interface AnalysisProgressResponse {
   stage: string;
   progress: number | null;
   timestamp: string;
+  taskId?: string;
+  taskStatus?: "running" | "completed" | "failed";
 }
 
 export interface HistoryResponse {

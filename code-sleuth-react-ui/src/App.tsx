@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,19 +12,20 @@ import { AnalysisProvider } from "@/context/AnalysisContext";
 import { LanguageProvider } from "@/context/LanguageContext";
 import { ProtectedRoute } from "@/components/guards/ProtectedRoute";
 import { MainLayout } from "@/components/layout/MainLayout";
-import Home from "@/pages/Home";
-import Analysis from "@/pages/Analysis";
-import Analytics from "@/pages/Analytics";
-import Results from "@/pages/Results";
-import Auth from "@/pages/Auth";
-import Chat from "@/pages/Chat";
-import Help from "@/pages/Help";
-import History from "@/pages/History";
-import NotFound from "@/pages/NotFound";
-import Workspaces from "@/pages/enterprise/Workspaces";
-import WorkspaceDetail from "@/pages/enterprise/WorkspaceDetail";
-import ReviewCases from "@/pages/enterprise/ReviewCases";
-import CaseDetail from "@/pages/enterprise/CaseDetail";
+
+const Home = lazy(() => import("@/pages/Home"));
+const Analysis = lazy(() => import("@/pages/Analysis"));
+const Analytics = lazy(() => import("@/pages/Analytics"));
+const Results = lazy(() => import("@/pages/Results"));
+const Auth = lazy(() => import("@/pages/Auth"));
+const Chat = lazy(() => import("@/pages/Chat"));
+const Help = lazy(() => import("@/pages/Help"));
+const History = lazy(() => import("@/pages/History"));
+const NotFound = lazy(() => import("@/pages/NotFound"));
+const Workspaces = lazy(() => import("@/pages/enterprise/Workspaces"));
+const WorkspaceDetail = lazy(() => import("@/pages/enterprise/WorkspaceDetail"));
+const ReviewCases = lazy(() => import("@/pages/enterprise/ReviewCases"));
+const CaseDetail = lazy(() => import("@/pages/enterprise/CaseDetail"));
 
 const queryClient = new QueryClient();
 
@@ -40,6 +42,11 @@ const App = () => (
                 <DocumentTitleSync />
                 <MainLayout>
                   <ErrorBoundary>
+                  <Suspense fallback={
+                    <div className="flex min-h-[60vh] items-center justify-center">
+                      <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                    </div>
+                  }>
                   <Routes>
                     <Route path="/" element={<Home />} />
                     <Route path="/help" element={<Help />} />
@@ -119,6 +126,7 @@ const App = () => (
                     />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
+                  </Suspense>
                   </ErrorBoundary>
                 </MainLayout>
               </BrowserRouter>

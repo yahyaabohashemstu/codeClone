@@ -100,36 +100,73 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }) {
       progressPollRef.current = null;
     }
 
-    const schedulePoll = () => {
-      progressPollRef.current = window.setTimeout(async () => {
-        try {
-          const progress = await apiFetch<AnalysisProgressResponse>("/api/analysis/progress");
-          setAnalysisProgress(progress);
-        } catch {
-          // ignore polling errors
-        }
-        if (progressPollRef.current !== null) {
-          schedulePoll();
-        }
-      }, 1000);
-    };
-    schedulePoll();
+    // Submit analysis -- returns immediately with taskId (HTTP 202)
+    await apiFetch<{ taskId: string; status: string }>("/api/analysis", {
+      method: "POST",
+      body: formData,
+    });
 
-    try {
-      const result = await apiFetch<AnalysisResult>("/api/analysis", {
-        method: "POST",
-        body: formData,
-      });
-      setCurrentResult(result);
-      return result;
-    } finally {
-      setIsAnalyzing(false);
-      if (progressPollRef.current !== null) {
-        clearTimeout(progressPollRef.current);
-        progressPollRef.current = null;
-      }
-      setAnalysisProgress(null);
-    }
+    // Poll for progress and completion
+    return new Promise<AnalysisResult>((resolve, reject) => {
+      const schedulePoll = () => {
+        progressPollRef.current = window.setTimeout(async () => {
+          try {
+            const progress = await apiFetch<AnalysisProgressResponse>("/api/analysis/progress");
+            setAnalysisProgress(progress);
+
+            if (progress.taskStatus === "completed" && progress.taskId) {
+              // Fetch the result
+              try {
+                const result = await apiFetch<AnalysisResult>(`/api/analysis/task/${progress.taskId}`);
+                setCurrentResult(result);
+                setIsAnalyzing(false);
+                if (progressPollRef.current !== null) {
+                  clearTimeout(progressPollRef.current);
+                  progressPollRef.current = null;
+                }
+                setAnalysisProgress(null);
+                resolve(result);
+                return;
+              } catch {
+                setIsAnalyzing(false);
+                if (progressPollRef.current !== null) {
+                  clearTimeout(progressPollRef.current);
+                  progressPollRef.current = null;
+                }
+                setAnalysisProgress(null);
+                reject(new Error("Failed to retrieve analysis results."));
+                return;
+              }
+            }
+
+            if (progress.taskStatus === "failed" && progress.taskId) {
+              // Clean up the failed task by fetching it (server removes it on fetch)
+              try {
+                await apiFetch(`/api/analysis/task/${progress.taskId}`);
+              } catch {
+                // ignore cleanup errors
+              }
+              setIsAnalyzing(false);
+              if (progressPollRef.current !== null) {
+                clearTimeout(progressPollRef.current);
+                progressPollRef.current = null;
+              }
+              setAnalysisProgress(null);
+              reject(new Error("Analysis failed. Please try again."));
+              return;
+            }
+          } catch {
+            // ignore polling errors
+          }
+
+          if (progressPollRef.current !== null) {
+            schedulePoll();
+          }
+        }, 1000);
+      };
+
+      schedulePoll();
+    });
   }, [setCurrentResult]);
 
   const loadCurrent = useCallback(async () => {
