@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   AlertCircle,
   ChevronRight,
@@ -7,13 +8,12 @@ import {
   Scale,
   Search,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { useLanguage } from "@/context/LanguageContext";
 import { listWorkspaces, listCases } from "@/lib/enterpriseApi";
-import type { EnterpriseCase, CaseStatus, CaseSeverity, EnterpriseWorkspace } from "@/types/enterprise";
+import type { EnterpriseCase, CaseStatus, EnterpriseWorkspace } from "@/types/enterprise";
 import { cn } from "@/lib/utils";
 
 const STATUS_BADGE: Record<CaseStatus, string> = {
@@ -25,7 +25,7 @@ const STATUS_BADGE: Record<CaseStatus, string> = {
   resolved: "bg-green-500/15 text-green-600",
 };
 
-const SEVERITY_DOT: Record<CaseSeverity, string> = {
+const SEVERITY_DOT: Record<string, string> = {
   critical: "bg-red-500",
   high: "bg-orange-500",
   medium: "bg-yellow-500",
@@ -37,9 +37,8 @@ const ALL_STATUSES: Array<CaseStatus | "all"> = [
 ];
 
 export default function ReviewCases() {
-  const { language, isRTL } = useLanguage();
-  const { toast } = useToast();
-  const ar = language === "ar";
+  const { isRTL } = useLanguage();
+  const { t } = useTranslation("enterprise");
 
   const [workspaces, setWorkspaces] = useState<EnterpriseWorkspace[]>([]);
   const [selectedWs, setSelectedWs] = useState<string>("all");
@@ -49,62 +48,12 @@ export default function ReviewCases() {
   const [statusFilter, setStatusFilter] = useState<CaseStatus | "all">("all");
   const [search, setSearch] = useState("");
 
-  const copy = ar
-    ? {
-        title: "قضايا المراجعة",
-        subtitle: "راجع وأدر جميع قضايا التشابه المكتشفة عبر مساحات العمل",
-        allWorkspaces: "كل مساحات العمل",
-        allStatuses: "كل الحالات",
-        searchPlaceholder: "بحث بالمسار أو الملف...",
-        status: {
-          all: "الكل",
-          open: "مفتوحة",
-          in_review: "قيد المراجعة",
-          confirmed_clone: "نسخ مؤكد",
-          false_positive: "إيجابية خاطئة",
-          dismissed: "مرفوضة",
-          resolved: "محلولة",
-        },
-        severity: { critical: "حرج", high: "عالي", medium: "متوسط", low: "منخفض" },
-        confidence: "الثقة",
-        cloneType: "نوع النسخ",
-        workspace: "مساحة العمل",
-        viewCase: "عرض القضية",
-        noCases: "لا توجد قضايا تطابق المرشح الحالي.",
-        loading: "جاري التحميل...",
-        errorMsg: "فشل تحميل القضايا",
-      }
-    : {
-        title: "Review Cases",
-        subtitle: "Review and manage all detected similarity cases across workspaces",
-        allWorkspaces: "All Workspaces",
-        allStatuses: "All Statuses",
-        searchPlaceholder: "Search by path or file...",
-        status: {
-          all: "All",
-          open: "Open",
-          in_review: "In Review",
-          confirmed_clone: "Confirmed Clone",
-          false_positive: "False Positive",
-          dismissed: "Dismissed",
-          resolved: "Resolved",
-        },
-        severity: { critical: "Critical", high: "High", medium: "Medium", low: "Low" },
-        confidence: "Confidence",
-        cloneType: "Clone Type",
-        workspace: "Workspace",
-        viewCase: "View Case",
-        noCases: "No cases match the current filter.",
-        loading: "Loading...",
-        errorMsg: "Failed to load cases",
-      };
-
   // Load workspaces first, then cases
   useEffect(() => {
     listWorkspaces()
       .then(setWorkspaces)
       .catch(() => {});
-  }, [language]);
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -126,12 +75,12 @@ export default function ReviewCases() {
     Promise.all(wsIds.map((id) => listCases(id, statusArg)))
       .then((results) => setCases(results.flat()))
       .catch((e) => {
-        setError(e?.message ?? copy.errorMsg);
-        toast({ variant: "destructive", title: copy.errorMsg, description: e?.message });
+        setError(e?.message ?? t("enterprise.cases.errorMsg"));
+        toast.error(t("enterprise.cases.errorMsg"), { description: e?.message });
       })
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedWs, statusFilter, workspaces, toast, language]);
+  }, [selectedWs, statusFilter, workspaces, t]);
 
   const filtered = cases.filter((c) => {
     if (!search.trim()) return true;
@@ -147,9 +96,9 @@ export default function ReviewCases() {
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold text-foreground">
           <Scale className="h-6 w-6 text-primary" />
-          {copy.title}
+          {t("enterprise.cases.title")}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{copy.subtitle}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{t("enterprise.cases.subtitle")}</p>
       </div>
 
       {/* Filters */}
@@ -157,10 +106,10 @@ export default function ReviewCases() {
         {/* Workspace picker */}
         <Select value={selectedWs} onValueChange={setSelectedWs}>
           <SelectTrigger className="w-52">
-            <SelectValue placeholder={copy.allWorkspaces} />
+            <SelectValue placeholder={t("enterprise.cases.allWorkspaces")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">{copy.allWorkspaces}</SelectItem>
+            <SelectItem value="all">{t("enterprise.cases.allWorkspaces")}</SelectItem>
             {workspaces.map((ws) => (
               <SelectItem key={ws.id} value={String(ws.id)}>{ws.name}</SelectItem>
             ))}
@@ -170,11 +119,11 @@ export default function ReviewCases() {
         {/* Status picker */}
         <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as CaseStatus | "all")}>
           <SelectTrigger className="w-44">
-            <SelectValue placeholder={copy.allStatuses} />
+            <SelectValue placeholder={t("enterprise.cases.allStatuses")} />
           </SelectTrigger>
           <SelectContent>
             {ALL_STATUSES.map((s) => (
-              <SelectItem key={s} value={s}>{copy.status[s]}</SelectItem>
+              <SelectItem key={s} value={s}>{t(`enterprise.status.${s}`)}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -185,7 +134,7 @@ export default function ReviewCases() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={copy.searchPlaceholder}
+            placeholder={t("enterprise.cases.searchPlaceholder")}
             className={isRTL ? "pr-9" : "pl-9"}
           />
         </div>
@@ -195,7 +144,7 @@ export default function ReviewCases() {
       {loading ? (
         <div className="flex items-center gap-2 justify-center py-16 text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
-          {copy.loading}
+          {t("enterprise.common.loading")}
         </div>
       ) : error ? (
         <div className="flex items-center gap-2 justify-center py-16 text-destructive">
@@ -205,14 +154,14 @@ export default function ReviewCases() {
       ) : filtered.length === 0 ? (
         <div className="card-premium flex flex-col items-center gap-3 py-16 text-center">
           <Scale className="h-10 w-10 text-muted-foreground/30" />
-          <p className="text-muted-foreground">{copy.noCases}</p>
+          <p className="text-muted-foreground">{t("enterprise.cases.noCases")}</p>
         </div>
       ) : (
         <div className="space-y-2">
           {filtered.map((c) => {
             const wsName = workspaces.find((w) => w.id === c.workspaceId)?.name;
-            const pathA = c.match?.artifactA?.logicalPath ?? "—";
-            const pathB = c.match?.artifactB?.logicalPath ?? "—";
+            const pathA = c.match?.artifactA?.logicalPath ?? "\u2014";
+            const pathB = c.match?.artifactB?.logicalPath ?? "\u2014";
             return (
               <Link key={c.id} to={`/enterprise/cases/${c.id}`} className="block group">
                 <div className="card-premium flex items-start gap-4 p-4 transition-all duration-150 hover:border-primary/40 hover:shadow-glow-sm">
@@ -235,23 +184,23 @@ export default function ReviewCases() {
                           STATUS_BADGE[c.status] ?? "bg-muted text-muted-foreground",
                         )}
                       >
-                        {copy.status[c.status] ?? c.status}
+                        {t(`enterprise.status.${c.status}`, { defaultValue: c.status })}
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        {copy.cloneType}: <span className="text-foreground font-medium">{c.cloneType}</span>
+                        {t("enterprise.cases.cloneType")}: <span className="text-foreground font-medium">{c.cloneType}</span>
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        {copy.confidence}: <span className="text-foreground font-medium">{Math.round(c.confidenceScore * 100)}%</span>
+                        {t("enterprise.cases.confidence")}: <span className="text-foreground font-medium">{Math.round(c.confidenceScore)}%</span>
                       </span>
                       {wsName && (
                         <span className="text-xs text-muted-foreground">
-                          {copy.workspace}: <span className="text-foreground font-medium">{wsName}</span>
+                          {t("enterprise.cases.workspace")}: <span className="text-foreground font-medium">{wsName}</span>
                         </span>
                       )}
                     </div>
                     <div className="text-xs text-muted-foreground truncate">
                       <span className="font-medium text-foreground">{pathA}</span>
-                      {" ↔ "}
+                      {" \u2194 "}
                       <span className="font-medium text-foreground">{pathB}</span>
                     </div>
                   </div>

@@ -58,21 +58,49 @@ def run_repository_scan(scan_job_id: int) -> None:
                     clone_args = ["git", "clone", "--depth", "1"]
                     if branch:
                         clone_args.extend(["--branch", branch])
-                    clone_args.extend([clone_url, temp_clone_dir])
+                    clone_args.extend(["--no-recurse-submodules", clone_url, temp_clone_dir])
+                    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
                     clone_process = subprocess.run(
                         clone_args,
                         capture_output=True,
                         text=True,
                         timeout=REPOSITORY_SCAN_TIMEOUT_SECONDS,
                         check=False,
+                        env=env,
                     )
+                    if clone_process.returncode != 0 and branch:
+                        # Branch not found — retry with the repo's default branch
+                        current_app.logger.info(
+                            "Branch '%s' not found for repository %s, retrying with default branch.",
+                            branch, repository.id,
+                        )
+                        shutil.rmtree(temp_clone_dir, ignore_errors=True)
+                        temp_clone_dir = tempfile.mkdtemp(prefix="enterprise-repo-")
+                        fallback_args = ["git", "clone", "--depth", "1", "--no-recurse-submodules", clone_url, temp_clone_dir]
+                        clone_process = subprocess.run(
+                            fallback_args,
+                            capture_output=True,
+                            text=True,
+                            timeout=REPOSITORY_SCAN_TIMEOUT_SECONDS,
+                            check=False,
+                            env=env,
+                        )
+                        if clone_process.returncode == 0:
+                            # Detect the actual branch that was cloned
+                            head_result = subprocess.run(
+                                ["git", "-C", temp_clone_dir, "rev-parse", "--abbrev-ref", "HEAD"],
+                                capture_output=True, text=True, timeout=10, check=False,
+                            )
+                            if head_result.returncode == 0:
+                                branch = head_result.stdout.strip()
+                                current_app.logger.info("Cloned with default branch: %s", branch)
                     if clone_process.returncode != 0:
+                        stderr = clone_process.stderr.strip() or clone_process.stdout.strip()
                         current_app.logger.warning(
                             "Git clone failed for repository %s: %s",
-                            repository.id,
-                            clone_process.stderr.strip() or clone_process.stdout.strip(),
+                            repository.id, stderr,
                         )
-                        raise EnterpriseError(502, "Git clone failed.", code="git_clone_failed")
+                        raise EnterpriseError(502, f"Git clone failed: {stderr[:200]}", code="git_clone_failed")
                     repository_root = Path(temp_clone_dir)
                     if commit_sha:
                         checkout_process = subprocess.run(

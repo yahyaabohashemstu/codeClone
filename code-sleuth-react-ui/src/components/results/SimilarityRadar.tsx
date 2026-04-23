@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
   Radar,
   RadarChart,
@@ -12,16 +13,16 @@ import type { SimilarityItem } from "@/types/api";
 
 // Short axis labels that fit the radar chart
 const SHORT_LABELS: Record<string, { en: string; ar: string }> = {
-  "Text Similarity": { en: "Text", ar: "نص" },
-  "Token-Based Similarity": { en: "Token", ar: "توكن" },
-  "Token Similarity (ordered)": { en: "Token\n(ord)", ar: "توكن\nمرتب" },
-  "Token Similarity (ordered, excluding comments and whitespace)": { en: "Token\n(ord-clean)", ar: "توكن\nمرتب-نظيف" },
-  "Token Similarity (unordered, with comments and whitespace)": { en: "Token\n(unord)", ar: "توكن\nغ.مرتب" },
-  "Token Similarity (unordered, excluding comments and whitespace)": { en: "Token\n(unord-clean)", ar: "توكن\nغ.مرتب-نظيف" },
-  "Renamed Clone Similarity": { en: "Renamed", ar: "مُعاد\nالتسمية" },
-  "Graph-Based Similarity": { en: "Graph", ar: "رسم\nبياني" },
-  "Combined Similarity": { en: "Combined", ar: "مجمّع" },
-  "AI Similarity": { en: "AI", ar: "ذكاء\nاصطناعي" },
+  "Text Similarity": { en: "Text", ar: "\u0646\u0635" },
+  "Token-Based Similarity": { en: "Token", ar: "\u062A\u0648\u0643\u0646" },
+  "Token Similarity (ordered)": { en: "Token\n(ord)", ar: "\u062A\u0648\u0643\u0646\n\u0645\u0631\u062A\u0628" },
+  "Token Similarity (ordered, excluding comments and whitespace)": { en: "Token\n(ord-clean)", ar: "\u062A\u0648\u0643\u0646\n\u0645\u0631\u062A\u0628-\u0646\u0638\u064A\u0641" },
+  "Token Similarity (unordered, with comments and whitespace)": { en: "Token\n(unord)", ar: "\u062A\u0648\u0643\u0646\n\u063A.\u0645\u0631\u062A\u0628" },
+  "Token Similarity (unordered, excluding comments and whitespace)": { en: "Token\n(unord-clean)", ar: "\u062A\u0648\u0643\u0646\n\u063A.\u0645\u0631\u062A\u0628-\u0646\u0638\u064A\u0641" },
+  "Renamed Clone Similarity": { en: "Renamed", ar: "\u0645\u064F\u0639\u0627\u062F\n\u0627\u0644\u062A\u0633\u0645\u064A\u0629" },
+  "Graph-Based Similarity": { en: "Graph", ar: "\u0631\u0633\u0645\n\u0628\u064A\u0627\u0646\u064A" },
+  "Combined Similarity": { en: "Combined", ar: "\u0645\u062C\u0645\u0651\u0639" },
+  "AI Similarity": { en: "AI", ar: "\u0630\u0643\u0627\u0621\n\u0627\u0635\u0637\u0646\u0627\u0639\u064A" },
 };
 
 function shortLabel(name: string, lang: "en" | "ar"): string {
@@ -47,6 +48,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<
 
 export function SimilarityRadar({ items }: { items: SimilarityItem[] }) {
   const { language } = useLanguage();
+  const { t } = useTranslation("results");
 
   // Pick up to 8 items for legible radar (skip Combined to avoid redundancy on the axes)
   const filtered = items
@@ -59,25 +61,14 @@ export function SimilarityRadar({ items }: { items: SimilarityItem[] }) {
     value: Math.max(0, Math.min(100, item.value)),
   }));
 
-  const copy =
-    language === "ar"
-      ? {
-          title: "مخطط الرادار — أبعاد التشابه",
-          description: "عرض بصري لكل مقاييس التشابه في رسم واحد — كل محور بُعد مستقل.",
-        }
-      : {
-          title: "Similarity Radar",
-          description: "All similarity dimensions at a glance — each axis is an independent measurement.",
-        };
-
   return (
     <div className="card-premium overflow-hidden">
       <div className="border-b border-border/50 px-5 py-4">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <Activity className="h-4 w-4 text-primary" />
-          {copy.title}
+          {t("results.radar.title")}
         </h3>
-        <p className="mt-1 text-xs text-muted-foreground">{copy.description}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{t("results.radar.description")}</p>
       </div>
       <div className="flex items-center justify-center p-4">
         <ResponsiveContainer width="100%" height={320}>

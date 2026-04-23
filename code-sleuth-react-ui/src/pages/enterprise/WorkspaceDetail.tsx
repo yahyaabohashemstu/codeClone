@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   AlertCircle,
   ArrowLeft,
@@ -24,14 +25,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { useLanguage } from "@/context/LanguageContext";
 import {
+  addMember,
   createRepository,
   listCases,
   listMembers,
   listRepositories,
   listWorkspaces,
+  probeGitUrl,
   triggerScan,
 } from "@/lib/enterpriseApi";
 import type {
@@ -44,13 +47,13 @@ import { cn } from "@/lib/utils";
 
 type Tab = "repositories" | "cases" | "members";
 
-const STATUS_META: Record<string, { label: string; labelAr: string; cls: string }> = {
-  open:            { label: "Open",            labelAr: "مفتوحة",       cls: "bg-blue-500/15 text-blue-600" },
-  in_review:       { label: "In Review",       labelAr: "قيد المراجعة",  cls: "bg-yellow-500/15 text-yellow-600" },
-  confirmed_clone: { label: "Confirmed Clone", labelAr: "كلون مؤكد",    cls: "bg-destructive/15 text-destructive" },
-  false_positive:  { label: "False Positive",  labelAr: "إيجابية خاطئة",cls: "bg-muted text-muted-foreground" },
-  resolved:        { label: "Resolved",        labelAr: "محلولة",       cls: "bg-success/15 text-success" },
-  dismissed:       { label: "Dismissed",       labelAr: "مرفوضة",       cls: "bg-muted text-muted-foreground" },
+const STATUS_META: Record<string, { cls: string }> = {
+  open:            { cls: "bg-blue-500/15 text-blue-600" },
+  in_review:       { cls: "bg-yellow-500/15 text-yellow-600" },
+  confirmed_clone: { cls: "bg-destructive/15 text-destructive" },
+  false_positive:  { cls: "bg-muted text-muted-foreground" },
+  resolved:        { cls: "bg-success/15 text-success" },
+  dismissed:       { cls: "bg-muted text-muted-foreground" },
 };
 
 const SEV_META: Record<string, { cls: string }> = {
@@ -77,10 +80,9 @@ const PROVIDER_ICON: Record<string, string> = {
 export default function WorkspaceDetail() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const wsId = Number(workspaceId);
-  const { language, isRTL } = useLanguage();
-  const { toast } = useToast();
+  const { isRTL } = useLanguage();
   const navigate = useNavigate();
-  const ar = language === "ar";
+  const { t } = useTranslation("enterprise");
 
   const [workspace, setWorkspace] = useState<EnterpriseWorkspace | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("repositories");
@@ -101,56 +103,15 @@ export default function WorkspaceDetail() {
   const [repoUrl, setRepoUrl] = useState("");
   const [repoBranch, setRepoBranch] = useState("main");
   const [creatingRepo, setCreatingRepo] = useState(false);
+  const [probing, setProbing] = useState(false);
+  const [probedBranches, setProbedBranches] = useState<string[]>([]);
+  const [probeError, setProbeError] = useState("");
 
-  const copy = ar
-    ? {
-        back: "مساحات العمل",
-        repositories: "المستودعات",
-        cases: "قضايا المراجعة",
-        members: "الأعضاء",
-        addRepo: "إضافة مستودع",
-        scan: "فحص",
-        scanning: "جارٍ الفحص...",
-        noRepos: "لا توجد مستودعات. أضف واحداً للبدء.",
-        noCases: "لا توجد قضايا مراجعة بعد.",
-        noMembers: "لا يوجد أعضاء.",
-        severity: "الخطورة",
-        status: "الحالة",
-        confidence: "الثقة",
-        cloneType: "نوع الكلون",
-        viewCase: "عرض القضية",
-        repoNameLabel: "اسم المستودع",
-        providerLabel: "مزود",
-        localPathLabel: "المسار المحلي",
-        cloneUrlLabel: "رابط الاستنساخ",
-        branchLabel: "الفرع الافتراضي",
-        cancel: "إلغاء",
-        createRepo: "إضافة",
-      }
-    : {
-        back: "Workspaces",
-        repositories: "Repositories",
-        cases: "Review Cases",
-        members: "Members",
-        addRepo: "Add Repository",
-        scan: "Scan",
-        scanning: "Scanning...",
-        noRepos: "No repositories. Add one to get started.",
-        noCases: "No review cases yet.",
-        noMembers: "No members.",
-        severity: "Severity",
-        status: "Status",
-        confidence: "Confidence",
-        cloneType: "Clone type",
-        viewCase: "View case",
-        repoNameLabel: "Repository name",
-        providerLabel: "Provider",
-        localPathLabel: "Local path",
-        cloneUrlLabel: "Clone URL",
-        branchLabel: "Default branch",
-        cancel: "Cancel",
-        createRepo: "Add",
-      };
+  // Add member dialog
+  const [memberOpen, setMemberOpen] = useState(false);
+  const [memberUserId, setMemberUserId] = useState("");
+  const [memberRole, setMemberRole] = useState("student");
+  const [addingMember, setAddingMember] = useState(false);
 
   // Load workspace info
   useEffect(() => {
@@ -159,7 +120,7 @@ export default function WorkspaceDetail() {
       if (ws) setWorkspace(ws);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wsId, language]);
+  }, [wsId]);
 
   // Load active tab data
   useEffect(() => {
@@ -180,19 +141,36 @@ export default function WorkspaceDetail() {
   const handleTriggerScan = async (repoId: number) => {
     setScanningId(repoId);
     try {
-      await triggerScan(repoId, { branch: repoBranch });
-      toast({
-        title: ar ? "تم إطلاق الفحص" : "Scan queued",
-        description: ar ? "جارٍ معالجة الفحص في الخلفية." : "Scan is processing in the background.",
-      });
+      const repo = repos.find((r) => r.id === repoId);
+      await triggerScan(repoId, { branch: repo?.defaultBranch || "main" });
+      toast.success(t("enterprise.workspaceDetail.scanQueued"), { description: t("enterprise.workspaceDetail.scanQueuedDesc") });
     } catch (e: unknown) {
-      toast({
-        variant: "destructive",
-        title: ar ? "فشل" : "Failed",
-        description: (e as { message?: string })?.message ?? String(e),
-      });
+      toast.error(t("enterprise.workspaceDetail.failed"), { description: (e as { message?: string })?.message ?? String(e) });
     } finally {
       setScanningId(null);
+    }
+  };
+
+  const handleProbeUrl = async () => {
+    const url = repoUrl.trim();
+    if (!url) return;
+    setProbing(true);
+    setProbeError("");
+    setProbedBranches([]);
+    try {
+      const result = await probeGitUrl(url);
+      setProbedBranches(result.branches);
+      setRepoBranch(result.defaultBranch);
+      toast.success(
+        t("enterprise.workspaceDetail.probeSuccess"),
+        { description: `${result.totalBranches} branches` },
+      );
+    } catch (e: unknown) {
+      const msg = (e as { message?: string })?.message ?? String(e);
+      setProbeError(msg);
+      toast.error(t("enterprise.workspaceDetail.probeFailed"), { description: msg });
+    } finally {
+      setProbing(false);
     }
   };
 
@@ -210,22 +188,42 @@ export default function WorkspaceDetail() {
       setRepos((prev) => [item, ...prev]);
       setRepoOpen(false);
       setRepoName(""); setRepoPath(""); setRepoUrl(""); setRepoBranch("main");
-      toast({ title: ar ? "تمت الإضافة" : "Repository added" });
+      toast.success(t("enterprise.workspaceDetail.repoAdded"));
     } catch (e: unknown) {
-      toast({
-        variant: "destructive",
-        title: ar ? "فشل" : "Failed",
-        description: (e as { message?: string })?.message ?? String(e),
-      });
+      toast.error(t("enterprise.workspaceDetail.failed"), { description: (e as { message?: string })?.message ?? String(e) });
     } finally {
       setCreatingRepo(false);
     }
   };
 
+  const handleAddMember = async () => {
+    const uid = parseInt(memberUserId, 10);
+    if (!uid || isNaN(uid)) return;
+    setAddingMember(true);
+    try {
+      const added = await addMember(wsId, {
+        legacyUserId: uid,
+        role: memberRole,
+      });
+      setMembers((prev) => {
+        const filtered = prev.filter((m) => m.legacyUserId !== uid);
+        return [added, ...filtered];
+      });
+      setMemberOpen(false);
+      setMemberUserId("");
+      setMemberRole("student");
+      toast.success(t("enterprise.workspaceDetail.memberAdded"));
+    } catch (e: unknown) {
+      toast.error(t("enterprise.workspaceDetail.failed"), { description: (e as { message?: string })?.message ?? String(e) });
+    } finally {
+      setAddingMember(false);
+    }
+  };
+
   const tabs: Array<{ id: Tab; label: string; icon: typeof Scan }> = [
-    { id: "repositories", label: copy.repositories, icon: GitBranch },
-    { id: "cases",        label: copy.cases,        icon: Shield },
-    { id: "members",      label: copy.members,      icon: Users },
+    { id: "repositories", label: t("enterprise.workspaceDetail.repositories"), icon: GitBranch },
+    { id: "cases",        label: t("enterprise.workspaceDetail.cases"),        icon: Shield },
+    { id: "members",      label: t("enterprise.workspaceDetail.members"),      icon: Users },
   ];
 
   return (
@@ -238,7 +236,7 @@ export default function WorkspaceDetail() {
           className="flex items-center gap-1 hover:text-foreground transition-colors"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          {copy.back}
+          {t("enterprise.workspaceDetail.back")}
         </button>
         <ChevronRight className="h-3.5 w-3.5" />
         <span className="text-foreground font-medium">{workspace?.name ?? `#${wsId}`}</span>
@@ -311,16 +309,16 @@ export default function WorkspaceDetail() {
               <div className="flex justify-end">
                 <Button size="sm" className="gap-2" onClick={() => setRepoOpen(true)}>
                   <Plus className="h-3.5 w-3.5" />
-                  {copy.addRepo}
+                  {t("enterprise.workspaceDetail.addRepo")}
                 </Button>
               </div>
 
               {repos.length === 0 ? (
                 <div className="card-premium py-14 flex flex-col items-center gap-3 text-center">
                   <GitBranch className="h-10 w-10 text-muted-foreground/40" />
-                  <p className="text-sm text-muted-foreground">{copy.noRepos}</p>
+                  <p className="text-sm text-muted-foreground">{t("enterprise.workspaceDetail.noRepos")}</p>
                   <Button size="sm" variant="outline" onClick={() => setRepoOpen(true)} className="gap-2">
-                    <Plus className="h-3.5 w-3.5" />{copy.addRepo}
+                    <Plus className="h-3.5 w-3.5" />{t("enterprise.workspaceDetail.addRepo")}
                   </Button>
                 </div>
               ) : (
@@ -348,7 +346,7 @@ export default function WorkspaceDetail() {
                         ) : (
                           <Play className="h-3.5 w-3.5" />
                         )}
-                        {scanning === repo.id ? copy.scanning : copy.scan}
+                        {scanning === repo.id ? t("enterprise.workspaceDetail.scanning") : t("enterprise.workspaceDetail.scan")}
                       </Button>
                     </div>
                   ))}
@@ -363,7 +361,7 @@ export default function WorkspaceDetail() {
               {cases.length === 0 ? (
                 <div className="card-premium py-14 flex flex-col items-center gap-3 text-center">
                   <Shield className="h-10 w-10 text-muted-foreground/40" />
-                  <p className="text-sm text-muted-foreground">{copy.noCases}</p>
+                  <p className="text-sm text-muted-foreground">{t("enterprise.workspaceDetail.noCases")}</p>
                 </div>
               ) : (
                 cases.map((c) => {
@@ -378,7 +376,7 @@ export default function WorkspaceDetail() {
                             <span className="font-mono text-xs text-muted-foreground">
                               {c.match.artifactA.logicalPath}
                             </span>{" "}
-                            ↔{" "}
+                            \u2194{" "}
                             <span className="font-mono text-xs text-muted-foreground">
                               {c.match.artifactB.logicalPath}
                             </span>
@@ -392,7 +390,7 @@ export default function WorkspaceDetail() {
                             {c.severity}
                           </span>
                           <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", sm.cls)}>
-                            {ar ? sm.labelAr : sm.label}
+                            {t(`enterprise.status.${c.status}`, { defaultValue: c.status })}
                           </span>
                           <span className="text-xs text-muted-foreground">
                             {c.confidenceScore.toFixed(1)}%
@@ -401,7 +399,7 @@ export default function WorkspaceDetail() {
                             to={`/enterprise/cases/${c.id}`}
                             className="flex items-center gap-1 text-xs text-primary font-medium hover:underline"
                           >
-                            {copy.viewCase}
+                            {t("enterprise.workspaceDetail.viewCase")}
                             <ChevronRight className="h-3 w-3" />
                           </Link>
                         </div>
@@ -416,10 +414,16 @@ export default function WorkspaceDetail() {
           {/* Members tab */}
           {activeTab === "members" && (
             <div className="space-y-2">
+              <div className="flex justify-end">
+                <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setMemberOpen(true)}>
+                  <Plus className="h-3.5 w-3.5" />
+                  {t("enterprise.workspaceDetail.addMember")}
+                </Button>
+              </div>
               {members.length === 0 ? (
                 <div className="card-premium py-14 flex flex-col items-center gap-2 text-center">
                   <Users className="h-10 w-10 text-muted-foreground/40" />
-                  <p className="text-sm text-muted-foreground">{copy.noMembers}</p>
+                  <p className="text-sm text-muted-foreground">{t("enterprise.workspaceDetail.noMembers")}</p>
                 </div>
               ) : (
                 members.map((m) => (
@@ -455,15 +459,15 @@ export default function WorkspaceDetail() {
       <Dialog open={repoOpen} onOpenChange={setRepoOpen}>
         <DialogContent className="sm:max-w-md" dir={isRTL ? "rtl" : "ltr"}>
           <DialogHeader>
-            <DialogTitle>{copy.addRepo}</DialogTitle>
+            <DialogTitle>{t("enterprise.workspaceDetail.addRepo")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="space-y-1.5">
-              <Label>{copy.repoNameLabel}</Label>
+              <Label>{t("enterprise.workspaceDetail.repoNameLabel")}</Label>
               <Input value={repoName} onChange={(e) => setRepoName(e.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label>{copy.providerLabel}</Label>
+              <Label>{t("enterprise.workspaceDetail.providerLabel")}</Label>
               <Select value={repoProvider} onValueChange={setRepoProvider}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -475,24 +479,102 @@ export default function WorkspaceDetail() {
             </div>
             {repoProvider === "local" ? (
               <div className="space-y-1.5">
-                <Label>{copy.localPathLabel}</Label>
+                <Label>{t("enterprise.workspaceDetail.localPathLabel")}</Label>
                 <Input value={repoPath} onChange={(e) => setRepoPath(e.target.value)} placeholder="/path/to/repo" />
               </div>
             ) : (
               <div className="space-y-1.5">
-                <Label>{copy.cloneUrlLabel}</Label>
-                <Input value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)} placeholder="https://github.com/..." />
+                <Label>{t("enterprise.workspaceDetail.cloneUrlLabel")}</Label>
+                <div className="flex gap-2">
+                  <Input
+                    className="flex-1"
+                    value={repoUrl}
+                    onChange={(e) => { setRepoUrl(e.target.value); setProbedBranches([]); setProbeError(""); }}
+                    placeholder="https://github.com/owner/repo"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 gap-1.5"
+                    disabled={probing || !repoUrl.trim()}
+                    onClick={handleProbeUrl}
+                  >
+                    {probing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                    {t("enterprise.workspaceDetail.probe")}
+                  </Button>
+                </div>
+                {probeError && (
+                  <p className="text-xs text-destructive flex items-center gap-1 mt-1">
+                    <AlertCircle className="h-3 w-3 shrink-0" />
+                    {probeError}
+                  </p>
+                )}
               </div>
             )}
             <div className="space-y-1.5">
-              <Label>{copy.branchLabel}</Label>
-              <Input value={repoBranch} onChange={(e) => setRepoBranch(e.target.value)} />
+              <Label>{t("enterprise.workspaceDetail.branchLabel")}</Label>
+              {probedBranches.length > 0 ? (
+                <Select value={repoBranch} onValueChange={setRepoBranch}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t("enterprise.workspaceDetail.selectBranch")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {probedBranches.map((b) => (
+                      <SelectItem key={b} value={b}>{b}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input value={repoBranch} onChange={(e) => setRepoBranch(e.target.value)} placeholder="main" />
+              )}
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="ghost" onClick={() => setRepoOpen(false)}>{copy.cancel}</Button>
+              <Button variant="ghost" onClick={() => setRepoOpen(false)}>{t("enterprise.common.cancel")}</Button>
               <Button onClick={handleCreateRepo} disabled={creatingRepo || !repoName.trim()}>
                 {creatingRepo && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
-                {copy.createRepo}
+                {t("enterprise.workspaceDetail.addRepo")}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add member dialog */}
+      <Dialog open={memberOpen} onOpenChange={setMemberOpen}>
+        <DialogContent className="sm:max-w-md" dir={isRTL ? "rtl" : "ltr"}>
+          <DialogHeader>
+            <DialogTitle>{t("enterprise.workspaceDetail.addMember")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label>{t("enterprise.workspaceDetail.userIdLabel")}</Label>
+              <Input
+                type="number"
+                min={1}
+                value={memberUserId}
+                onChange={(e) => setMemberUserId(e.target.value)}
+                placeholder="e.g. 2"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>{t("enterprise.workspaceDetail.roleLabel")}</Label>
+              <Select value={memberRole} onValueChange={setMemberRole}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="student">{t("enterprise.workspaceDetail.roleStudent")}</SelectItem>
+                  <SelectItem value="reviewer">{t("enterprise.workspaceDetail.roleReviewer")}</SelectItem>
+                  <SelectItem value="manager">{t("enterprise.workspaceDetail.roleManager")}</SelectItem>
+                  <SelectItem value="admin">{t("enterprise.workspaceDetail.roleAdmin")}</SelectItem>
+                  <SelectItem value="owner">{t("enterprise.workspaceDetail.roleOwner")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="ghost" onClick={() => setMemberOpen(false)}>{t("enterprise.common.cancel")}</Button>
+              <Button onClick={handleAddMember} disabled={addingMember || !memberUserId.trim()}>
+                {addingMember && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+                {t("enterprise.workspaceDetail.addMember")}
               </Button>
             </div>
           </div>

@@ -1,0 +1,58 @@
+FROM python:3.11-slim AS base
+
+# Prevent Python from writing .pyc files and enable unbuffered output
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# Install system dependencies required by native extensions (gcc for
+# packages like RapidFuzz, tree-sitter, lxml, etc.) and curl for
+# the health-check probe.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        gcc \
+        g++ \
+        libffi-dev \
+        libxml2-dev \
+        libxslt1-dev \
+        curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a non-root user
+RUN groupadd --gid 1000 appuser && \
+    useradd --uid 1000 --gid appuser --shell /bin/bash --create-home appuser
+
+WORKDIR /app
+
+# ---------------------------------------------------------------------------
+# Dependencies layer (cached independently of application code)
+# ---------------------------------------------------------------------------
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# ---------------------------------------------------------------------------
+# Application code
+# ---------------------------------------------------------------------------
+COPY app.py wsgi.py ./
+COPY backend/ backend/
+COPY enterprise_platform/ enterprise_platform/
+COPY enterprise_worker.py ./
+COPY templates/ templates/
+COPY static/ static/
+COPY functions/ functions/
+
+# Create directories the app expects at runtime
+RUN mkdir -p /app/instance /app/uploads /app/tmp && \
+    chown -R appuser:appuser /app
+
+# ---------------------------------------------------------------------------
+# Runtime
+# ---------------------------------------------------------------------------
+USER appuser
+
+EXPOSE 5000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:5000/api/v1/health || exit 1
+
+CMD ["python", "wsgi.py"]

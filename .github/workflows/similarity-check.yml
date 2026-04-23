@@ -1,0 +1,98 @@
+##
+## Example workflow: CodeSimilar Similarity Check on Pull Requests
+##
+## Add this to any repository that uses the CodeSimilar platform.
+## Adjust the inputs to match your project's language and threshold.
+##
+name: CodeSimilar Check
+
+on:
+  pull_request:
+    branches: [main, master, develop]
+    paths:
+      - '**.py'
+      - '**.js'
+      - '**.ts'
+      - '**.java'
+      - '**.go'
+      - '**.rs'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  similarity-check:
+    name: Code Similarity Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for diff comparison
+
+      - name: Run CodeSimilar Check
+        id: cs
+        uses: ./.github/actions/codesimilar-check
+        with:
+          api-url: ${{ vars.CODESIMILAR_API_URL || 'http://localhost:5000' }}
+          api-key: ${{ secrets.CODESIMILAR_API_KEY }}
+          threshold: '80'
+          language: 'python'
+          file-pattern: '\.py$'
+          fail-on-violation: 'true'
+
+      - name: Post PR Comment
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const verdict = '${{ steps.cs.outputs.verdict }}';
+            const violations = '${{ steps.cs.outputs.violations }}';
+            const totalPairs = '${{ steps.cs.outputs.total_pairs }}';
+            const threshold = '80';
+
+            const icon = verdict === 'pass' ? '✅' : '⚠️';
+            const title = verdict === 'pass'
+              ? 'CodeSimilar: No violations detected'
+              : `CodeSimilar: ${violations} similarity violation(s) found`;
+
+            let body = `## ${icon} ${title}\n\n`;
+            body += `| Metric | Value |\n|---|---|\n`;
+            body += `| Verdict | **${verdict.toUpperCase()}** |\n`;
+            body += `| Threshold | ${threshold}% |\n`;
+            body += `| Pairs Analyzed | ${totalPairs} |\n`;
+            body += `| Violations | ${violations} |\n\n`;
+
+            if (verdict === 'fail') {
+              body += `> **Action Required:** ${violations} code pair(s) exceed the ${threshold}% similarity threshold. `;
+              body += `Review the similar code sections and refactor as needed.\n`;
+            }
+
+            body += `\n---\n*Powered by [CodeSimilar](https://github.com/your-org/codesimilar)*`;
+
+            // Find existing comment to update
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existingComment = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('CodeSimilar')
+            );
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }

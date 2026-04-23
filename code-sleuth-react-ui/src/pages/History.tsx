@@ -21,9 +21,13 @@ import { apiFetch } from "@/lib/api";
 import { downloadText } from "@/lib/download";
 import { useAnalysis } from "@/context/AnalysisContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { useTranslation } from "react-i18next";
 import type { AnalysisResult, HistoryResponse, HistorySummary } from "@/types/api";
 import { cn } from "@/lib/utils";
 import { sanitizeHtml } from "@/lib/sanitize";
+import { PageLoader } from "@/components/common/PageLoader";
+import { PageError } from "@/components/common/PageError";
+import { EmptyState } from "@/components/common/EmptyState";
 
 function severityBadge(severity: HistorySummary["severity"]) {
   if (severity === "high") return "badge-error";
@@ -35,8 +39,10 @@ function severityBadge(severity: HistorySummary["severity"]) {
 const History = () => {
   const navigate = useNavigate();
   const { rerunById, loadById } = useAnalysis();
-  const { language, isRTL, formatNumber, formatDate, localizeRuntimeMessage, getProgrammingLanguageLabel } = useLanguage();
+  const { isRTL, formatNumber, formatDate, localizeRuntimeMessage, getProgrammingLanguageLabel } = useLanguage();
+  const { t } = useTranslation("common");
   const [historyData, setHistoryData] = useState<HistoryResponse | null>(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [search, setSearch] = useState("");
   const [filterLanguage, setFilterLanguage] = useState("all");
   const [filterSeverity, setFilterSeverity] = useState("all");
@@ -49,135 +55,13 @@ const History = () => {
   const [error, setError] = useState("");
   const [isBusy, setIsBusy] = useState(false);
 
-  const copy =
-    language === "ar"
-      ? {
-          severity: {
-            high: "مرتفع",
-            moderate: "متوسط",
-            low: "منخفض",
-          },
-          pageTitle: "سجل التحليلات",
-          pageDescription: "استعرض جلسات التحليل السابقة وابحث فيها وأعد فتحها أو تشغيلها أو تصديرها أو حذفها.",
-          newAnalysis: "تحليل جديد",
-          stats: {
-            totalAnalyses: "إجمالي التحليلات",
-            highSimilarity: "تشابه مرتفع",
-            languagesUsed: "اللغات المستخدمة",
-            last7Days: "آخر 7 أيام",
-          },
-          searchPlaceholder: "ابحث في المصادر أو اللغة…",
-          allLanguages: "كل اللغات",
-          allSeverity: "كل المستويات",
-          highSimilarity: "تشابه مرتفع",
-          moderateSimilarity: "تشابه متوسط",
-          lowSimilarity: "تشابه منخفض",
-          byDate: "حسب التاريخ",
-          byScore: "حسب النسبة",
-          noAnalysesFound: "لم يتم العثور على تحليلات",
-          noAnalysesYet: "شغّل أول تحليل لملء لوحة السجل.",
-          adjustFilters: "جرّب تعديل عوامل التصفية أو عبارة البحث.",
-          runAnalysis: "تشغيل التحليل",
-          table: {
-            sourceA: "المصدر A",
-            sourceB: "المصدر B",
-            language: "اللغة",
-            score: "النسبة",
-            severity: "الخطورة",
-            date: "التاريخ",
-            actions: "الإجراءات",
-          },
-          deleteTitle: "حذف التحليل",
-          deleteDescription: "حذف التحليل رقم #{id} نهائيًا؟ لا يمكن التراجع عن هذا الإجراء.",
-          cancel: "إلغاء",
-          delete: "حذف",
-          previewTitle: "معاينة التحليل رقم #{id}",
-          close: "إغلاق",
-          openFullResults: "فتح النتائج الكاملة",
-          loadingPreview: "جارٍ تحميل المعاينة...",
-          exportSections: {
-            analysisId: "رقم التحليل",
-            language: "اللغة",
-            similarity: "نسبة التشابه",
-            date: "التاريخ",
-            sourceA: "المصدر A",
-            sourceB: "المصدر B",
-            interCodeAnalysis: "التحليل بين الشيفرتين",
-          },
-          errors: {
-            loadHistory: "تعذر تحميل السجل.",
-            loadPreview: "تعذر تحميل معاينة التحليل.",
-            rerun: "تعذر إعادة تشغيل هذا التحليل.",
-            open: "تعذر فتح هذا التحليل.",
-            export: "تعذر تصدير هذا التحليل.",
-            delete: "تعذر حذف هذا التحليل.",
-          },
-        }
-      : {
-          severity: {
-            high: "High",
-            moderate: "Moderate",
-            low: "Low",
-          },
-          pageTitle: "Analysis History",
-          pageDescription: "Browse, search, reopen, rerun, export, or delete previous analysis sessions.",
-          newAnalysis: "New Analysis",
-          stats: {
-            totalAnalyses: "Total Analyses",
-            highSimilarity: "High Similarity",
-            languagesUsed: "Languages Used",
-            last7Days: "Last 7 Days",
-          },
-          searchPlaceholder: "Search sources or language…",
-          allLanguages: "All Languages",
-          allSeverity: "All Severity",
-          highSimilarity: "High Similarity",
-          moderateSimilarity: "Moderate Similarity",
-          lowSimilarity: "Low Similarity",
-          byDate: "By Date",
-          byScore: "By Score",
-          noAnalysesFound: "No analyses found",
-          noAnalysesYet: "Run your first analysis to populate the history dashboard.",
-          adjustFilters: "Try adjusting your filters or search query.",
-          runAnalysis: "Run Analysis",
-          table: {
-            sourceA: "Source A",
-            sourceB: "Source B",
-            language: "Language",
-            score: "Score",
-            severity: "Severity",
-            date: "Date",
-            actions: "Actions",
-          },
-          deleteTitle: "Delete Analysis",
-          deleteDescription: "Permanently delete analysis #{id}? This action cannot be undone.",
-          cancel: "Cancel",
-          delete: "Delete",
-          previewTitle: "Analysis Preview #{id}",
-          close: "Close",
-          openFullResults: "Open Full Results",
-          loadingPreview: "Loading preview…",
-          exportSections: {
-            analysisId: "Analysis ID",
-            language: "Language",
-            similarity: "Similarity",
-            date: "Date",
-            sourceA: "Source A",
-            sourceB: "Source B",
-            interCodeAnalysis: "Inter-Code Analysis",
-          },
-          errors: {
-            loadHistory: "Unable to load history.",
-            loadPreview: "Unable to load the analysis preview.",
-            rerun: "Unable to rerun this analysis.",
-            open: "Unable to open this analysis.",
-            export: "Unable to export this analysis.",
-            delete: "Unable to delete this analysis.",
-          },
-        };
+  const severityLabel = (severity: HistorySummary["severity"]) =>
+    t(`severity.${severity}`);
 
-  const severityLabel = (severity: HistorySummary["severity"]) => copy.severity[severity];
-  const getDisplayDate = (summary: HistorySummary) => (summary.dateCreated ? formatDate(summary.dateCreated, { dateStyle: "medium", timeStyle: "short" }) : summary.dateDisplay);
+  const getDisplayDate = (summary: HistorySummary) =>
+    summary.dateCreated
+      ? formatDate(summary.dateCreated, { dateStyle: "medium", timeStyle: "short" })
+      : summary.dateDisplay;
 
   const loadHistory = async () => {
     const result = await apiFetch<HistoryResponse>("/api/history");
@@ -185,14 +69,24 @@ const History = () => {
   };
 
   useEffect(() => {
-    void loadHistory().catch((loadError) => {
-      setError(loadError instanceof Error ? localizeRuntimeMessage(loadError.message) : copy.errors.loadHistory);
-    });
+    setIsInitialLoad(true);
+    void loadHistory()
+      .catch((loadError) => {
+        setError(
+          loadError instanceof Error
+            ? localizeRuntimeMessage(loadError.message)
+            : t("history.errors.loadHistory"),
+        );
+      })
+      .finally(() => setIsInitialLoad(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language]);
+  }, []);
 
   const items = historyData?.items ?? [];
-  const languages = useMemo(() => ["all", ...Array.from(new Set(items.map((item) => item.language).filter(Boolean)))], [items]);
+  const languages = useMemo(
+    () => ["all", ...Array.from(new Set(items.map((item) => item.language).filter(Boolean)))],
+    [items],
+  );
 
   const filteredItems = useMemo(() => {
     const normalizedSearch = search.toLowerCase().trim();
@@ -225,7 +119,11 @@ const History = () => {
       setSelectedAnalysis(detail);
       setIsDialogOpen(true);
     } catch (previewError) {
-      setError(previewError instanceof Error ? localizeRuntimeMessage(previewError.message) : copy.errors.loadPreview);
+      setError(
+        previewError instanceof Error
+          ? localizeRuntimeMessage(previewError.message)
+          : t("history.errors.loadPreview"),
+      );
     } finally {
       setIsBusy(false);
     }
@@ -237,7 +135,11 @@ const History = () => {
       await rerunById(summary.id);
       navigate(`/results?analysisId=${summary.id}`);
     } catch (rerunError) {
-      setError(rerunError instanceof Error ? localizeRuntimeMessage(rerunError.message) : copy.errors.rerun);
+      setError(
+        rerunError instanceof Error
+          ? localizeRuntimeMessage(rerunError.message)
+          : t("history.errors.rerun"),
+      );
     } finally {
       setIsBusy(false);
     }
@@ -249,7 +151,11 @@ const History = () => {
       await loadById(summary.id);
       navigate(`/results?analysisId=${summary.id}`);
     } catch (viewError) {
-      setError(viewError instanceof Error ? localizeRuntimeMessage(viewError.message) : copy.errors.open);
+      setError(
+        viewError instanceof Error
+          ? localizeRuntimeMessage(viewError.message)
+          : t("history.errors.open"),
+      );
     } finally {
       setIsBusy(false);
     }
@@ -260,23 +166,27 @@ const History = () => {
     try {
       const detail = await apiFetch<AnalysisResult>(`/api/history/${summary.id}`);
       const payload = [
-        `${copy.exportSections.analysisId}: ${summary.id}`,
-        `${copy.exportSections.language}: ${summary.language}`,
-        `${copy.exportSections.similarity}: ${summary.similarity}%`,
-        `${copy.exportSections.date}: ${getDisplayDate(summary)}`,
+        `${t("history.exportSections.analysisId")}: ${summary.id}`,
+        `${t("history.exportSections.language")}: ${summary.language}`,
+        `${t("history.exportSections.similarity")}: ${summary.similarity}%`,
+        `${t("history.exportSections.date")}: ${getDisplayDate(summary)}`,
         "",
-        copy.exportSections.sourceA,
+        t("history.exportSections.sourceA"),
         detail.code1,
         "",
-        copy.exportSections.sourceB,
+        t("history.exportSections.sourceB"),
         detail.code2,
         "",
-        copy.exportSections.interCodeAnalysis,
+        t("history.exportSections.interCodeAnalysis"),
         detail.analysis_text,
       ].join("\n");
       downloadText(`analysis-${summary.id}.txt`, payload);
     } catch (exportError) {
-      setError(exportError instanceof Error ? localizeRuntimeMessage(exportError.message) : copy.errors.export);
+      setError(
+        exportError instanceof Error
+          ? localizeRuntimeMessage(exportError.message)
+          : t("history.errors.export"),
+      );
     } finally {
       setIsBusy(false);
     }
@@ -296,11 +206,42 @@ const History = () => {
       setDeleteTarget(null);
       await loadHistory();
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? localizeRuntimeMessage(deleteError.message) : copy.errors.delete);
+      setError(
+        deleteError instanceof Error
+          ? localizeRuntimeMessage(deleteError.message)
+          : t("history.errors.delete"),
+      );
     } finally {
       setIsBusy(false);
     }
   };
+
+  /* ---------- early-return states ---------- */
+
+  if (isInitialLoad && !historyData) {
+    return <PageLoader />;
+  }
+
+  if (error && !historyData) {
+    return (
+      <PageError
+        message={error}
+        onRetry={() => {
+          setError("");
+          setIsInitialLoad(true);
+          void loadHistory()
+            .catch((loadError) => {
+              setError(
+                loadError instanceof Error
+                  ? localizeRuntimeMessage(loadError.message)
+                  : t("history.errors.loadHistory"),
+              );
+            })
+            .finally(() => setIsInitialLoad(false));
+        }}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -309,14 +250,14 @@ const History = () => {
           <div>
             <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
               <HistoryIcon className="h-6 w-6 text-primary" />
-              {copy.pageTitle}
+              {t("history.pageTitle")}
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">{copy.pageDescription}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{t("history.pageDescription")}</p>
           </div>
           <Button asChild size="sm" className="h-9 gap-2 shadow-glow-sm">
             <Link to="/analysis">
               <Plus className="h-3.5 w-3.5" />
-              {copy.newAnalysis}
+              {t("buttons.newAnalysis")}
             </Link>
           </Button>
         </div>
@@ -326,10 +267,10 @@ const History = () => {
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {[
-          { label: copy.stats.totalAnalyses, value: historyData?.stats.totalAnalyses ?? 0, icon: BarChart3 },
-          { label: copy.stats.highSimilarity, value: historyData?.stats.highSimilarity ?? 0, icon: AlertTriangle, color: "text-destructive" },
-          { label: copy.stats.languagesUsed, value: historyData?.stats.languagesUsed ?? 0, icon: GitCompare, color: "text-primary" },
-          { label: copy.stats.last7Days, value: historyData?.stats.last7Days ?? 0, icon: Clock, color: "text-accent" },
+          { label: t("history.stats.totalAnalyses"), value: historyData?.stats.totalAnalyses ?? 0, icon: BarChart3 },
+          { label: t("history.stats.highSimilarity"), value: historyData?.stats.highSimilarity ?? 0, icon: AlertTriangle, color: "text-destructive" },
+          { label: t("history.stats.languagesUsed"), value: historyData?.stats.languagesUsed ?? 0, icon: GitCompare, color: "text-primary" },
+          { label: t("history.stats.last7Days"), value: historyData?.stats.last7Days ?? 0, icon: Clock, color: "text-accent" },
         ].map((stat) => {
           const Icon = stat.icon;
           return (
@@ -349,7 +290,7 @@ const History = () => {
             type="text"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder={copy.searchPlaceholder}
+            placeholder={t("history.searchPlaceholder")}
             className={cn(
               "w-full rounded-lg border border-border/60 bg-card/50 py-2 pr-4 text-sm focus:border-primary/60 focus:outline-none focus:ring-1 focus:ring-primary/20 placeholder:text-muted-foreground/50",
               isRTL ? "pl-4 pr-9 text-right" : "pl-9",
@@ -360,9 +301,9 @@ const History = () => {
         <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-card/50 px-3">
           <Filter className="h-3.5 w-3.5 text-muted-foreground" />
           <select value={filterLanguage} onChange={(event) => setFilterLanguage(event.target.value)} className="h-9 bg-transparent text-sm text-foreground focus:outline-none">
-            {languages.map((language) => (
-              <option key={language} value={language} className="bg-card">
-                {language === "all" ? copy.allLanguages : getProgrammingLanguageLabel(language)}
+            {languages.map((lang) => (
+              <option key={lang} value={lang} className="bg-card">
+                {lang === "all" ? t("history.allLanguages") : getProgrammingLanguageLabel(lang)}
               </option>
             ))}
           </select>
@@ -370,10 +311,10 @@ const History = () => {
 
         <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-card/50 px-3">
           <select value={filterSeverity} onChange={(event) => setFilterSeverity(event.target.value)} className="h-9 bg-transparent text-sm text-foreground focus:outline-none">
-            <option value="all" className="bg-card">{copy.allSeverity}</option>
-            <option value="high" className="bg-card">{copy.highSimilarity}</option>
-            <option value="moderate" className="bg-card">{copy.moderateSimilarity}</option>
-            <option value="low" className="bg-card">{copy.lowSimilarity}</option>
+            <option value="all" className="bg-card">{t("history.allSeverity")}</option>
+            <option value="high" className="bg-card">{t("history.highSimilarity")}</option>
+            <option value="moderate" className="bg-card">{t("history.moderateSimilarity")}</option>
+            <option value="low" className="bg-card">{t("history.lowSimilarity")}</option>
           </select>
         </div>
 
@@ -388,36 +329,33 @@ const History = () => {
                 sortBy === mode ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
               )}
             >
-              {mode === "date" ? copy.byDate : copy.byScore}
+              {mode === "date" ? t("history.byDate") : t("history.byScore")}
             </button>
           ))}
         </div>
       </div>
 
       {filteredItems.length === 0 ? (
-        <div className="card-premium p-16 text-center">
-          <HistoryIcon className="mx-auto mb-4 h-12 w-12 text-muted-foreground/30" />
-          <h3 className="mb-1 text-sm font-semibold text-foreground">{copy.noAnalysesFound}</h3>
-          <p className="mb-4 text-xs text-muted-foreground">
-            {items.length === 0 ? copy.noAnalysesYet : copy.adjustFilters}
-          </p>
-          <Button asChild size="sm">
-            <Link to="/analysis">{copy.runAnalysis}</Link>
-          </Button>
-        </div>
+        <EmptyState
+          icon={HistoryIcon}
+          title={t("history.noAnalysesFound")}
+          description={items.length === 0 ? t("history.noAnalysesYet") : t("history.adjustFilters")}
+          actionLabel={t("buttons.runAnalysis")}
+          onAction={() => navigate("/analysis")}
+        />
       ) : (
         <div className="card-premium overflow-hidden">
           <div className="overflow-x-auto scrollbar-thin">
             <table className="w-full min-w-[980px]">
               <thead>
                 <tr className="border-b border-border/40 bg-muted/20">
-                  <th className={cn("px-5 py-3 text-xs font-medium text-muted-foreground", isRTL ? "text-right" : "text-left")}>{copy.table.sourceA}</th>
-                  <th className={cn("px-5 py-3 text-xs font-medium text-muted-foreground", isRTL ? "text-right" : "text-left")}>{copy.table.sourceB}</th>
-                  <th className={cn("px-5 py-3 text-xs font-medium text-muted-foreground", isRTL ? "text-right" : "text-left")}>{copy.table.language}</th>
-                  <th className="px-5 py-3 text-center text-xs font-medium text-muted-foreground">{copy.table.score}</th>
-                  <th className={cn("px-5 py-3 text-xs font-medium text-muted-foreground", isRTL ? "text-right" : "text-left")}>{copy.table.severity}</th>
-                  <th className={cn("px-5 py-3 text-xs font-medium text-muted-foreground", isRTL ? "text-right" : "text-left")}>{copy.table.date}</th>
-                  <th className={cn("px-5 py-3 text-xs font-medium text-muted-foreground", isRTL ? "text-left" : "text-right")}>{copy.table.actions}</th>
+                  <th className={cn("px-5 py-3 text-xs font-medium text-muted-foreground", isRTL ? "text-right" : "text-left")}>{t("history.table.sourceA")}</th>
+                  <th className={cn("px-5 py-3 text-xs font-medium text-muted-foreground", isRTL ? "text-right" : "text-left")}>{t("history.table.sourceB")}</th>
+                  <th className={cn("px-5 py-3 text-xs font-medium text-muted-foreground", isRTL ? "text-right" : "text-left")}>{t("history.table.language")}</th>
+                  <th className="px-5 py-3 text-center text-xs font-medium text-muted-foreground">{t("history.table.score")}</th>
+                  <th className={cn("px-5 py-3 text-xs font-medium text-muted-foreground", isRTL ? "text-right" : "text-left")}>{t("history.table.severity")}</th>
+                  <th className={cn("px-5 py-3 text-xs font-medium text-muted-foreground", isRTL ? "text-right" : "text-left")}>{t("history.table.date")}</th>
+                  <th className={cn("px-5 py-3 text-xs font-medium text-muted-foreground", isRTL ? "text-left" : "text-right")}>{t("history.table.actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -459,14 +397,14 @@ const History = () => {
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent className="max-w-md border-border/60 bg-card text-foreground">
           <DialogHeader>
-            <DialogTitle>{copy.deleteTitle}</DialogTitle>
+            <DialogTitle>{t("history.deleteTitle")}</DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
-              {copy.deleteDescription.replace("{id}", String(deleteTarget?.id ?? ""))}
+              {t("history.deleteDescription", { id: String(deleteTarget?.id ?? "") })}
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-3 pt-2">
-            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>{copy.cancel}</Button>
-            <Button variant="destructive" onClick={() => void executeDelete()}>{copy.delete}</Button>
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>{t("buttons.cancel")}</Button>
+            <Button variant="destructive" onClick={() => void executeDelete()}>{t("buttons.delete")}</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -474,7 +412,9 @@ const History = () => {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-5xl border-border/60 bg-card p-0 text-foreground">
           <DialogHeader className="border-b border-border/50 px-6 py-5">
-            <DialogTitle className="text-lg font-semibold">{copy.previewTitle.replace("{id}", String(selectedSummary?.id ?? ""))}</DialogTitle>
+            <DialogTitle className="text-lg font-semibold">
+              {t("history.previewTitle", { id: String(selectedSummary?.id ?? "") })}
+            </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
               {selectedSummary?.sourceA} ↔ {selectedSummary?.sourceB}
             </DialogDescription>
@@ -484,11 +424,11 @@ const History = () => {
             <div className="space-y-5 p-6">
               <div className="grid gap-5 lg:grid-cols-2">
                 <div className="card-premium overflow-hidden">
-                  <div className="border-b border-border/50 px-4 py-3 text-xs font-medium text-foreground">{copy.table.sourceA}</div>
+                  <div className="border-b border-border/50 px-4 py-3 text-xs font-medium text-foreground">{t("history.table.sourceA")}</div>
                   <pre className="code-surface m-4 max-h-72 overflow-auto whitespace-pre-wrap p-4 text-xs scrollbar-thin">{selectedAnalysis.code1}</pre>
                 </div>
                 <div className="card-premium overflow-hidden">
-                  <div className="border-b border-border/50 px-4 py-3 text-xs font-medium text-foreground">{copy.table.sourceB}</div>
+                  <div className="border-b border-border/50 px-4 py-3 text-xs font-medium text-foreground">{t("history.table.sourceB")}</div>
                   <pre className="code-surface m-4 max-h-72 overflow-auto whitespace-pre-wrap p-4 text-xs scrollbar-thin">{selectedAnalysis.code2}</pre>
                 </div>
               </div>
@@ -497,15 +437,15 @@ const History = () => {
 
               <div className="flex justify-end gap-3">
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  {copy.close}
+                  {t("buttons.close")}
                 </Button>
                 <Button onClick={() => void openInResults(selectedSummary!)}>
-                  {copy.openFullResults}
+                  {t("history.openFullResults")}
                 </Button>
               </div>
             </div>
           ) : (
-            <div className="p-6 text-sm text-muted-foreground">{copy.loadingPreview}</div>
+            <div className="p-6 text-sm text-muted-foreground">{t("history.loadingPreview")}</div>
           )}
         </DialogContent>
       </Dialog>

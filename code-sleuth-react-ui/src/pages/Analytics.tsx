@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { BarChart3, TrendingUp, GitCompare, Activity, Plus } from "lucide-react";
 import {
   Area,
@@ -14,11 +15,11 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Legend,
 } from "recharts";
 import { Button } from "@/components/ui/button";
+import { PageLoader } from "@/components/common/PageLoader";
+import { PageError } from "@/components/common/PageError";
 import { apiFetch } from "@/lib/api";
-import { useLanguage } from "@/context/LanguageContext";
 import type { HistorySummary } from "@/types/api";
 import { cn } from "@/lib/utils";
 
@@ -59,90 +60,38 @@ function StatCard({ icon: Icon, label, value, sub, color }: {
 }
 
 const Analytics = () => {
-  const { language } = useLanguage();
+  const { t } = useTranslation("common");
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [error, setError] = useState("");
 
-  useEffect(() => {
+  const loadData = () => {
+    setError("");
     apiFetch<AnalyticsData>("/api/analytics")
       .then(setData)
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load analytics."));
+      .catch((err) => setError(err instanceof Error ? err.message : t("analytics.loadError")));
+  };
+
+  useEffect(() => {
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const copy =
-    language === "ar"
-      ? {
-          title: "لوحة التحليلات",
-          description: "نظرة شاملة على نشاطك وأنماط استخدامك للمنصة.",
-          totalAnalyses: "إجمالي التحليلات",
-          totalDesc: "عدد المقارنات المنفذة",
-          languages: "اللغات المستخدمة",
-          languagesDesc: "لغات برمجية مختلفة",
-          topScore: "أعلى تشابه",
-          topScoreDesc: "في آخر تحليل",
-          activity: "النشاط اليومي (آخر 30 يوماً)",
-          langDist: "توزيع اللغات",
-          simDist: "توزيع نسب التشابه",
-          cloneDist: "أنواع النسخ المكتشفة",
-          topAnalyses: "أعلى 5 تحليلات تشابهاً",
-          noData: "لا توجد بيانات بعد. شغّل تحليلاً لملء اللوحة.",
-          startAnalysis: "ابدأ تحليلاً",
-          similarity: "التشابه",
-          count: "العدد",
-          source: "المصدر",
-          language: "اللغة",
-          analyses: "تحليل",
-        }
-      : {
-          title: "Analytics Dashboard",
-          description: "A comprehensive view of your activity and usage patterns on the platform.",
-          totalAnalyses: "Total Analyses",
-          totalDesc: "Comparisons performed",
-          languages: "Languages Used",
-          languagesDesc: "Distinct programming languages",
-          topScore: "Top Similarity",
-          topScoreDesc: "Highest score on record",
-          activity: "Daily Activity (Last 30 Days)",
-          langDist: "Language Distribution",
-          simDist: "Similarity Score Distribution",
-          cloneDist: "Detected Clone Types",
-          topAnalyses: "Top 5 Analyses by Similarity",
-          noData: "No data yet. Run an analysis to populate the dashboard.",
-          startAnalysis: "Start an Analysis",
-          similarity: "Similarity",
-          count: "Count",
-          source: "Source",
-          language: "Language",
-          analyses: "analyses",
-        };
-
   if (error) {
-    return (
-      <div className="card-premium p-10 text-center">
-        <p className="text-sm text-destructive">{error}</p>
-      </div>
-    );
+    return <PageError message={error} onRetry={loadData} />;
   }
 
   if (!data) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="card-premium flex items-center gap-3 px-5 py-4 text-sm text-muted-foreground">
-          <span className="h-3.5 w-3.5 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
-          {language === "ar" ? "جارٍ التحميل..." : "Loading…"}
-        </div>
-      </div>
-    );
+    return <PageLoader />;
   }
 
   if (data.total === 0) {
     return (
       <div className="card-premium mx-auto max-w-xl p-12 text-center">
         <BarChart3 className="mx-auto mb-4 h-12 w-12 text-muted-foreground/30" />
-        <h2 className="text-xl font-bold text-foreground">{copy.title}</h2>
-        <p className="mt-3 text-sm text-muted-foreground">{copy.noData}</p>
+        <h2 className="text-xl font-bold text-foreground">{t("analytics.title")}</h2>
+        <p className="mt-3 text-sm text-muted-foreground">{t("analytics.noData")}</p>
         <Button asChild className="mt-6">
-          <Link to="/analysis"><Plus className="mr-2 h-4 w-4" />{copy.startAnalysis}</Link>
+          <Link to="/analysis"><Plus className="mr-2 h-4 w-4" />{t("analytics.startAnalysis")}</Link>
         </Button>
       </div>
     );
@@ -162,22 +111,22 @@ const Analytics = () => {
       <div className="page-header">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <BarChart3 className="h-6 w-6 text-primary" />
-          {copy.title}
+          {t("analytics.title")}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{copy.description}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{t("analytics.description")}</p>
       </div>
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-        <StatCard icon={Activity} label={copy.totalAnalyses} value={data.total} sub={copy.totalDesc} />
-        <StatCard icon={GitCompare} label={copy.languages} value={uniqueLangs} sub={copy.languagesDesc} color="text-accent" />
-        <StatCard icon={TrendingUp} label={copy.topScore} value={`${topScore.toFixed(1)}%`} sub={copy.topScoreDesc} color="text-warning" />
+        <StatCard icon={Activity} label={t("analytics.totalAnalyses")} value={data.total} sub={t("analytics.totalDesc")} />
+        <StatCard icon={GitCompare} label={t("analytics.languages")} value={uniqueLangs} sub={t("analytics.languagesDesc")} color="text-accent" />
+        <StatCard icon={TrendingUp} label={t("analytics.topScore")} value={`${topScore.toFixed(1)}%`} sub={t("analytics.topScoreDesc")} color="text-warning" />
       </div>
 
       {/* Activity chart */}
       <div className="card-premium overflow-hidden">
         <div className="border-b border-border/50 px-5 py-4">
-          <h3 className="text-sm font-semibold text-foreground">{copy.activity}</h3>
+          <h3 className="text-sm font-semibold text-foreground">{t("analytics.activity")}</h3>
         </div>
         <div className="p-4">
           <ResponsiveContainer width="100%" height={200}>
@@ -195,7 +144,7 @@ const Analytics = () => {
                 contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
                 labelStyle={{ color: "hsl(var(--foreground))" }}
               />
-              <Area type="monotone" dataKey="count" stroke="hsl(235 84% 59%)" strokeWidth={2} fill="url(#actGrad)" name={copy.analyses} />
+              <Area type="monotone" dataKey="count" stroke="hsl(235 84% 59%)" strokeWidth={2} fill="url(#actGrad)" name={t("analytics.analyses")} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -206,7 +155,7 @@ const Analytics = () => {
         {/* Language distribution */}
         <div className="card-premium overflow-hidden">
           <div className="border-b border-border/50 px-5 py-4">
-            <h3 className="text-sm font-semibold text-foreground">{copy.langDist}</h3>
+            <h3 className="text-sm font-semibold text-foreground">{t("analytics.langDist")}</h3>
           </div>
           <div className="flex items-center justify-center gap-4 p-4">
             <ResponsiveContainer width="45%" height={180}>
@@ -238,7 +187,7 @@ const Analytics = () => {
         {/* Similarity distribution */}
         <div className="card-premium overflow-hidden">
           <div className="border-b border-border/50 px-5 py-4">
-            <h3 className="text-sm font-semibold text-foreground">{copy.simDist}</h3>
+            <h3 className="text-sm font-semibold text-foreground">{t("analytics.simDist")}</h3>
           </div>
           <div className="p-4">
             <ResponsiveContainer width="100%" height={180}>
@@ -249,7 +198,7 @@ const Analytics = () => {
                 <Tooltip
                   contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
                 />
-                <Bar dataKey="count" radius={[4, 4, 0, 0]} name={copy.count}>
+                <Bar dataKey="count" radius={[4, 4, 0, 0]} name={t("analytics.count")}>
                   {data.similarity_dist.map((d) => (
                     <Cell
                       key={d.range}
@@ -275,7 +224,7 @@ const Analytics = () => {
       {data.clone_dist.length > 0 && (
         <div className="card-premium overflow-hidden">
           <div className="border-b border-border/50 px-5 py-4">
-            <h3 className="text-sm font-semibold text-foreground">{copy.cloneDist}</h3>
+            <h3 className="text-sm font-semibold text-foreground">{t("analytics.cloneDist")}</h3>
           </div>
           <div className="p-4">
             <ResponsiveContainer width="100%" height={180}>
@@ -286,7 +235,7 @@ const Analytics = () => {
                 <Tooltip
                   contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
                 />
-                <Bar dataKey="count" fill="hsl(235 84% 59%)" radius={[0, 4, 4, 0]} name={copy.count} />
+                <Bar dataKey="count" fill="hsl(235 84% 59%)" radius={[0, 4, 4, 0]} name={t("analytics.count")} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -297,16 +246,16 @@ const Analytics = () => {
       {data.top_analyses.length > 0 && (
         <div className="card-premium overflow-hidden">
           <div className="border-b border-border/50 px-5 py-4">
-            <h3 className="text-sm font-semibold text-foreground">{copy.topAnalyses}</h3>
+            <h3 className="text-sm font-semibold text-foreground">{t("analytics.topAnalyses")}</h3>
           </div>
           <div className="overflow-x-auto scrollbar-thin">
             <table className="w-full min-w-[560px]">
               <thead>
                 <tr className="border-b border-border/40 bg-muted/20">
-                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground">{copy.source} A</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground">{copy.source} B</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground">{copy.language}</th>
-                  <th className="px-5 py-3 text-center text-xs font-medium text-muted-foreground">{copy.similarity}</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground">{t("analytics.source")} A</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground">{t("analytics.source")} B</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground">{t("analytics.language")}</th>
+                  <th className="px-5 py-3 text-center text-xs font-medium text-muted-foreground">{t("analytics.similarity")}</th>
                 </tr>
               </thead>
               <tbody>

@@ -2,7 +2,6 @@ import { lazy, Suspense } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { DocumentTitleSync } from "@/components/common/DocumentTitleSync";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
@@ -36,7 +35,6 @@ const App = () => (
         <AuthProvider>
           <AnalysisProvider>
             <TooltipProvider>
-              <Toaster />
               <Sonner />
               <BrowserRouter>
                 <DocumentTitleSync />
@@ -95,7 +93,7 @@ const App = () => (
                     <Route
                       path="/enterprise/workspaces"
                       element={
-                        <ProtectedRoute>
+                        <ProtectedRoute requireAdmin>
                           <Workspaces />
                         </ProtectedRoute>
                       }
@@ -103,7 +101,7 @@ const App = () => (
                     <Route
                       path="/enterprise/workspaces/:workspaceId"
                       element={
-                        <ProtectedRoute>
+                        <ProtectedRoute requireAdmin>
                           <WorkspaceDetail />
                         </ProtectedRoute>
                       }
@@ -111,7 +109,7 @@ const App = () => (
                     <Route
                       path="/enterprise/cases"
                       element={
-                        <ProtectedRoute>
+                        <ProtectedRoute requireAdmin>
                           <ReviewCases />
                         </ProtectedRoute>
                       }
@@ -119,7 +117,7 @@ const App = () => (
                     <Route
                       path="/enterprise/cases/:caseId"
                       element={
-                        <ProtectedRoute>
+                        <ProtectedRoute requireAdmin>
                           <CaseDetail />
                         </ProtectedRoute>
                       }

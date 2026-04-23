@@ -1,0 +1,55 @@
+{
+  "analysis": {
+    "title": "تحليل جديد",
+    "subtitle": "زوّد مصدرين برمجيين عبر اللصق أو رفع الملفات أو أرشيفات ZIP أو صفوف الجداول.",
+    "configure": "إعداد التحليل",
+    "sourceA": "المصدر A",
+    "sourceB": "المصدر B",
+    "sourceTitle": "المصدر {{label}}",
+    "sourceDescription": "اختر الطريقة التي تريد تزويد هذا المقطع البرمجي بها.",
+    "methods": {
+      "paste": "لصق الشيفرة",
+      "file": "ملف برمجي",
+      "zip": "أرشيف ZIP",
+      "excel": "Excel / CSV"
+    },
+    "methodDescriptions": {
+      "paste": "أدخل الشيفرة مباشرة",
+      "file": "ارفع ملفًا برمجيًا واحدًا",
+      "zip": "حلّل مشروعًا مضغوطًا",
+      "excel": "اختر صفًا من جدول"
+    },
+    "pastePlaceholder": "// ألصق شيفرة المصدر {{label}} هنا…\nfunction example() {\n  return \"Hello\";\n}",
+    "clickOrDrop": "انقر أو أسقط ملفًا هنا",
+    "ready": "جاهز للتحليل",
+    "codeFiles": "ملفات برمجية مثل .py و .java و .js و .ts و .go",
+    "zipArchive": "أرشيف ZIP لمستودع أو مجلد مشروع",
+    "spreadsheet": "ملف جدول يحتوي على العينة البرمجية داخل صف",
+    "language": "اللغة",
+    "selectLanguage": "اختر اللغة",
+    "excelRow": "رقم الصف الذي يحتوي على العينة البرمجية:",
+    "lines": "سطر",
+    "steps": {
+      "provide": "تزويد المصادر",
+      "run": "تشغيل التحليل",
+      "inspect": "مراجعة النتائج"
+    },
+    "capabilities": {
+      "toggle": "قدرات التحليل المضمنة في هذه الجولة",
+      "tokenAnalysis": "تحليل التوكنات",
+      "astComparison": "مقارنة رسم AST",
+      "textSimilarity": "تشابه النص",
+      "aiAnalysis": "تحليل دلالي بالذكاء الاصطناعي",
+      "codeMetrics": "قياسات الشيفرة",
+      "cloneDetection": "كشف أنواع النسخ",
+      "codeSmell": "تحليل جودة الشيفرة"
+    },
+    "autoSave": "يتم حفظ التحليلات تلقائيًا في السجل بعد النجاح.",
+    "runCopy": "تشغيل التحليل",
+    "submit": "تشغيل التحليل",
+    "analyzing": "جارٍ التحليل...",
+    "clearAll": "مسح الكل",
+    "analysisCouldNotBeCompleted": "تعذر إكمال التحليل.",
+    "analysisFailed": "فشل التحليل."
+  }
+}

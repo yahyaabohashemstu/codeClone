@@ -1,0 +1,203 @@
+name: 'CodeSimilar Similarity Check'
+description: 'Run code similarity analysis on changed files in a pull request and fail if similarity exceeds threshold.'
+author: 'CodeSimilar'
+
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  api-url:
+    description: 'Base URL of the CodeSimilar API (e.g., https://your-instance.com)'
+    required: true
+  api-key:
+    description: 'API key for authentication (CI_API_KEY or enterprise epk_ key)'
+    required: true
+  threshold:
+    description: 'Similarity percentage threshold (0-100). Pairs above this fail the check.'
+    required: false
+    default: '80'
+  language:
+    description: 'Programming language for analysis (python, javascript, java, etc.)'
+    required: false
+    default: 'python'
+  file-pattern:
+    description: 'Glob pattern to filter files for comparison (e.g., "*.py" or "src/**/*.js")'
+    required: false
+    default: '*.py'
+  fail-on-violation:
+    description: 'Whether to fail the workflow when similarity exceeds threshold'
+    required: false
+    default: 'true'
+
+outputs:
+  verdict:
+    description: '"pass" or "fail"'
+    value: ${{ steps.check.outputs.verdict }}
+  violations:
+    description: 'Number of pairs that exceeded the threshold'
+    value: ${{ steps.check.outputs.violations }}
+  total-pairs:
+    description: 'Total number of pairs analyzed'
+    value: ${{ steps.check.outputs.total_pairs }}
+  report-json:
+    description: 'Full JSON report from the API'
+    value: ${{ steps.check.outputs.report_json }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Collect changed files
+      id: files
+      shell: bash
+      run: |
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          FILES=$(git diff --name-only --diff-filter=ACMR ${{ github.event.pull_request.base.sha }}...${{ github.sha }} | grep -E '${{ inputs.file-pattern }}' || true)
+        else
+          FILES=$(git diff --name-only --diff-filter=ACMR HEAD~1 | grep -E '${{ inputs.file-pattern }}' || true)
+        fi
+
+        if [ -z "$FILES" ]; then
+          echo "No matching files changed."
+          echo "has_files=false" >> $GITHUB_OUTPUT
+        else
+          echo "has_files=true" >> $GITHUB_OUTPUT
+          echo "$FILES" > /tmp/cs_changed_files.txt
+          echo "Changed files:"
+          cat /tmp/cs_changed_files.txt
+        fi
+
+    - name: Build comparison pairs
+      id: pairs
+      if: steps.files.outputs.has_files == 'true'
+      shell: python3 {0}
+      run: |
+        import json
+        import os
+        import subprocess
+
+        with open("/tmp/cs_changed_files.txt") as f:
+            files = [line.strip() for line in f if line.strip()]
+
+        pairs = []
+        for filepath in files:
+            # Get the current version
+            try:
+                with open(filepath, "r", encoding="utf-8", errors="replace") as fh:
+                    current_code = fh.read()
+            except FileNotFoundError:
+                continue
+
+            # Get the base version (before PR changes)
+            base_ref = os.environ.get("GITHUB_BASE_REF", "HEAD~1")
+            try:
+                result = subprocess.run(
+                    ["git", "show", f"{base_ref}:{filepath}"],
+                    capture_output=True, text=True, timeout=10,
+                )
+                base_code = result.stdout if result.returncode == 0 else ""
+            except Exception:
+                base_code = ""
+
+            if not base_code.strip():
+                continue  # New file, nothing to compare against
+
+            pairs.append({
+                "label_a": f"{filepath} (base)",
+                "label_b": f"{filepath} (PR)",
+                "code_a": base_code[:524288],  # 512KB limit
+                "code_b": current_code[:524288],
+            })
+
+        # Also compare changed files against each other (cross-file similarity)
+        for i in range(len(files)):
+            for j in range(i + 1, min(len(files), i + 10)):  # Limit cross comparisons
+                try:
+                    with open(files[i], "r", encoding="utf-8", errors="replace") as fa:
+                        code_a = fa.read()
+                    with open(files[j], "r", encoding="utf-8", errors="replace") as fb:
+                        code_b = fb.read()
+                    if code_a.strip() and code_b.strip():
+                        pairs.append({
+                            "label_a": files[i],
+                            "label_b": files[j],
+                            "code_a": code_a[:524288],
+                            "code_b": code_b[:524288],
+                        })
+                except Exception:
+                    continue
+
+        if not pairs:
+            print("No valid pairs to compare.")
+            with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+                f.write("has_pairs=false\n")
+        else:
+            print(f"Built {len(pairs)} comparison pairs.")
+            with open("/tmp/cs_pairs.json", "w") as f:
+                json.dump(pairs, f)
+            with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+                f.write("has_pairs=true\n")
+
+    - name: Run similarity check
+      id: check
+      if: steps.files.outputs.has_files == 'true' && steps.pairs.outputs.has_pairs == 'true'
+      shell: bash
+      env:
+        CS_API_URL: ${{ inputs.api-url }}
+        CS_API_KEY: ${{ inputs.api-key }}
+        CS_THRESHOLD: ${{ inputs.threshold }}
+        CS_LANGUAGE: ${{ inputs.language }}
+      run: |
+        PAIRS=$(cat /tmp/cs_pairs.json)
+
+        PAYLOAD=$(jq -n \
+          --argjson pairs "$PAIRS" \
+          --arg threshold "$CS_THRESHOLD" \
+          --arg language "$CS_LANGUAGE" \
+          '{threshold: ($threshold | tonumber), language: $language, pairs: $pairs}')
+
+        RESPONSE=$(curl -s -w "\n%{http_code}" \
+          -X POST "${CS_API_URL}/api/v1/ci/check" \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Bearer ${CS_API_KEY}" \
+          -d "$PAYLOAD")
+
+        HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+        BODY=$(echo "$RESPONSE" | sed '$d')
+
+        echo "API Response (HTTP $HTTP_CODE):"
+        echo "$BODY" | jq . 2>/dev/null || echo "$BODY"
+
+        VERDICT=$(echo "$BODY" | jq -r '.verdict // "error"')
+        VIOLATIONS=$(echo "$BODY" | jq -r '.violations // 0')
+        TOTAL=$(echo "$BODY" | jq -r '.total_pairs // 0')
+
+        echo "verdict=$VERDICT" >> $GITHUB_OUTPUT
+        echo "violations=$VIOLATIONS" >> $GITHUB_OUTPUT
+        echo "total_pairs=$TOTAL" >> $GITHUB_OUTPUT
+        echo "report_json=$BODY" >> $GITHUB_OUTPUT
+
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "  CodeSimilar Check Results"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "  Verdict:    $VERDICT"
+        echo "  Threshold:  ${CS_THRESHOLD}%"
+        echo "  Pairs:      $TOTAL"
+        echo "  Violations: $VIOLATIONS"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+        if [ "$VERDICT" = "fail" ] && [ "${{ inputs.fail-on-violation }}" = "true" ]; then
+          echo ""
+          echo "::error::CodeSimilar detected $VIOLATIONS similarity violations above ${CS_THRESHOLD}% threshold."
+          exit 1
+        fi
+
+    - name: No files to check
+      if: steps.files.outputs.has_files != 'true' || steps.pairs.outputs.has_pairs != 'true'
+      shell: bash
+      run: |
+        echo "verdict=pass" >> $GITHUB_OUTPUT
+        echo "violations=0" >> $GITHUB_OUTPUT
+        echo "total_pairs=0" >> $GITHUB_OUTPUT
+        echo "No matching files changed — skipping similarity check."

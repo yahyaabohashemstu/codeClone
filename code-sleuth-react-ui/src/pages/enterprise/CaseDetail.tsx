@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   AlertCircle,
   ArrowLeft,
@@ -22,7 +23,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { useLanguage } from "@/context/LanguageContext";
 import {
   getCase,
@@ -71,9 +72,8 @@ const ALL_FEEDBACK: FeedbackLabel[] = [
 export default function CaseDetail() {
   const { caseId } = useParams<{ caseId: string }>();
   const navigate = useNavigate();
-  const { language, isRTL } = useLanguage();
-  const { toast } = useToast();
-  const ar = language === "ar";
+  const { isRTL } = useLanguage();
+  const { t } = useTranslation("enterprise");
 
   const [caseData, setCaseData] = useState<EnterpriseCase | null>(null);
   const [loading, setLoading] = useState(true);
@@ -92,116 +92,6 @@ export default function CaseDetail() {
   const [feedbackNotes, setFeedbackNotes] = useState("");
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
 
-  const copy = ar
-    ? {
-        back: "رجوع",
-        caseId: "رقم القضية",
-        status: "الحالة",
-        severity: "الخطورة",
-        cloneType: "نوع النسخ",
-        confidence: "الثقة",
-        updateCase: "تحديث الحالة",
-        submitFeedback: "إرسال تغذية راجعة",
-        downloadPdf: "تنزيل التقرير PDF",
-        statusLabel: "الحالة",
-        severityLabel: "الخطورة",
-        notesLabel: "ملاحظات القرار (اختياري)",
-        cancel: "إلغاء",
-        save: "حفظ",
-        submit: "إرسال",
-        feedbackLabel: "التصنيف",
-        feedbackNotesLabel: "ملاحظات (اختياري)",
-        matchSection: "تفاصيل التطابق",
-        evidenceSection: "الأدلة",
-        artifactA: "الأداة الأولى",
-        artifactB: "الأداة الثانية",
-        path: "المسار",
-        lines: "الأسطر",
-        language: "اللغة",
-        similarity: "التشابه الكلي",
-        structural: "التشابه الهيكلي",
-        semantic: "التشابه الدلالي",
-        token: "التشابه الرمزي",
-        noEvidence: "لا توجد أدلة مسجلة.",
-        loading: "جاري التحميل...",
-        errorMsg: "فشل تحميل القضية",
-        statusNames: {
-          open: "مفتوحة",
-          in_review: "قيد المراجعة",
-          confirmed_clone: "نسخ مؤكد",
-          false_positive: "إيجابية خاطئة",
-          dismissed: "مرفوضة",
-          resolved: "محلولة",
-        } as Record<CaseStatus, string>,
-        severityNames: {
-          critical: "حرج",
-          high: "عالي",
-          medium: "متوسط",
-          low: "منخفض",
-        } as Record<CaseSeverity, string>,
-        feedbackNames: {
-          confirmed_clone: "نسخ مؤكد",
-          confirmed_plagiarism: "سرقة مؤكدة",
-          false_positive: "إيجابية خاطئة",
-          benign_similarity: "تشابه بريء",
-          needs_more_review: "تحتاج مراجعة إضافية",
-        } as Record<FeedbackLabel, string>,
-      }
-    : {
-        back: "Back",
-        caseId: "Case ID",
-        status: "Status",
-        severity: "Severity",
-        cloneType: "Clone Type",
-        confidence: "Confidence",
-        updateCase: "Update Case",
-        submitFeedback: "Submit Feedback",
-        downloadPdf: "Download PDF Report",
-        statusLabel: "Status",
-        severityLabel: "Severity",
-        notesLabel: "Resolution notes (optional)",
-        cancel: "Cancel",
-        save: "Save",
-        submit: "Submit",
-        feedbackLabel: "Label",
-        feedbackNotesLabel: "Notes (optional)",
-        matchSection: "Match Details",
-        evidenceSection: "Evidence",
-        artifactA: "Artifact A",
-        artifactB: "Artifact B",
-        path: "Path",
-        lines: "Lines",
-        language: "Language",
-        similarity: "Overall Similarity",
-        structural: "Structural",
-        semantic: "Semantic",
-        token: "Token",
-        noEvidence: "No evidence recorded.",
-        loading: "Loading...",
-        errorMsg: "Failed to load case",
-        statusNames: {
-          open: "Open",
-          in_review: "In Review",
-          confirmed_clone: "Confirmed Clone",
-          false_positive: "False Positive",
-          dismissed: "Dismissed",
-          resolved: "Resolved",
-        } as Record<CaseStatus, string>,
-        severityNames: {
-          critical: "Critical",
-          high: "High",
-          medium: "Medium",
-          low: "Low",
-        } as Record<CaseSeverity, string>,
-        feedbackNames: {
-          confirmed_clone: "Confirmed Clone",
-          confirmed_plagiarism: "Confirmed Plagiarism",
-          false_positive: "False Positive",
-          benign_similarity: "Benign Similarity",
-          needs_more_review: "Needs More Review",
-        } as Record<FeedbackLabel, string>,
-      };
-
   useEffect(() => {
     if (!caseId) return;
     setLoading(true);
@@ -211,10 +101,10 @@ export default function CaseDetail() {
         setNewStatus(c.status);
         setNewSeverity(c.severity);
       })
-      .catch((e) => setError(e?.message ?? copy.errorMsg))
+      .catch((e) => setError(e?.message ?? t("enterprise.caseDetail.errorMsg")))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [caseId, language]);
+  }, [caseId, t]);
 
   const handleUpdate = async () => {
     if (!caseData) return;
@@ -227,9 +117,9 @@ export default function CaseDetail() {
       });
       setCaseData(updated);
       setUpdateOpen(false);
-      toast({ title: ar ? "تم التحديث" : "Updated", description: ar ? "تم تحديث القضية." : "Case updated successfully." });
+      toast.success(t("enterprise.caseDetail.updated"), { description: t("enterprise.caseDetail.updatedDesc") });
     } catch (e: unknown) {
-      toast({ variant: "destructive", title: ar ? "فشل التحديث" : "Update failed", description: (e as { message?: string })?.message ?? String(e) });
+      toast.error(t("enterprise.caseDetail.updateFailed"), { description: (e as { message?: string })?.message ?? String(e) });
     } finally {
       setUpdating(false);
     }
@@ -246,9 +136,9 @@ export default function CaseDetail() {
       setCaseData(updated);
       setFeedbackOpen(false);
       setFeedbackNotes("");
-      toast({ title: ar ? "تم الإرسال" : "Feedback submitted" });
+      toast.success(t("enterprise.caseDetail.feedbackSubmitted"));
     } catch (e: unknown) {
-      toast({ variant: "destructive", title: ar ? "فشل الإرسال" : "Submission failed", description: (e as { message?: string })?.message ?? String(e) });
+      toast.error(t("enterprise.caseDetail.submissionFailed"), { description: (e as { message?: string })?.message ?? String(e) });
     } finally {
       setSubmittingFeedback(false);
     }
@@ -258,7 +148,7 @@ export default function CaseDetail() {
     return (
       <div className="flex items-center gap-2 justify-center py-24 text-muted-foreground" dir={isRTL ? "rtl" : "ltr"}>
         <Loader2 className="h-4 w-4 animate-spin" />
-        {copy.loading}
+        {t("enterprise.common.loading")}
       </div>
     );
   }
@@ -267,10 +157,10 @@ export default function CaseDetail() {
     return (
       <div className="flex flex-col items-center gap-3 py-24 text-destructive" dir={isRTL ? "rtl" : "ltr"}>
         <AlertCircle className="h-6 w-6" />
-        <p>{error ?? copy.errorMsg}</p>
+        <p>{error ?? t("enterprise.caseDetail.errorMsg")}</p>
         <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
-          {copy.back}
+          {t("enterprise.caseDetail.back")}
         </Button>
       </div>
     );
@@ -284,46 +174,46 @@ export default function CaseDetail() {
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="gap-1.5">
           <ArrowLeft className={cn("h-3.5 w-3.5", isRTL && "rotate-180")} />
-          {copy.back}
+          {t("enterprise.caseDetail.back")}
         </Button>
         <div className="h-4 w-px bg-border" />
         <h1 className="text-xl font-bold text-foreground">
-          {copy.caseId} #{caseData.id}
+          {t("enterprise.caseDetail.caseId")} #{caseData.id}
         </h1>
       </div>
 
       {/* Summary bar */}
       <div className="card-premium flex flex-wrap items-center gap-4 p-4">
         <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold capitalize", STATUS_BADGE[caseData.status])}>
-          {copy.statusNames[caseData.status]}
+          {t(`enterprise.status.${caseData.status}`)}
         </span>
         <span className={cn("text-sm font-semibold capitalize", SEVERITY_COLOR[caseData.severity])}>
           <Shield className="mr-1 inline h-3.5 w-3.5" />
-          {copy.severityNames[caseData.severity]}
+          {t(`enterprise.severity.${caseData.severity}`)}
         </span>
         <span className="text-sm text-muted-foreground">
-          {copy.cloneType}: <span className="font-medium text-foreground">{caseData.cloneType}</span>
+          {t("enterprise.caseDetail.cloneType")}: <span className="font-medium text-foreground">{caseData.cloneType}</span>
         </span>
         <span className="text-sm text-muted-foreground">
-          {copy.confidence}: <span className="font-medium text-foreground">{Math.round(caseData.confidenceScore * 100)}%</span>
+          {t("enterprise.caseDetail.confidence")}: <span className="font-medium text-foreground">{Math.round(caseData.confidenceScore)}%</span>
         </span>
         <div className="ml-auto flex flex-wrap gap-2">
           <Button size="sm" variant="outline" onClick={() => setUpdateOpen(true)} className="gap-1.5">
             <RefreshCw className="h-3.5 w-3.5" />
-            {copy.updateCase}
+            {t("enterprise.caseDetail.updateCase")}
           </Button>
           <Button size="sm" variant="outline" onClick={() => setFeedbackOpen(true)} className="gap-1.5">
             <MessageSquare className="h-3.5 w-3.5" />
-            {copy.submitFeedback}
+            {t("enterprise.caseDetail.submitFeedback")}
           </Button>
           <Button
             size="sm"
             variant="outline"
-            onClick={() => window.open(getCasePdfUrl(caseData.id), "_blank")}
+            onClick={() => window.open(getCasePdfUrl(caseData.id), "_blank", "noopener,noreferrer")}
             className="gap-1.5"
           >
             <Download className="h-3.5 w-3.5" />
-            {copy.downloadPdf}
+            {t("enterprise.caseDetail.downloadPdf")}
           </Button>
         </div>
       </div>
@@ -332,19 +222,19 @@ export default function CaseDetail() {
       <section className="card-premium space-y-4 p-5">
         <h2 className="flex items-center gap-2 font-semibold text-foreground">
           <FileText className="h-4 w-4 text-primary" />
-          {copy.matchSection}
+          {t("enterprise.caseDetail.matchSection")}
         </h2>
 
         {/* Scores */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
-            { label: copy.similarity, value: match.similarityScore },
-            { label: copy.structural, value: match.structuralScore },
-            { label: copy.semantic, value: match.semanticScore },
-            { label: copy.token, value: match.tokenScore },
+            { label: t("enterprise.caseDetail.similarity"), value: match.similarityScore },
+            { label: t("enterprise.caseDetail.structural"), value: match.structuralScore },
+            { label: t("enterprise.caseDetail.semantic"), value: match.semanticScore },
+            { label: t("enterprise.caseDetail.token"), value: match.tokenScore },
           ].map(({ label, value }) => (
             <div key={label} className="rounded-lg border border-border/50 bg-muted/30 p-3 text-center">
-              <div className="text-2xl font-bold text-primary">{Math.round(value * 100)}%</div>
+              <div className="text-2xl font-bold text-primary">{Math.round(value)}%</div>
               <div className="mt-0.5 text-xs text-muted-foreground">{label}</div>
             </div>
           ))}
@@ -353,8 +243,8 @@ export default function CaseDetail() {
         {/* Artifacts */}
         <div className="grid gap-3 sm:grid-cols-2">
           {[
-            { label: copy.artifactA, artifact: match.artifactA },
-            { label: copy.artifactB, artifact: match.artifactB },
+            { label: t("enterprise.caseDetail.artifactA"), artifact: match.artifactA },
+            { label: t("enterprise.caseDetail.artifactB"), artifact: match.artifactB },
           ].map(({ label, artifact }) => (
             <div key={label} className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-1 text-sm">
               <div className="flex items-center gap-1.5 font-semibold text-foreground text-xs uppercase tracking-wide">
@@ -362,16 +252,16 @@ export default function CaseDetail() {
                 {label}
               </div>
               <div className="text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">{copy.path}:</span>{" "}
-                <span className="font-mono">{artifact?.logicalPath ?? "—"}</span>
+                <span className="font-medium text-foreground">{t("enterprise.caseDetail.path")}:</span>{" "}
+                <span className="font-mono">{artifact?.logicalPath ?? "\u2014"}</span>
               </div>
               <div className="text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">{copy.lines}:</span>{" "}
-                {artifact?.startLine}–{artifact?.endLine}
+                <span className="font-medium text-foreground">{t("enterprise.caseDetail.lines")}:</span>{" "}
+                {artifact?.startLine}\u2013{artifact?.endLine}
               </div>
               <div className="text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">{copy.language}:</span>{" "}
-                {artifact?.language ?? "—"}
+                <span className="font-medium text-foreground">{t("enterprise.caseDetail.language")}:</span>{" "}
+                {artifact?.language ?? "\u2014"}
               </div>
             </div>
           ))}
@@ -382,10 +272,10 @@ export default function CaseDetail() {
       <section className="card-premium space-y-3 p-5">
         <h2 className="flex items-center gap-2 font-semibold text-foreground">
           <CheckCircle2 className="h-4 w-4 text-primary" />
-          {copy.evidenceSection}
+          {t("enterprise.caseDetail.evidenceSection")}
         </h2>
         {caseData.evidence.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{copy.noEvidence}</p>
+          <p className="text-sm text-muted-foreground">{t("enterprise.caseDetail.noEvidence")}</p>
         ) : (
           <div className="space-y-2">
             {caseData.evidence.map((ev) => (
@@ -406,45 +296,45 @@ export default function CaseDetail() {
       <Dialog open={updateOpen} onOpenChange={setUpdateOpen}>
         <DialogContent className="sm:max-w-sm" dir={isRTL ? "rtl" : "ltr"}>
           <DialogHeader>
-            <DialogTitle>{copy.updateCase}</DialogTitle>
+            <DialogTitle>{t("enterprise.caseDetail.updateCase")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="space-y-1.5">
-              <Label>{copy.statusLabel}</Label>
+              <Label>{t("enterprise.caseDetail.statusLabel")}</Label>
               <Select value={newStatus} onValueChange={(v) => setNewStatus(v as CaseStatus)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {ALL_STATUSES.map((s) => (
-                    <SelectItem key={s} value={s}>{copy.statusNames[s]}</SelectItem>
+                    <SelectItem key={s} value={s}>{t(`enterprise.status.${s}`)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>{copy.severityLabel}</Label>
+              <Label>{t("enterprise.caseDetail.severityLabel")}</Label>
               <Select value={newSeverity} onValueChange={(v) => setNewSeverity(v as CaseSeverity)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {ALL_SEVERITIES.map((s) => (
-                    <SelectItem key={s} value={s}>{copy.severityNames[s]}</SelectItem>
+                    <SelectItem key={s} value={s}>{t(`enterprise.severity.${s}`)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>{copy.notesLabel}</Label>
+              <Label>{t("enterprise.caseDetail.notesLabel")}</Label>
               <Textarea
                 value={resNotes}
                 onChange={(e) => setResNotes(e.target.value)}
                 rows={3}
-                placeholder={ar ? "ملاحظات اختيارية..." : "Optional notes..."}
+                placeholder={t("enterprise.caseDetail.notesPlaceholder")}
               />
             </div>
             <div className="flex justify-end gap-2 pt-1">
-              <Button variant="ghost" onClick={() => setUpdateOpen(false)}>{copy.cancel}</Button>
+              <Button variant="ghost" onClick={() => setUpdateOpen(false)}>{t("enterprise.common.cancel")}</Button>
               <Button onClick={handleUpdate} disabled={updating}>
                 {updating && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
-                {copy.save}
+                {t("enterprise.common.save")}
               </Button>
             </div>
           </div>
@@ -455,34 +345,34 @@ export default function CaseDetail() {
       <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}>
         <DialogContent className="sm:max-w-sm" dir={isRTL ? "rtl" : "ltr"}>
           <DialogHeader>
-            <DialogTitle>{copy.submitFeedback}</DialogTitle>
+            <DialogTitle>{t("enterprise.caseDetail.submitFeedback")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="space-y-1.5">
-              <Label>{copy.feedbackLabel}</Label>
+              <Label>{t("enterprise.caseDetail.feedbackLabel")}</Label>
               <Select value={feedbackLabel} onValueChange={(v) => setFeedbackLabel(v as FeedbackLabel)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {ALL_FEEDBACK.map((f) => (
-                    <SelectItem key={f} value={f}>{copy.feedbackNames[f]}</SelectItem>
+                    <SelectItem key={f} value={f}>{t(`enterprise.feedback.${f}`)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>{copy.feedbackNotesLabel}</Label>
+              <Label>{t("enterprise.caseDetail.feedbackNotesLabel")}</Label>
               <Textarea
                 value={feedbackNotes}
                 onChange={(e) => setFeedbackNotes(e.target.value)}
                 rows={3}
-                placeholder={ar ? "ملاحظات اختيارية..." : "Optional notes..."}
+                placeholder={t("enterprise.caseDetail.notesPlaceholder")}
               />
             </div>
             <div className="flex justify-end gap-2 pt-1">
-              <Button variant="ghost" onClick={() => setFeedbackOpen(false)}>{copy.cancel}</Button>
+              <Button variant="ghost" onClick={() => setFeedbackOpen(false)}>{t("enterprise.common.cancel")}</Button>
               <Button onClick={handleFeedback} disabled={submittingFeedback}>
                 {submittingFeedback && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
-                {copy.submit}
+                {t("enterprise.common.submit")}
               </Button>
             </div>
           </div>

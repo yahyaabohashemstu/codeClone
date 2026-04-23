@@ -183,6 +183,14 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.dir = meta.dir;
     document.body.dir = meta.dir;
     setApiLanguage(language);
+
+    // Sync i18next language
+    import("@/i18n").then((mod) => {
+      const i18n = mod.default;
+      if (i18n.language !== language) {
+        i18n.changeLanguage(language);
+      }
+    }).catch(() => { /* i18n not yet initialized */ });
   }, [language, meta.dir]);
 
   const formatNumber = useCallback(

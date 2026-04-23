@@ -1,0 +1,59 @@
+{
+  "help": {
+    "title": "Help & Support",
+    "subtitle": "Find answers, read documentation, or contact our support team.",
+    "support": {
+      "docs": {
+        "title": "Documentation",
+        "description": "Comprehensive guides, API references, and integration tutorials.",
+        "action": "Browse Docs"
+      },
+      "email": {
+        "title": "Email Support",
+        "description": "Detailed help for complex issues. Usually replied within one business day.",
+        "action": "Send Email"
+      },
+      "chat": {
+        "title": "Live Chat",
+        "description": "Real-time support from our technical team — typically responds within minutes.",
+        "action": "Start Chat"
+      }
+    },
+    "quickLinks": {
+      "title": "Quick Links",
+      "runAnalysis": "Run New Analysis",
+      "viewResults": "View Sample Results",
+      "securityFaq": "Security FAQ",
+      "apiGuide": "API Integration Guide"
+    },
+    "faq": {
+      "title": "Frequently Asked Questions",
+      "items": [
+        {
+          "question": "What programming languages are supported?",
+          "answer": "CodeSimilar supports Java, JavaScript, TypeScript, Python, C/C++, C#, Go, Ruby, PHP, Swift, and Kotlin. Semantic and AI-based analysis can detect patterns across different languages."
+        },
+        {
+          "question": "How does clone detection work?",
+          "answer": "The system uses four layers: token-based analysis for Type 1 & 2 clones, text similarity for near-duplicates, AST graph comparison for structural patterns, and AI-driven semantic analysis for functionally equivalent but syntactically different code."
+        },
+        {
+          "question": "What file types can I upload?",
+          "answer": "Individual code files (.java, .js, .ts, .py, etc.), ZIP archives of full projects, or Excel/CSV files containing code snippets with configurable row selection."
+        },
+        {
+          "question": "How is the similarity score calculated?",
+          "answer": "The overall score is a weighted average of token, text, AST graph, and AI similarity scores. Weights are determined dynamically based on code characteristics to maximize accuracy."
+        },
+        {
+          "question": "Can I integrate this with my CI/CD pipeline?",
+          "answer": "Yes. CodeSimilar exposes API endpoints you can call from any CI/CD system. Set similarity thresholds to fail builds when code duplication exceeds acceptable levels."
+        },
+        {
+          "question": "Is my code secure when I upload it?",
+          "answer": "All code is encrypted in transit and at rest. We never share your code with third parties. Enterprise customers can request on-premises deployment for complete data sovereignty."
+        }
+      ]
+    }
+  }
+}

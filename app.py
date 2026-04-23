@@ -203,8 +203,18 @@ def set_security_headers(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
-    response.headers['X-XSS-Protection'] = '1; mode=block'
     response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
+    if 'Content-Security-Policy' not in response.headers:
+        response.headers['Content-Security-Policy'] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
+            "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
+            "img-src 'self' data: blob:; "
+            "connect-src 'self'; "
+            "frame-ancestors 'none'"
+        )
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
     return response
 
 
@@ -872,71 +882,153 @@ class CloneDetector:
         return code1.strip() == code2.strip()
 
     def renamed_clone_similarity(self, code1, code2):
-        """Compute similarity for renamed clones."""
-        keywords = self._LANGUAGE_KEYWORDS.get(self.language, self._DEFAULT_KEYWORDS)
+        """Compute similarity for renamed clones.
 
-        def extract_identifiers(code):
-            identifiers = re.findall(r'\b[a-zA-Z_][a-zA-Z0-9_]*\b', code)
-            return {ident for ident in identifiers if ident not in keywords}
-        ids1 = extract_identifiers(code1)
-        ids2 = extract_identifiers(code2)
-        return len(ids1 & ids2) / len(ids1 | ids2) if (ids1 | ids2) else 0
+        Renamed clones (Type 2) have the same structure but different identifier
+        names.  The correct signal is therefore the structural fingerprint produced
+        by comparing ordered token *types* – because tree-sitter emits 'identifier'
+        for every user-defined name, two renamed clones yield nearly identical type
+        sequences.  Jaccard on identifier *values* was the previous (incorrect)
+        approach: renamed clones share *no* identifiers, so it always returned ~0.
+        """
+        tokens1 = self.parse_code(code1, with_order=True)
+        tokens2 = self.parse_code(code2, with_order=True)
+        return fuzz.ratio(' '.join(tokens1), ' '.join(tokens2)) / 100
 
     def near_miss_clone_similarity(self, code1, code2, threshold=0.8):
-        """Check for near miss clones."""
+        """Check for near miss clones (Type 3 – minor modifications of a copy).
+
+        Genuine near-miss clones show high similarity across *multiple* independent
+        signals.  The previous OR logic (any single metric > threshold) caused false
+        positives: two programs that happen to share the same token-type vocabulary
+        (e.g. any two Python functions using for/if/return) would fire even though
+        they are entirely different algorithms.  Requiring at least 2 out of 3
+        signals to exceed the threshold eliminates those accidental matches while
+        still catching real near-miss clones (which dominate in all three signals).
+        """
         text_sim = self.text_similarity(code1, code2)
         token_sim = self.token_similarity(code1, code2)
         token_sim_without_comments = self.token_similarity(
             self.remove_comments_and_whitespace(code1),
             self.remove_comments_and_whitespace(code2)
         )
-        return text_sim > threshold or token_sim > threshold or token_sim_without_comments > threshold
+        conditions_met = sum([
+            text_sim > threshold,
+            token_sim > threshold,
+            token_sim_without_comments > threshold,
+        ])
+        return conditions_met >= 2
 
     def parameterized_clone_similarity(self, code1, code2, threshold=0.8):
-        """Check for parameterized clones."""
-        return self.near_miss_clone_similarity(code1, code2, threshold)
+        """Check for parameterized clones (Type 3a).
+
+        Parameterized clones share the same structure but differ only in literal
+        constant values (numbers, strings).  Because tree-sitter token *types* for
+        integer/string literals are uniform ('integer', 'string_literal', etc.),
+        the ordered token-type sequence already abstracts away literal values.
+        Two codes are parameterized clones when their ordered token-type sequences
+        are very similar (same control flow, same call structure) even after
+        stripping comments.  We therefore compare ordered token types on the
+        comment-free versions, which is more precise than the near-miss check.
+        """
+        clean1 = self.remove_comments_and_whitespace(code1)
+        clean2 = self.remove_comments_and_whitespace(code2)
+        return self.token_similarity(clean1, clean2, with_order=True) > threshold
 
     def function_clone_similarity(self, code1, code2, threshold=0.8):
-        """Check for function clones."""
-        return self.near_miss_clone_similarity(code1, code2, threshold)
+        """Check for function-level clones.
 
-    def non_contiguous_clone_similarity(self, code1, code2, threshold=0.8):
-        """Check for non-contiguous clones."""
+        Function clones are detected by comparing the unordered token-type
+        multisets of both snippets after comment removal.  Using the unordered
+        (bag-of-tokens) form means that functions with the same vocabulary of
+        constructs but slightly different arrangement still match, which is
+        appropriate for function-level granularity where statement reordering
+        is common.  This is distinct from near-miss (which uses raw text/tokens
+        with comments) and from structural clones (ordered comparison).
+        """
+        clean1 = self.remove_comments_and_whitespace(code1)
+        clean2 = self.remove_comments_and_whitespace(code2)
+        return self.token_similarity(clean1, clean2, with_order=False) > threshold
+
+    def non_contiguous_clone_similarity(self, code1, code2, threshold=0.85):
+        """Check for non-contiguous clones.
+
+        Non-contiguous clones share matching code segments scattered at different
+        positions.  Both ordered and unordered token similarity must be high: the
+        ordered score confirms that the same sequence of constructs appears somewhere,
+        and the unordered score confirms the same vocabulary.  Requiring BOTH signals
+        and a higher threshold (0.85) avoids false positives from programs that
+        merely share common constructs without being genuine copies.
+        """
         token_sim_without_order = self.token_similarity(code1, code2, with_order=False)
         token_sim_with_order = self.token_similarity(code1, code2, with_order=True)
-        return token_sim_without_order > threshold or token_sim_with_order > threshold
+        return token_sim_without_order > threshold and token_sim_with_order > threshold
 
     def structural_clone_similarity(self, code1, code2, threshold=0.8):
         """Check for structural clones."""
         return self.token_similarity(code1, code2, with_order=True) > threshold
 
-    def reordered_clone_similarity(self, code1, code2, threshold=0.8):
-        """Check for reordered clones."""
+    def reordered_clone_similarity(self, code1, code2, threshold=0.85):
+        """Check for reordered clones.
+
+        Reordered clones have the same token vocabulary but in a different order
+        (e.g. helper methods defined before vs after the main logic).  Unordered
+        token-type similarity measures this well, but at 0.80 the threshold is too
+        low for token *types* alone – any two same-language programs share common
+        types (identifiers, operators, keywords).  0.85 reduces false positives.
+        """
         return self.token_similarity(code1, code2, with_order=False) > threshold
 
-    def function_reordered_clone_similarity(self, code1, code2, threshold=0.8):
-        """Check for function reordered clones."""
-        return self.reordered_clone_similarity(code1, code2, threshold)
+    def function_reordered_clone_similarity(self, code1, code2, threshold=0.85):
+        """Check for function reordered clones.
 
-    def gapped_clone_similarity(self, code1, code2, threshold=0.8):
-        """Check for gapped clones."""
+        Same as reordered clone but applied at function granularity: functions whose
+        internal statements are rearranged but use the same constructs.  Uses the
+        comment-stripped version so formatting/comment differences do not inflate
+        the score, and a higher threshold (0.85) to avoid false positives.
+        """
+        clean1 = self.remove_comments_and_whitespace(code1)
+        clean2 = self.remove_comments_and_whitespace(code2)
+        return self.token_similarity(clean1, clean2, with_order=False) > threshold
+
+    def gapped_clone_similarity(self, code1, code2, threshold=0.85):
+        """Check for gapped clones (same code with inserted/deleted blocks).
+
+        Gapped clones are detected by requiring BOTH unordered token similarity
+        (same vocabulary) AND text similarity (overall textual closeness) to be
+        high.  Text similarity catches the gaps; token similarity confirms the core
+        code is the same.  The higher threshold (0.85) prevents false positives.
+        """
         tokens1 = self.parse_code(code1)
         tokens2 = self.parse_code(code2)
-        match_ratio = fuzz.ratio(' '.join(tokens1), ' '.join(tokens2)) / 100
-        return match_ratio > threshold
+        token_ratio = fuzz.ratio(' '.join(tokens1), ' '.join(tokens2)) / 100
+        text_ratio = self.text_similarity(code1, code2)
+        return token_ratio > threshold and text_ratio > (threshold - 0.10)
 
-    def intertwined_clone_similarity(self, code1, code2, threshold=0.8):
-        """Check for intertwined clones."""
+    def intertwined_clone_similarity(self, code1, code2, threshold=0.85):
+        """Check for intertwined clones (two clones merged into one file).
+
+        Uses fuzz.partial_ratio which finds the best matching substring, making it
+        suitable for detecting code that is a superset/subset of another snippet.
+        Threshold raised to 0.85 to reduce false positives from partial matches.
+        """
         tokens1 = self.parse_code(code1)
         tokens2 = self.parse_code(code2)
         match_ratio = fuzz.partial_ratio(' '.join(tokens1), ' '.join(tokens2)) / 100
         return match_ratio > threshold
 
-    def semantic_clone_similarity(self, code1, code2, threshold=0.8):
-        """Check for semantic clones."""
-        text_sim = self.text_similarity(code1, code2)
-        token_sim = self.token_similarity(code1, code2)
-        return (text_sim + token_sim) / 2 > threshold
+    def semantic_clone_similarity(self, code1, code2, threshold=0.8, ai_score=None):
+        """Check for semantic clones using AI-based (GraphCodeBERT) similarity.
+
+        The previous implementation averaged text and token similarity, which is
+        purely syntactic and has nothing to do with semantics.  Two functions that
+        do the same thing differently (e.g. iterative vs recursive sum) would score
+        near-zero with that approach.  The AI embedding model captures meaning, so
+        we use it here.  When the caller has already computed the AI score it can
+        pass it in via *ai_score* to avoid a second forward pass.
+        """
+        score = ai_score if ai_score is not None else self.ai_based_similarity(code1, code2)
+        return score > threshold
 
     def code_to_graph(self, code):
         """Convert code to a graph representation."""
@@ -966,25 +1058,60 @@ class CloneDetector:
         return num_nodes, num_edges, avg_degree
 
     def graph_similarity(self, code1, code2):
-        """Compute graph similarity between two code snippets."""
+        """Compute graph similarity between two code ASTs.
+
+        The previous implementation compared only *aggregate* graph statistics
+        (node count, edge count, average degree).  This is misleading: two entirely
+        different programs that happen to have the same number of AST nodes score
+        1.0.  The fix compares the normalised *frequency distribution of node types*
+        (e.g. how many 'if_statement', 'for_statement', 'call_expression' nodes
+        each AST contains) using cosine similarity.  This captures what kinds of
+        constructs are used, not just how many nodes exist.
+        """
         graph1 = self.code_to_graph(code1)
         graph2 = self.code_to_graph(code2)
-        metrics1 = self.calculate_graph_metrics(graph1)
-        metrics2 = self.calculate_graph_metrics(graph2)
-        max_nodes = max(metrics1[0], metrics2[0])
-        node_sim = 1.0 if max_nodes == 0 else 1 - abs(metrics1[0] - metrics2[0]) / max_nodes
-        max_edges = max(metrics1[1], metrics2[1])
-        edge_sim = 1.0 if max_edges == 0 else 1 - abs(metrics1[1] - metrics2[1]) / max_edges
-        max_degree = max(metrics1[2], metrics2[2])
-        degree_sim = 1.0 if max_degree == 0 else 1 - abs(metrics1[2] - metrics2[2]) / max_degree
-        return (node_sim + edge_sim + degree_sim) / 3
 
-    def combined_similarity(self, code1, code2):
-        """Compute combined similarity."""
-        text_sim = self.text_similarity(code1, code2)
-        token_sim = self.token_similarity(code1, code2)
-        graph_sim = self.graph_similarity(code1, code2)
-        return (text_sim + token_sim + graph_sim) / 3
+        from collections import Counter as _Counter
+        types1 = _Counter(data.get('type', '') for _, data in graph1.nodes(data=True))
+        types2 = _Counter(data.get('type', '') for _, data in graph2.nodes(data=True))
+
+        all_types = set(types1) | set(types2)
+        total1 = sum(types1.values()) or 1
+        total2 = sum(types2.values()) or 1
+
+        dot = sum(
+            (types1.get(t, 0) / total1) * (types2.get(t, 0) / total2)
+            for t in all_types
+        )
+        norm1 = sum((v / total1) ** 2 for v in types1.values()) ** 0.5
+        norm2 = sum((v / total2) ** 2 for v in types2.values()) ** 0.5
+
+        if norm1 == 0 or norm2 == 0:
+            return 1.0 if (total1 == 1 and total2 == 1) else 0.0
+        return float(np.clip(dot / (norm1 * norm2), 0.0, 1.0))
+
+    def combined_similarity(self, code1, code2,
+                             _text_sim=None, _token_sim=None,
+                             _graph_sim=None, _renamed_sim=None,
+                             _ai_score=None):
+        """Compute combined similarity from a weighted blend of individual metrics.
+
+        When the caller has already computed some or all of the component scores it
+        should pass them in to avoid redundant computation.  The weights reflect
+        the relative discriminative power of each signal:
+          - text similarity    (0.20) – fast but sensitive to whitespace/comments
+          - token similarity   (0.25) – structural fingerprint via AST token types
+          - renamed similarity (0.25) – same as token-with-order; best for Type 2
+          - graph similarity   (0.15) – AST node-type distribution (cosine)
+          - AI similarity      (0.15) – GraphCodeBERT semantic embedding
+        """
+        text_sim    = _text_sim    if _text_sim    is not None else self.text_similarity(code1, code2)
+        token_sim   = _token_sim   if _token_sim   is not None else self.token_similarity(code1, code2)
+        graph_sim   = _graph_sim   if _graph_sim   is not None else self.graph_similarity(code1, code2)
+        renamed_sim = _renamed_sim if _renamed_sim is not None else self.renamed_clone_similarity(code1, code2)
+        ai_score    = _ai_score    if _ai_score    is not None else self.ai_based_similarity(code1, code2)
+        return (0.20 * text_sim + 0.25 * token_sim + 0.25 * renamed_sim
+                + 0.15 * graph_sim + 0.15 * ai_score)
 
     def calculate_raw_metrics(self, code):
         """Calculate raw metrics of code."""
@@ -1415,7 +1542,7 @@ clone_detectors = {language: CloneDetector(language) for language in languages}
 def analyze_code_pairs(detector, code_pairs):
     """Analyze pairs of code snippets."""
     results = []
-    with ThreadPoolExecutor() as executor:
+    with ThreadPoolExecutor(max_workers=4) as executor:
         future_to_pair = {
             executor.submit(analyze_similarities, detector, code1, code2): (code1, code2)
             for code1, code2 in code_pairs
@@ -1448,7 +1575,10 @@ def analyze_similarities(detector, code1, code2, clean_code1=None, clean_code2=N
             clean_code1, clean_code2, with_order=True
         )
         exact_clone_result = detector.is_exact_clone(code1, code2)
-        renamed_clone_sim = detector.renamed_clone_similarity(code1, code2)
+        # renamed_clone_similarity now returns the ordered token-type fingerprint
+        # similarity (same as token_sim_with_order) rather than identifier Jaccard.
+        # We reuse the already-computed value to avoid a redundant traversal.
+        renamed_clone_sim = token_sim_with_order
         near_miss_clone_result = detector.near_miss_clone_similarity(code1, code2)
         parameterized_clone_result = detector.parameterized_clone_similarity(code1, code2)
         function_clone_result = detector.function_clone_similarity(code1, code2)
@@ -1460,14 +1590,27 @@ def analyze_similarities(detector, code1, code2, clean_code1=None, clean_code2=N
         intertwined_clone_result = detector.intertwined_clone_similarity(code1, code2)
 
         set_current_user_progress('Similarity analysis: advanced clone metrics', 60, user_id=_bg_user_id)
-        semantic_clone_result = detector.semantic_clone_similarity(code1, code2)
         graph_sim = detector.graph_similarity(code1, code2)
 
-        set_current_user_progress('Similarity analysis: combining metrics', 75, user_id=_bg_user_id)
-        combined_similarity = detector.combined_similarity(code1, code2)
-
-        set_current_user_progress('Similarity analysis: AI similarity scoring', 85, user_id=_bg_user_id)
+        # AI score must be computed before semantic_clone_result so we can pass it
+        # in and avoid a second (expensive) forward pass through GraphCodeBERT.
+        set_current_user_progress('Similarity analysis: AI similarity scoring', 70, user_id=_bg_user_id)
         ai_similarity_score = detector.ai_based_similarity(code1, code2)
+
+        semantic_clone_result = detector.semantic_clone_similarity(
+            code1, code2, ai_score=ai_similarity_score
+        )
+
+        set_current_user_progress('Similarity analysis: combining metrics', 85, user_id=_bg_user_id)
+        # Pass pre-computed values so combined_similarity avoids recomputation.
+        combined_similarity = detector.combined_similarity(
+            code1, code2,
+            _text_sim=text_sim,
+            _token_sim=token_sim,
+            _graph_sim=graph_sim,
+            _renamed_sim=renamed_clone_sim,
+            _ai_score=ai_similarity_score,
+        )
 
         set_current_user_progress('Similarity analysis: finished calculations', 90, user_id=_bg_user_id)
         return {

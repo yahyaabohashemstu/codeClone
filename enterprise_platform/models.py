@@ -549,6 +549,9 @@ class EnterpriseStorage:
             )
             self._app = app
             self._encryption_service = Fernet(self._derive_fernet_key(app))
+            # Keep legacy key for backward-compatible decryption of old data
+            legacy_key = self._derive_legacy_fernet_key(app)
+            self._legacy_encryption_service = Fernet(legacy_key) if legacy_key else None
             Base.metadata.create_all(self._engine)
 
     def _derive_fernet_key(self, app) -> bytes:
@@ -559,6 +562,22 @@ class EnterpriseStorage:
                 "Set the ENTERPRISE_DATA_KEY environment variable or ensure "
                 "SECRET_KEY is present in the Flask app configuration."
             )
+        from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+        from cryptography.hazmat.primitives import hashes
+        hkdf = HKDF(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=b"codeclone-enterprise-v1",
+            info=b"fernet-encryption-key",
+        )
+        derived = hkdf.derive(raw_key.encode("utf-8"))
+        return base64.urlsafe_b64encode(derived)
+
+    def _derive_legacy_fernet_key(self, app) -> bytes:
+        """Derive the old SHA-256-only key for backward compatibility."""
+        raw_key = os.environ.get("ENTERPRISE_DATA_KEY") or app.config.get("SECRET_KEY")
+        if not raw_key:
+            return b""
         digest = hashlib.sha256(raw_key.encode("utf-8")).digest()
         return base64.urlsafe_b64encode(digest)
 
@@ -579,10 +598,19 @@ class EnterpriseStorage:
     def decrypt_text(self, value: Optional[str]) -> Optional[str]:
         if value is None:
             return None
+        raw = value.encode("utf-8")
+        # Try current key first
         try:
-            return self._encryption_service.decrypt(value.encode("utf-8")).decode("utf-8")
-        except InvalidToken as exc:
-            raise EnterpriseError(500, "Encrypted enterprise payload cannot be decrypted.", code="invalid_encryption_payload") from exc
+            return self._encryption_service.decrypt(raw).decode("utf-8")
+        except InvalidToken:
+            pass
+        # Fall back to legacy key for data encrypted before HKDF migration
+        if self._legacy_encryption_service is not None:
+            try:
+                return self._legacy_encryption_service.decrypt(raw).decode("utf-8")
+            except InvalidToken:
+                pass
+        raise EnterpriseError(500, "Encrypted enterprise payload cannot be decrypted.", code="invalid_encryption_payload")
 
     def invalidate_workspace_index(self, workspace_id: int) -> None:
         with self._index_lock:

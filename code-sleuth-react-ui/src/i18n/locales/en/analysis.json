@@ -1,0 +1,55 @@
+{
+  "analysis": {
+    "title": "New Analysis",
+    "subtitle": "Provide two code sources using pasted code, uploaded files, ZIP archives, or spreadsheet rows.",
+    "configure": "Configure Analysis",
+    "sourceA": "Source A",
+    "sourceB": "Source B",
+    "sourceTitle": "Source {{label}}",
+    "sourceDescription": "Select how you want to provide this code sample.",
+    "methods": {
+      "paste": "Paste Code",
+      "file": "Code File",
+      "zip": "ZIP Archive",
+      "excel": "Excel / CSV"
+    },
+    "methodDescriptions": {
+      "paste": "Enter code directly",
+      "file": "Upload a single source file",
+      "zip": "Analyze a project archive",
+      "excel": "Choose a row from a spreadsheet"
+    },
+    "pastePlaceholder": "// Paste Source {{label}} code here...\nfunction example() {\n  return \"Hello\";\n}",
+    "clickOrDrop": "Click or drop a file here",
+    "ready": "Ready for analysis",
+    "codeFiles": "Source code files such as .py, .java, .js, .ts, .go",
+    "zipArchive": "ZIP archive of a source repository or project folder",
+    "spreadsheet": "Spreadsheet file with the code sample in a row",
+    "language": "Language",
+    "selectLanguage": "Select language",
+    "excelRow": "Row number containing the code sample:",
+    "lines": "lines",
+    "steps": {
+      "provide": "Provide Sources",
+      "run": "Run Analysis",
+      "inspect": "Inspect Results"
+    },
+    "capabilities": {
+      "toggle": "Analysis capabilities included in this run",
+      "tokenAnalysis": "Token analysis",
+      "astComparison": "AST graph comparison",
+      "textSimilarity": "Text similarity",
+      "aiAnalysis": "AI semantic analysis",
+      "codeMetrics": "Code metrics",
+      "cloneDetection": "Clone-type detection",
+      "codeSmell": "Code smell analysis"
+    },
+    "autoSave": "Analyses are automatically saved to history after a successful run.",
+    "runCopy": "Run Analysis",
+    "submit": "Run Analysis",
+    "analyzing": "Analyzing...",
+    "clearAll": "Clear All",
+    "analysisCouldNotBeCompleted": "Analysis could not be completed.",
+    "analysisFailed": "Analysis failed."
+  }
+}

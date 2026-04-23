@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+/* Fonts loaded via <link> in index.html for non-render-blocking behavior */
 
 @tailwind base;
 @tailwind components;
@@ -141,7 +141,7 @@
   }
 
   html {
-    font-size: 120%;
+    font-size: 100%;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

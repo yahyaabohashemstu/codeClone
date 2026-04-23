@@ -1,0 +1,235 @@
+{
+  "nav": {
+    "home": "Home",
+    "analysis": "Analysis",
+    "results": "Results",
+    "history": "History",
+    "analytics": "Analytics",
+    "chat": "Chat",
+    "help": "Help",
+    "workspaces": "Workspaces",
+    "cases": "Review Cases",
+    "collapse": "Collapse",
+    "expand": "Expand",
+    "enterprise": "Enterprise"
+  },
+  "header": {
+    "signedInAs": "Signed in as",
+    "logout": "Logout",
+    "signIn": "Sign In",
+    "helpStatus": "Open help and status",
+    "historySearch": "Search analysis history",
+    "workspace": "Workspace"
+  },
+  "routes": {
+    "/": "Home",
+    "/analysis": "New Analysis",
+    "/results": "Analysis Results",
+    "/history": "Analysis History",
+    "/chat": "AI Analysis Chat",
+    "/help": "Help & Support",
+    "/auth": "Sign In",
+    "/login": "Sign In",
+    "/analytics": "Analytics Dashboard",
+    "/enterprise/workspaces": "Enterprise Workspaces",
+    "/enterprise/cases": "Review Cases",
+    "notFound": "Page Not Found"
+  },
+  "buttons": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "retry": "Retry",
+    "refresh": "Refresh",
+    "submit": "Submit",
+    "runAnalysis": "Run Analysis",
+    "clearInputs": "Clear All",
+    "viewResults": "View Results",
+    "download": "Download",
+    "create": "Create",
+    "viewDetails": "View details",
+    "goHome": "Go to Home",
+    "backToAnalysis": "Back to Analysis",
+    "close": "Close",
+    "newAnalysis": "New Analysis"
+  },
+  "status": {
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "empty": "No data available",
+    "success": "Operation completed successfully",
+    "analyzing": "Analyzing..."
+  },
+  "errors": {
+    "generic": "Something went wrong. Please try again.",
+    "network": "Network error. Please check your connection.",
+    "unauthorized": "Authentication required. Please sign in.",
+    "notFound": "The requested resource was not found.",
+    "serverError": "Server error. Please try again later."
+  },
+  "footer": {
+    "copyright": "CodeSimilar Analysis Platform",
+    "fullCopyright": "\u00a9 2026 CodeSimilar \u2014 Intelligent Code Analysis Platform"
+  },
+  "guard": {
+    "loadingWorkspace": "Loading your workspace\u2026"
+  },
+  "theme": {
+    "toggle": "Toggle theme",
+    "switchToLight": "Switch to light mode",
+    "switchToDark": "Switch to dark mode"
+  },
+  "language": {
+    "toggle": "Toggle language"
+  },
+  "notFound": {
+    "title": "404",
+    "heading": "Page Not Found",
+    "description": "The page you are looking for doesn't exist or has been moved.",
+    "backHome": "Return to Home"
+  },
+  "home": {
+    "badge": "AI-Powered Code Intelligence Platform",
+    "titlePrefix": "Detect code similarity",
+    "titleHighlight": "with precision",
+    "description": "Compare two code sources across token, AST, clone-type, metrics, and AI analysis dimensions, then move through a structured review workflow built for serious technical inspection.",
+    "primarySignedIn": "Start Analysis",
+    "primarySignedOut": "Sign In to Start",
+    "secondary": "View Latest Results",
+    "trustSignals": [
+      "History-aware workflow",
+      "AST graphs included",
+      "Session-backed AI chat"
+    ],
+    "stats": {
+      "analysesRun": "Analyses Run",
+      "languagesSupported": "Languages Supported",
+      "currentUserAnalyses": "Current User Analyses",
+      "historyReady": "History Ready",
+      "yes": "Yes",
+      "awaiting": "Awaiting"
+    },
+    "featuresTitle": "Everything you need for code analysis",
+    "featuresDescription": "A complete React-powered analytical workspace backed by the real comparison engine, not mock data.",
+    "ctaTitle": "Ready to analyze your code?",
+    "ctaDescription": "Paste two snippets or upload files, ZIP projects, and spreadsheet rows to launch a complete similarity review in seconds.",
+    "ctaSignedIn": "Run Your First Analysis",
+    "ctaSignedOut": "Open the Workspace",
+    "features": [
+      {
+        "title": "Multi-Dimensional Similarity",
+        "description": "Token, AST graph, text, and AI-driven comparison across all dimensions simultaneously."
+      },
+      {
+        "title": "Rich Metrics Dashboard",
+        "description": "Lines of code, cyclomatic complexity, function count, and maintainability indicators."
+      },
+      {
+        "title": "AI-Powered Insights",
+        "description": "Contextual reports and grounded follow-up chat built from the actual comparison output."
+      },
+      {
+        "title": "Clone-Type Detection",
+        "description": "Classify exact, renamed, near-miss, reordered, and semantic clone types with clear labeling."
+      },
+      {
+        "title": "Fast & Reliable",
+        "description": "Optimized pipeline with charting, graph generation, session history, and AI follow-up support."
+      },
+      {
+        "title": "File + ZIP + Excel",
+        "description": "Analyze pasted snippets, uploaded source files, ZIP projects, or spreadsheet-derived code samples."
+      }
+    ]
+  },
+  "analytics": {
+    "title": "Analytics Dashboard",
+    "description": "A comprehensive view of your activity and usage patterns on the platform.",
+    "totalAnalyses": "Total Analyses",
+    "totalDesc": "Comparisons performed",
+    "languages": "Languages Used",
+    "languagesDesc": "Distinct programming languages",
+    "topScore": "Top Similarity",
+    "topScoreDesc": "Highest score on record",
+    "activity": "Daily Activity (Last 30 Days)",
+    "langDist": "Language Distribution",
+    "simDist": "Similarity Score Distribution",
+    "cloneDist": "Detected Clone Types",
+    "topAnalyses": "Top 5 Analyses by Similarity",
+    "noData": "No data yet. Run an analysis to populate the dashboard.",
+    "startAnalysis": "Start an Analysis",
+    "similarity": "Similarity",
+    "count": "Count",
+    "source": "Source",
+    "language": "Language",
+    "analyses": "analyses",
+    "loadError": "Failed to load analytics."
+  },
+  "platform": "Analysis Platform",
+  "brandName": "CodeSimilar",
+  "severity": {
+    "high": "High",
+    "moderate": "Moderate",
+    "low": "Low"
+  },
+  "history": {
+    "pageTitle": "Analysis History",
+    "pageDescription": "Browse, search, reopen, rerun, export, or delete previous analysis sessions.",
+    "stats": {
+      "totalAnalyses": "Total Analyses",
+      "highSimilarity": "High Similarity",
+      "languagesUsed": "Languages Used",
+      "last7Days": "Last 7 Days"
+    },
+    "searchPlaceholder": "Search sources or language\u2026",
+    "allLanguages": "All Languages",
+    "allSeverity": "All Severity",
+    "highSimilarity": "High Similarity",
+    "moderateSimilarity": "Moderate Similarity",
+    "lowSimilarity": "Low Similarity",
+    "byDate": "By Date",
+    "byScore": "By Score",
+    "noAnalysesFound": "No analyses found",
+    "noAnalysesYet": "Run your first analysis to populate the history dashboard.",
+    "adjustFilters": "Try adjusting your filters or search query.",
+    "table": {
+      "sourceA": "Source A",
+      "sourceB": "Source B",
+      "language": "Language",
+      "score": "Score",
+      "severity": "Severity",
+      "date": "Date",
+      "actions": "Actions"
+    },
+    "deleteTitle": "Delete Analysis",
+    "deleteDescription": "Permanently delete analysis #{{id}}? This action cannot be undone.",
+    "previewTitle": "Analysis Preview #{{id}}",
+    "openFullResults": "Open Full Results",
+    "loadingPreview": "Loading preview\u2026",
+    "exportSections": {
+      "analysisId": "Analysis ID",
+      "language": "Language",
+      "similarity": "Similarity",
+      "date": "Date",
+      "sourceA": "Source A",
+      "sourceB": "Source B",
+      "interCodeAnalysis": "Inter-Code Analysis"
+    },
+    "errors": {
+      "loadHistory": "Unable to load history.",
+      "loadPreview": "Unable to load the analysis preview.",
+      "rerun": "Unable to rerun this analysis.",
+      "open": "Unable to open this analysis.",
+      "export": "Unable to export this analysis.",
+      "delete": "Unable to delete this analysis."
+    }
+  },
+  "chat": {
+    "loading": "Loading the latest analysis context\u2026",
+    "noContextTitle": "No active analysis context",
+    "noContextDescription": "Run or reopen an analysis first so the AI chat can ground its answers in real comparison data.",
+    "openHistory": "Open History",
+    "pageTitle": "AI Analysis Chat",
+    "pageDescription": "Ask grounded follow-up questions about the current analysis result and receive context-aware answers."
+  }
+}

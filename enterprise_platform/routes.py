@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import os
 from io import BytesIO
 from typing import Any
 
@@ -392,6 +393,105 @@ def create_repository(workspace_id: int):
         )
 
 
+@api_bp.route(f"{ENTERPRISE_PUBLIC_PREFIX}/git/probe", methods=["POST"])
+def git_probe():
+    """
+    Probe a git URL to validate it and discover available branches.
+
+    Runs ``git ls-remote --heads <url>`` to fetch branch names without
+    cloning the repository.  Returns the list of branches and the
+    detected default branch.
+
+    Request JSON::
+
+        {"cloneUrl": "https://github.com/owner/repo"}
+
+    Response JSON::
+
+        {
+            "success": true,
+            "branches": ["main", "develop", "feature/x"],
+            "defaultBranch": "main"
+        }
+    """
+    import re
+    import subprocess
+
+    payload = require_json_body()
+    with session_scope() as db_session:
+        resolve_actor(db_session)  # require authentication
+
+    clone_url = (payload.get("cloneUrl") or "").strip()
+    if not clone_url:
+        raise EnterpriseError(400, "cloneUrl is required.", code="missing_clone_url")
+
+    try:
+        clone_url = normalize_clone_url(clone_url)
+    except EnterpriseError:
+        raise
+    except Exception:
+        raise EnterpriseError(400, "Invalid clone URL.", code="invalid_clone_url")
+
+    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+
+    # Discover branches via ls-remote
+    try:
+        ls_result = subprocess.run(
+            ["git", "ls-remote", "--heads", "--quiet", clone_url],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+            env=env,
+        )
+    except subprocess.TimeoutExpired:
+        raise EnterpriseError(504, "Repository probe timed out.", code="probe_timeout")
+
+    if ls_result.returncode != 0:
+        stderr = (ls_result.stderr or "").strip()
+        raise EnterpriseError(
+            502,
+            f"Cannot reach repository: {stderr[:200]}" if stderr else "Cannot reach repository.",
+            code="probe_failed",
+        )
+
+    branches: list[str] = []
+    for line in ls_result.stdout.strip().splitlines():
+        match = re.match(r"^[0-9a-f]+\s+refs/heads/(.+)$", line)
+        if match:
+            branches.append(match.group(1))
+
+    branches.sort(key=lambda b: (b != "main", b != "master", b != "develop", b))
+
+    # Detect default branch via HEAD
+    default_branch = "main"
+    try:
+        head_result = subprocess.run(
+            ["git", "ls-remote", "--symref", clone_url, "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+            env=env,
+        )
+        if head_result.returncode == 0:
+            head_match = re.search(r"ref: refs/heads/(\S+)\s+HEAD", head_result.stdout)
+            if head_match:
+                default_branch = head_match.group(1)
+    except Exception:
+        pass
+
+    if default_branch not in branches and branches:
+        default_branch = branches[0]
+
+    return jsonify({
+        "success": True,
+        "branches": branches,
+        "defaultBranch": default_branch,
+        "totalBranches": len(branches),
+    })
+
+
 @api_bp.route(f"{ENTERPRISE_PUBLIC_PREFIX}/repositories/<int:repository_id>/scans", methods=["POST"])
 def trigger_repository_scan(repository_id: int):
     payload = require_json_body()
@@ -548,7 +648,7 @@ def update_case(case_id: int):
         require_workspace_access(db_session, review_case.workspace_id, actor, "reviewer")
         if "status" in payload:
             new_status = (payload.get("status") or review_case.status).strip().lower()
-            if new_status not in ("open", "confirmed", "disputed", "resolved", "dismissed", "confirmed_clone", "false_positive"):
+            if new_status not in ("open", "in_review", "confirmed", "disputed", "resolved", "dismissed", "confirmed_clone", "false_positive"):
                 raise EnterpriseError(400, "Invalid case status.", code="invalid_case_status")
             review_case.status = new_status
         if "severity" in payload:
@@ -568,6 +668,8 @@ def update_case(case_id: int):
             review_case.resolution_notes_encrypted = storage.encrypt_text((payload.get("resolutionNotes") or "").strip() or None)
         if review_case.status in {"resolved", "confirmed_clone", "false_positive", "dismissed"}:
             review_case.resolved_at = utcnow()
+        elif review_case.status in {"open", "in_review"}:
+            review_case.resolved_at = None
         review_case.updated_at = utcnow()
         audit(db_session, actor, "case.update", "review_case", review_case.id, review_case.workspace_id, {"status": review_case.status, "severity": review_case.severity})
         review_case_row, match, artifacts, evidence_rows = fetch_case_bundle(db_session, review_case.id)

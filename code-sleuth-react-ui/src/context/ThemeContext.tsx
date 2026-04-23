@@ -42,13 +42,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const toggleTheme = useCallback(() => {
     setTheme((prevTheme) => {
       const newTheme = prevTheme === "light" ? "dark" : "light";
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(STORAGE_KEY, newTheme);
-        window.localStorage.setItem(LEGACY_STORAGE_KEY, newTheme);
-      }
       return newTheme;
     });
   }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(STORAGE_KEY, theme);
+      window.localStorage.setItem(LEGACY_STORAGE_KEY, theme);
+    }
+  }, [theme]);
 
   useEffect(() => {
     applyThemeToDocument(theme);

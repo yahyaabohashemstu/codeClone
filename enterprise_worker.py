@@ -9,9 +9,13 @@ from dataclasses import dataclass
 
 from sqlalchemy import select
 
-from app import app
-from api import ScanJob, run_repository_scan, session_scope, utcnow
+from backend.app_factory import create_app
+from enterprise_platform.models import ScanJob
+from enterprise_platform.scans import run_repository_scan
+from enterprise_platform.utils import session_scope, utcnow
 
+
+app = create_app()
 
 LOGGER = logging.getLogger("enterprise_worker")
 
@@ -33,18 +37,28 @@ class EnterpriseScanWorker:
 
     def reclaim_stale_jobs(self) -> int:
         reclaimed = 0
-        cutoff = datetime.datetime.utcnow() - datetime.timedelta(seconds=self.settings.reclaim_stale_after_seconds)
+        cutoff = utcnow() - datetime.timedelta(seconds=self.settings.reclaim_stale_after_seconds)
         with app.app_context():
             with session_scope() as db_session:
                 stale_jobs = db_session.execute(
-                    select(ScanJob).where(ScanJob.status == "running").with_for_update(skip_locked=True)
+                    select(ScanJob).where(ScanJob.status.in_(["running", "claimed"])).with_for_update(skip_locked=True)
                 ).scalars().all()
                 for job in stale_jobs:
-                    if job.started_at and job.started_at.replace(tzinfo=None) < cutoff:
+                    started = job.started_at
+                    if started is None:
+                        # Claimed but never started — reclaim immediately
                         job.status = "queued"
-                        job.started_at = None
-                        job.error_message = "Job was reclaimed by worker after stale execution timeout."
+                        job.error_message = "Job was reclaimed by worker (stuck in claimed state)."
                         reclaimed += 1
+                    else:
+                        # Normalize timezone for comparison
+                        if started.tzinfo is None:
+                            started = started.replace(tzinfo=datetime.timezone.utc)
+                        if started < cutoff:
+                            job.status = "queued"
+                            job.started_at = None
+                            job.error_message = "Job was reclaimed by worker after stale execution timeout."
+                            reclaimed += 1
         return reclaimed
 
     def claim_next_job(self) -> int | None:
@@ -73,6 +87,15 @@ class EnterpriseScanWorker:
             LOGGER.info("Finished enterprise scan job %s", job_id)
         except Exception:
             LOGGER.exception("Enterprise worker failed while processing job %s", job_id)
+            try:
+                with app.app_context():
+                    with session_scope() as db_session:
+                        job = db_session.get(ScanJob, job_id)
+                        if job and job.status not in ("completed", "failed"):
+                            job.status = "failed"
+                            job.error_message = job.error_message or "Worker encountered an unexpected error."
+            except Exception:
+                LOGGER.exception("Failed to update job %s status after error", job_id)
         return True
 
     def run_forever(self) -> None:

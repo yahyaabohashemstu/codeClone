@@ -108,6 +108,7 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }) {
 
     // Poll for progress and completion
     return new Promise<AnalysisResult>((resolve, reject) => {
+      let pollErrorCount = 0;
       const schedulePoll = () => {
         progressPollRef.current = window.setTimeout(async () => {
           try {
@@ -156,13 +157,23 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }) {
               return;
             }
           } catch {
-            // ignore polling errors
+            pollErrorCount++;
+            if (pollErrorCount >= 15) {
+              setIsAnalyzing(false);
+              if (progressPollRef.current !== null) {
+                clearTimeout(progressPollRef.current);
+                progressPollRef.current = null;
+              }
+              setAnalysisProgress(null);
+              reject(new Error("Lost connection to the server during analysis."));
+              return;
+            }
           }
 
           if (progressPollRef.current !== null) {
             schedulePoll();
           }
-        }, 1000);
+        }, pollErrorCount > 5 ? 3000 : 1000);
       };
 
       schedulePoll();

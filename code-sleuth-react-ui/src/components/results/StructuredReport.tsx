@@ -1,43 +1,66 @@
+import { useTranslation } from "react-i18next";
 import { AlertTriangle, CheckCircle2, Info, ShieldAlert, ShieldCheck, Wrench, XCircle } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { cn } from "@/lib/utils";
 import type { StructuredReport as StructuredReportType } from "@/types/api";
 
-const RISK_META: Record<string, { label: string; labelAr: string; color: string; bg: string; icon: React.ComponentType<{ className?: string }> }> = {
-  critical: { label: "Critical Risk", labelAr: "خطر حرج", color: "text-destructive", bg: "bg-destructive/10 border-destructive/30", icon: XCircle },
-  high:     { label: "High Risk",     labelAr: "خطر عالٍ", color: "text-orange-500", bg: "bg-orange-500/10 border-orange-500/30", icon: ShieldAlert },
-  moderate: { label: "Moderate Risk", labelAr: "خطر متوسط", color: "text-yellow-500", bg: "bg-yellow-500/10 border-yellow-500/30", icon: AlertTriangle },
-  low:      { label: "Low Risk",      labelAr: "خطر منخفض", color: "text-blue-500", bg: "bg-blue-500/10 border-blue-500/30", icon: Info },
-  none:     { label: "No Risk",       labelAr: "لا خطر", color: "text-success", bg: "bg-success/10 border-success/30", icon: ShieldCheck },
+const RISK_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  critical: XCircle,
+  high: ShieldAlert,
+  moderate: AlertTriangle,
+  low: Info,
+  none: ShieldCheck,
 };
 
-const SEVERITY_META: Record<string, { dot: string; label: string; labelAr: string }> = {
-  critical: { dot: "bg-destructive", label: "Critical", labelAr: "حرج" },
-  high:     { dot: "bg-orange-500",  label: "High",     labelAr: "عالٍ" },
-  medium:   { dot: "bg-yellow-500",  label: "Medium",   labelAr: "متوسط" },
-  low:      { dot: "bg-blue-500",    label: "Low",      labelAr: "منخفض" },
-  info:     { dot: "bg-muted-foreground", label: "Info", labelAr: "معلومة" },
+const RISK_STYLES: Record<string, { color: string; bg: string }> = {
+  critical: { color: "text-destructive", bg: "bg-destructive/10 border-destructive/30" },
+  high: { color: "text-orange-500", bg: "bg-orange-500/10 border-orange-500/30" },
+  moderate: { color: "text-yellow-500", bg: "bg-yellow-500/10 border-yellow-500/30" },
+  low: { color: "text-blue-500", bg: "bg-blue-500/10 border-blue-500/30" },
+  none: { color: "text-success", bg: "bg-success/10 border-success/30" },
+};
+
+const RISK_LABEL_KEYS: Record<string, string> = {
+  critical: "results.structured.riskCritical",
+  high: "results.structured.riskHigh",
+  moderate: "results.structured.riskModerate",
+  low: "results.structured.riskLow",
+  none: "results.structured.riskNone",
+};
+
+const SEV_DOTS: Record<string, string> = {
+  critical: "bg-destructive",
+  high: "bg-orange-500",
+  medium: "bg-yellow-500",
+  low: "bg-blue-500",
+  info: "bg-muted-foreground",
+};
+
+const SEV_LABEL_KEYS: Record<string, string> = {
+  critical: "results.structured.sevCritical",
+  high: "results.structured.sevHigh",
+  medium: "results.structured.sevMedium",
+  low: "results.structured.sevLow",
+  info: "results.structured.sevInfo",
 };
 
 export function StructuredReport({ data }: { data: StructuredReportType }) {
-  const { language, isRTL } = useLanguage();
+  const { isRTL } = useLanguage();
+  const { t } = useTranslation("results");
 
-  const riskKey = (data.risk_level ?? "none").toLowerCase() as keyof typeof RISK_META;
-  const risk = RISK_META[riskKey] ?? RISK_META.none;
-  const RiskIcon = risk.icon;
-
-  const copy = language === "ar"
-    ? { verdict: "الحكم", summary: "الملخص", findings: "التفاصيل", suggestion: "اقتراح إعادة الهيكلة", noFindings: "لم يُكتشف أي مشكلة محددة." }
-    : { verdict: "Verdict", summary: "Summary", findings: "Findings", suggestion: "Refactoring Suggestion", noFindings: "No specific findings detected." };
+  const riskKey = (data.risk_level ?? "none").toLowerCase() as keyof typeof RISK_STYLES;
+  const riskStyle = RISK_STYLES[riskKey] ?? RISK_STYLES.none;
+  const RiskIcon = RISK_ICONS[riskKey] ?? RISK_ICONS.none;
+  const riskLabelKey = RISK_LABEL_KEYS[riskKey] ?? RISK_LABEL_KEYS.none;
 
   return (
     <div className="space-y-4" dir={isRTL ? "rtl" : "ltr"}>
       {/* Risk Badge + Verdict */}
-      <div className={cn("flex items-start gap-3 rounded-xl border p-4", risk.bg)}>
-        <RiskIcon className={cn("mt-0.5 h-5 w-5 shrink-0", risk.color)} />
+      <div className={cn("flex items-start gap-3 rounded-xl border p-4", riskStyle.bg)}>
+        <RiskIcon className={cn("mt-0.5 h-5 w-5 shrink-0", riskStyle.color)} />
         <div className="min-w-0">
-          <p className={cn("text-xs font-semibold uppercase tracking-wide", risk.color)}>
-            {language === "ar" ? risk.labelAr : risk.label}
+          <p className={cn("text-xs font-semibold uppercase tracking-wide", riskStyle.color)}>
+            {t(riskLabelKey)}
           </p>
           {data.verdict && (
             <p className="mt-1 text-sm font-medium text-foreground">{data.verdict}</p>
@@ -51,7 +74,7 @@ export function StructuredReport({ data }: { data: StructuredReportType }) {
           <div className="border-b border-border/50 px-5 py-3">
             <h4 className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <CheckCircle2 className="h-4 w-4 text-primary" />
-              {copy.summary}
+              {t("results.structured.summary")}
             </h4>
           </div>
           <p className="px-5 py-4 text-sm text-muted-foreground leading-relaxed">{data.summary}</p>
@@ -63,7 +86,7 @@ export function StructuredReport({ data }: { data: StructuredReportType }) {
         <div className="border-b border-border/50 px-5 py-3">
           <h4 className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <AlertTriangle className="h-4 w-4 text-primary" />
-            {copy.findings}
+            {t("results.structured.findings")}
             {data.findings?.length > 0 && (
               <span className="ml-auto rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
                 {data.findings.length}
@@ -73,15 +96,16 @@ export function StructuredReport({ data }: { data: StructuredReportType }) {
         </div>
         <div className="divide-y divide-border/40">
           {data.findings?.length > 0 ? data.findings.map((f, i) => {
-            const sev = SEVERITY_META[f.severity] ?? SEVERITY_META.info;
+            const sevDot = SEV_DOTS[f.severity] ?? SEV_DOTS.info;
+            const sevLabelKey = SEV_LABEL_KEYS[f.severity] ?? SEV_LABEL_KEYS.info;
             return (
               <div key={i} className="flex items-start gap-3 px-5 py-3">
-                <span className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", sev.dot)} />
+                <span className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", sevDot)} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium text-foreground">{f.title}</span>
                     <span className="rounded-full border border-current px-1.5 py-0.5 text-[10px] font-semibold opacity-70" style={{ color: "inherit" }}>
-                      {language === "ar" ? sev.labelAr : sev.label}
+                      {t(sevLabelKey)}
                     </span>
                   </div>
                   {f.description && (
@@ -91,7 +115,7 @@ export function StructuredReport({ data }: { data: StructuredReportType }) {
               </div>
             );
           }) : (
-            <p className="px-5 py-4 text-sm text-muted-foreground">{copy.noFindings}</p>
+            <p className="px-5 py-4 text-sm text-muted-foreground">{t("results.structured.noFindings")}</p>
           )}
         </div>
       </div>
@@ -102,7 +126,7 @@ export function StructuredReport({ data }: { data: StructuredReportType }) {
           <div className="border-b border-border/50 px-5 py-3">
             <h4 className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <Wrench className="h-4 w-4 text-primary" />
-              {copy.suggestion}
+              {t("results.structured.suggestion")}
             </h4>
           </div>
           <p className="px-5 py-4 text-sm text-muted-foreground leading-relaxed">{data.refactoring_suggestion}</p>

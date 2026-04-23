@@ -1,12 +1,22 @@
-from app import app
+"""
+WSGI entry point.
 
-try:
-    from waitress import serve
-except ImportError:
-    serve = None
+Uses the application factory -- the monolith ``app.py`` is NO LONGER the
+production entry point.
+"""
+
+from backend.app_factory import create_app
+
+app = create_app()
 
 if __name__ == "__main__":
     import os
+
+    try:
+        from waitress import serve
+    except ImportError:
+        serve = None
+
     host = os.environ.get("BIND_HOST", "127.0.0.1")
     port = int(os.environ.get("PORT", 5000))
     threads = int(os.environ.get("WAITRESS_THREADS", 8))

@@ -1,20 +1,16 @@
 
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/context/ThemeContext";
-import { useLanguage } from "@/context/LanguageContext";
+import { useTranslation } from "react-i18next";
 import { Moon, Sun } from "lucide-react";
 
 export function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
-  const { language } = useLanguage();
+  const { t } = useTranslation("common");
   const label =
-    language === "ar"
-      ? theme === "dark"
-        ? "التبديل إلى الوضع الفاتح"
-        : "التبديل إلى الوضع الداكن"
-      : theme === "dark"
-        ? "Switch to light mode"
-        : "Switch to dark mode";
+    theme === "dark"
+      ? t("theme.switchToLight")
+      : t("theme.switchToDark");
 
   return (
     <Button

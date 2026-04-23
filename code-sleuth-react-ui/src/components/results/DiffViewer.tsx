@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { GitCompare, Loader2 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
-import { useLanguage } from "@/context/LanguageContext";
 import { cn } from "@/lib/utils";
 
 interface DiffBlock {
@@ -43,7 +43,7 @@ export function DiffViewer({
   labelA: string;
   labelB: string;
 }) {
-  const { language } = useLanguage();
+  const { t } = useTranslation("results");
   const [data, setData] = useState<DiffResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -58,32 +58,11 @@ export function DiffViewer({
       .finally(() => setLoading(false));
   }, [analysisId]);
 
-  const copy =
-    language === "ar"
-      ? {
-          title: "عارض الفروق السطرية",
-          description: "مقارنة مباشرة سطراً بسطر بين المصدرين مع تمييز الأجزاء المتطابقة والمختلفة.",
-          loading: "جارٍ تحليل الفروق...",
-          matchRatio: "نسبة التطابق",
-          linesA: "أسطر المصدر A",
-          linesB: "أسطر المصدر B",
-          legend: { equal: "متطابق", delete: "محذوف", insert: "مضاف", replace: "معدّل" },
-        }
-      : {
-          title: "Line-by-Line Diff",
-          description: "Direct side-by-side comparison showing exactly which lines match, differ, or were added.",
-          loading: "Analyzing differences…",
-          matchRatio: "Match ratio",
-          linesA: "Source A lines",
-          linesB: "Source B lines",
-          legend: { equal: "Equal", delete: "Removed", insert: "Added", replace: "Changed" },
-        };
-
   if (loading) {
     return (
       <div className="card-premium flex min-h-[320px] items-center justify-center gap-3 text-sm text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin text-primary" />
-        {copy.loading}
+        {t("results.diff.loading")}
       </div>
     );
   }
@@ -91,7 +70,7 @@ export function DiffViewer({
   if (error || !data) {
     return (
       <div className="card-premium p-8 text-center text-sm text-destructive">
-        {error || (language === "ar" ? "تعذر تحميل الفروق." : "Failed to load diff.")}
+        {error || t("results.diff.failedToLoad")}
       </div>
     );
   }
@@ -118,6 +97,13 @@ export function DiffViewer({
     }
   }
 
+  const legendMap = {
+    equal: t("results.diff.legendEqual"),
+    delete: t("results.diff.legendDelete"),
+    insert: t("results.diff.legendInsert"),
+    replace: t("results.diff.legendReplace"),
+  } as const;
+
   return (
     <div className="space-y-4">
       <div className="card-premium overflow-hidden">
@@ -125,43 +111,43 @@ export function DiffViewer({
           <div>
             <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <GitCompare className="h-4 w-4 text-primary" />
-              {copy.title}
+              {t("results.diff.title")}
             </h3>
-            <p className="mt-1 text-xs text-muted-foreground">{copy.description}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t("results.diff.description")}</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <div className="rounded-xl border border-border/50 bg-muted/20 px-4 py-2 text-center">
               <div className="text-lg font-bold text-foreground">{data.match_ratio}%</div>
-              <div className="text-[10px] text-muted-foreground">{copy.matchRatio}</div>
+              <div className="text-[10px] text-muted-foreground">{t("results.diff.matchRatio")}</div>
             </div>
             <div className="rounded-xl border border-border/50 bg-muted/20 px-4 py-2 text-center">
               <div className="text-lg font-bold text-primary">{data.total_lines_a}</div>
-              <div className="text-[10px] text-muted-foreground">{copy.linesA}</div>
+              <div className="text-[10px] text-muted-foreground">{t("results.diff.linesA")}</div>
             </div>
             <div className="rounded-xl border border-border/50 bg-muted/20 px-4 py-2 text-center">
               <div className="text-lg font-bold text-accent">{data.total_lines_b}</div>
-              <div className="text-[10px] text-muted-foreground">{copy.linesB}</div>
+              <div className="text-[10px] text-muted-foreground">{t("results.diff.linesB")}</div>
             </div>
           </div>
         </div>
 
         <div className="flex flex-wrap gap-3 border-b border-border/40 bg-muted/10 px-5 py-2">
-          {(["equal", "delete", "insert", "replace"] as const).map((t) => (
-            <span key={t} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          {(["equal", "delete", "insert", "replace"] as const).map((legendType) => (
+            <span key={legendType} className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <span
                 className={cn("h-2.5 w-2.5 rounded-sm",
-                  t === "equal" && "bg-muted-foreground/30",
-                  t === "delete" && "bg-destructive/60",
-                  t === "insert" && "bg-success/60",
-                  t === "replace" && "bg-warning/60",
+                  legendType === "equal" && "bg-muted-foreground/30",
+                  legendType === "delete" && "bg-destructive/60",
+                  legendType === "insert" && "bg-success/60",
+                  legendType === "replace" && "bg-warning/60",
                 )}
               />
-              {copy.legend[t]}
+              {legendMap[legendType]}
             </span>
           ))}
         </div>
 
-        <div className="grid grid-cols-2 divide-x divide-border/40 overflow-x-auto scrollbar-thin">
+        <div className="grid grid-cols-1 divide-y divide-border/40 overflow-x-auto scrollbar-thin md:grid-cols-2 md:divide-x md:divide-y-0">
           {/* Source A */}
           <div className="min-w-0">
             <div className="sticky top-0 border-b border-border/40 bg-card px-3 py-2">
@@ -219,9 +205,7 @@ export function DiffViewer({
 
         {maxLines > 300 && (
           <div className="border-t border-border/40 px-5 py-3 text-center text-xs text-muted-foreground">
-            {language === "ar"
-              ? `عرض ${maxLines} سطراً — قد تحتاج إلى التمرير لرؤية جميع الاختلافات.`
-              : `Showing ${maxLines} lines — scroll to see all differences.`}
+            {t("results.diff.showingLines", { count: maxLines })}
           </div>
         )}
       </div>

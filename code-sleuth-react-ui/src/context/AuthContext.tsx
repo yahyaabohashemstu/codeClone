@@ -61,11 +61,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [refreshSession]);
 
   const login = useCallback(async (username: string, password: string) => {
+    if (!username.trim() || !password) {
+      throw new Error("Username and password are required.");
+    }
     const result = await apiFetch<{ success: boolean; user: UserSummary; csrfToken: string }>("/api/auth/login", {
       method: "POST",
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username: username.trim(), password }),
     });
-    setCsrfToken(result.csrfToken);
+    if (result.csrfToken) {
+      setCsrfToken(result.csrfToken);
+    }
     await refreshSession();
   }, [refreshSession]);
 

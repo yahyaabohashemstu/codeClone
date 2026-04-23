@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Bot, Clock, MessageSquare, Send, Sparkles, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
@@ -13,46 +14,25 @@ interface ChatMessage {
 }
 
 export function AnalysisChatPanel({ contextLabel }: { contextLabel: string }) {
-  const { language, localizeRuntimeMessage } = useLanguage();
-  const copy =
-    language === "ar"
-      ? {
-          intro: `أنا مستند إلى سياق التحليل الحالي لـ ${contextLabel}. اسألني عن مؤشرات التشابه أو الرسوم أو أنواع النسخ أو القابلية للصيانة أو المخاطر.`,
-          justNow: "الآن",
-          unavailable: "المساعد غير متاح حاليًا.",
-          title: "اسأل الذكاء الاصطناعي عن هذا التحليل",
-          description: "حوار متابعة واعٍ بالسياق ومبني على مجموعة النتائج الحالية.",
-          grounded: "مؤسس على النتائج",
-          suggestions: [
-            "اشرح أقوى مؤشرات التشابه",
-            "ما نوع النسخ الذي تم اكتشافه ولماذا؟",
-            "لخص فروق القابلية للصيانة",
-            "ما الذي يجب مراجعته أولًا؟",
-          ],
-          placeholder: "اسأل عن المقارنة الحالية…",
-        }
-      : {
-          intro: `I am grounded in the current analysis context for ${contextLabel}. Ask about similarity metrics, graphs, clone types, maintainability, or risks.`,
-          justNow: "just now",
-          unavailable: "The assistant is unavailable right now.",
-          title: "Ask AI about this analysis",
-          description: "Context-aware follow-up discussion grounded in the current result set.",
-          grounded: "Grounded",
-          suggestions: [
-            "Explain the strongest similarity signals",
-            "What clone type was detected and why?",
-            "Summarize the maintainability differences",
-            "What should be reviewed first?",
-          ],
-          placeholder: "Ask about the current comparison…",
-        };
+  const { localizeRuntimeMessage } = useLanguage();
+  const { t } = useTranslation("results");
+
+  const intro = t("results.chat.intro", { contextLabel });
+  const justNow = t("results.chat.justNow");
+
+  const suggestions = [
+    t("results.chat.suggestion1"),
+    t("results.chat.suggestion2"),
+    t("results.chat.suggestion3"),
+    t("results.chat.suggestion4"),
+  ];
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: crypto.randomUUID(),
       role: "assistant",
-      content: copy.intro,
-      time: copy.justNow,
+      content: intro,
+      time: justNow,
     },
   ]);
   const [input, setInput] = useState("");
@@ -66,11 +46,11 @@ export function AnalysisChatPanel({ contextLabel }: { contextLabel: string }) {
   useEffect(() => {
     setMessages((current) => {
       if (current.length === 1 && current[0]?.role === "assistant") {
-        return [{ ...current[0], content: copy.intro, time: copy.justNow }];
+        return [{ ...current[0], content: intro, time: justNow }];
       }
       return current;
     });
-  }, [copy.intro, copy.justNow]);
+  }, [intro, justNow]);
 
   const sendMessage = async (seed?: string) => {
     const content = (seed ?? input).trim();
@@ -80,7 +60,7 @@ export function AnalysisChatPanel({ contextLabel }: { contextLabel: string }) {
       id: crypto.randomUUID(),
       role: "user",
       content,
-      time: copy.justNow,
+      time: justNow,
     };
 
     setMessages((current) => [...current, userMessage]);
@@ -99,18 +79,18 @@ export function AnalysisChatPanel({ contextLabel }: { contextLabel: string }) {
           id: crypto.randomUUID(),
           role: "assistant",
           content: response.response,
-          time: copy.justNow,
+          time: justNow,
         },
       ]);
     } catch (error) {
-      const message = error instanceof Error ? localizeRuntimeMessage(error.message) : copy.unavailable;
+      const message = error instanceof Error ? localizeRuntimeMessage(error.message) : t("results.chat.unavailable");
       setMessages((current) => [
         ...current,
         {
           id: crypto.randomUUID(),
           role: "assistant",
           content: message,
-          time: copy.justNow,
+          time: justNow,
         },
       ]);
     } finally {
@@ -123,12 +103,12 @@ export function AnalysisChatPanel({ contextLabel }: { contextLabel: string }) {
       <div className="flex items-center gap-2 border-b border-border/50 px-5 py-4">
         <MessageSquare className="h-4 w-4 text-primary" />
         <div>
-          <h3 className="text-sm font-semibold text-foreground">{copy.title}</h3>
-          <p className="mt-1 text-xs text-muted-foreground">{copy.description}</p>
+          <h3 className="text-sm font-semibold text-foreground">{t("results.chat.title")}</h3>
+          <p className="mt-1 text-xs text-muted-foreground">{t("results.chat.description")}</p>
         </div>
         <span className="ml-auto badge-success">
           <Sparkles className="h-3 w-3" />
-          {copy.grounded}
+          {t("results.chat.grounded")}
         </span>
       </div>
 
@@ -177,7 +157,7 @@ export function AnalysisChatPanel({ contextLabel }: { contextLabel: string }) {
 
       <div className="border-t border-border/50 px-4 py-3">
         <div className="mb-3 flex flex-wrap gap-2">
-          {copy.suggestions.map((suggestion) => (
+          {suggestions.map((suggestion) => (
             <button
               key={suggestion}
               type="button"
@@ -199,7 +179,7 @@ export function AnalysisChatPanel({ contextLabel }: { contextLabel: string }) {
                 void sendMessage();
               }
             }}
-            placeholder={copy.placeholder}
+            placeholder={t("results.chat.placeholder")}
             className="h-11 flex-1 rounded-xl border border-border/60 bg-card/70 px-4 text-sm text-foreground focus:border-primary/60 focus:outline-none focus:ring-1 focus:ring-primary/20 placeholder:text-muted-foreground/40"
           />
           <Button size="icon" className="h-11 w-11 rounded-xl shadow-glow-sm" onClick={() => void sendMessage()} disabled={!input.trim() || isSending}>

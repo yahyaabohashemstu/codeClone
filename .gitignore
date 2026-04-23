@@ -39,10 +39,8 @@ SourcererCC/
 LinkedDataHub/
 vendor/
 chrome*/
-instance/gemini_api_key
-instance/mistral_api_key
-instance/secret_key
-instance/bootstrap_admin_credentials.txt
+instance/
+!instance/.gitkeep
 
 
 #Ignore vscode AI rules

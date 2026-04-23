@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   BarChart3,
   BookOpen,
@@ -31,10 +32,8 @@ type SectionKey = keyof PdfSections;
 interface SectionDef {
   key: SectionKey;
   icon: React.ComponentType<{ className?: string }>;
-  labelEn: string;
-  labelAr: string;
-  descEn: string;
-  descAr: string;
+  labelKey: string;
+  descKey: string;
   alwaysOn?: boolean;
 }
 
@@ -42,67 +41,51 @@ const SECTIONS: SectionDef[] = [
   {
     key: "cover",
     icon: BookOpen,
-    labelEn: "Cover Page",
-    labelAr: "صفحة الغلاف",
-    descEn: "Title, date, source labels, combined score gauge",
-    descAr: "العنوان، التاريخ، مصادر الشيفرة، مقياس التشابه الكلي",
+    labelKey: "results.pdfExport.coverLabel",
+    descKey: "results.pdfExport.coverDesc",
     alwaysOn: true,
   },
   {
     key: "executiveSummary",
     icon: BarChart3,
-    labelEn: "Executive Summary",
-    labelAr: "الملخص التنفيذي",
-    descEn: "Key KPIs — score, risk level, clone count, language",
-    descAr: "المؤشرات الرئيسية — الدرجة، مستوى الخطورة، عدد النسخ",
+    labelKey: "results.pdfExport.executiveSummaryLabel",
+    descKey: "results.pdfExport.executiveSummaryDesc",
   },
   {
     key: "similarityMetrics",
     icon: TrendingUp,
-    labelEn: "Similarity Metrics",
-    labelAr: "مؤشرات التشابه",
-    descEn: "All similarity dimensions with visual bar charts",
-    descAr: "جميع أبعاد التشابه مع أشرطة بيانية مرئية",
+    labelKey: "results.pdfExport.similarityMetricsLabel",
+    descKey: "results.pdfExport.similarityMetricsDesc",
   },
   {
     key: "cloneDetection",
     icon: GitCompare,
-    labelEn: "Clone Detection",
-    labelAr: "كشف أنواع النسخ",
-    descEn: "Full clone-type table with detected/not-detected status",
-    descAr: "جدول كامل لأنواع النسخ مع حالة الكشف",
+    labelKey: "results.pdfExport.cloneDetectionLabel",
+    descKey: "results.pdfExport.cloneDetectionDesc",
   },
   {
     key: "aiStructuredReport",
     icon: Sparkles,
-    labelEn: "AI Structured Report",
-    labelAr: "تقرير الذكاء المنظم",
-    descEn: "Risk level, verdict, findings, refactoring suggestion",
-    descAr: "مستوى الخطورة، الحكم، الاكتشافات، اقتراح إعادة الهيكلة",
+    labelKey: "results.pdfExport.aiStructuredReportLabel",
+    descKey: "results.pdfExport.aiStructuredReportDesc",
   },
   {
     key: "aiAnalysisText",
     icon: FileText,
-    labelEn: "AI Analysis Narrative",
-    labelAr: "سرد التحليل الذكي",
-    descEn: "Full prose AI analysis comparing the two sources",
-    descAr: "التحليل النصي الكامل من الذكاء الاصطناعي للمصدرين",
+    labelKey: "results.pdfExport.aiAnalysisTextLabel",
+    descKey: "results.pdfExport.aiAnalysisTextDesc",
   },
   {
     key: "codeQuality",
     icon: ShieldAlert,
-    labelEn: "Code Quality Analysis",
-    labelAr: "تحليل جودة الشيفرة",
-    descEn: "Linter findings, severity breakdown, quality scores",
-    descAr: "ملاحظات أداة الفحص، توزيع الخطورة، نقاط الجودة",
+    labelKey: "results.pdfExport.codeQualityLabel",
+    descKey: "results.pdfExport.codeQualityDesc",
   },
   {
     key: "sourceCode",
     icon: Code2,
-    labelEn: "Source Code Listing",
-    labelAr: "الشيفرة المصدرية",
-    descEn: "Full code for both sources (may add pages)",
-    descAr: "الشيفرة الكاملة لكلا المصدرين (قد يضيف صفحات)",
+    labelKey: "results.pdfExport.sourceCodeLabel",
+    descKey: "results.pdfExport.sourceCodeDesc",
   },
 ];
 
@@ -114,28 +97,10 @@ interface Props {
 
 export function PdfExportDialog({ open, onOpenChange, result }: Props) {
   const { language, isRTL } = useLanguage();
-  const ar = language === "ar";
+  const { t } = useTranslation("results");
 
   const [sections, setSections] = useState<PdfSections>({ ...DEFAULT_SECTIONS });
   const [generating, setGenerating] = useState(false);
-
-  const copy = {
-    title: ar ? "تصدير تقرير PDF" : "Export PDF Report",
-    subtitle: ar
-      ? "اختر الأقسام التي تريد تضمينها في التقرير المنسّق"
-      : "Choose which sections to include in the formatted report",
-    selectAll: ar ? "تحديد الكل" : "Select All",
-    deselectAll: ar ? "إلغاء الكل" : "Deselect All",
-    sectionTitle: ar ? "أقسام التقرير" : "Report Sections",
-    previewNote: ar
-      ? "سيُفتح التقرير في نافذة جديدة — استخدم Ctrl+P أو زر «حفظ كـ PDF» لتصديره."
-      : "The report opens in a new tab — use Ctrl+P or the «Save as PDF» button to export.",
-    generate: ar ? "إنشاء التقرير" : "Generate Report",
-    generating: ar ? "جاري الإنشاء..." : "Generating...",
-    cancel: ar ? "إلغاء" : "Cancel",
-    alwaysOn: ar ? "مضمون دائمًا" : "Always included",
-    selected: ar ? "قسم محدد" : "sections selected",
-  };
 
   const enabledCount = Object.values(sections).filter(Boolean).length;
 
@@ -177,32 +142,32 @@ export function PdfExportDialog({ open, onOpenChange, result }: Props) {
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-brand shadow-glow-sm">
               <FileText className="h-3.5 w-3.5 text-white" />
             </div>
-            {copy.title}
+            {t("results.pdfExport.title")}
           </DialogTitle>
           <DialogDescription className="text-xs leading-relaxed">
-            {copy.subtitle}
+            {t("results.pdfExport.subtitle")}
           </DialogDescription>
         </DialogHeader>
 
         {/* Section picker */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-foreground">{copy.sectionTitle}</span>
+            <span className="text-xs font-semibold text-foreground">{t("results.pdfExport.sectionTitle")}</span>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => toggleAll(true)}
                 className="text-[11px] font-medium text-primary hover:underline"
               >
-                {copy.selectAll}
+                {t("results.pdfExport.selectAll")}
               </button>
-              <span className="text-muted-foreground/40">·</span>
+              <span className="text-muted-foreground/40">&middot;</span>
               <button
                 type="button"
                 onClick={() => toggleAll(false)}
                 className="text-[11px] font-medium text-muted-foreground hover:underline"
               >
-                {copy.deselectAll}
+                {t("results.pdfExport.deselectAll")}
               </button>
             </div>
           </div>
@@ -211,8 +176,8 @@ export function PdfExportDialog({ open, onOpenChange, result }: Props) {
             {SECTIONS.map((def, idx) => {
               const checked = sections[def.key];
               const Icon = def.icon;
-              const label = ar ? def.labelAr : def.labelEn;
-              const desc = ar ? def.descAr : def.descEn;
+              const label = t(def.labelKey);
+              const desc = t(def.descKey);
               return (
                 <div key={def.key}>
                   <label
@@ -224,7 +189,10 @@ export function PdfExportDialog({ open, onOpenChange, result }: Props) {
                         : "hover:bg-muted/60",
                       def.alwaysOn && "cursor-default",
                     )}
-                    onClick={() => toggle(def.key)}
+                    onClick={(e) => {
+                      if ((e.target as HTMLElement).closest('[role="checkbox"]')) return;
+                      toggle(def.key);
+                    }}
                   >
                     <Checkbox
                       id={`sec-${def.key}`}
@@ -243,7 +211,7 @@ export function PdfExportDialog({ open, onOpenChange, result }: Props) {
                         </Label>
                         {def.alwaysOn && (
                           <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary">
-                            {copy.alwaysOn}
+                            {t("results.pdfExport.alwaysOn")}
                           </span>
                         )}
                       </div>
@@ -266,16 +234,16 @@ export function PdfExportDialog({ open, onOpenChange, result }: Props) {
           <div className="flex items-center justify-between rounded-lg border border-border/40 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
             <span>
               <span className="font-semibold text-foreground">{enabledCount}</span>{" "}
-              {copy.selected}
+              {t("results.pdfExport.selected")}
             </span>
-            <span className="text-[10px] italic">{copy.previewNote}</span>
+            <span className="text-[10px] italic">{t("results.pdfExport.previewNote")}</span>
           </div>
         </div>
 
         {/* Actions */}
         <div className="flex justify-end gap-2 pt-1">
           <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
-            {copy.cancel}
+            {t("results.pdfExport.cancel")}
           </Button>
           <Button
             size="sm"
@@ -288,7 +256,7 @@ export function PdfExportDialog({ open, onOpenChange, result }: Props) {
             ) : (
               <FileText className="h-3.5 w-3.5" />
             )}
-            {generating ? copy.generating : copy.generate}
+            {generating ? t("results.pdfExport.generating") : t("results.pdfExport.generate")}
           </Button>
         </div>
       </DialogContent>

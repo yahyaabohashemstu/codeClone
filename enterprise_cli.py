@@ -7,8 +7,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from app import app
-from api import (
+from backend.app_factory import create_app
+from enterprise_platform.models import (
     ApiCredential,
     Organization,
     RepositoryConnection,
@@ -16,24 +16,34 @@ from api import (
     ScanJob,
     Workspace,
     WorkspaceMembership,
-    build_review_case_report_payload,
+    storage,
+)
+from enterprise_platform.scans import (
     create_repository_scan_job,
+    run_repository_scan,
+)
+from enterprise_platform.services import (
+    build_review_case_report_payload,
+    build_workspace_analytics,
     ensure_default_compliance_profile,
     ensure_default_policy_set,
-    ensure_region_supported,
     ensure_threshold_profile,
     fetch_case_bundle,
-    issue_api_key,
-    normalize_provider,
-    run_repository_scan,
     serialize_repository,
     serialize_scan_job,
     serialize_workspace,
+)
+from enterprise_platform.utils import (
+    ensure_region_supported,
+    issue_api_key,
+    normalize_provider,
     session_scope,
     slugify,
-    storage,
     utcnow,
 )
+
+
+app = create_app()
 
 
 def emit(payload: Any) -> None:
@@ -307,8 +317,6 @@ def command_trigger_scan(args) -> None:
 
 
 def command_analytics(args) -> None:
-    from api import build_workspace_analytics
-
     with app.app_context():
         with session_scope() as db_session:
             workspace = db_session.get(Workspace, args.workspace_id)

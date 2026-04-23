@@ -15,6 +15,7 @@ import {
   LineChart,
   Scale,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -26,68 +27,49 @@ function isActivePath(currentPath: string, itemPath: string) {
   return currentPath === itemPath;
 }
 
+interface NavItem {
+  labelKey: string;
+  icon: typeof Home;
+  path: string;
+}
+
+const navItems: NavItem[] = [
+  { labelKey: "nav.home", icon: Home, path: "/" },
+  { labelKey: "nav.analysis", icon: GitCompare, path: "/analysis" },
+  { labelKey: "nav.results", icon: BarChart3, path: "/results" },
+  { labelKey: "nav.history", icon: History, path: "/history" },
+  { labelKey: "nav.analytics", icon: LineChart, path: "/analytics" },
+  { labelKey: "nav.chat", icon: MessageSquare, path: "/chat" },
+  { labelKey: "nav.help", icon: HelpCircle, path: "/help" },
+];
+
+const enterpriseItems: NavItem[] = [
+  { labelKey: "nav.workspaces", icon: Building2, path: "/enterprise/workspaces" },
+  { labelKey: "nav.cases", icon: Scale, path: "/enterprise/cases" },
+];
+
 export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: boolean; onClose: () => void; collapsed: boolean; onCollapse: () => void }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { clearCurrentResult } = useAnalysis();
   const { isAuthenticated, logout, user } = useAuth();
-  const { language, isRTL } = useLanguage();
-
-  const copy =
-    language === "ar"
-      ? {
-          navItems: [
-            { label: "الرئيسية", icon: Home, path: "/" },
-            { label: "التحليل", icon: GitCompare, path: "/analysis" },
-            { label: "النتائج", icon: BarChart3, path: "/results" },
-            { label: "السجل", icon: History, path: "/history" },
-            { label: "التحليلات", icon: LineChart, path: "/analytics" },
-            { label: "الدردشة", icon: MessageSquare, path: "/chat" },
-            { label: "المساعدة", icon: HelpCircle, path: "/help" },
-          ],
-          enterpriseItems: [
-            { label: "مساحات العمل", icon: Building2, path: "/enterprise/workspaces" },
-            { label: "قضايا المراجعة", icon: Scale, path: "/enterprise/cases" },
-          ],
-          enterpriseLabel: "المؤسسة",
-          platform: "منصة التحليل",
-          signedInAs: "تم تسجيل الدخول باسم",
-          logout: "تسجيل الخروج",
-          signIn: "تسجيل الدخول",
-          collapse: "طي الشريط",
-        }
-      : {
-          navItems: [
-            { label: "Home", icon: Home, path: "/" },
-            { label: "Analysis", icon: GitCompare, path: "/analysis" },
-            { label: "Results", icon: BarChart3, path: "/results" },
-            { label: "History", icon: History, path: "/history" },
-            { label: "Analytics", icon: LineChart, path: "/analytics" },
-            { label: "Chat", icon: MessageSquare, path: "/chat" },
-            { label: "Help", icon: HelpCircle, path: "/help" },
-          ],
-          enterpriseItems: [
-            { label: "Workspaces", icon: Building2, path: "/enterprise/workspaces" },
-            { label: "Review Cases", icon: Scale, path: "/enterprise/cases" },
-          ],
-          enterpriseLabel: "Enterprise",
-          platform: "Analysis Platform",
-          signedInAs: "Signed in as",
-          logout: "Logout",
-          signIn: "Sign In",
-          collapse: "Collapse",
-        };
+  const { isRTL } = useLanguage();
+  const { t } = useTranslation("common");
 
   const handleLogout = async () => {
+    try {
+      await logout();
+    } catch {
+      // logout failed but still clear client state
+    }
     clearCurrentResult();
-    await logout();
     navigate("/login", { replace: true });
     onClose();
   };
 
   return (
     <>
-      {isOpen && <div className="fixed inset-0 z-30 bg-background/80 backdrop-blur-sm md:hidden" onClick={onClose} />}
+      {isOpen && <div className="fixed inset-0 z-30 bg-background/80 backdrop-blur-sm md:hidden" role="button" tabIndex={0} aria-label="Close navigation" onClick={onClose} onKeyDown={(e) => { if (e.key === "Escape" || e.key === "Enter") onClose(); }} />}
 
       <aside
         className={cn(
@@ -104,15 +86,16 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
           {!collapsed && (
             <div className="min-w-0">
               <span className="block truncate text-sm font-bold text-sidebar-accent-foreground">CodeSimilar</span>
-              <span className="block text-[10px] text-sidebar-foreground">{copy.platform}</span>
+              <span className="block text-[10px] text-sidebar-foreground">{t("platform")}</span>
             </div>
           )}
         </div>
 
         <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2 pt-3 scrollbar-thin">
-          {copy.navItems.map((item) => {
+          {navItems.map((item) => {
             const active = isActivePath(location.pathname, item.path);
             const Icon = item.icon;
+            const label = t(item.labelKey);
             const link = (
               <Link
                 key={item.path}
@@ -134,8 +117,8 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
                 }
               >
                 <Icon className={cn("h-4 w-4 shrink-0", active ? "text-primary" : "")} />
-                {!collapsed && <span>{item.label}</span>}
-                {!collapsed && active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />}
+                {!collapsed && <span>{label}</span>}
+                {!collapsed && active && <span className="ms-auto h-1.5 w-1.5 rounded-full bg-primary" />}
               </Link>
             );
 
@@ -143,7 +126,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
               return (
                 <Tooltip key={item.path} delayDuration={0}>
                   <TooltipTrigger asChild>{link}</TooltipTrigger>
-                  <TooltipContent side="right" className="text-xs">{item.label}</TooltipContent>
+                  <TooltipContent side="right" className="text-xs">{label}</TooltipContent>
                 </Tooltip>
               );
             }
@@ -155,13 +138,14 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
           <div className={cn("mt-3", collapsed ? "px-0" : "px-1")}>
             {!collapsed && (
               <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40">
-                {copy.enterpriseLabel}
+                {t("nav.enterprise")}
               </p>
             )}
             {collapsed && <div className="my-1 h-px bg-sidebar-border" />}
-            {copy.enterpriseItems.map((item) => {
+            {enterpriseItems.map((item) => {
               const active = location.pathname.startsWith(item.path);
               const Icon = item.icon;
+              const label = t(item.labelKey);
               const link = (
                 <Link
                   key={item.path}
@@ -183,8 +167,8 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
                   }
                 >
                   <Icon className={cn("h-4 w-4 shrink-0", active ? "text-primary" : "")} />
-                  {!collapsed && <span>{item.label}</span>}
-                  {!collapsed && active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />}
+                  {!collapsed && <span>{label}</span>}
+                  {!collapsed && active && <span className="ms-auto h-1.5 w-1.5 rounded-full bg-primary" />}
                 </Link>
               );
 
@@ -192,7 +176,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
                 return (
                   <Tooltip key={item.path} delayDuration={0}>
                     <TooltipTrigger asChild>{link}</TooltipTrigger>
-                    <TooltipContent side="right" className="text-xs">{item.label}</TooltipContent>
+                    <TooltipContent side="right" className="text-xs">{label}</TooltipContent>
                   </Tooltip>
                 );
               }
@@ -207,7 +191,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
             <>
               {!collapsed && (
                 <div className="rounded-lg border border-sidebar-border bg-sidebar-accent/40 px-3 py-2 text-xs text-sidebar-foreground">
-                  {copy.signedInAs} <span className="font-semibold text-sidebar-accent-foreground">{user?.username}</span>
+                  {t("header.signedInAs")} <span className="font-semibold text-sidebar-accent-foreground">{user?.username}</span>
                 </div>
               )}
               <button
@@ -219,7 +203,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
                 )}
               >
                 <LogOut className="h-4 w-4 shrink-0" />
-                {!collapsed && <span>{copy.logout}</span>}
+                {!collapsed && <span>{t("header.logout")}</span>}
               </button>
             </>
           ) : (
@@ -232,7 +216,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
               )}
             >
               <LogIn className="h-4 w-4 shrink-0" />
-              {!collapsed && <span>{copy.signIn}</span>}
+              {!collapsed && <span>{t("header.signIn")}</span>}
             </Link>
           )}
 
@@ -246,7 +230,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
               isRTL ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />
             ) : (
               <>
-                <span className={cn("text-xs text-sidebar-foreground/60", isRTL ? "ml-1" : "mr-1")}>{copy.collapse}</span>
+                <span className={cn("text-xs text-sidebar-foreground/60", isRTL ? "ml-1" : "mr-1")}>{t("nav.collapse")}</span>
                 {isRTL ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
               </>
             )}

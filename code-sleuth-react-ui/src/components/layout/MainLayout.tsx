@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
@@ -17,11 +18,8 @@ export function MainLayout({ children }: MainLayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const isAuthRoute = AUTH_ROUTES.has(location.pathname);
-  const { language, isRTL } = useLanguage();
-  const footerCopy =
-    language === "ar"
-      ? "© 2026 CodeSimilar — منصة ذكية لتحليل الشيفرة"
-      : "© 2026 CodeSimilar — Intelligent Code Analysis Platform";
+  const { isRTL } = useLanguage();
+  const { t } = useTranslation("common");
 
   if (isAuthRoute) {
     return (
@@ -53,7 +51,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         <Header toggleSidebar={() => setIsSidebarOpen((current) => !current)} />
         <main className="mx-auto flex-1 w-full max-w-[1480px] px-4 py-6 md:px-6 lg:px-8">{children}</main>
         <footer className="border-t border-border/30 px-6 py-4 text-center text-xs text-muted-foreground/50">
-          {footerCopy}
+          {t("footer.fullCopyright")}
         </footer>
       </div>
     </div>

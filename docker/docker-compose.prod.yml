@@ -1,0 +1,100 @@
+# =============================================================================
+# CodeClone -- Production docker-compose stack
+#
+# Usage:
+#   docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml up -d --build
+#
+# Adds PostgreSQL and Redis.  Removes hot-reload volume mounts.
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL 16
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: codeclone-postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: codeclone
+      POSTGRES_USER: codeclone
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-codeclone_secret}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U codeclone -d codeclone"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - codeclone-internal
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Redis 7 (rate-limiting, caching)
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: codeclone-redis
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - codeclone-internal
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Flask / Waitress backend  (overrides dev settings)
+  # ---------------------------------------------------------------------------
+  backend:
+    container_name: codeclone-backend
+    ports:
+      - "5000:5000"
+    # Remove all dev volume mounts -- code is baked into the image.
+    volumes:
+      - backend-uploads:/app/uploads
+    environment:
+      FLASK_ENV: production
+      BIND_HOST: "0.0.0.0"
+      PORT: "5000"
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
+      WAITRESS_THREADS: "8"
+      DATABASE_URL: postgresql://codeclone:${POSTGRES_PASSWORD:-codeclone_secret}@postgres:5432/codeclone
+      REDIS_URL: redis://redis:6379/0
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+      ENTERPRISE_DATA_KEY: ${ENTERPRISE_DATA_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - codeclone-internal
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # React frontend  (overrides dev settings)
+  # ---------------------------------------------------------------------------
+  frontend:
+    container_name: codeclone-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - codeclone-internal
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:
+  backend-uploads:
+
+networks:
+  codeclone-internal:
+    driver: bridge

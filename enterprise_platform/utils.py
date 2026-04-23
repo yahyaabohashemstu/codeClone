@@ -406,8 +406,12 @@ def resolve_actor(db_session, require_authenticated: bool = True) -> dict[str, A
         ).scalar_one_or_none()
         if not credential:
             raise EnterpriseError(401, "Invalid API key.", code="invalid_api_key")
-        if credential.expires_at and credential.expires_at <= utcnow():
-            raise EnterpriseError(401, "Expired API key.", code="expired_api_key")
+        expires_at = credential.expires_at
+        if expires_at:
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=dt.timezone.utc)
+            if expires_at <= utcnow():
+                raise EnterpriseError(401, "Expired API key.", code="expired_api_key")
         calculated_hash = sha256_hex(f"{prefix}:{secret}")
         if not hmac.compare_digest(credential.token_hash, calculated_hash):
             raise EnterpriseError(401, "Invalid API key.", code="invalid_api_key")
@@ -613,7 +617,8 @@ def verify_webhook_secret(stored_hint: Optional[str], stored_hash: Optional[str]
 
 
 def audit(db_session, actor: dict[str, Any], action: str, entity_type: str, entity_id: Any, workspace_id: Optional[int], metadata: Optional[dict[str, Any]] = None) -> None:
-    ip_value = request.headers.get("X-Forwarded-For", request.remote_addr or "")
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    ip_value = forwarded.split(",")[0].strip() if forwarded else (request.remote_addr or "")
     user_agent = request.headers.get("User-Agent", "")
     db_session.add(
         AuditLog(

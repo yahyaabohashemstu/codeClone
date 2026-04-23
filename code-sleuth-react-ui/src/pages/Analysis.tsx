@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   ArrowRight,
   CheckCircle2,
@@ -34,6 +35,9 @@ type SourceState = {
 const SUPPORTED_SOURCE_FILE_ACCEPT =
   ".py,.c,.java,.js,.jsx,.ts,.tsx,.rb,.go,.php,.kt,.r,.rs,.scala,.ex,.exs,.hs,.pl";
 const TABULAR_FILE_ACCEPT = ".xlsx,.xls,.csv";
+const MAX_SOURCE_FILE_BYTES = 2 * 1024 * 1024; // 2 MB
+const MAX_ZIP_FILE_BYTES = 25 * 1024 * 1024; // 25 MB
+const MAX_EXCEL_FILE_BYTES = 5 * 1024 * 1024; // 5 MB
 const FALLBACK_LANGUAGE_OPTIONS = [
   "python",
   "c",
@@ -76,6 +80,15 @@ function getSelectedFile(source: SourceState) {
   }
 }
 
+const METHOD_ICONS: Record<InputMethod, typeof Code2> = {
+  paste: Code2,
+  file: FileCode,
+  zip: FileArchive,
+  excel: FileSpreadsheet,
+};
+
+const INPUT_METHOD_IDS: InputMethod[] = ["paste", "file", "zip", "excel"];
+
 function SourceCard({
   label,
   colorClass,
@@ -89,53 +102,15 @@ function SourceCard({
   source: SourceState;
   onChange: (next: SourceState) => void;
 }) {
-  const { language, isRTL } = useLanguage();
-  const inputMethods: Array<{
-    id: InputMethod;
-    label: string;
-    description: string;
-    icon: typeof Code2;
-  }> =
-    language === "ar"
-      ? [
-          { id: "paste", label: "لصق الشيفرة", description: "أدخل الشيفرة مباشرة", icon: Code2 },
-          { id: "file", label: "ملف برمجي", description: "ارفع ملفًا برمجيًا واحدًا", icon: FileCode },
-          { id: "zip", label: "أرشيف ZIP", description: "حلّل مشروعًا مضغوطًا", icon: FileArchive },
-          { id: "excel", label: "Excel / CSV", description: "اختر صفًا من جدول", icon: FileSpreadsheet },
-        ]
-      : [
-          { id: "paste", label: "Paste Code", description: "Enter code directly", icon: Code2 },
-          { id: "file", label: "Code File", description: "Upload a single source file", icon: FileCode },
-          { id: "zip", label: "ZIP Archive", description: "Analyze a project archive", icon: FileArchive },
-          { id: "excel", label: "Excel / CSV", description: "Choose a row from a spreadsheet", icon: FileSpreadsheet },
-        ];
+  const { t } = useTranslation("analysis");
+  const { isRTL } = useLanguage();
 
-  const copy =
-    language === "ar"
-      ? {
-          sourceTitle: `المصدر ${label}`,
-          sourceDescription: "اختر الطريقة التي تريد تزويد هذا المقطع البرمجي بها.",
-          pastePlaceholder: `// ألصق شيفرة المصدر ${label} هنا…\nfunction example() {\n  return "Hello";\n}`,
-          lines: "سطر",
-          ready: "جاهز للتحليل",
-          clickOrDrop: "انقر أو أسقط ملفًا هنا",
-          codeFiles: "ملفات برمجية مثل .py و .java و .js و .ts و .go",
-          zipArchive: "أرشيف ZIP لمستودع أو مجلد مشروع",
-          spreadsheet: "ملف جدول يحتوي على العينة البرمجية داخل صف",
-          rowNumber: "رقم الصف الذي يحتوي على العينة البرمجية:",
-        }
-      : {
-          sourceTitle: `Source ${label}`,
-          sourceDescription: "Select how you want to provide this code sample.",
-          pastePlaceholder: `// Paste Source ${label} code here…\nfunction example() {\n  return "Hello";\n}`,
-          lines: "lines",
-          ready: "Ready for analysis",
-          clickOrDrop: "Click or drop a file here",
-          codeFiles: "Source code files such as .py, .java, .js, .ts, .go",
-          zipArchive: "ZIP archive of a source repository or project folder",
-          spreadsheet: "Spreadsheet file with the code sample in a row",
-          rowNumber: "Row number containing the code sample:",
-        };
+  const inputMethods = INPUT_METHOD_IDS.map((id) => ({
+    id,
+    label: t(`analysis.methods.${id}`),
+    description: t(`analysis.methodDescriptions.${id}`),
+    icon: METHOD_ICONS[id],
+  }));
 
   const selectedFile = getSelectedFile(source);
   const isReady = Boolean(source.code.trim() || selectedFile);
@@ -143,6 +118,14 @@ function SourceCard({
   const setMethod = (method: InputMethod) => onChange({ ...source, method });
 
   const setFile = (key: "file" | "zip" | "excelFile", nextFile: File | null) => {
+    if (nextFile) {
+      const maxBytes = key === "zip" ? MAX_ZIP_FILE_BYTES : key === "excelFile" ? MAX_EXCEL_FILE_BYTES : MAX_SOURCE_FILE_BYTES;
+      if (nextFile.size > maxBytes) {
+        const limitMb = Math.round(maxBytes / (1024 * 1024));
+        alert(`File too large. Maximum size is ${limitMb} MB.`);
+        return;
+      }
+    }
     onChange({
       ...source,
       file: key === "file" ? nextFile : source.file,
@@ -156,8 +139,8 @@ function SourceCard({
       <div className="flex items-center gap-3 border-b border-border/50 px-5 py-4">
         <div className={cn("flex h-7 w-7 items-center justify-center rounded-md text-xs font-bold", colorBgClass, colorClass)}>{label}</div>
         <div>
-          <h2 className="text-sm font-semibold text-foreground">{copy.sourceTitle}</h2>
-          <p className="text-xs text-muted-foreground">{copy.sourceDescription}</p>
+          <h2 className="text-sm font-semibold text-foreground">{t("analysis.sourceTitle", { label })}</h2>
+          <p className="text-xs text-muted-foreground">{t("analysis.sourceDescription")}</p>
         </div>
         {isReady && <CheckCircle2 className="ml-auto h-4 w-4 text-success" />}
       </div>
@@ -192,12 +175,12 @@ function SourceCard({
             <Textarea
               value={source.code}
               onChange={(event) => onChange({ ...source, code: event.target.value })}
-              placeholder={copy.pastePlaceholder}
+              placeholder={t("analysis.pastePlaceholder", { label })}
               className="code-surface min-h-[280px] resize-y p-4 text-xs leading-relaxed placeholder:text-muted-foreground/40"
             />
             {source.code && (
               <div className={cn("absolute bottom-2 text-[10px] text-muted-foreground/60 font-mono", isRTL ? "left-3" : "right-3")}>
-                {source.code.split("\n").length} {copy.lines}
+                {source.code.split("\n").length} {t("analysis.lines")}
               </div>
             )}
           </div>
@@ -221,17 +204,17 @@ function SourceCard({
             {selectedFile ? (
               <div className="text-center">
                 <p className="max-w-[260px] truncate text-sm font-medium text-foreground">{selectedFile.name}</p>
-                <p className="mt-0.5 text-xs text-success">{copy.ready}</p>
+                <p className="mt-0.5 text-xs text-success">{t("analysis.ready")}</p>
               </div>
             ) : (
               <div className="text-center">
-                <p className="text-sm font-medium text-foreground">{copy.clickOrDrop}</p>
+                <p className="text-sm font-medium text-foreground">{t("analysis.clickOrDrop")}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {source.method === "file"
-                    ? copy.codeFiles
+                    ? t("analysis.codeFiles")
                     : source.method === "zip"
-                      ? copy.zipArchive
-                      : copy.spreadsheet}
+                      ? t("analysis.zipArchive")
+                      : t("analysis.spreadsheet")}
                 </p>
               </div>
             )}
@@ -241,7 +224,7 @@ function SourceCard({
         {source.method === "excel" && (
           <div className="flex items-center gap-2 rounded-xl border border-border/50 bg-muted/20 px-3 py-3 text-xs text-muted-foreground">
             <Info className="h-3.5 w-3.5 shrink-0" />
-            <span>{copy.rowNumber}</span>
+            <span>{t("analysis.excelRow")}</span>
             <input
               type="number"
               min={1}
@@ -259,67 +242,28 @@ function SourceCard({
     </div>
   );
 }
+
+const CAPABILITY_KEYS = [
+  "capabilities.tokenAnalysis",
+  "capabilities.astComparison",
+  "capabilities.textSimilarity",
+  "capabilities.aiAnalysis",
+  "capabilities.codeMetrics",
+  "capabilities.cloneDetection",
+  "capabilities.codeSmell",
+] as const;
+
 const Analysis = () => {
   const navigate = useNavigate();
   const { supportedLanguages } = useAuth();
   const { analyze, clearCurrentResult, isAnalyzing, analysisProgress } = useAnalysis();
-  const { language: uiLanguage, localizeRuntimeMessage, getProgrammingLanguageLabel } = useLanguage();
+  const { localizeRuntimeMessage, getProgrammingLanguageLabel } = useLanguage();
+  const { t } = useTranslation("analysis");
   const [selectedLanguage, setSelectedLanguage] = useState("python");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [sourceA, setSourceA] = useState<SourceState>(() => createEmptySource());
   const [sourceB, setSourceB] = useState<SourceState>(() => createEmptySource());
-
-  const copy =
-    uiLanguage === "ar"
-      ? {
-          pageTitle: "تحليل جديد",
-          pageDescription: "زوّد مصدرين برمجيين عبر اللصق أو رفع الملفات أو أرشيفات ZIP أو صفوف الجداول.",
-          language: "اللغة",
-          step1: "تزويد المصادر",
-          step2: "تشغيل التحليل",
-          step3: "مراجعة النتائج",
-          capabilitiesToggle: "قدرات التحليل المضمنة في هذه الجولة",
-          capabilityLabels: [
-            "تحليل التوكنات",
-            "مقارنة رسم AST",
-            "تشابه النص",
-            "تحليل دلالي بالذكاء الاصطناعي",
-            "قياسات الشيفرة",
-            "كشف أنواع النسخ",
-            "تحليل جودة الشيفرة",
-          ],
-          autoSave: "يتم حفظ التحليلات تلقائيًا في السجل بعد النجاح.",
-          clearAll: "مسح الكل",
-          analyzing: "جارٍ التحليل...",
-          runAnalysis: "تشغيل التحليل",
-          analysisCouldNotBeCompleted: "تعذر إكمال التحليل.",
-          analysisFailed: "فشل التحليل.",
-        }
-      : {
-          pageTitle: "New Analysis",
-          pageDescription: "Provide two code sources using pasted code, uploaded files, ZIP archives, or spreadsheet rows.",
-          language: "Language",
-          step1: "Provide Sources",
-          step2: "Run Analysis",
-          step3: "Inspect Results",
-          capabilitiesToggle: "Analysis capabilities included in this run",
-          capabilityLabels: [
-            "Token analysis",
-            "AST graph comparison",
-            "Text similarity",
-            "AI semantic analysis",
-            "Code metrics",
-            "Clone-type detection",
-            "Code smell analysis",
-          ],
-          autoSave: "Analyses are automatically saved to history after a successful run.",
-          clearAll: "Clear All",
-          analyzing: "Analyzing…",
-          runAnalysis: "Run Analysis",
-          analysisCouldNotBeCompleted: "Analysis could not be completed.",
-          analysisFailed: "Analysis failed.",
-        };
 
   const languageOptions = useMemo(() => {
     return supportedLanguages.length ? supportedLanguages : FALLBACK_LANGUAGE_OPTIONS;
@@ -360,13 +304,13 @@ const Analysis = () => {
     try {
       const result = await analyze(buildFormData());
       if (!result.has_results) {
-        setErrorMessage(result.error_message ? localizeRuntimeMessage(result.error_message) : copy.analysisCouldNotBeCompleted);
+        setErrorMessage(result.error_message ? localizeRuntimeMessage(result.error_message) : t("analysis.analysisCouldNotBeCompleted"));
         return;
       }
       const nextUrl = result.saved_analysis_id ? `/results?analysisId=${result.saved_analysis_id}` : "/results";
       navigate(nextUrl);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? localizeRuntimeMessage(error.message) : copy.analysisFailed);
+      setErrorMessage(error instanceof Error ? localizeRuntimeMessage(error.message) : t("analysis.analysisFailed"));
     }
   };
 
@@ -375,15 +319,15 @@ const Analysis = () => {
       <div className="page-header">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">{copy.pageTitle}</h1>
+            <h1 className="text-2xl font-bold tracking-tight">{t("analysis.title")}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {copy.pageDescription}
+              {t("analysis.subtitle")}
             </p>
           </div>
           <div className="shrink-0 rounded-lg border border-border/60 bg-card px-3 py-2">
             <div className="flex items-center gap-2">
               <Code2 className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">{copy.language}</span>
+              <span className="text-xs text-muted-foreground">{t("analysis.language")}</span>
             </div>
             <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
               <SelectTrigger className="mt-1 h-7 w-[160px] border-0 bg-transparent p-0 text-xs font-medium shadow-none focus:ring-0">
@@ -404,17 +348,17 @@ const Analysis = () => {
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <div className="flex items-center gap-1.5">
           <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">1</span>
-          <span className="font-medium text-foreground">{copy.step1}</span>
+          <span className="font-medium text-foreground">{t("analysis.steps.provide")}</span>
         </div>
         <div className="h-px max-w-8 flex-1 bg-border/50" />
         <div className="flex items-center gap-1.5">
           <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-medium text-muted-foreground">2</span>
-          <span>{copy.step2}</span>
+          <span>{t("analysis.steps.run")}</span>
         </div>
         <div className="h-px max-w-8 flex-1 bg-border/50" />
         <div className="flex items-center gap-1.5">
           <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-medium text-muted-foreground">3</span>
-          <span>{copy.step3}</span>
+          <span>{t("analysis.steps.inspect")}</span>
         </div>
       </div>
 
@@ -436,16 +380,16 @@ const Analysis = () => {
           className="flex items-center gap-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
         >
           {showAdvanced ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-          {copy.capabilitiesToggle}
+          {t("analysis.capabilities.toggle")}
         </button>
 
         {showAdvanced && (
           <div className="mt-3 rounded-xl border border-border/50 bg-card/50 p-4 animate-fade-in">
             <div className="grid gap-3 text-xs sm:grid-cols-2 lg:grid-cols-3">
-              {copy.capabilityLabels.map((label) => (
-                <div key={label} className="flex items-center gap-2 rounded-lg border border-border/40 bg-muted/10 px-3 py-2">
+              {CAPABILITY_KEYS.map((key) => (
+                <div key={key} className="flex items-center gap-2 rounded-lg border border-border/40 bg-muted/10 px-3 py-2">
                   <CheckCircle2 className="h-3.5 w-3.5 text-success" />
-                  <span className="text-muted-foreground">{label}</span>
+                  <span className="text-muted-foreground">{t(`analysis.${key}`)}</span>
                 </div>
               ))}
             </div>
@@ -455,7 +399,7 @@ const Analysis = () => {
 
       <div className="flex flex-col gap-4 rounded-xl border border-border/50 bg-card/50 p-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="text-xs text-muted-foreground">
-          {copy.autoSave}
+          {t("analysis.autoSave")}
           {isAnalyzing && analysisProgress && (
             <div className="mt-2 text-xs text-blue-600">
               {localizeRuntimeMessage(analysisProgress.stage)}
@@ -467,17 +411,17 @@ const Analysis = () => {
         </div>
         <div className="flex flex-wrap gap-3">
           <Button variant="outline" size="sm" className="h-10 border-border/60 text-xs" onClick={clearAll}>
-            {copy.clearAll}
+            {t("analysis.clearAll")}
           </Button>
           <Button size="sm" className="h-10 gap-2 px-5 text-xs shadow-glow-sm" onClick={() => void handleAnalyze()} disabled={isAnalyzing}>
             {isAnalyzing ? (
               <span className="flex items-center gap-2">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                {copy.analyzing}
+                {t("analysis.analyzing")}
               </span>
             ) : (
               <>
-                {copy.runAnalysis}
+                {t("analysis.submit")}
                 <ArrowRight className="h-3.5 w-3.5" />
               </>
             )}
