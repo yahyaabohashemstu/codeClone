@@ -1,0 +1,34 @@
+# Keep the Docker build context small and reproducible.
+
+# Version control / CI
+.git
+.github
+.gitignore
+
+# Python caches & virtualenvs
+__pycache__/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# Node — rebuilt inside the image
+code-sleuth-react-ui/node_modules/
+code-sleuth-react-ui/dist/
+
+# Runtime data & secrets — never bake into the image
+instance/
+uploads/
+*.db
+
+# Local-only working materials (raw font downloads, design-spec kit, samples)
+fonts/
+new design/
+*.pdf
+
+# Editor / OS noise
+.claude/
+.DS_Store
+*.log
