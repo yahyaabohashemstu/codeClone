@@ -1,3 +1,11 @@
+# =============================================================================
+# WARNING — static UI preview ONLY.
+# The application is same-origin by construction (no CORS on the backend, CSP
+# connect-src 'self', SameSite cookies) and this config force-404s /api/*.
+# A Netlify deploy therefore renders the UI shell but CANNOT talk to any
+# backend.  For a working deployment use start.bat (Flask serves the build)
+# or docker/docker-compose.prod.yml (Nginx /api proxy).
+# =============================================================================
 [build]
   base = "code-sleuth-react-ui"
   command = "npm ci && npm run build"

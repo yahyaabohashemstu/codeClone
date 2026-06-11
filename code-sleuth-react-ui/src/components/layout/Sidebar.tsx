@@ -4,7 +4,6 @@ import {
   Building2,
   ChevronLeft,
   ChevronRight,
-  Code2,
   GitCompare,
   HelpCircle,
   History,
@@ -80,8 +79,8 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
         )}
       >
         <div className={cn("flex h-16 items-center border-b border-sidebar-border px-4", collapsed ? "justify-center" : "gap-3")}>
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-brand shadow-glow-sm">
-            <Code2 className="h-4 w-4 text-white" />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-brand shadow-glow-sm overflow-hidden">
+            <img src="/brand/logo.png" alt="CodeSimilar" className="h-9 w-9 object-contain" />
           </div>
           {!collapsed && (
             <div className="min-w-0">
@@ -134,7 +133,9 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
             return link;
           })}
 
-          {/* Enterprise section */}
+          {/* Enterprise section — admin-only routes, so hide the links from
+              non-admins instead of letting them bounce off ProtectedRoute */}
+          {user?.is_admin && (
           <div className={cn("mt-3", collapsed ? "px-0" : "px-1")}>
             {!collapsed && (
               <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40">
@@ -184,6 +185,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
               return link;
             })}
           </div>
+          )}
         </nav>
 
         <div className="space-y-2 border-t border-sidebar-border p-2">

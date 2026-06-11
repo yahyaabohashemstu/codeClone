@@ -32,17 +32,18 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # ---------------------------------------------------------------------------
 # Application code
+# (the legacy static/ and the deprecated Netlify functions/ were removed from
+# the repo; templates/ now holds only the "frontend build missing" fallback)
 # ---------------------------------------------------------------------------
-COPY app.py wsgi.py ./
+COPY wsgi.py ./
 COPY backend/ backend/
 COPY enterprise_platform/ enterprise_platform/
-COPY enterprise_worker.py ./
+COPY enterprise_worker.py enterprise_cli.py enterprise_reports.py ./
 COPY templates/ templates/
-COPY static/ static/
-COPY functions/ functions/
 
-# Create directories the app expects at runtime
-RUN mkdir -p /app/instance /app/uploads /app/tmp && \
+# instance/ holds the SQLite DB (dev), bootstrap admin credentials, and the
+# generated secret key fallback — persist it via a volume in compose.
+RUN mkdir -p /app/instance && \
     chown -R appuser:appuser /app
 
 # ---------------------------------------------------------------------------

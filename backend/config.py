@@ -74,8 +74,8 @@ class BaseConfig:
     SNAPSHOT_SCHEMA_VERSION: int = 1
     MAX_CACHED_USERS: int = 200
     BACKGROUND_ANALYSIS_WORKERS: int = int(os.environ.get("BG_ANALYSIS_WORKERS", "2"))
-    STALE_TASK_MINUTES: int = 30
-    STALE_PROGRESS_MINUTES: int = 5
+    STALE_TASK_MINUTES: int = int(os.environ.get("STALE_TASK_MINUTES", "30"))
+    STALE_PROGRESS_MINUTES: int = int(os.environ.get("STALE_PROGRESS_MINUTES", "5"))
 
     # --- Enterprise ----------------------------------------------------------
     ENTERPRISE_DATA_KEY: str = os.environ.get("ENTERPRISE_DATA_KEY", "")
@@ -103,6 +103,18 @@ class ProductionConfig(BaseConfig):
         if not key:
             raise RuntimeError("SECRET_KEY environment variable is required in production.")
         self.SECRET_KEY: str = key  # type: ignore[assignment]
+
+        # Secure cookies are the production default, but a deployment that has
+        # not yet terminated TLS (e.g. the docker compose stack on plain HTTP)
+        # may explicitly opt out with SESSION_COOKIE_SECURE=0 — otherwise
+        # browsers silently drop the session cookie and login never sticks.
+        if os.environ.get("SESSION_COOKIE_SECURE", "1") == "0":
+            import logging
+            logging.getLogger(__name__).warning(
+                "SESSION_COOKIE_SECURE=0 in production — session cookies will "
+                "be sent over plain HTTP. Enable TLS and remove this override."
+            )
+            self.SESSION_COOKIE_SECURE: bool = False  # type: ignore[assignment]
 
 
 class TestingConfig(BaseConfig):

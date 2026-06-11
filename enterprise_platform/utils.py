@@ -451,6 +451,19 @@ def require_enterprise_admin(actor: dict[str, Any], message: str = "Admin access
     raise EnterpriseError(403, message, code="admin_access_required")
 
 
+def require_human_actor(actor: dict[str, Any], message: str = "This operation requires an interactive session.") -> None:
+    """Reject API-key actors for credential/membership management operations.
+
+    A workspace API key with write scope maps to an admin-equivalent role for
+    day-to-day operations, but letting it mint or revoke OTHER keys, manage
+    members, archive the workspace, or delete repositories would let any
+    leaked key escalate itself indefinitely.  Those operations require a
+    logged-in session (or the CLI, which runs as platform admin).
+    """
+    if actor.get("kind") == "api_key":
+        raise EnterpriseError(403, message, code="human_actor_required")
+
+
 def actor_workspace_role(db_session, workspace_id: int, actor: dict[str, Any]) -> Optional[str]:
     if actor.get("is_admin"):
         return "owner"
@@ -610,10 +623,23 @@ def issue_webhook_secret() -> tuple[str, str, str]:
 
 
 def verify_webhook_secret(stored_hint: Optional[str], stored_hash: Optional[str], provided_secret: str) -> bool:
+    """Verify a webhook secret against its stored hash.
+
+    ``issue_webhook_secret`` hands the caller the FULL token ``hint.secret``
+    while the hash covers only the secret part — so accept either form:
+    callers may paste the full token (the common case, since that is what the
+    API returned to them) or just the part after the first dot.
+    """
     if not stored_hint or not stored_hash or not provided_secret:
         return False
-    calculated = sha256_hex(f"{stored_hint}:{provided_secret}")
-    return hmac.compare_digest(calculated, stored_hash)
+    candidates = [provided_secret]
+    prefix = f"{stored_hint}."
+    if provided_secret.startswith(prefix):
+        candidates.append(provided_secret[len(prefix):])
+    return any(
+        hmac.compare_digest(sha256_hex(f"{stored_hint}:{candidate}"), stored_hash)
+        for candidate in candidates
+    )
 
 
 def audit(db_session, actor: dict[str, Any], action: str, entity_type: str, entity_id: Any, workspace_id: Optional[int], metadata: Optional[dict[str, Any]] = None) -> None:

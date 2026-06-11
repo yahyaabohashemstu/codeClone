@@ -11,4 +11,4 @@ cd ..
 
 echo.
 echo Starting server...
-python app.py
+python wsgi.py

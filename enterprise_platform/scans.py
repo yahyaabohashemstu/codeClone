@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import datetime as dt
 import os
+import re
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
 
 from flask import current_app
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from enterprise_platform.models import *
 from enterprise_platform.utils import *
@@ -20,8 +22,30 @@ def scan_failure_message(exc: Exception) -> str:
     return "Repository scan failed."
 
 
+def claim_scan_job(db_session, scan_job_id: int) -> bool:
+    """Atomically transition a job to ``running``.
+
+    Returns ``True`` only for the single caller that wins the transition.  A
+    conditional UPDATE is used instead of ``SELECT ... FOR UPDATE SKIP LOCKED``
+    because the latter is silently a no-op on SQLite; this guarantees a job is
+    never executed twice even when the in-process executor and the standalone
+    worker race for the same job.
+    """
+    result = db_session.execute(
+        update(ScanJob)
+        .where(ScanJob.id == scan_job_id, ScanJob.status.in_(["queued", "claimed"]))
+        .values(status="running", started_at=utcnow())
+    )
+    return result.rowcount == 1
+
+
 def run_repository_scan(scan_job_id: int) -> None:
     with storage._app.app_context():
+        # Claim the job before any work so it is never executed twice.
+        with session_scope() as claim_session:
+            if not claim_scan_job(claim_session, scan_job_id):
+                return  # already running/completed, or no longer claimable
+
         with session_scope() as db_session:
             scan_job = db_session.get(ScanJob, scan_job_id)
             if not scan_job:
@@ -34,8 +58,6 @@ def run_repository_scan(scan_job_id: int) -> None:
                 scan_job.completed_at = utcnow()
                 return
             compliance_profile = ensure_default_compliance_profile(db_session, workspace)
-            scan_job.status = "running"
-            scan_job.started_at = utcnow()
             trigger_payload = loads(scan_job.trigger_payload_json, {})
             temp_clone_dir: Optional[str] = None
             try:
@@ -150,6 +172,10 @@ def run_repository_scan(scan_job_id: int) -> None:
                 created_cases = 0
                 seen_pairs: set[tuple[int, int]] = set()
                 artifact_by_id: dict[int, CodeArtifact] = {artifact.id: artifact for artifact, _ in new_artifacts}
+                # Cache decrypted candidate extractions within this scan so a
+                # candidate compared against several artifacts is decrypted and
+                # reconstructed only once instead of once per comparison.
+                candidate_extraction_cache: dict[int, ArtifactExtraction] = {}
 
                 for artifact, computed in new_artifacts:
                     candidate_ids = workspace_search_candidates(db_session, workspace.id, computed["vector"], VECTOR_TOP_K, exclude_artifact_id=artifact.id)
@@ -161,17 +187,20 @@ def run_repository_scan(scan_job_id: int) -> None:
                         if pair in seen_pairs:
                             continue
                         seen_pairs.add(pair)
-                        candidate_source = storage.decrypt_text(candidate_artifact.raw_source_encrypted)
-                        candidate_extraction = ArtifactExtraction(
-                            logical_path=candidate_artifact.logical_path,
-                            language=candidate_artifact.language,
-                            symbol_kind=candidate_artifact.symbol_kind,
-                            source_text=candidate_source,
-                            start_line=candidate_artifact.start_line,
-                            end_line=candidate_artifact.end_line,
-                            symbol_name=candidate_artifact.symbol_name,
-                            symbol_qualified_name=candidate_artifact.symbol_qualified_name,
-                        )
+                        candidate_extraction = candidate_extraction_cache.get(candidate_artifact.id)
+                        if candidate_extraction is None:
+                            candidate_source = storage.decrypt_text(candidate_artifact.raw_source_encrypted)
+                            candidate_extraction = ArtifactExtraction(
+                                logical_path=candidate_artifact.logical_path,
+                                language=candidate_artifact.language,
+                                symbol_kind=candidate_artifact.symbol_kind,
+                                source_text=candidate_source,
+                                start_line=candidate_artifact.start_line,
+                                end_line=candidate_artifact.end_line,
+                                symbol_name=candidate_artifact.symbol_name,
+                                symbol_qualified_name=candidate_artifact.symbol_qualified_name,
+                            )
+                            candidate_extraction_cache[candidate_artifact.id] = candidate_extraction
                         similarity_bundle = compute_similarity_bundle(computed["extraction"], candidate_extraction)
                         threshold_profile = determine_effective_thresholds(db_session, workspace.id, artifact.language_family, similarity_bundle["clone_type"])
                         if similarity_bundle["similarity_score"] < threshold_profile.review_threshold:
@@ -238,7 +267,74 @@ def run_repository_scan(scan_job_id: int) -> None:
                     shutil.rmtree(temp_clone_dir, ignore_errors=True)
 
 
+def requeue_stale_scan_jobs(stale_after_seconds: int | None = None) -> int:
+    """Requeue jobs stuck in ``running``/``claimed`` and re-dispatch them.
+
+    In-process mode previously had NO recovery path: a process crash mid-scan
+    left the job ``running`` forever (only ``enterprise_worker.py`` reclaimed
+    stale jobs).  This sweep runs opportunistically whenever a new scan is
+    enqueued in-process.  The window must comfortably exceed the longest
+    legitimate scan — requeuing a job that is still executing elsewhere would
+    double-run it (``claim_scan_job`` cannot protect a forcibly reset row).
+
+    Returns the number of jobs requeued (and re-submitted to the executor).
+    """
+    if stale_after_seconds is None:
+        try:
+            stale_after_seconds = int(os.environ.get("ENTERPRISE_SCAN_RECLAIM_SECONDS", "1800"))
+        except ValueError:
+            stale_after_seconds = 1800
+    stale_after_seconds = max(60, stale_after_seconds)
+    cutoff = utcnow() - dt.timedelta(seconds=stale_after_seconds)
+
+    requeued_ids: list[int] = []
+    with session_scope() as db_session:
+        stale_ids = db_session.execute(
+            select(ScanJob.id).where(
+                ScanJob.status.in_(["running", "claimed"]),
+                ScanJob.started_at.isnot(None),
+                ScanJob.started_at < cutoff,
+            )
+        ).scalars().all()
+        for job_id in stale_ids:
+            result = db_session.execute(
+                update(ScanJob)
+                .where(ScanJob.id == job_id, ScanJob.status.in_(["running", "claimed"]))
+                .values(
+                    status="queued",
+                    started_at=None,
+                    error_message=(
+                        f"Requeued after exceeding the {stale_after_seconds}s stale "
+                        "window (process likely crashed mid-scan)."
+                    ),
+                )
+            )
+            if result.rowcount == 1:
+                requeued_ids.append(job_id)
+
+    for job_id in requeued_ids:
+        get_scan_executor().submit(run_repository_scan, job_id)
+    return len(requeued_ids)
+
+
 def enqueue_scan_job(scan_job_id: int) -> None:
+    """Dispatch a scan job for execution.
+
+    By default the job runs in-process via the thread-pool executor, so a
+    standalone worker is not required.  When a dedicated worker is deployed
+    (``ENTERPRISE_USE_WORKER=1``), the job is left ``queued`` for the worker to
+    claim instead of also running it in-process.  Either way,
+    ``run_repository_scan`` claims the job atomically, so it is never run twice.
+    """
+    if os.environ.get("ENTERPRISE_USE_WORKER", "").strip().lower() in ("1", "true", "yes"):
+        return
+    # Opportunistic recovery: sweep jobs orphaned by a previous crash so they
+    # do not sit in 'running' forever (the standalone worker does this in its
+    # poll loop; in-process mode has no loop, so piggyback on enqueues).
+    try:
+        requeue_stale_scan_jobs()
+    except Exception:
+        current_app.logger.exception("Stale scan-job sweep failed; continuing with enqueue.")
     get_scan_executor().submit(run_repository_scan, scan_job_id)
 
 

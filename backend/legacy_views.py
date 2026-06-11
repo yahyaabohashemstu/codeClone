@@ -47,30 +47,14 @@ def _serve_frontend_app():
     Serve the React SPA entry point.
 
     1. If the frontend ``dist/index.html`` exists, send it directly.
-    2. Otherwise fall back to Flask templates -- ``home.html`` for
-       authenticated users, ``login.html`` for anonymous visitors.
+    2. Otherwise return a 503 "build missing" page with instructions; the
+       old Jinja UI was removed because it targeted endpoints from the
+       deleted monolith and could no longer render or log users in.
     """
     if _frontend_build_available():
         return send_from_directory(_frontend_dist_dir(), "index.html")
 
-    # Fallback: server-rendered templates when no React build is available.
-    if current_user.is_authenticated:
-        from backend.models.analysis import Analysis
-
-        latest = (
-            Analysis.query
-            .filter_by(user_id=current_user.id)
-            .order_by(Analysis.date_created.desc())
-            .first()
-        )
-        return render_template(
-            "home.html",
-            total_analyses=Analysis.query.count(),
-            languages_supported=0,  # populated by caller if needed
-            latest_analysis_id=latest.id if latest else None,
-        )
-
-    return render_template("login.html")
+    return render_template("build_missing.html"), 503
 
 
 # ---------------------------------------------------------------------------

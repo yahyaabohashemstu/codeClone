@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 import os
+import re
 from io import BytesIO
 from typing import Any
 
@@ -15,6 +16,15 @@ from enterprise_platform.services import *
 from enterprise_platform.scans import *
 
 api_bp = Blueprint("enterprise_api", __name__)
+
+# Valid policy-rule values, enforced at creation time so a misconfigured rule
+# fails fast with a 400 instead of silently no-op'ing (unsupported metric) or
+# raising mid-scan (unsupported comparator).
+_POLICY_COMPARATORS = frozenset({">=", ">", "<=", "<", "=="})
+_POLICY_CONDITION_TYPES = frozenset(
+    {"similarity_score", "semantic_score", "token_score", "structural_score"}
+)
+_POLICY_ACTIONS = frozenset({"create_case"})
 
 
 def _require_int_variable(variables: dict, *keys: str) -> int:
@@ -55,6 +65,15 @@ def _validated_expires_at(payload: dict):
 
 
 def graphql_dispatch(db_session, actor: dict[str, Any], query: str, variables: dict[str, Any]) -> dict[str, Any]:
+    """Minimal field-dispatch RPC exposed at the GraphQL path.
+
+    NOTE: this is *not* a spec-compliant GraphQL implementation. It extracts
+    only the first root field name and dispatches on it, ignoring the selection
+    set, fragments, aliases, and multi-field queries.  It is a thin
+    compatibility shim for a fixed set of operations (``workspace``,
+    ``reviewCases``, ``analytics``, ``createScan``); all inputs must be supplied
+    via ``variables`` rather than inline arguments.
+    """
     root_match = re.search(r"\{\s*(\w+)", query)
     if not root_match:
         raise EnterpriseError(400, "GraphQL query root field is required.", code="invalid_graphql_query")
@@ -68,7 +87,19 @@ def graphql_dispatch(db_session, actor: dict[str, Any], query: str, variables: d
     if root_field == "reviewCases":
         workspace_id = _require_int_variable(variables, "workspaceId")
         require_workspace_access(db_session, workspace_id, actor, "reviewer")
-        review_cases = db_session.execute(select(ReviewCase).where(ReviewCase.workspace_id == workspace_id).order_by(ReviewCase.created_at.desc())).scalars().all()
+        # Cap the result set: the REST list is paginated, and an unbounded
+        # query here could load every case (and its evidence bundle) for a
+        # large workspace into memory in one request.
+        try:
+            first = min(max(int(variables.get("first") or 100), 1), 500)
+        except (TypeError, ValueError):
+            raise EnterpriseError(400, "Variable 'first' must be an integer.", code="invalid_variable_type")
+        review_cases = db_session.execute(
+            select(ReviewCase)
+            .where(ReviewCase.workspace_id == workspace_id)
+            .order_by(ReviewCase.created_at.desc())
+            .limit(first)
+        ).scalars().all()
         bundles = fetch_case_bundles_batch(db_session, review_cases)
         return {"reviewCases": [serialize_review_case(*bundle) for bundle in bundles]}
     if root_field == "analytics":
@@ -84,8 +115,12 @@ def graphql_dispatch(db_session, actor: dict[str, Any], query: str, variables: d
             raise EnterpriseError(404, "Repository not found.", code="repository_not_found")
         scan_job = create_repository_scan_job(db_session, actor, workspace, repository, "graphql", {"branch": variables.get("branch"), "commitSha": variables.get("commitSha")})
         db_session.flush()
-        enqueue_scan_job(scan_job.id)
-        return {"createScan": serialize_scan_job(scan_job)}
+        # Do NOT enqueue here: this still runs inside the caller's open
+        # transaction, and the in-process executor could claim the job before
+        # the INSERT commits (matching 0 rows and stranding the job 'queued'
+        # forever).  The route enqueues after the session closes — same
+        # pattern as the REST trigger and the webhooks.
+        return {"createScan": serialize_scan_job(scan_job), "_enqueue_scan_job_id": scan_job.id}
     raise EnterpriseError(400, "Unsupported GraphQL root field.", code="unsupported_graphql_field")
 
 
@@ -139,17 +174,20 @@ def enterprise_health():
 def list_organizations():
     with session_scope() as db_session:
         actor = resolve_actor(db_session)
-        organizations = db_session.execute(select(Organization).order_by(Organization.created_at.desc())).scalars().all()
+        org_query = select(Organization).order_by(Organization.created_at.desc())
         if not actor.get("is_admin"):
-            visible_org_ids = {
-                row.organization_id
-                for row in db_session.execute(
-                    select(Workspace.organization_id)
-                    .join(WorkspaceMembership, WorkspaceMembership.workspace_id == Workspace.id)
-                    .where(WorkspaceMembership.legacy_user_id == actor.get("legacy_user_id"), WorkspaceMembership.is_active.is_(True))
-                ).all()
-            }
-            organizations = [organization for organization in organizations if organization.id in visible_org_ids]
+            # Filter in SQL rather than fetching every organization and
+            # discarding rows in Python.
+            visible_orgs = (
+                select(Workspace.organization_id)
+                .join(WorkspaceMembership, WorkspaceMembership.workspace_id == Workspace.id)
+                .where(
+                    WorkspaceMembership.legacy_user_id == actor.get("legacy_user_id"),
+                    WorkspaceMembership.is_active.is_(True),
+                )
+            )
+            org_query = org_query.where(Organization.id.in_(visible_orgs))
+        organizations = db_session.execute(org_query).scalars().all()
         return jsonify(
             {
                 "success": True,
@@ -368,6 +406,9 @@ def create_repository(workspace_id: int):
             declared_region=declared_region,
             webhook_secret_hash=webhook_secret_hash,
             webhook_secret_hint=webhook_hint,
+            # Encrypted copy of the full token so GitHub's native
+            # X-Hub-Signature-256 can be verified without a custom header.
+            webhook_secret_encrypted=storage.encrypt_text(webhook_secret),
             created_by_legacy_user_id=actor.get("legacy_user_id"),
             created_at=utcnow(),
         )
@@ -538,12 +579,19 @@ def corpus_search(workspace_id: int):
     with session_scope() as db_session:
         actor = resolve_actor(db_session)
         require_workspace_access(db_session, workspace_id, actor, "student")
-        top_k = max(1, min(int(payload.get("topK") or 10), 50))
+        try:
+            top_k = max(1, min(int(payload.get("topK") or 10), 50))
+        except (TypeError, ValueError):
+            raise EnterpriseError(400, "topK must be an integer.", code="invalid_input")
         query_artifact_id = payload.get("artifactId")
         query_text = (payload.get("queryText") or "").strip()
         language = (payload.get("language") or "python").strip().lower()
         if query_artifact_id:
-            query_artifact = db_session.get(CodeArtifact, int(query_artifact_id))
+            try:
+                query_artifact_pk = int(query_artifact_id)
+            except (TypeError, ValueError):
+                raise EnterpriseError(400, "artifactId must be an integer.", code="invalid_input")
+            query_artifact = db_session.get(CodeArtifact, query_artifact_pk)
             if not query_artifact or query_artifact.workspace_id != workspace_id:
                 raise EnterpriseError(404, "Query artifact not found.", code="query_artifact_not_found")
             vector = deserialize_vector(query_artifact.embedding_vector, query_artifact.embedding_dim)
@@ -648,7 +696,9 @@ def update_case(case_id: int):
         require_workspace_access(db_session, review_case.workspace_id, actor, "reviewer")
         if "status" in payload:
             new_status = (payload.get("status") or review_case.status).strip().lower()
-            if new_status not in ("open", "in_review", "confirmed", "disputed", "resolved", "dismissed", "confirmed_clone", "false_positive"):
+            # Vocabulary matches what the feedback flow and the UI produce;
+            # 'confirmed'/'disputed' were never written or read by anything.
+            if new_status not in ("open", "in_review", "resolved", "dismissed", "confirmed_clone", "false_positive"):
                 raise EnterpriseError(400, "Invalid case status.", code="invalid_case_status")
             review_case.status = new_status
         if "severity" in payload:
@@ -737,14 +787,32 @@ def create_policy_set(workspace_id: int):
         for rule_payload in rules:
             if not isinstance(rule_payload, dict):
                 raise EnterpriseError(400, "Each rule must be an object.", code="invalid_rule_entry")
+            condition_type = (rule_payload.get("conditionType") or "similarity_score").strip()
+            if condition_type not in _POLICY_CONDITION_TYPES:
+                raise EnterpriseError(
+                    400, f"Unsupported policy conditionType '{condition_type}'.",
+                    code="invalid_policy_condition_type",
+                )
+            comparator = (rule_payload.get("comparator") or ">=").strip()
+            if comparator not in _POLICY_COMPARATORS:
+                raise EnterpriseError(
+                    400, f"Unsupported policy comparator '{comparator}'.",
+                    code="invalid_policy_comparator",
+                )
+            action = (rule_payload.get("action") or "create_case").strip()
+            if action not in _POLICY_ACTIONS:
+                raise EnterpriseError(
+                    400, f"Unsupported policy action '{action}'.",
+                    code="invalid_policy_action",
+                )
             rule = PolicyRule(
                 policy_set_id=policy_set.id,
                 name=(rule_payload.get("name") or "").strip() or "Policy Rule",
-                condition_type=(rule_payload.get("conditionType") or "similarity_score").strip(),
-                comparator=(rule_payload.get("comparator") or ">=").strip(),
+                condition_type=condition_type,
+                comparator=comparator,
                 threshold_value=_validated_threshold(rule_payload.get("thresholdValue"), DEFAULT_WORKSPACE_THRESHOLD),
                 clone_types_json=dumps(rule_payload.get("cloneTypes") or []),
-                action=(rule_payload.get("action") or "create_case").strip(),
+                action=action,
                 severity=(rule_payload.get("severity") or "medium").strip().lower(),
                 enabled=bool(rule_payload.get("enabled", True)),
                 created_at=utcnow(),
@@ -760,6 +828,7 @@ def create_api_credential(workspace_id: int):
     payload = require_json_body()
     with session_scope() as db_session:
         actor = resolve_actor(db_session)
+        require_human_actor(actor, "API keys cannot mint other API keys.")
         workspace = require_workspace_access(db_session, workspace_id, actor, "admin")
         prefix, token_hash, raw_token = issue_api_key()
         scopes = payload.get("scopes") or [f"workspace:{workspace.id}:read", f"workspace:{workspace.id}:write"]
@@ -782,6 +851,79 @@ def create_api_credential(workspace_id: int):
         return jsonify({"success": True, "item": {"id": api_credential.id, "name": api_credential.name, "scopes": scopes, "token": raw_token}}), 201
 
 
+@api_bp.route(f"{ENTERPRISE_PUBLIC_PREFIX}/workspaces/<int:workspace_id>/api-keys/<int:credential_id>", methods=["DELETE"])
+def revoke_api_credential(workspace_id: int, credential_id: int):
+    """Revoke a workspace API key (sets ``revoked_at``; the key stops authenticating)."""
+    with session_scope() as db_session:
+        actor = resolve_actor(db_session)
+        require_human_actor(actor, "API keys cannot revoke API keys.")
+        require_workspace_access(db_session, workspace_id, actor, "admin")
+        credential = db_session.get(ApiCredential, credential_id)
+        if not credential or credential.workspace_id != workspace_id:
+            raise EnterpriseError(404, "API credential not found.", code="api_credential_not_found")
+        if credential.revoked_at is None:
+            credential.revoked_at = utcnow()
+        audit(db_session, actor, "api_key.revoke", "api_credential", credential.id, workspace_id, {})
+        return jsonify({"success": True})
+
+
+@api_bp.route(f"{ENTERPRISE_PUBLIC_PREFIX}/workspaces/<int:workspace_id>/members/<int:membership_id>", methods=["DELETE"])
+def remove_workspace_member(workspace_id: int, membership_id: int):
+    """Deactivate a workspace membership (soft remove; preserves audit history)."""
+    with session_scope() as db_session:
+        actor = resolve_actor(db_session)
+        require_human_actor(actor, "API keys cannot manage workspace members.")
+        require_workspace_access(db_session, workspace_id, actor, "admin")
+        membership = db_session.get(WorkspaceMembership, membership_id)
+        if not membership or membership.workspace_id != workspace_id:
+            raise EnterpriseError(404, "Workspace membership not found.", code="membership_not_found")
+        membership.is_active = False
+        membership.last_active_at = utcnow()
+        audit(db_session, actor, "workspace.member.remove", "workspace_membership", membership.id, workspace_id, {"legacyUserId": membership.legacy_user_id})
+        return jsonify({"success": True})
+
+
+@api_bp.route(f"{ENTERPRISE_PUBLIC_PREFIX}/workspaces/<int:workspace_id>/archive", methods=["POST"])
+def archive_workspace(workspace_id: int):
+    """Archive a workspace (sets ``archived_at``)."""
+    with session_scope() as db_session:
+        actor = resolve_actor(db_session)
+        require_human_actor(actor, "API keys cannot archive workspaces.")
+        workspace = require_workspace_access(db_session, workspace_id, actor, "admin")
+        if workspace.archived_at is None:
+            workspace.archived_at = utcnow()
+        audit(db_session, actor, "workspace.archive", "workspace", workspace.id, workspace.id, {})
+        return jsonify({"success": True})
+
+
+@api_bp.route(f"{ENTERPRISE_PUBLIC_PREFIX}/workspaces/<int:workspace_id>/repositories/<int:repository_id>", methods=["DELETE"])
+def delete_repository(workspace_id: int, repository_id: int):
+    """Delete a repository connection.
+
+    Blocked when the repository already has scan history, to avoid orphaning
+    snapshots/artifacts/matches; archive the workspace instead in that case.
+    """
+    with session_scope() as db_session:
+        actor = resolve_actor(db_session)
+        require_human_actor(actor, "API keys cannot delete repositories.")
+        require_workspace_access(db_session, workspace_id, actor, "admin")
+        repository = db_session.get(RepositoryConnection, repository_id)
+        if not repository or repository.workspace_id != workspace_id:
+            raise EnterpriseError(404, "Repository not found.", code="repository_not_found")
+        dependent_jobs = db_session.execute(
+            select(func.count(ScanJob.id)).where(ScanJob.repository_id == repository_id)
+        ).scalar() or 0
+        if dependent_jobs:
+            raise EnterpriseError(
+                409,
+                "Repository has scan history and cannot be deleted. Archive the workspace instead.",
+                code="repository_has_dependents",
+            )
+        db_session.delete(repository)
+        audit(db_session, actor, "repository.delete", "repository", repository_id, workspace_id, {})
+        return jsonify({"success": True})
+
+
 @api_bp.route(f"{ENTERPRISE_PUBLIC_PREFIX}/workspaces/<int:workspace_id>/analytics", methods=["GET"])
 def workspace_analytics(workspace_id: int):
     with session_scope() as db_session:
@@ -801,7 +943,13 @@ def enterprise_graphql():
         if not isinstance(variables, dict):
             raise EnterpriseError(400, "GraphQL variables must be an object.", code="invalid_graphql_variables")
         data = graphql_dispatch(db_session, actor, query, variables)
-        return jsonify({"data": data})
+        # createScan defers its enqueue until the transaction commits (see
+        # graphql_dispatch); pop the internal marker before responding.
+        pending_scan_job_id = data.pop("_enqueue_scan_job_id", None)
+        response = jsonify({"data": data})
+    if pending_scan_job_id is not None:
+        enqueue_scan_job(pending_scan_job_id)
+    return response
 
 
 @api_bp.route(f"{GITHUB_WEBHOOK_PREFIX}/<int:repository_id>/webhook", methods=["POST"])
@@ -812,16 +960,33 @@ def github_webhook(repository_id: int):
         repository = db_session.get(RepositoryConnection, repository_id)
         if not repository:
             raise EnterpriseError(404, "Repository not found.", code="repository_not_found")
-        secret_header = (request.headers.get("X-Webhook-Secret") or "").strip()
-        if not verify_webhook_secret(repository.webhook_secret_hint, repository.webhook_secret_hash, secret_header):
-            raise EnterpriseError(401, "Invalid webhook secret.", code="invalid_webhook_secret")
         github_signature = (request.headers.get("X-Hub-Signature-256") or "").strip()
         if not github_signature:
             raise EnterpriseError(401, "Missing webhook signature", code="missing_webhook_signature")
-        secret_parts = secret_header.split(".", 1)
-        hmac_key = secret_parts[1] if len(secret_parts) > 1 else secret_header
-        if not verify_hmac_signature(hmac_key, payload_bytes, github_signature, "sha256"):
-            raise EnterpriseError(401, "Invalid GitHub webhook signature.", code="invalid_github_signature")
+
+        # Native github.com path: GitHub cannot send custom headers, only the
+        # HMAC signature computed with the configured secret (the full token
+        # this API returned at repository creation).  When we hold an
+        # encrypted copy of that token, verify the signature directly.
+        verified = False
+        if repository.webhook_secret_encrypted:
+            stored_token = storage.decrypt_text(repository.webhook_secret_encrypted)
+            verified = verify_hmac_signature(stored_token, payload_bytes, github_signature, "sha256")
+
+        # Legacy / proxy path: repositories created before the encrypted copy
+        # existed must supply the secret via X-Webhook-Secret (e.g. injected
+        # by a relay proxy); the signature is then checked with that secret.
+        if not verified:
+            secret_header = (request.headers.get("X-Webhook-Secret") or "").strip()
+            if not verify_webhook_secret(repository.webhook_secret_hint, repository.webhook_secret_hash, secret_header):
+                raise EnterpriseError(401, "Invalid webhook secret.", code="invalid_webhook_secret")
+            secret_parts = secret_header.split(".", 1)
+            hmac_key = secret_parts[1] if len(secret_parts) > 1 else secret_header
+            if not (
+                verify_hmac_signature(secret_header, payload_bytes, github_signature, "sha256")
+                or verify_hmac_signature(hmac_key, payload_bytes, github_signature, "sha256")
+            ):
+                raise EnterpriseError(401, "Invalid GitHub webhook signature.", code="invalid_github_signature")
         branch_ref = (payload.get("ref") or "").strip()
         branch = branch_ref.split("/")[-1] if branch_ref else repository.default_branch
         commit_sha = (payload.get("after") or "").strip() or None

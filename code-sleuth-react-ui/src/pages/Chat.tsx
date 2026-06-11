@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AnalysisChatPanel } from "@/components/results/AnalysisChatPanel";
 import { useAnalysis } from "@/context/AnalysisContext";
@@ -24,17 +24,27 @@ const Chat = () => {
 
   if (!currentResult) {
     return (
-      <div className="card-premium mx-auto max-w-2xl p-10 text-center">
-        <MessageSquare className="mx-auto mb-4 h-12 w-12 text-muted-foreground/30" />
-        <h2 className="text-2xl font-bold text-foreground">{t("chat.noContextTitle")}</h2>
-        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          {t("chat.noContextDescription")}
-        </p>
+      <div
+        className="mx-auto max-w-2xl rounded-2xl border border-border bg-card p-10 text-center"
+        style={{ boxShadow: "var(--card-shadow-rest)" }}
+      >
+        <div
+          className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl"
+          style={{ background: "hsl(var(--primary) / 0.1)", color: "hsl(var(--primary))" }}
+        >
+          <MessageSquare className="h-8 w-8" />
+        </div>
+        <h2 className="h-3">{t("chat.noContextTitle")}</h2>
+        <p className="mx-auto mt-3 max-w-md t-body">{t("chat.noContextDescription")}</p>
         <div className="mt-6 flex justify-center gap-3">
-          <Button asChild>
+          <Button
+            asChild
+            className="h-10 gap-2 text-white"
+            style={{ background: "var(--gradient-brand)", boxShadow: "var(--glow-shadow-sm)" }}
+          >
             <Link to="/analysis">{t("buttons.runAnalysis")}</Link>
           </Button>
-          <Button asChild variant="outline">
+          <Button asChild variant="outline" className="h-10">
             <Link to="/history">{t("chat.openHistory")}</Link>
           </Button>
         </div>
@@ -43,17 +53,28 @@ const Chat = () => {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="page-header">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <MessageSquare className="h-6 w-6 text-primary" />
-          {t("chat.pageTitle")}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t("chat.pageDescription")}
-        </p>
+    <div className="animate-fade-in">
+      {/* Page header */}
+      <div className="mb-6">
+        <div className="flex items-center gap-3">
+          <div
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-white"
+            style={{ background: "var(--gradient-brand)" }}
+          >
+            <Sparkles className="h-4 w-4" />
+          </div>
+          <div>
+            <h1 className="h-3">{t("chat.pageTitle")}</h1>
+            <p className="mt-0.5 t-xs">
+              {currentResult.source_labels.code1} ↔ {currentResult.source_labels.code2}
+            </p>
+          </div>
+        </div>
       </div>
-      <AnalysisChatPanel contextLabel={`${currentResult.source_labels.code1} ↔ ${currentResult.source_labels.code2}`} />
+
+      <AnalysisChatPanel
+        contextLabel={`${currentResult.source_labels.code1} ↔ ${currentResult.source_labels.code2}`}
+      />
     </div>
   );
 };

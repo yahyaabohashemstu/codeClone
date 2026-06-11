@@ -25,6 +25,11 @@ jobs:
   similarity-check:
     name: Code Similarity Analysis
     runs-on: ubuntu-latest
+    # Only run when a CodeSimilar deployment is actually configured for this
+    # repository.  Without the URL the check would curl localhost on the
+    # runner, report verdict "error", pass vacuously, and spam the PR with a
+    # meaningless comment.
+    if: vars.CODESIMILAR_API_URL != ''
     steps:
       - uses: actions/checkout@v4
         with:
@@ -34,7 +39,7 @@ jobs:
         id: cs
         uses: ./.github/actions/codesimilar-check
         with:
-          api-url: ${{ vars.CODESIMILAR_API_URL || 'http://localhost:5000' }}
+          api-url: ${{ vars.CODESIMILAR_API_URL }}
           api-key: ${{ secrets.CODESIMILAR_API_KEY }}
           threshold: '80'
           language: 'python'

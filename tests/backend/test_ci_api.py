@@ -12,6 +12,9 @@ from backend.extensions import db as _db
 @pytest.fixture(scope="module")
 def ci_app():
     """Create an app configured for CI endpoint testing."""
+    # Save and restore any pre-existing value instead of unconditionally
+    # popping it — a developer's real CI_API_KEY must survive the test run.
+    previous_ci_key = os.environ.get("CI_API_KEY")
     os.environ["CI_API_KEY"] = "test-ci-key-12345"
     app = create_app({
         "TESTING": True,
@@ -22,7 +25,10 @@ def ci_app():
         _db.create_all()
         yield app
         _db.drop_all()
-    os.environ.pop("CI_API_KEY", None)
+    if previous_ci_key is None:
+        os.environ.pop("CI_API_KEY", None)
+    else:
+        os.environ["CI_API_KEY"] = previous_ci_key
 
 
 @pytest.fixture

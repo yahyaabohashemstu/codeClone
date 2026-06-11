@@ -69,46 +69,65 @@ const Help = () => {
 
   return (
     <div className="space-y-8 animate-fade-in">
-      {/* Header */}
-      <div className="page-header">
-        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <HelpCircle className="h-6 w-6 text-primary" />
-          {t("help.title")}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t("help.subtitle")}
-        </p>
-      </div>
+      {/* Header hero card */}
+      <section
+        className="relative overflow-hidden rounded-2xl border border-border bg-card"
+        style={{ boxShadow: "var(--card-shadow-rest)" }}
+      >
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-24 right-0 h-56 w-96 rounded-full opacity-30 blur-3xl"
+          style={{ background: "radial-gradient(ellipse, hsl(var(--primary) / 0.28), transparent 70%)" }}
+        />
+        <div className="relative flex flex-wrap items-end justify-between gap-4 p-6">
+          <div>
+            <div
+              className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold text-primary"
+              style={{ background: "hsl(var(--primary) / 0.08)", border: "1px solid hsl(var(--primary) / 0.18)" }}
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+              <HelpCircle className="h-3 w-3" />
+              {t("help.eyebrow", { defaultValue: "Support & docs" })}
+            </div>
+            <h1 className="mt-3 h-2">{t("help.title")}</h1>
+            <p className="mt-1 max-w-[60ch] t-body">{t("help.subtitle")}</p>
+          </div>
+        </div>
+      </section>
 
       {/* Support cards */}
       <div className="grid gap-4 sm:grid-cols-3">
         {supportCards.map((card) => {
           const Icon = card.icon;
           return (
-            <div key={card.titleKey} className="card-premium p-5 space-y-3">
+            <div
+              key={card.titleKey}
+              className="rounded-2xl border border-border bg-card p-5 space-y-3 transition-all hover:-translate-y-0.5"
+              style={{ boxShadow: "var(--card-shadow-rest)" }}
+            >
               <div className={`inline-flex h-10 w-10 items-center justify-center rounded-lg ${card.bg}`}>
                 <Icon className={`h-5 w-5 ${card.color}`} />
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-foreground">{t(card.titleKey)}</h3>
-                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{t(card.descKey)}</p>
+                <h3 className="h-5 text-foreground">{t(card.titleKey)}</h3>
+                <p className="mt-1 t-sm leading-relaxed">{t(card.descKey)}</p>
               </div>
               {card.href ? (
-                <Button asChild variant="outline" size="sm" className="h-7 text-xs border-border/60 gap-1.5">
+                <Button asChild variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
                   <Link to={card.href}>
                     {t(card.actionKey)}
                     <ExternalLink className="h-3 w-3" />
                   </Link>
                 </Button>
               ) : card.mailto ? (
-                <Button asChild variant="outline" size="sm" className="h-7 text-xs border-border/60 gap-1.5">
+                <Button asChild variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
                   <a href={card.mailto}>
                     {t(card.actionKey)}
                     <ExternalLink className="h-3 w-3" />
                   </a>
                 </Button>
               ) : (
-                <Button variant="outline" size="sm" className="h-7 text-xs border-border/60 gap-1.5">
+                <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
                   {t(card.actionKey)}
                   <ExternalLink className="h-3 w-3" />
                 </Button>
@@ -119,8 +138,11 @@ const Help = () => {
       </div>
 
       {/* Quick links */}
-      <div className="card-premium p-5">
-        <h2 className="text-sm font-semibold mb-4 text-foreground">{t("help.quickLinks.title")}</h2>
+      <div
+        className="rounded-2xl border border-border bg-card p-6"
+        style={{ boxShadow: "var(--card-shadow-rest)" }}
+      >
+        <h2 className="t-label mb-4">{t("help.quickLinks.title")}</h2>
         <div className="grid gap-2 sm:grid-cols-2">
           {quickLinks.map((link) => {
             const Icon = link.icon;
@@ -140,15 +162,21 @@ const Help = () => {
       </div>
 
       {/* FAQ */}
-      <div className="card-premium overflow-hidden">
-        <div className="px-5 py-4 border-b border-border/50 flex items-center gap-2">
+      <div
+        className="overflow-hidden rounded-2xl border border-border bg-card"
+        style={{ boxShadow: "var(--card-shadow-rest)" }}
+      >
+        <div
+          className="flex items-center gap-2 border-b border-border/60 px-6 py-4"
+          style={{ background: "hsl(var(--surface-2))" }}
+        >
           <FileQuestion className="h-4 w-4 text-primary" />
-          <h2 className="text-sm font-semibold">{t("help.faq.title")}</h2>
+          <h2 className="t-label text-foreground">{t("help.faq.title")}</h2>
         </div>
-        <div className="p-5">
-          <Accordion type="single" collapsible className="space-y-1" id="faq">
+        <div className="p-6">
+          <Accordion type="single" collapsible className="space-y-2" id="faq">
             {faqItems.map((item, i) => (
-              <AccordionItem key={i} value={`item-${i}`} className="border border-border/40 rounded-lg px-4 overflow-hidden">
+              <AccordionItem key={i} value={`item-${i}`} className="border border-border/40 rounded-xl px-4 overflow-hidden">
                 <AccordionTrigger className="text-sm font-medium text-foreground hover:text-primary py-3 hover:no-underline">
                   {item.question}
                 </AccordionTrigger>

@@ -17,8 +17,10 @@ from flask_sqlalchemy import SQLAlchemy
 db = SQLAlchemy()
 
 # -- Authentication ----------------------------------------------------------
+# No ``login_view`` is set: this is an API-first backend and the factory
+# registers an ``unauthorized_handler`` that returns 401 JSON instead of a
+# 302 redirect, which would make any ``login_view`` value dead config.
 login_manager = LoginManager()
-login_manager.login_view = "legacy_views.login_page"
 
 # -- Rate Limiting -----------------------------------------------------------
 # ``storage_uri`` is intentionally omitted here so the limiter reads it from

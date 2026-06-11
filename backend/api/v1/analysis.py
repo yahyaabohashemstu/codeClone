@@ -13,6 +13,7 @@ Endpoints:
 from __future__ import annotations
 
 import copy
+import datetime
 import difflib
 import secrets
 
@@ -20,7 +21,6 @@ from flask import jsonify, request
 from flask_login import current_user, login_required
 
 from backend.api.v1 import v1_bp
-from backend.auth.security import get_csrf_token, validate_csrf_token
 from backend.engine.clone_detector import SUPPORTED_LANGUAGES
 from backend.extensions import db, limiter
 from backend.models import Analysis
@@ -71,11 +71,13 @@ def api_analysis():
             excel_row=request.form.get("excel_row2"),
         )
     except ValueError as exc:
+        # Keep payload shape but do not echo the submitted source back —
+        # large pastes would bloat the error response for no benefit.
         return jsonify(build_error_response_payload(
             str(exc),
             language=language,
-            code1=code1,
-            code2=code2,
+            code1="",
+            code2="",
             has_results=False,
         )), 400
 
@@ -84,8 +86,8 @@ def api_analysis():
         return jsonify(build_error_response_payload(
             "Unsupported language selected.",
             language=language,
-            code1=code1,
-            code2=code2,
+            code1="",
+            code2="",
             has_results=False,
         )), 400
 
@@ -94,8 +96,8 @@ def api_analysis():
         return jsonify(build_error_response_payload(
             "Please provide both code inputs before running the analysis.",
             language=language,
-            code1=code1,
-            code2=code2,
+            code1="",
+            code2="",
             has_results=False,
         )), 400
 
@@ -149,12 +151,20 @@ def api_current_analysis():
 def api_analysis_progress():
     progress = get_analysis_progress_for_user(current_user.id)
 
-    # Check for active/completed/failed background tasks for this user
+    # Report the *newest* background task for this user.  Dict iteration
+    # order would otherwise surface an arbitrary task when several run
+    # concurrently (e.g. a rerun submitted while another is finishing).
     user_tasks = get_tasks_for_user(current_user.id)
-    for tid, task in user_tasks.items():
-        progress["taskId"] = tid
-        progress["taskStatus"] = task["status"]
-        break
+    if user_tasks:
+        epoch = datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
+        newest_id, newest_task = max(
+            user_tasks.items(),
+            key=lambda item: item[1].get("submitted_at")
+            or item[1].get("completed_at")
+            or epoch,
+        )
+        progress["taskId"] = newest_id
+        progress["taskStatus"] = newest_task["status"]
 
     return jsonify(progress)
 
@@ -170,8 +180,8 @@ def api_analysis_task(task_id: str):
     if not task or task.get("user_id") != current_user.id:
         return jsonify({"error": "Task not found."}), 404
 
-    if task["status"] == "running":
-        return jsonify({"status": "running"}), 202
+    if task["status"] in ("pending", "running"):
+        return jsonify({"status": task["status"]}), 202
 
     if task["status"] == "failed":
         consume_task_result(task_id)

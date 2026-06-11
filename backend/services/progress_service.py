@@ -27,8 +27,20 @@ _analysis_progress: dict[int, dict] = {}
 _analysis_progress_lock = threading.Lock()
 
 # Entries older than this many minutes are considered stale and automatically
-# removed on the next read.
+# removed on the next read.  ``STALE_PROGRESS_MINUTES`` from the live app
+# config takes precedence when an application context is active.
 _STALE_PROGRESS_MINUTES = 5
+
+
+def _stale_minutes() -> int:
+    try:
+        from flask import current_app
+
+        return max(1, int(
+            current_app.config.get("STALE_PROGRESS_MINUTES", _STALE_PROGRESS_MINUTES)
+        ))
+    except (RuntimeError, ImportError, TypeError, ValueError):
+        return _STALE_PROGRESS_MINUTES
 
 
 def _utcnow() -> datetime.datetime:
@@ -93,7 +105,7 @@ def get_analysis_progress_for_user(user_id: int | None) -> dict:
     with _analysis_progress_lock:
         # Clean stale entries older than the configured threshold.
         cutoff = (
-            _utcnow() - datetime.timedelta(minutes=_STALE_PROGRESS_MINUTES)
+            _utcnow() - datetime.timedelta(minutes=_stale_minutes())
         ).isoformat()
         stale_keys = [
             k

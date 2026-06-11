@@ -83,6 +83,11 @@ def legacy_analysis_diff():
 
 @legacy_bp.route("/api/analysis/<int:analysis_id>", methods=["GET", "DELETE"])
 def legacy_analysis_by_id(analysis_id: int):
+    # The v1 API splits this resource: reads live under /analysis/<id>,
+    # deletion lives under /history/<id>.  Redirecting DELETE to the
+    # analysis route would 405.
+    if request.method == "DELETE":
+        return _redirect_to_v1(f"history/{analysis_id}")
     return _redirect_to_v1(f"analysis/{analysis_id}")
 
 

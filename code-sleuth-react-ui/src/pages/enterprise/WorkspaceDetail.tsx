@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -12,6 +12,7 @@ import {
   Plus,
   RefreshCw,
   Scan,
+  Search,
   Shield,
   Users,
 } from "lucide-react";
@@ -30,6 +31,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import {
   addMember,
   createRepository,
+  getScanJob,
   listCases,
   listMembers,
   listRepositories,
@@ -48,27 +50,27 @@ import { cn } from "@/lib/utils";
 type Tab = "repositories" | "cases" | "members";
 
 const STATUS_META: Record<string, { cls: string }> = {
-  open:            { cls: "bg-blue-500/15 text-blue-600" },
-  in_review:       { cls: "bg-yellow-500/15 text-yellow-600" },
-  confirmed_clone: { cls: "bg-destructive/15 text-destructive" },
-  false_positive:  { cls: "bg-muted text-muted-foreground" },
-  resolved:        { cls: "bg-success/15 text-success" },
-  dismissed:       { cls: "bg-muted text-muted-foreground" },
+  open:            { cls: "bg-accent/15 text-accent border-accent/30" },
+  in_review:       { cls: "bg-warning/15 text-warning border-warning/30" },
+  confirmed_clone: { cls: "bg-destructive/15 text-destructive border-destructive/30" },
+  false_positive:  { cls: "bg-muted text-muted-foreground border-border/60" },
+  resolved:        { cls: "bg-success/15 text-success border-success/30" },
+  dismissed:       { cls: "bg-muted text-muted-foreground border-border/60" },
 };
 
 const SEV_META: Record<string, { cls: string }> = {
-  critical: { cls: "bg-destructive/15 text-destructive" },
-  high:     { cls: "bg-orange-500/15 text-orange-600" },
-  medium:   { cls: "bg-yellow-500/15 text-yellow-600" },
-  low:      { cls: "bg-blue-500/15 text-blue-600" },
+  critical: { cls: "bg-destructive/15 text-destructive border-destructive/30" },
+  high:     { cls: "bg-warning/15 text-warning border-warning/30" },
+  medium:   { cls: "bg-warning/12 text-warning border-warning/25" },
+  low:      { cls: "bg-accent/15 text-accent border-accent/30" },
 };
 
 const ROLE_CLS: Record<string, string> = {
-  owner:    "bg-primary/15 text-primary",
-  admin:    "bg-destructive/15 text-destructive",
-  manager:  "bg-orange-500/15 text-orange-600",
-  reviewer: "bg-blue-500/15 text-blue-600",
-  student:  "bg-muted text-muted-foreground",
+  owner:    "bg-primary/15 text-primary border-primary/25",
+  admin:    "bg-destructive/15 text-destructive border-destructive/25",
+  manager:  "bg-warning/15 text-warning border-warning/25",
+  reviewer: "bg-accent/15 text-accent border-accent/25",
+  student:  "bg-muted text-muted-foreground border-border/60",
 };
 
 const PROVIDER_ICON: Record<string, string> = {
@@ -94,6 +96,7 @@ export default function WorkspaceDetail() {
   const [tabError, setTabError] = useState<string | null>(null);
 
   const [scanning, setScanningId] = useState<number | null>(null);
+  const [caseSearch, setCaseSearch] = useState("");
 
   // Create repo dialog
   const [repoOpen, setRepoOpen] = useState(false);
@@ -142,12 +145,46 @@ export default function WorkspaceDetail() {
     setScanningId(repoId);
     try {
       const repo = repos.find((r) => r.id === repoId);
-      await triggerScan(repoId, { branch: repo?.defaultBranch || "main" });
+      const job = await triggerScan(repoId, { branch: repo?.defaultBranch || "main" });
       toast.success(t("enterprise.workspaceDetail.scanQueued"), { description: t("enterprise.workspaceDetail.scanQueuedDesc") });
+      // Follow the job to a terminal state so the user learns the outcome
+      // without refreshing (poll every 3s, give up after ~3 minutes).
+      void pollScanJob(job.id);
     } catch (e: unknown) {
       toast.error(t("enterprise.workspaceDetail.failed"), { description: (e as { message?: string })?.message ?? String(e) });
     } finally {
       setScanningId(null);
+    }
+  };
+
+  const pollScanJob = async (jobId: number) => {
+    const POLL_MS = 3000;
+    const MAX_ATTEMPTS = 60;
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+      let job;
+      try {
+        job = await getScanJob(jobId);
+      } catch {
+        return; // navigated away / lost access — stop quietly
+      }
+      if (job.status === "completed") {
+        toast.success(
+          t("enterprise.workspaceDetail.scanCompleted", { defaultValue: "Scan completed" }),
+        );
+        // Surface freshly created cases if the user is on that tab.
+        if (activeTab === "cases") {
+          listCases(wsId).then(setCases).catch(() => undefined);
+        }
+        return;
+      }
+      if (job.status === "failed") {
+        toast.error(
+          t("enterprise.workspaceDetail.scanFailed", { defaultValue: "Scan failed" }),
+          job.errorMessage ? { description: job.errorMessage } : undefined,
+        );
+        return;
+      }
     }
   };
 
@@ -226,44 +263,117 @@ export default function WorkspaceDetail() {
     { id: "members",      label: t("enterprise.workspaceDetail.members"),      icon: Users },
   ];
 
+  // Stat calculations for header
+  const threshold = workspace ? Math.round(workspace.defaultSimilarityThreshold * 100) : 0;
+  const flaggedCount = useMemo(
+    () => cases.filter((c) => c.confidenceScore >= threshold).length,
+    [cases, threshold],
+  );
+  const reviewedCount = useMemo(
+    () => cases.filter((c) => c.status === "resolved" || c.status === "confirmed_clone" || c.status === "false_positive" || c.status === "dismissed").length,
+    [cases],
+  );
+
+  const filteredCases = useMemo(() => {
+    const q = caseSearch.trim().toLowerCase();
+    if (!q) return cases;
+    return cases.filter((c) => {
+      const a = c.match?.artifactA?.logicalPath?.toLowerCase() ?? "";
+      const b = c.match?.artifactB?.logicalPath?.toLowerCase() ?? "";
+      return a.includes(q) || b.includes(q) || String(c.id).includes(q);
+    });
+  }, [cases, caseSearch]);
+
+  const scoreColor = (score: number): string => {
+    if (score >= 80) return "hsl(var(--destructive))";
+    if (score >= 60) return "hsl(14 85% 38%)";
+    if (score >= 40) return "hsl(var(--warning))";
+    return "hsl(var(--muted-foreground))";
+  };
+
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-6" dir={isRTL ? "rtl" : "ltr"}>
+    <div className="mx-auto max-w-6xl space-y-6 p-6" dir={isRTL ? "rtl" : "ltr"}>
       {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
         <button
           type="button"
           onClick={() => navigate("/enterprise/workspaces")}
-          className="flex items-center gap-1 hover:text-foreground transition-colors"
+          className="flex items-center gap-1 transition-colors hover:text-foreground"
         >
-          <ArrowLeft className="h-3.5 w-3.5" />
+          <ArrowLeft className={cn("h-3.5 w-3.5", isRTL && "rotate-180")} />
           {t("enterprise.workspaceDetail.back")}
         </button>
-        <ChevronRight className="h-3.5 w-3.5" />
-        <span className="text-foreground font-medium">{workspace?.name ?? `#${wsId}`}</span>
+        <ChevronRight className={cn("h-3.5 w-3.5", isRTL && "rotate-180")} />
+        <span className="font-medium text-foreground">{workspace?.name ?? `#${wsId}`}</span>
       </div>
 
-      {/* Workspace header */}
+      {/* Workspace hero card with stats */}
       {workspace && (
-        <div className="card-premium p-5">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h1 className="text-xl font-bold text-foreground">{workspace.name}</h1>
+        <section
+          className="overflow-hidden rounded-2xl border border-border bg-card"
+          style={{ boxShadow: "var(--card-shadow-rest)" }}
+        >
+          <div className="flex flex-wrap items-start justify-between gap-4 p-6">
+            <div className="min-w-0 flex-1">
+              {/* Badge row */}
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <span
+                  className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    background: "hsl(var(--secondary))",
+                    color: "hsl(var(--secondary-foreground))",
+                    border: "1px solid hsl(var(--border))",
+                  }}
+                >
+                  #{workspace.id}
+                </span>
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                  style={{
+                    background: "hsl(var(--primary) / 0.12)",
+                    color: "hsl(var(--primary))",
+                    border: "1px solid hsl(var(--primary) / 0.25)",
+                  }}
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                  {t("enterprise.workspaceDetail.active", { defaultValue: "Active" })}
+                </span>
+              </div>
+              <h1 className="h-3 text-foreground">{workspace.name}</h1>
               {workspace.description && (
-                <p className="mt-1 text-sm text-muted-foreground">{workspace.description}</p>
+                <p className="mt-1 t-body">{workspace.description}</p>
               )}
-            </div>
-            <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <Shield className="h-3 w-3 text-primary" />
-                {Math.round(workspace.defaultSimilarityThreshold * 100)}%
-              </span>
-              <span className="flex items-center gap-1">
-                <FileCode2 className="h-3 w-3 text-primary" />
-                {workspace.storageRegion}
-              </span>
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <Shield className="h-3.5 w-3.5 text-primary" />
+                  <span className="font-mono tabular-nums">{threshold}%</span>
+                  {t("enterprise.workspaceDetail.thresholdLabel", { defaultValue: "threshold" })}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <FileCode2 className="h-3.5 w-3.5 text-primary" />
+                  {workspace.storageRegion}
+                </span>
+              </div>
             </div>
           </div>
-        </div>
+
+          {/* Stat row - 4 cards */}
+          <div className="grid grid-cols-2 gap-3 px-6 pb-6 md:grid-cols-4">
+            <StatCell label={t("enterprise.workspaceDetail.statRepos", { defaultValue: "Repositories" })} value={String(repos.length)} />
+            <StatCell label={t("enterprise.workspaceDetail.statCases", { defaultValue: "Cases" })} value={String(cases.length)} />
+            <StatCell
+              label={t("enterprise.workspaceDetail.statFlagged", { defaultValue: "Flagged ≥ threshold" })}
+              value={String(flaggedCount)}
+              valueColor="hsl(var(--destructive))"
+            />
+            <StatCell
+              label={t("enterprise.workspaceDetail.statReviewed", { defaultValue: "Reviewed" })}
+              value={`${reviewedCount} / ${cases.length}`}
+              valueColor="hsl(var(--success))"
+            />
+          </div>
+        </section>
       )}
 
       {/* Tabs */}
@@ -293,11 +403,14 @@ export default function WorkspaceDetail() {
 
       {/* Tab content */}
       {loadingTab ? (
-        <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
+        <div
+          className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-card py-16 text-muted-foreground"
+          style={{ boxShadow: "var(--card-shadow-rest)" }}
+        >
           <Loader2 className="h-4 w-4 animate-spin" />
         </div>
       ) : tabError ? (
-        <div className="flex items-center justify-center gap-2 py-12 text-destructive">
+        <div className="flex items-center justify-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/5 py-12 text-destructive">
           <AlertCircle className="h-4 w-4" />
           {tabError}
         </div>
@@ -307,16 +420,29 @@ export default function WorkspaceDetail() {
           {activeTab === "repositories" && (
             <div className="space-y-4">
               <div className="flex justify-end">
-                <Button size="sm" className="gap-2" onClick={() => setRepoOpen(true)}>
+                <Button
+                  size="sm"
+                  className="h-9 gap-2 text-white"
+                  style={{ background: "var(--gradient-brand)", boxShadow: "var(--glow-shadow-sm)" }}
+                  onClick={() => setRepoOpen(true)}
+                >
                   <Plus className="h-3.5 w-3.5" />
                   {t("enterprise.workspaceDetail.addRepo")}
                 </Button>
               </div>
 
               {repos.length === 0 ? (
-                <div className="card-premium py-14 flex flex-col items-center gap-3 text-center">
-                  <GitBranch className="h-10 w-10 text-muted-foreground/40" />
-                  <p className="text-sm text-muted-foreground">{t("enterprise.workspaceDetail.noRepos")}</p>
+                <div
+                  className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card py-14 text-center"
+                  style={{ boxShadow: "var(--card-shadow-rest)" }}
+                >
+                  <div
+                    className="flex h-12 w-12 items-center justify-center rounded-full"
+                    style={{ background: "hsl(var(--primary) / 0.1)", color: "hsl(var(--primary))" }}
+                  >
+                    <GitBranch className="h-6 w-6" />
+                  </div>
+                  <p className="t-sm">{t("enterprise.workspaceDetail.noRepos")}</p>
                   <Button size="sm" variant="outline" onClick={() => setRepoOpen(true)} className="gap-2">
                     <Plus className="h-3.5 w-3.5" />{t("enterprise.workspaceDetail.addRepo")}
                   </Button>
@@ -324,20 +450,31 @@ export default function WorkspaceDetail() {
               ) : (
                 <div className="space-y-2">
                   {repos.map((repo) => (
-                    <div key={repo.id} className="card-premium flex items-center gap-4 px-5 py-3.5">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary">
+                    <div
+                      key={repo.id}
+                      className="flex items-center gap-4 rounded-2xl border border-border bg-card px-5 py-3.5 transition-all hover:border-primary/40"
+                      style={{ boxShadow: "var(--card-shadow-rest)" }}
+                    >
+                      <div
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white"
+                        style={{ background: "var(--gradient-brand)" }}
+                      >
                         {PROVIDER_ICON[repo.provider] ?? "??"}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium text-foreground text-sm">{repo.name}</p>
+                        <p className="truncate text-sm font-medium text-foreground">{repo.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {repo.provider} · {repo.defaultBranch ?? "main"} · {repo.declaredRegion}
+                          {repo.provider}
+                          {" · "}
+                          <span className="font-mono">{repo.defaultBranch ?? "main"}</span>
+                          {" · "}
+                          {repo.declaredRegion}
                         </p>
                       </div>
                       <Button
                         size="sm"
                         variant="outline"
-                        className="gap-1.5 shrink-0"
+                        className="shrink-0 gap-1.5"
                         disabled={scanning === repo.id}
                         onClick={() => handleTriggerScan(repo.id)}
                       >
@@ -355,58 +492,180 @@ export default function WorkspaceDetail() {
             </div>
           )}
 
-          {/* Cases tab */}
+          {/* Cases tab — table layout */}
           {activeTab === "cases" && (
-            <div className="space-y-3">
-              {cases.length === 0 ? (
-                <div className="card-premium py-14 flex flex-col items-center gap-3 text-center">
-                  <Shield className="h-10 w-10 text-muted-foreground/40" />
-                  <p className="text-sm text-muted-foreground">{t("enterprise.workspaceDetail.noCases")}</p>
+            <div
+              className="overflow-hidden rounded-2xl border border-border bg-card"
+              style={{ boxShadow: "var(--card-shadow-rest)" }}
+            >
+              {/* Filter bar */}
+              <div
+                className="flex flex-wrap items-center gap-2 border-b border-border px-5 py-3"
+                style={{ background: "hsl(var(--surface-2))" }}
+              >
+                <div className="relative min-w-[220px] flex-1 max-w-sm">
+                  <Search className={cn("pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground", isRTL ? "right-3" : "left-3")} />
+                  <Input
+                    value={caseSearch}
+                    onChange={(e) => setCaseSearch(e.target.value)}
+                    placeholder={t("enterprise.workspaceDetail.searchCases", { defaultValue: "Filter by path, student, or case ID…" })}
+                    className={cn("h-8 bg-card text-sm", isRTL ? "pr-8" : "pl-8")}
+                  />
+                </div>
+                <div className="flex-1" />
+                <span
+                  className="text-xs tabular-nums text-muted-foreground"
+                  style={{ fontFamily: "var(--font-mono)" }}
+                >
+                  {t("enterprise.workspaceDetail.showing", { defaultValue: "Showing" })} {filteredCases.length} / {cases.length}
+                </span>
+              </div>
+
+              {filteredCases.length === 0 ? (
+                <div className="flex flex-col items-center gap-3 py-14 text-center">
+                  <div
+                    className="flex h-12 w-12 items-center justify-center rounded-full"
+                    style={{ background: "hsl(var(--primary) / 0.1)", color: "hsl(var(--primary))" }}
+                  >
+                    <Shield className="h-6 w-6" />
+                  </div>
+                  <p className="t-sm">{t("enterprise.workspaceDetail.noCases")}</p>
                 </div>
               ) : (
-                cases.map((c) => {
-                  const sm = STATUS_META[c.status] ?? STATUS_META.open;
-                  const sv = SEV_META[c.severity] ?? SEV_META.medium;
-                  return (
-                    <div key={c.id} className="card-premium px-5 py-4">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-foreground">
-                            #{c.id} ·{" "}
-                            <span className="font-mono text-xs text-muted-foreground">
-                              {c.match.artifactA.logicalPath}
-                            </span>{" "}
-                            \u2194{" "}
-                            <span className="font-mono text-xs text-muted-foreground">
-                              {c.match.artifactB.logicalPath}
-                            </span>
-                          </p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">
-                            {c.cloneType.replace(/_/g, " ")}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", sv.cls)}>
-                            {c.severity}
-                          </span>
-                          <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", sm.cls)}>
-                            {t(`enterprise.status.${c.status}`, { defaultValue: c.status })}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {c.confidenceScore.toFixed(1)}%
-                          </span>
-                          <Link
-                            to={`/enterprise/cases/${c.id}`}
-                            className="flex items-center gap-1 text-xs text-primary font-medium hover:underline"
+                <div className="overflow-x-auto scrollbar-thin">
+                  <table className="w-full min-w-[820px] text-sm">
+                    <thead>
+                      <tr style={{ background: "hsl(var(--surface-2))" }}>
+                        <th
+                          className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}
+                        >
+                          {t("enterprise.workspaceDetail.colCase", { defaultValue: "Case" })}
+                        </th>
+                        <th
+                          className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}
+                        >
+                          {t("enterprise.workspaceDetail.colPair", { defaultValue: "Pair" })}
+                        </th>
+                        <th
+                          className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}
+                        >
+                          {t("enterprise.workspaceDetail.colScore", { defaultValue: "Score" })}
+                        </th>
+                        <th
+                          className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}
+                        >
+                          {t("enterprise.workspaceDetail.colType", { defaultValue: "Clone type" })}
+                        </th>
+                        <th
+                          className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}
+                        >
+                          {t("enterprise.workspaceDetail.colStatus", { defaultValue: "Status" })}
+                        </th>
+                        <th
+                          className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-left" : "text-right")}
+                        >
+                          &nbsp;
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredCases.map((c) => {
+                        const sm = STATUS_META[c.status] ?? STATUS_META.open;
+                        const sv = SEV_META[c.severity] ?? SEV_META.medium;
+                        const pathA = c.match?.artifactA?.logicalPath ?? "\u2014";
+                        const pathB = c.match?.artifactB?.logicalPath ?? "\u2014";
+                        const score = Math.round(c.confidenceScore);
+                        const initA = pathA.split(/[/\\]/).pop()?.slice(0, 2).toUpperCase() ?? "A";
+                        const initB = pathB.split(/[/\\]/).pop()?.slice(0, 2).toUpperCase() ?? "B";
+                        return (
+                          <tr
+                            key={c.id}
+                            className="border-b border-border/40 transition-colors last:border-b-0 hover:bg-muted/30"
                           >
-                            {t("enterprise.workspaceDetail.viewCase")}
-                            <ChevronRight className="h-3 w-3" />
-                          </Link>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
+                            <td className="px-4 py-3 align-middle">
+                              <span
+                                className="font-medium text-muted-foreground"
+                                style={{ fontFamily: "var(--font-mono)" }}
+                              >
+                                #C-{c.id}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 align-middle">
+                              <div className="flex items-center gap-2 text-xs">
+                                <span
+                                  className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
+                                  style={{ background: "var(--gradient-brand)" }}
+                                >
+                                  {initA}
+                                </span>
+                                <span className="max-w-[120px] truncate text-foreground">{pathA.split(/[/\\]/).pop()}</span>
+                                <span className="text-muted-foreground">×</span>
+                                <span
+                                  className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
+                                  style={{ background: "linear-gradient(135deg, hsl(var(--accent)), hsl(var(--primary)))" }}
+                                >
+                                  {initB}
+                                </span>
+                                <span className="max-w-[120px] truncate text-foreground">{pathB.split(/[/\\]/).pop()}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 align-middle">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className="h-1.5 w-14 overflow-hidden rounded-full"
+                                  style={{ background: "hsl(var(--muted))" }}
+                                >
+                                  <span
+                                    className="block h-full"
+                                    style={{ width: `${score}%`, background: scoreColor(score) }}
+                                  />
+                                </span>
+                                <span
+                                  className="text-sm font-semibold tabular-nums"
+                                  style={{ fontFamily: "var(--font-mono)", color: scoreColor(score) }}
+                                >
+                                  {score}%
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 align-middle">
+                              <span
+                                className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium"
+                                style={{
+                                  fontFamily: "var(--font-mono)",
+                                  background: "hsl(var(--secondary))",
+                                  color: "hsl(var(--secondary-foreground))",
+                                  borderColor: "hsl(var(--border))",
+                                }}
+                              >
+                                {c.cloneType.replace(/_/g, " ")}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 align-middle">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold capitalize", sv.cls)}>
+                                  {c.severity}
+                                </span>
+                                <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold", sm.cls)}>
+                                  {t(`enterprise.status.${c.status}`, { defaultValue: c.status })}
+                                </span>
+                              </div>
+                            </td>
+                            <td className={cn("px-4 py-3 align-middle", isRTL ? "text-left" : "text-right")}>
+                              <Link
+                                to={`/enterprise/cases/${c.id}`}
+                                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                              >
+                                {t("enterprise.workspaceDetail.viewCase")}
+                                <ChevronRight className={cn("h-3 w-3", isRTL && "rotate-180")} />
+                              </Link>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
           )}
@@ -421,18 +680,36 @@ export default function WorkspaceDetail() {
                 </Button>
               </div>
               {members.length === 0 ? (
-                <div className="card-premium py-14 flex flex-col items-center gap-2 text-center">
-                  <Users className="h-10 w-10 text-muted-foreground/40" />
-                  <p className="text-sm text-muted-foreground">{t("enterprise.workspaceDetail.noMembers")}</p>
+                <div
+                  className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card py-14 text-center"
+                  style={{ boxShadow: "var(--card-shadow-rest)" }}
+                >
+                  <div
+                    className="flex h-12 w-12 items-center justify-center rounded-full"
+                    style={{ background: "hsl(var(--primary) / 0.1)", color: "hsl(var(--primary))" }}
+                  >
+                    <Users className="h-6 w-6" />
+                  </div>
+                  <p className="t-sm">{t("enterprise.workspaceDetail.noMembers")}</p>
                 </div>
               ) : (
                 members.map((m) => (
-                  <div key={m.id} className="card-premium flex items-center gap-4 px-5 py-3">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                  <div
+                    key={m.id}
+                    className="flex items-center gap-4 rounded-2xl border border-border bg-card px-5 py-3 transition-all hover:border-primary/40"
+                    style={{ boxShadow: "var(--card-shadow-rest)" }}
+                  >
+                    <div
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
+                      style={{ background: "var(--gradient-brand)" }}
+                    >
                       {m.legacyUserId}
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-foreground">User #{m.legacyUserId}</p>
+                      <p className="text-sm font-medium text-foreground">
+                        {t("enterprise.workspaceDetail.userHash", { defaultValue: "User #" })}
+                        {m.legacyUserId}
+                      </p>
                       {m.lastActiveAt && (
                         <p className="text-xs text-muted-foreground">
                           {new Date(m.lastActiveAt).toLocaleDateString()}
@@ -441,8 +718,8 @@ export default function WorkspaceDetail() {
                     </div>
                     <span
                       className={cn(
-                        "rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize",
-                        ROLE_CLS[m.role] ?? "bg-muted text-muted-foreground",
+                        "rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize",
+                        ROLE_CLS[m.role] ?? "bg-muted text-muted-foreground border-border/60",
                       )}
                     >
                       {m.role}
@@ -505,7 +782,7 @@ export default function WorkspaceDetail() {
                   </Button>
                 </div>
                 {probeError && (
-                  <p className="text-xs text-destructive flex items-center gap-1 mt-1">
+                  <p className="mt-1 flex items-center gap-1 text-xs text-destructive">
                     <AlertCircle className="h-3 w-3 shrink-0" />
                     {probeError}
                   </p>
@@ -531,7 +808,12 @@ export default function WorkspaceDetail() {
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="ghost" onClick={() => setRepoOpen(false)}>{t("enterprise.common.cancel")}</Button>
-              <Button onClick={handleCreateRepo} disabled={creatingRepo || !repoName.trim()}>
+              <Button
+                onClick={handleCreateRepo}
+                disabled={creatingRepo || !repoName.trim()}
+                className="text-white"
+                style={{ background: "var(--gradient-brand)", boxShadow: "var(--glow-shadow-sm)" }}
+              >
                 {creatingRepo && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
                 {t("enterprise.workspaceDetail.addRepo")}
               </Button>
@@ -572,7 +854,12 @@ export default function WorkspaceDetail() {
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="ghost" onClick={() => setMemberOpen(false)}>{t("enterprise.common.cancel")}</Button>
-              <Button onClick={handleAddMember} disabled={addingMember || !memberUserId.trim()}>
+              <Button
+                onClick={handleAddMember}
+                disabled={addingMember || !memberUserId.trim()}
+                className="text-white"
+                style={{ background: "var(--gradient-brand)", boxShadow: "var(--glow-shadow-sm)" }}
+              >
                 {addingMember && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
                 {t("enterprise.workspaceDetail.addMember")}
               </Button>
@@ -580,6 +867,35 @@ export default function WorkspaceDetail() {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function StatCell({
+  label,
+  value,
+  valueColor,
+}: {
+  label: string;
+  value: string;
+  valueColor?: string;
+}) {
+  return (
+    <div
+      className="rounded-xl px-4 py-3"
+      style={{ background: "hsl(var(--surface-2))", border: "1px solid hsl(var(--border) / 0.5)" }}
+    >
+      <div className="t-label">{label}</div>
+      <div
+        className="mt-1.5 text-2xl font-bold tabular-nums"
+        style={{
+          fontFamily: "var(--font-mono)",
+          letterSpacing: "-0.02em",
+          color: valueColor ?? "hsl(var(--foreground))",
+        }}
+      >
+        {value}
+      </div>
     </div>
   );
 }

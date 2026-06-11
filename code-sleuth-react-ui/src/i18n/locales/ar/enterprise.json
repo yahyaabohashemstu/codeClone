@@ -61,7 +61,9 @@
       "roleReviewer": "مراجع",
       "roleManager": "مدير",
       "roleAdmin": "مسؤول",
-      "roleOwner": "مالك"
+      "roleOwner": "مالك",
+      "scanCompleted": "اكتمل الفحص",
+      "scanFailed": "فشل الفحص"
     },
     "cases": {
       "title": "قضايا المراجعة",

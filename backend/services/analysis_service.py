@@ -27,7 +27,11 @@ import re
 import markdown2
 import networkx as nx
 
-from backend.engine.clone_detector import CloneDetector
+from backend.engine.clone_detector import (
+    SUPPORTED_LANGUAGES,
+    CloneDetector,
+    get_detector,
+)
 from backend.engine.code_smell import CodeSmellAnalyzer
 from backend.engine.similarity import (
     build_chart_url_from_similarity_items,
@@ -62,16 +66,9 @@ logger = logging.getLogger(__name__)
 
 SNAPSHOT_SCHEMA_VERSION = 1
 
-SUPPORTED_LANGUAGES = [
-    "python", "c", "java", "javascript", "ruby", "go",
-    "typescript", "php", "kotlin", "r", "rust",
-    "scala", "elixir", "haskell", "perl",
-]
-
-# Pre-initialized CloneDetector instances -- one per language.
-_clone_detectors: dict[str, CloneDetector] = {
-    lang: CloneDetector(lang) for lang in SUPPORTED_LANGUAGES
-}
+# SUPPORTED_LANGUAGES and the (lazy) detector pool are owned by the engine —
+# a second copy here used to drift out of sync and doubled per-process memory.
+# Both are re-exported via the import above for backwards compatibility.
 
 # Regex for stripping dangerous URL protocols from generated HTML.
 _UNSAFE_URL_RE = re.compile(
@@ -213,8 +210,11 @@ def analyze_similarities(
         if clean_code2 is None:
             clean_code2 = detector.remove_comments_and_whitespace(code2)
 
+        # Progress within this function spans 5–60: the orchestrator
+        # (build_analysis_context) continues at 70/80/90/100, keeping the
+        # user-visible progress bar monotonic.
         set_current_user_progress(
-            "Similarity analysis: computing base similarity scores", 20,
+            "Similarity analysis: computing base similarity scores", 15,
             user_id=_bg_user_id,
         )
         text_sim = detector.text_similarity(code1, code2)
@@ -229,18 +229,31 @@ def analyze_similarities(
         # similarity (same as token_sim_with_order) rather than identifier Jaccard.
         # We reuse the already-computed value to avoid a redundant traversal.
         renamed_clone_sim = token_sim_with_order
-        near_miss_clone_result = detector.near_miss_clone_similarity(code1, code2)
-        parameterized_clone_result = detector.parameterized_clone_similarity(code1, code2)
-        function_clone_result = detector.function_clone_similarity(code1, code2)
+        # Reuse already-computed component scores / cleaned sources so the
+        # clone checks below do not re-parse both snippets from scratch.
+        near_miss_clone_result = detector.near_miss_clone_similarity(
+            code1, code2,
+            _text_sim=text_sim,
+            _token_sim=token_sim,
+            _token_sim_without_comments=token_sim_without_comments,
+        )
+        parameterized_clone_result = detector.parameterized_clone_similarity(
+            code1, code2, clean1=clean_code1, clean2=clean_code2,
+        )
+        function_clone_result = detector.function_clone_similarity(
+            code1, code2, clean1=clean_code1, clean2=clean_code2,
+        )
         non_contiguous_clone_result = detector.non_contiguous_clone_similarity(code1, code2)
         structural_clone_result = detector.structural_clone_similarity(code1, code2)
         reordered_clone_result = detector.reordered_clone_similarity(code1, code2)
-        function_reordered_clone_result = detector.function_reordered_clone_similarity(code1, code2)
+        function_reordered_clone_result = detector.function_reordered_clone_similarity(
+            code1, code2, clean1=clean_code1, clean2=clean_code2,
+        )
         gapped_clone_result = detector.gapped_clone_similarity(code1, code2)
         intertwined_clone_result = detector.intertwined_clone_similarity(code1, code2)
 
         set_current_user_progress(
-            "Similarity analysis: advanced clone metrics", 60,
+            "Similarity analysis: advanced clone metrics", 35,
             user_id=_bg_user_id,
         )
         graph_sim = detector.graph_similarity(code1, code2)
@@ -249,7 +262,7 @@ def analyze_similarities(
         # pass it in and avoid a second (expensive) forward pass through
         # GraphCodeBERT.
         set_current_user_progress(
-            "Similarity analysis: AI similarity scoring", 70,
+            "Similarity analysis: AI similarity scoring", 45,
             user_id=_bg_user_id,
         )
         ai_similarity_score = detector.ai_based_similarity(code1, code2)
@@ -259,7 +272,7 @@ def analyze_similarities(
         )
 
         set_current_user_progress(
-            "Similarity analysis: combining metrics", 85,
+            "Similarity analysis: combining metrics", 55,
             user_id=_bg_user_id,
         )
         # Pass pre-computed values so combined_similarity avoids recomputation.
@@ -273,7 +286,7 @@ def analyze_similarities(
         )
 
         set_current_user_progress(
-            "Similarity analysis: finished calculations", 90,
+            "Similarity analysis: finished calculations", 60,
             user_id=_bg_user_id,
         )
         return {
@@ -551,7 +564,7 @@ def build_analysis_context(
         User ID for progress tracking in background threads.
     """
     set_current_user_progress("Starting analysis", 0, user_id=_bg_user_id)
-    detector = _clone_detectors.get(language)
+    detector = get_detector(language) if language in SUPPORTED_LANGUAGES else None
     if not detector:
         set_current_user_progress("Unsupported language", 0, user_id=_bg_user_id)
         return {
@@ -763,6 +776,13 @@ def build_analysis_context(
             pass
 
     # ── Persist / snapshot ─────────────────────────────────────────────
+    if persist_analysis and _effective_user_id is None:
+        # Analysis.user_id is NOT NULL — persisting without an owner would
+        # raise IntegrityError.  This can only happen if the function is
+        # called outside both a logged-in request and a background task.
+        logger.warning("No user resolved for analysis persistence — skipping save.")
+        persist_analysis = False
+
     if persist_analysis:
         snapshot_payload = build_analysis_snapshot(response_context)
         analysis_record = Analysis(

@@ -61,7 +61,9 @@
       "roleReviewer": "Reviewer",
       "roleManager": "Manager",
       "roleAdmin": "Admin",
-      "roleOwner": "Owner"
+      "roleOwner": "Owner",
+      "scanCompleted": "Scan completed",
+      "scanFailed": "Scan failed"
     },
     "cases": {
       "title": "Review Cases",

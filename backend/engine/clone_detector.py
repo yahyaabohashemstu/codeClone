@@ -12,6 +12,7 @@ Dependencies:
 """
 
 import logging
+import threading
 from collections import Counter
 
 import networkx as nx
@@ -35,89 +36,6 @@ from backend.engine.ai_analyzer import get_ai_analyzer  # noqa: E402
 
 class CloneDetector:
     """Class for detecting code clones."""
-
-    _LANGUAGE_KEYWORDS = {
-        'python': {
-            'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await',
-            'break', 'class', 'continue', 'def', 'del', 'elif', 'else', 'except',
-            'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is',
-            'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return', 'try',
-            'while', 'with', 'yield',
-        },
-        'java': {
-            'abstract', 'assert', 'boolean', 'break', 'byte', 'case', 'catch',
-            'char', 'class', 'const', 'continue', 'default', 'do', 'double',
-            'else', 'enum', 'extends', 'final', 'finally', 'float', 'for', 'goto',
-            'if', 'implements', 'import', 'instanceof', 'int', 'interface', 'long',
-            'native', 'new', 'package', 'private', 'protected', 'public', 'return',
-            'short', 'static', 'strictfp', 'super', 'switch', 'synchronized',
-            'this', 'throw', 'throws', 'transient', 'try', 'void', 'volatile', 'while',
-        },
-        'javascript': {
-            'break', 'case', 'catch', 'class', 'const', 'continue', 'debugger',
-            'default', 'delete', 'do', 'else', 'export', 'extends', 'false',
-            'finally', 'for', 'function', 'if', 'import', 'in', 'instanceof',
-            'let', 'new', 'null', 'return', 'static', 'super', 'switch', 'this',
-            'throw', 'true', 'try', 'typeof', 'var', 'void', 'while', 'with', 'yield',
-        },
-        'typescript': {
-            'break', 'case', 'catch', 'class', 'const', 'continue', 'debugger',
-            'default', 'delete', 'do', 'else', 'enum', 'export', 'extends', 'false',
-            'finally', 'for', 'function', 'if', 'import', 'in', 'instanceof',
-            'interface', 'let', 'new', 'null', 'return', 'static', 'super', 'switch',
-            'this', 'throw', 'true', 'try', 'type', 'typeof', 'var', 'void',
-            'while', 'with', 'yield',
-        },
-        'c': {
-            'auto', 'break', 'case', 'char', 'const', 'continue', 'default', 'do',
-            'double', 'else', 'enum', 'extern', 'float', 'for', 'goto', 'if',
-            'include', 'inline', 'int', 'long', 'register', 'restrict', 'return',
-            'short', 'signed', 'sizeof', 'static', 'struct', 'switch', 'typedef',
-            'union', 'unsigned', 'void', 'volatile', 'while',
-        },
-        'go': {
-            'break', 'case', 'chan', 'const', 'continue', 'default', 'defer', 'else',
-            'fallthrough', 'for', 'func', 'go', 'goto', 'if', 'import', 'interface',
-            'map', 'package', 'range', 'return', 'select', 'struct', 'switch',
-            'type', 'var',
-        },
-        'rust': {
-            'as', 'break', 'const', 'continue', 'crate', 'else', 'enum', 'extern',
-            'false', 'fn', 'for', 'if', 'impl', 'in', 'let', 'loop', 'match', 'mod',
-            'move', 'mut', 'pub', 'ref', 'return', 'self', 'Self', 'static', 'struct',
-            'super', 'trait', 'true', 'type', 'unsafe', 'use', 'where', 'while',
-        },
-        'kotlin': {
-            'as', 'break', 'class', 'continue', 'do', 'else', 'false', 'for', 'fun',
-            'if', 'in', 'interface', 'is', 'null', 'object', 'package', 'return',
-            'super', 'this', 'throw', 'true', 'try', 'typealias', 'typeof', 'val',
-            'var', 'when', 'while',
-        },
-        'ruby': {
-            '__ENCODING__', '__LINE__', '__FILE__', 'BEGIN', 'END', 'alias', 'and',
-            'begin', 'break', 'case', 'class', 'def', 'defined', 'do', 'else', 'elsif',
-            'end', 'ensure', 'false', 'for', 'if', 'in', 'module', 'next', 'nil', 'not',
-            'or', 'redo', 'rescue', 'retry', 'return', 'self', 'super', 'then', 'true',
-            'undef', 'unless', 'until', 'when', 'while', 'yield',
-        },
-        'php': {
-            'abstract', 'and', 'array', 'as', 'break', 'callable', 'case', 'catch',
-            'class', 'clone', 'const', 'continue', 'declare', 'default', 'die', 'do',
-            'echo', 'else', 'elseif', 'empty', 'enddeclare', 'endfor', 'endforeach',
-            'endif', 'endswitch', 'endwhile', 'eval', 'exit', 'extends', 'final',
-            'finally', 'fn', 'for', 'foreach', 'function', 'global', 'goto', 'if',
-            'implements', 'include', 'include_once', 'instanceof', 'insteadof',
-            'interface', 'isset', 'list', 'match', 'namespace', 'new', 'or', 'print',
-            'private', 'protected', 'public', 'readonly', 'require', 'require_once',
-            'return', 'static', 'switch', 'throw', 'trait', 'try', 'unset', 'use',
-            'var', 'while', 'xor', 'yield',
-        },
-    }
-    _DEFAULT_KEYWORDS = {
-        'if', 'else', 'for', 'while', 'return', 'int', 'float', 'double',
-        'char', 'void', 'include', 'break', 'continue', 'class', 'new',
-        'true', 'false', 'null', 'this',
-    }
 
     def __init__(self, language):
         """Initialize CloneDetector with parser for the given language."""
@@ -143,7 +61,15 @@ class CloneDetector:
         return tokens
 
     def remove_comments_and_whitespace(self, code):
-        """Remove comments and whitespace from code."""
+        """Remove comments and whitespace from code.
+
+        Note: leaf texts are joined with no separator, so the result is not
+        valid source (e.g. ``defadd(a,b):``).  That is acceptable for the
+        similarity metrics that consume it — both sides degrade identically —
+        but do NOT feed the output to anything expecting parseable code.
+        Changing the join to a space would shift every token-based score and
+        requires recalibrating the clone thresholds against a labelled corpus.
+        """
         tree = self.parser.parse(bytes(code, "utf8"))
         root_node = tree.root_node
 
@@ -184,7 +110,9 @@ class CloneDetector:
         tokens2 = self.parse_code(code2, with_order=True)
         return fuzz.ratio(' '.join(tokens1), ' '.join(tokens2)) / 100
 
-    def near_miss_clone_similarity(self, code1, code2, threshold=0.8):
+    def near_miss_clone_similarity(self, code1, code2, threshold=0.8,
+                                   _text_sim=None, _token_sim=None,
+                                   _token_sim_without_comments=None):
         """Check for near miss clones (Type 3 -- minor modifications of a copy).
 
         Genuine near-miss clones show high similarity across *multiple* independent
@@ -194,13 +122,19 @@ class CloneDetector:
         they are entirely different algorithms.  Requiring at least 2 out of 3
         signals to exceed the threshold eliminates those accidental matches while
         still catching real near-miss clones (which dominate in all three signals).
+
+        Callers that already computed the three component scores (the analysis
+        pipeline does) should pass them in to avoid re-parsing both snippets.
         """
-        text_sim = self.text_similarity(code1, code2)
-        token_sim = self.token_similarity(code1, code2)
-        token_sim_without_comments = self.token_similarity(
-            self.remove_comments_and_whitespace(code1),
-            self.remove_comments_and_whitespace(code2)
-        )
+        text_sim = _text_sim if _text_sim is not None else self.text_similarity(code1, code2)
+        token_sim = _token_sim if _token_sim is not None else self.token_similarity(code1, code2)
+        if _token_sim_without_comments is not None:
+            token_sim_without_comments = _token_sim_without_comments
+        else:
+            token_sim_without_comments = self.token_similarity(
+                self.remove_comments_and_whitespace(code1),
+                self.remove_comments_and_whitespace(code2)
+            )
         conditions_met = sum([
             text_sim > threshold,
             token_sim > threshold,
@@ -208,7 +142,8 @@ class CloneDetector:
         ])
         return conditions_met >= 2
 
-    def parameterized_clone_similarity(self, code1, code2, threshold=0.8):
+    def parameterized_clone_similarity(self, code1, code2, threshold=0.8,
+                                       clean1=None, clean2=None):
         """Check for parameterized clones (Type 3a).
 
         Parameterized clones share the same structure but differ only in literal
@@ -219,12 +154,16 @@ class CloneDetector:
         are very similar (same control flow, same call structure) even after
         stripping comments.  We therefore compare ordered token types on the
         comment-free versions, which is more precise than the near-miss check.
+
+        Pass *clean1*/*clean2* when the comment-free sources are already
+        available to avoid recomputing them.
         """
-        clean1 = self.remove_comments_and_whitespace(code1)
-        clean2 = self.remove_comments_and_whitespace(code2)
+        clean1 = clean1 if clean1 is not None else self.remove_comments_and_whitespace(code1)
+        clean2 = clean2 if clean2 is not None else self.remove_comments_and_whitespace(code2)
         return self.token_similarity(clean1, clean2, with_order=True) > threshold
 
-    def function_clone_similarity(self, code1, code2, threshold=0.8):
+    def function_clone_similarity(self, code1, code2, threshold=0.8,
+                                  clean1=None, clean2=None):
         """Check for function-level clones.
 
         Function clones are detected by comparing the unordered token-type
@@ -235,8 +174,8 @@ class CloneDetector:
         is common.  This is distinct from near-miss (which uses raw text/tokens
         with comments) and from structural clones (ordered comparison).
         """
-        clean1 = self.remove_comments_and_whitespace(code1)
-        clean2 = self.remove_comments_and_whitespace(code2)
+        clean1 = clean1 if clean1 is not None else self.remove_comments_and_whitespace(code1)
+        clean2 = clean2 if clean2 is not None else self.remove_comments_and_whitespace(code2)
         return self.token_similarity(clean1, clean2, with_order=False) > threshold
 
     def non_contiguous_clone_similarity(self, code1, code2, threshold=0.85):
@@ -268,7 +207,8 @@ class CloneDetector:
         """
         return self.token_similarity(code1, code2, with_order=False) > threshold
 
-    def function_reordered_clone_similarity(self, code1, code2, threshold=0.85):
+    def function_reordered_clone_similarity(self, code1, code2, threshold=0.85,
+                                            clean1=None, clean2=None):
         """Check for function reordered clones.
 
         Same as reordered clone but applied at function granularity: functions whose
@@ -276,8 +216,8 @@ class CloneDetector:
         comment-stripped version so formatting/comment differences do not inflate
         the score, and a higher threshold (0.85) to avoid false positives.
         """
-        clean1 = self.remove_comments_and_whitespace(code1)
-        clean2 = self.remove_comments_and_whitespace(code2)
+        clean1 = clean1 if clean1 is not None else self.remove_comments_and_whitespace(code1)
+        clean2 = clean2 if clean2 is not None else self.remove_comments_and_whitespace(code2)
         return self.token_similarity(clean1, clean2, with_order=False) > threshold
 
     def gapped_clone_similarity(self, code1, code2, threshold=0.85):
@@ -531,10 +471,28 @@ class CloneDetector:
         }
 
     def ai_based_similarity(self, code1, code2):
-        """Compute AI-based similarity."""
+        """Compute AI-based similarity.
+
+        Degrades to ``0.0`` when the embedding model is unavailable (e.g. torch
+        not installed, model load failure) so the rest of the pipeline keeps
+        working.  Because the AI score carries 0.15 of the combined similarity,
+        a silent failure would deflate every result — so the FIRST failure per
+        process is logged at WARNING; repeats drop to debug to avoid log spam.
+        """
+        global _AI_FAILURE_WARNED
         try:
             return get_ai_analyzer().analyze_similarity(code1, code2)
         except Exception:
+            if not _AI_FAILURE_WARNED:
+                _AI_FAILURE_WARNED = True
+                logger.warning(
+                    "AI-based similarity unavailable — degrading to 0.0. The "
+                    "'AI Similarity' metric and 15%% of the combined score will "
+                    "read as zero until the embedding model loads.",
+                    exc_info=True,
+                )
+            else:
+                logger.debug("AI-based similarity unavailable; degrading to 0.0", exc_info=True)
             return 0.0
 
 
@@ -548,11 +506,24 @@ SUPPORTED_LANGUAGES = [
     'scala', 'elixir', 'haskell', 'perl',
 ]
 
-clone_detectors = {language: CloneDetector(language) for language in SUPPORTED_LANGUAGES}
+# Single lazily-populated detector pool, shared by the whole process.
+# Eagerly building 15 detectors at import time doubled startup cost (the
+# service layer used to keep a second identical pool) and meant a single
+# missing tree-sitter grammar crashed the app before it could serve anything.
+clone_detectors: dict = {}
+_detector_lock = threading.Lock()
+
+# Set to True after the first AI-similarity failure so we warn loudly once.
+_AI_FAILURE_WARNED = False
 
 
 def get_detector(language):
-    """Return a CloneDetector for *language*, creating one if needed."""
-    if language not in clone_detectors:
-        clone_detectors[language] = CloneDetector(language)
-    return clone_detectors[language]
+    """Return the shared CloneDetector for *language*, creating it on first use."""
+    detector = clone_detectors.get(language)
+    if detector is None:
+        with _detector_lock:
+            detector = clone_detectors.get(language)
+            if detector is None:
+                detector = CloneDetector(language)
+                clone_detectors[language] = detector
+    return detector

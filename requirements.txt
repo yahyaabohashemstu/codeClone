@@ -79,3 +79,8 @@ waitress==3.0.2
 mistralai==2.1.2
 pylint>=3.0.0
 Flask-Limiter>=3.0.0
+# Production stack (docker-compose.prod.yml): Postgres driver + Redis client
+# for the redis:// rate-limit storage.  Without these the prod containers
+# crash on first DB connection / limiter init.
+psycopg2-binary==2.9.10
+redis==5.2.1

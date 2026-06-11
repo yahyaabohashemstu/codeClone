@@ -19,6 +19,7 @@
     "signIn": "تسجيل الدخول",
     "helpStatus": "افتح المساعدة والحالة",
     "historySearch": "افتح سجل التحليلات",
+    "searchPlaceholder": "ابحث في التحاليل، القضايا، الملفات…",
     "workspace": "مساحة العمل"
   },
   "routes": {
@@ -72,7 +73,11 @@
     "fullCopyright": "\u00a9 2026 CodeSimilar \u2014 منصة ذكية لتحليل الشيفرة"
   },
   "guard": {
-    "loadingWorkspace": "جارٍ تحميل مساحة العمل..."
+    "loadingWorkspace": "جارٍ تحميل مساحة العمل...",
+    "adminRequired": "هذه المنطقة تتطلب صلاحيات المسؤول."
+  },
+  "upload": {
+    "fileTooLarge": "الملف كبير جداً. الحد الأقصى للحجم هو {{limitMb}} ميجابايت."
   },
   "theme": {
     "toggle": "تبديل السمة",
@@ -96,6 +101,10 @@
     "primarySignedIn": "ابدأ التحليل",
     "primarySignedOut": "سجّل الدخول للبدء",
     "secondary": "اعرض أحدث النتائج",
+    "dropTitle": "أسقط الملف الثاني هنا",
+    "dropHint": "أو تصفّح · .py .js .java .cpp",
+    "pairwise": "مقارنة ثنائية",
+    "pasteCode": "لصق الكود",
     "trustSignals": [
       "سير عمل واعٍ بالسجل",
       "رسوم AST مدمجة",

@@ -127,6 +127,15 @@ runs:
                 except Exception:
                     continue
 
+        # The API rejects requests with more than 50 pairs (too_many_pairs).
+        # Cap client-side, keeping base-vs-PR pairs (listed first) over
+        # cross-file pairs, and say so instead of silently failing the call.
+        MAX_PAIRS = 50
+        if len(pairs) > MAX_PAIRS:
+            print(f"NOTE: built {len(pairs)} pairs; sending only the first "
+                  f"{MAX_PAIRS} (API limit). Cross-file coverage is truncated.")
+            pairs = pairs[:MAX_PAIRS]
+
         if not pairs:
             print("No valid pairs to compare.")
             with open(os.environ["GITHUB_OUTPUT"], "a") as f:
@@ -190,6 +199,14 @@ runs:
         if [ "$VERDICT" = "fail" ] && [ "${{ inputs.fail-on-violation }}" = "true" ]; then
           echo ""
           echo "::error::CodeSimilar detected $VIOLATIONS similarity violations above ${CS_THRESHOLD}% threshold."
+          exit 1
+        fi
+
+        # A configured-but-unreachable/erroring API must fail loudly, not
+        # pass vacuously with verdict "error".
+        if [ "$VERDICT" = "error" ]; then
+          echo ""
+          echo "::error::CodeSimilar API call failed (HTTP $HTTP_CODE) — check CODESIMILAR_API_URL / CODESIMILAR_API_KEY."
           exit 1
         fi
 

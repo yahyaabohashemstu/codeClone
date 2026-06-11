@@ -19,6 +19,7 @@
     "signIn": "Sign In",
     "helpStatus": "Open help and status",
     "historySearch": "Search analysis history",
+    "searchPlaceholder": "Search analyses, cases, files…",
     "workspace": "Workspace"
   },
   "routes": {
@@ -72,7 +73,11 @@
     "fullCopyright": "\u00a9 2026 CodeSimilar \u2014 Intelligent Code Analysis Platform"
   },
   "guard": {
-    "loadingWorkspace": "Loading your workspace\u2026"
+    "loadingWorkspace": "Loading your workspace\u2026",
+    "adminRequired": "This area requires administrator access."
+  },
+  "upload": {
+    "fileTooLarge": "File too large. Maximum size is {{limitMb}} MB."
   },
   "theme": {
     "toggle": "Toggle theme",
@@ -96,6 +101,10 @@
     "primarySignedIn": "Start Analysis",
     "primarySignedOut": "Sign In to Start",
     "secondary": "View Latest Results",
+    "dropTitle": "Drop the second file",
+    "dropHint": "or browse · .py .js .java .cpp",
+    "pairwise": "Pairwise",
+    "pasteCode": "Paste code",
     "trustSignals": [
       "History-aware workflow",
       "AST graphs included",

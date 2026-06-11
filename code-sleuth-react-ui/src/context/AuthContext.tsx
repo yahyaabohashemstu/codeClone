@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { apiFetch, setCsrfToken } from "@/lib/api";
+import { apiFetch, setCsrfToken, setUnauthorizedHandler } from "@/lib/api";
 import type { SessionResponse, UserSummary } from "@/types/api";
 
 interface AuthContextValue {
@@ -59,6 +59,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
       .finally(() => setIsLoading(false));
   }, [refreshSession]);
+
+  // When any request 401s (session expired), clear local auth state so the
+  // protected routes redirect to login instead of showing a stale shell.
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      setCsrfToken("");
+      setSession({
+        authenticated: false,
+        user: null,
+        csrfToken: "",
+        supportedLanguages: [],
+        ai: null,
+      });
+    });
+    return () => setUnauthorizedHandler(null);
+  }, []);
 
   const login = useCallback(async (username: string, password: string) => {
     if (!username.trim() || !password) {

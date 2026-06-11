@@ -135,6 +135,24 @@ def serialize_similarity_match(match: SimilarityMatch, artifacts: dict[int, Code
     }
 
 
+def _evidence_payload_for_display(row: ReviewEvidence) -> dict[str, Any]:
+    """Return an evidence payload with the source excerpt decrypted.
+
+    New evidence rows store ``excerptEncrypted`` (encrypted at rest, matching
+    the artifact source columns); rows written before that change carry a
+    plaintext ``excerpt`` and are passed through unchanged.  Access to any
+    serialized case is already reviewer-gated, so decrypting here is safe.
+    """
+    payload = loads(row.payload_json, {})
+    encrypted_excerpt = payload.pop("excerptEncrypted", None)
+    if encrypted_excerpt:
+        try:
+            payload["excerpt"] = storage.decrypt_text(encrypted_excerpt)
+        except EnterpriseError:
+            payload["excerpt"] = None
+    return payload
+
+
 def serialize_review_case(review_case: ReviewCase, match: SimilarityMatch, artifacts: dict[int, CodeArtifact], evidence_rows: list[ReviewEvidence]) -> dict[str, Any]:
     return {
         "id": review_case.id,
@@ -158,7 +176,7 @@ def serialize_review_case(review_case: ReviewCase, match: SimilarityMatch, artif
                 "artifactId": row.artifact_id,
                 "evidenceType": row.evidence_type,
                 "title": row.title,
-                "payload": loads(row.payload_json, {}),
+                "payload": _evidence_payload_for_display(row),
                 "createdAt": row.created_at.isoformat() if row.created_at else None,
             }
             for row in evidence_rows
@@ -339,7 +357,11 @@ def create_review_case_for_match(
                         "symbol": artifact_a.symbol_name,
                         "startLine": artifact_a.start_line,
                         "endLine": artifact_a.end_line,
-                        "excerpt": storage.decrypt_text(artifact_a.raw_source_encrypted)[:600],
+                        # Raw source is an encrypted-at-rest column; storing a
+                        # plaintext excerpt in evidence would undercut that.
+                        "excerptEncrypted": storage.encrypt_text(
+                            storage.decrypt_text(artifact_a.raw_source_encrypted)[:600]
+                        ),
                     }
                 ),
                 created_at=utcnow(),
@@ -355,7 +377,9 @@ def create_review_case_for_match(
                         "symbol": artifact_b.symbol_name,
                         "startLine": artifact_b.start_line,
                         "endLine": artifact_b.end_line,
-                        "excerpt": storage.decrypt_text(artifact_b.raw_source_encrypted)[:600],
+                        "excerptEncrypted": storage.encrypt_text(
+                            storage.decrypt_text(artifact_b.raw_source_encrypted)[:600]
+                        ),
                     }
                 ),
                 created_at=utcnow(),

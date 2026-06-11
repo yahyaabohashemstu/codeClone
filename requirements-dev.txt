@@ -1,0 +1,5 @@
+# Development/CI-only dependencies, pinned so a new pytest major release
+# cannot break CI without a repo change (runtime deps live in requirements.txt).
+-r requirements.txt
+pytest==8.3.4
+pytest-cov==6.0.0

@@ -46,6 +46,17 @@ logger = logging.getLogger(__name__)
 MAX_CACHED_USERS: int = 200
 
 
+def _max_cached_users() -> int:
+    """Return the LRU cap, honouring ``MAX_CACHED_USERS`` from the live app
+    config when an application context is active."""
+    try:
+        from flask import current_app
+
+        return max(1, int(current_app.config.get("MAX_CACHED_USERS", MAX_CACHED_USERS)))
+    except (RuntimeError, ImportError, TypeError, ValueError):
+        return MAX_CACHED_USERS
+
+
 # ---------------------------------------------------------------------------
 # Return type documentation
 # ---------------------------------------------------------------------------
@@ -151,9 +162,10 @@ def cache_analysis_context_for_user(user_id: int | None, context: dict) -> None:
         _user_analysis_contexts[user_id] = context
 
         # Evict least-recently-used entries when the cap is exceeded.
-        while len(_user_results) > MAX_CACHED_USERS:
+        cap = _max_cached_users()
+        while len(_user_results) > cap:
             _user_results.popitem(last=False)
-        while len(_user_analysis_contexts) > MAX_CACHED_USERS:
+        while len(_user_analysis_contexts) > cap:
             _user_analysis_contexts.popitem(last=False)
 
 

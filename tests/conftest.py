@@ -44,37 +44,11 @@ def client(app):
 
 
 # ---------------------------------------------------------------------------
-# Database session
-# ---------------------------------------------------------------------------
-
-@pytest.fixture()
-def db_session(app):
-    """
-    Yield a database session that rolls back after every test.
-
-    This keeps each test isolated without requiring table recreation.
-    """
-    with app.app_context():
-        connection = _db.engine.connect()
-        transaction = connection.begin()
-
-        # Bind the session to this connection so all ORM work uses it.
-        options = {"bind": connection, "binds": {}}
-        session = _db.create_scoped_session(options=options)
-        old_session = _db.session
-        _db.session = session
-
-        yield session
-
-        transaction.rollback()
-        connection.close()
-        session.remove()
-        _db.session = old_session
-
-
-# ---------------------------------------------------------------------------
 # User fixtures
 # ---------------------------------------------------------------------------
+# NOTE: a transactional ``db_session`` fixture used to live here but was dead
+# code — no test used it, and it relied on ``create_scoped_session``, which
+# Flask-SQLAlchemy 3.x removed, so it would crash on first use.
 
 @pytest.fixture()
 def test_user(app):
@@ -129,7 +103,11 @@ def auth_client(client, test_user, app):
     """
     with client.session_transaction() as sess:
         sess["_user_id"] = str(test_user.id)
-        sess["csrf_token"] = "test-csrf-token"
+        # The session key the backend actually reads is "_csrf_token"
+        # (backend/auth/security.py).  CSRF is disabled on this app, but the
+        # key must be correct so the fixture does not mask failures if a test
+        # ever flips WTF_CSRF_ENABLED on.
+        sess["_csrf_token"] = "test-csrf-token"
     yield client
 
 
@@ -140,5 +118,5 @@ def admin_client(client, admin_user, app):
     """
     with client.session_transaction() as sess:
         sess["_user_id"] = str(admin_user.id)
-        sess["csrf_token"] = "test-csrf-token"
+        sess["_csrf_token"] = "test-csrf-token"
     yield client

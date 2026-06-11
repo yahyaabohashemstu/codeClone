@@ -10,6 +10,8 @@ Endpoints:
 
 from __future__ import annotations
 
+import secrets
+
 from flask import jsonify
 from flask_login import current_user, login_required
 
@@ -17,15 +19,13 @@ from backend.api.v1 import v1_bp
 from backend.extensions import db, limiter
 from backend.models import Analysis
 from backend.services.analysis_service import (
-    build_analysis_context,
     build_history_stats,
     restore_saved_analysis_context,
     serialize_history_summary,
 )
-from backend.services.cache_service import (
-    cache_analysis_context_for_user,
-    invalidate_cached_analysis_for_user,
-)
+from backend.services.cache_service import invalidate_cached_analysis_for_user
+from backend.services.progress_service import set_current_user_progress
+from backend.tasks.background import cleanup_stale_tasks, submit_analysis_task
 
 
 # ---------------------------------------------------------------------------
@@ -75,17 +75,26 @@ def api_rerun_analysis(analysis_id: int):
     if not analysis:
         return jsonify({"message": "Analysis not found."}), 404
 
-    context = build_analysis_context(
+    # Re-run asynchronously via the background pool (like POST /analysis) instead
+    # of blocking a request thread on the full ML + LLM pipeline.  The result is
+    # not persisted (it re-runs an already-saved analysis) and carries the
+    # original analysis id/summary through to the polled result.
+    cleanup_stale_tasks()
+    task_id = secrets.token_hex(16)
+    set_current_user_progress("Starting re-run...", 0)
+    submit_analysis_task(
+        task_id,
+        current_user.id,
         analysis.code1,
         analysis.code2,
         analysis.language,
         persist_analysis=False,
+        extra_result={
+            "saved_analysis_id": analysis.id,
+            "summary": serialize_history_summary(analysis),
+        },
     )
-    context["saved_analysis_id"] = analysis.id
-    context["summary"] = serialize_history_summary(analysis)
-    if getattr(current_user, "is_authenticated", False):
-        cache_analysis_context_for_user(current_user.id, context)
-    return jsonify(context)
+    return jsonify({"success": True, "taskId": task_id, "status": "accepted"}), 202
 
 
 # ---------------------------------------------------------------------------

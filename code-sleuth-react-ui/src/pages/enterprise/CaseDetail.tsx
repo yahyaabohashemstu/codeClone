@@ -40,19 +40,19 @@ import type {
 import { cn } from "@/lib/utils";
 
 const STATUS_BADGE: Record<CaseStatus, string> = {
-  open: "bg-blue-500/15 text-blue-600",
-  in_review: "bg-yellow-500/15 text-yellow-600",
-  confirmed_clone: "bg-destructive/15 text-destructive",
-  false_positive: "bg-muted text-muted-foreground",
-  dismissed: "bg-muted text-muted-foreground",
-  resolved: "bg-green-500/15 text-green-600",
+  open: "bg-accent/15 text-accent border-accent/30",
+  in_review: "bg-warning/15 text-warning border-warning/30",
+  confirmed_clone: "bg-destructive/15 text-destructive border-destructive/30",
+  false_positive: "bg-muted text-muted-foreground border-border/60",
+  dismissed: "bg-muted text-muted-foreground border-border/60",
+  resolved: "bg-success/15 text-success border-success/30",
 };
 
-const SEVERITY_COLOR: Record<CaseSeverity, string> = {
-  critical: "text-red-500",
-  high: "text-orange-500",
-  medium: "text-yellow-600",
-  low: "text-blue-500",
+const SEVERITY_BADGE: Record<CaseSeverity, string> = {
+  critical: "bg-destructive/15 text-destructive border-destructive/30",
+  high: "bg-warning/15 text-warning border-warning/30",
+  medium: "bg-warning/12 text-warning border-warning/25",
+  low: "bg-accent/15 text-accent border-accent/30",
 };
 
 const ALL_STATUSES: CaseStatus[] = [
@@ -146,7 +146,10 @@ export default function CaseDetail() {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 justify-center py-24 text-muted-foreground" dir={isRTL ? "rtl" : "ltr"}>
+      <div
+        className="mx-auto flex max-w-4xl items-center justify-center gap-2 py-24 text-muted-foreground"
+        dir={isRTL ? "rtl" : "ltr"}
+      >
         <Loader2 className="h-4 w-4 animate-spin" />
         {t("enterprise.common.loading")}
       </div>
@@ -155,11 +158,14 @@ export default function CaseDetail() {
 
   if (error || !caseData) {
     return (
-      <div className="flex flex-col items-center gap-3 py-24 text-destructive" dir={isRTL ? "rtl" : "ltr"}>
+      <div
+        className="mx-auto flex max-w-4xl flex-col items-center gap-3 py-24 text-destructive"
+        dir={isRTL ? "rtl" : "ltr"}
+      >
         <AlertCircle className="h-6 w-6" />
         <p>{error ?? t("enterprise.caseDetail.errorMsg")}</p>
-        <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
-          <ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
+        <Button variant="outline" size="sm" onClick={() => navigate(-1)} className="gap-1.5">
+          <ArrowLeft className={cn("h-3.5 w-3.5", isRTL && "rotate-180")} />
           {t("enterprise.caseDetail.back")}
         </Button>
       </div>
@@ -167,77 +173,213 @@ export default function CaseDetail() {
   }
 
   const { match } = caseData;
+  const confidence = Math.round(caseData.confidenceScore);
+
+  // Ring geometry
+  const ringSize = 120;
+  const ringRadius = 52;
+  const ringCircumference = 2 * Math.PI * ringRadius;
+  const ringOffset = ringCircumference * (1 - Math.min(100, Math.max(0, confidence)) / 100);
+  const ringColor =
+    confidence >= 80 ? "hsl(var(--destructive))"
+      : confidence >= 60 ? "hsl(14 85% 38%)"
+      : confidence >= 40 ? "hsl(var(--warning))"
+      : "hsl(var(--primary))";
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 p-6" dir={isRTL ? "rtl" : "ltr"}>
-      {/* Back + title */}
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="gap-1.5">
+    <div className="mx-auto max-w-5xl space-y-6 p-6" dir={isRTL ? "rtl" : "ltr"}>
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-1 transition-colors hover:text-foreground"
+        >
           <ArrowLeft className={cn("h-3.5 w-3.5", isRTL && "rotate-180")} />
           {t("enterprise.caseDetail.back")}
-        </Button>
-        <div className="h-4 w-px bg-border" />
-        <h1 className="text-xl font-bold text-foreground">
-          {t("enterprise.caseDetail.caseId")} #{caseData.id}
-        </h1>
+        </button>
       </div>
 
-      {/* Summary bar */}
-      <div className="card-premium flex flex-wrap items-center gap-4 p-4">
-        <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold capitalize", STATUS_BADGE[caseData.status])}>
-          {t(`enterprise.status.${caseData.status}`)}
-        </span>
-        <span className={cn("text-sm font-semibold capitalize", SEVERITY_COLOR[caseData.severity])}>
-          <Shield className="mr-1 inline h-3.5 w-3.5" />
-          {t(`enterprise.severity.${caseData.severity}`)}
-        </span>
-        <span className="text-sm text-muted-foreground">
-          {t("enterprise.caseDetail.cloneType")}: <span className="font-medium text-foreground">{caseData.cloneType}</span>
-        </span>
-        <span className="text-sm text-muted-foreground">
-          {t("enterprise.caseDetail.confidence")}: <span className="font-medium text-foreground">{Math.round(caseData.confidenceScore)}%</span>
-        </span>
-        <div className="ml-auto flex flex-wrap gap-2">
-          <Button size="sm" variant="outline" onClick={() => setUpdateOpen(true)} className="gap-1.5">
-            <RefreshCw className="h-3.5 w-3.5" />
-            {t("enterprise.caseDetail.updateCase")}
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setFeedbackOpen(true)} className="gap-1.5">
-            <MessageSquare className="h-3.5 w-3.5" />
-            {t("enterprise.caseDetail.submitFeedback")}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => window.open(getCasePdfUrl(caseData.id), "_blank", "noopener,noreferrer")}
-            className="gap-1.5"
+      {/* Hero score card */}
+      <section
+        className="overflow-hidden rounded-2xl border border-border bg-card"
+        style={{ boxShadow: "var(--card-shadow-rest)" }}
+      >
+        <div className="flex flex-wrap items-center gap-6 p-6">
+          {/* Score ring */}
+          <svg
+            width={ringSize}
+            height={ringSize}
+            viewBox={`0 0 ${ringSize} ${ringSize}`}
+            className="shrink-0"
+            aria-hidden
           >
-            <Download className="h-3.5 w-3.5" />
-            {t("enterprise.caseDetail.downloadPdf")}
-          </Button>
+            <circle
+              cx={ringSize / 2}
+              cy={ringSize / 2}
+              r={ringRadius}
+              fill="none"
+              stroke="hsl(var(--muted))"
+              strokeWidth={10}
+            />
+            <circle
+              cx={ringSize / 2}
+              cy={ringSize / 2}
+              r={ringRadius}
+              fill="none"
+              stroke={ringColor}
+              strokeWidth={10}
+              strokeLinecap="round"
+              strokeDasharray={ringCircumference}
+              strokeDashoffset={ringOffset}
+              transform={`rotate(-90 ${ringSize / 2} ${ringSize / 2})`}
+            />
+            <text
+              x={ringSize / 2}
+              y={ringSize / 2 + 4}
+              textAnchor="middle"
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 28,
+                fontWeight: 700,
+                fill: "hsl(var(--foreground))",
+                fontVariantNumeric: "tabular-nums",
+              }}
+            >
+              {confidence}
+            </text>
+            <text
+              x={ringSize / 2}
+              y={ringSize / 2 + 22}
+              textAnchor="middle"
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 10,
+                fill: "hsl(var(--muted-foreground))",
+              }}
+            >
+              % match
+            </text>
+          </svg>
+
+          <div className="min-w-0 flex-1">
+            {/* Badge row */}
+            <div className="mb-2 flex flex-wrap items-center gap-1.5">
+              <span
+                className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium"
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  background: "hsl(var(--secondary))",
+                  color: "hsl(var(--secondary-foreground))",
+                  borderColor: "hsl(var(--border))",
+                }}
+              >
+                #{caseData.id}
+              </span>
+              <span
+                className={cn(
+                  "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold capitalize",
+                  SEVERITY_BADGE[caseData.severity],
+                )}
+              >
+                <Shield className="mr-1 h-3 w-3" />
+                {t(`enterprise.severity.${caseData.severity}`)}
+              </span>
+              <span
+                className={cn(
+                  "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold",
+                  STATUS_BADGE[caseData.status],
+                )}
+              >
+                {t(`enterprise.status.${caseData.status}`)}
+              </span>
+            </div>
+
+            <h1 className="h-3 text-foreground">
+              {t("enterprise.caseDetail.caseId")} #{caseData.id}
+            </h1>
+            <p className="mt-1 t-body">
+              {t("enterprise.caseDetail.cloneType")}:{" "}
+              <span className="font-medium text-foreground">{caseData.cloneType}</span>
+            </p>
+          </div>
+
+          {/* Actions */}
+          <div className="flex flex-col gap-2">
+            <Button
+              size="sm"
+              className="gap-1.5 text-white"
+              style={{ background: "var(--gradient-brand)", boxShadow: "var(--glow-shadow-sm)" }}
+              onClick={() =>
+                window.open(getCasePdfUrl(caseData.id), "_blank", "noopener,noreferrer")
+              }
+            >
+              <Download className="h-3.5 w-3.5" />
+              {t("enterprise.caseDetail.downloadPdf")}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setUpdateOpen(true)} className="gap-1.5">
+              <RefreshCw className="h-3.5 w-3.5" />
+              {t("enterprise.caseDetail.updateCase")}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setFeedbackOpen(true)} className="gap-1.5">
+              <MessageSquare className="h-3.5 w-3.5" />
+              {t("enterprise.caseDetail.submitFeedback")}
+            </Button>
+          </div>
         </div>
-      </div>
 
-      {/* Match Details */}
-      <section className="card-premium space-y-4 p-5">
-        <h2 className="flex items-center gap-2 font-semibold text-foreground">
-          <FileText className="h-4 w-4 text-primary" />
-          {t("enterprise.caseDetail.matchSection")}
-        </h2>
-
-        {/* Scores */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {/* Metrics strip */}
+        <div className="grid grid-cols-2 gap-3 px-6 pb-6 md:grid-cols-4">
           {[
             { label: t("enterprise.caseDetail.similarity"), value: match.similarityScore },
             { label: t("enterprise.caseDetail.structural"), value: match.structuralScore },
             { label: t("enterprise.caseDetail.semantic"), value: match.semanticScore },
             { label: t("enterprise.caseDetail.token"), value: match.tokenScore },
-          ].map(({ label, value }) => (
-            <div key={label} className="rounded-lg border border-border/50 bg-muted/30 p-3 text-center">
-              <div className="text-2xl font-bold text-primary">{Math.round(value)}%</div>
-              <div className="mt-0.5 text-xs text-muted-foreground">{label}</div>
-            </div>
-          ))}
+          ].map(({ label, value }) => {
+            const pct = Math.round(value);
+            return (
+              <div
+                key={label}
+                className="rounded-xl p-4"
+                style={{
+                  background: "hsl(var(--surface-2))",
+                  border: "1px solid hsl(var(--border) / 0.5)",
+                }}
+              >
+                <div className="t-label">{label}</div>
+                <div
+                  className="mt-1 text-xl font-semibold tabular-nums"
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    letterSpacing: "-0.01em",
+                    color: pct >= 80 ? "hsl(var(--destructive))" : pct >= 60 ? "hsl(14 85% 38%)" : "hsl(var(--foreground))",
+                  }}
+                >
+                  {pct}%
+                </div>
+                <div
+                  className="mt-2 h-1 overflow-hidden rounded-full"
+                  style={{ background: "hsl(var(--muted))" }}
+                >
+                  <div
+                    className="h-full rounded-full"
+                    style={{ width: `${pct}%`, background: "var(--gradient-brand)" }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Match / Artifacts section */}
+      <section
+        className="space-y-4 rounded-2xl border border-border bg-card p-6"
+        style={{ boxShadow: "var(--card-shadow-rest)" }}
+      >
+        <div className="flex items-center gap-2">
+          <FileText className="h-4 w-4 text-primary" />
+          <h2 className="t-label text-foreground">{t("enterprise.caseDetail.matchSection")}</h2>
         </div>
 
         {/* Artifacts */}
@@ -246,18 +388,29 @@ export default function CaseDetail() {
             { label: t("enterprise.caseDetail.artifactA"), artifact: match.artifactA },
             { label: t("enterprise.caseDetail.artifactB"), artifact: match.artifactB },
           ].map(({ label, artifact }) => (
-            <div key={label} className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-1 text-sm">
-              <div className="flex items-center gap-1.5 font-semibold text-foreground text-xs uppercase tracking-wide">
+            <div
+              key={label}
+              className="space-y-1.5 rounded-xl p-4"
+              style={{
+                background: "hsl(var(--surface-2))",
+                border: "1px solid hsl(var(--border) / 0.5)",
+              }}
+            >
+              <div className="flex items-center gap-1.5 t-label">
                 <User className="h-3 w-3 text-primary" />
                 {label}
               </div>
               <div className="text-xs text-muted-foreground">
                 <span className="font-medium text-foreground">{t("enterprise.caseDetail.path")}:</span>{" "}
-                <span className="font-mono">{artifact?.logicalPath ?? "\u2014"}</span>
+                <span className="font-mono text-foreground">{artifact?.logicalPath ?? "\u2014"}</span>
               </div>
               <div className="text-xs text-muted-foreground">
                 <span className="font-medium text-foreground">{t("enterprise.caseDetail.lines")}:</span>{" "}
-                {artifact?.startLine}\u2013{artifact?.endLine}
+                <span className="font-mono tabular-nums">
+                  {artifact?.startLine}
+                  {"–"}
+                  {artifact?.endLine}
+                </span>
               </div>
               <div className="text-xs text-muted-foreground">
                 <span className="font-medium text-foreground">{t("enterprise.caseDetail.language")}:</span>{" "}
@@ -269,23 +422,39 @@ export default function CaseDetail() {
       </section>
 
       {/* Evidence */}
-      <section className="card-premium space-y-3 p-5">
-        <h2 className="flex items-center gap-2 font-semibold text-foreground">
+      <section
+        className="space-y-3 rounded-2xl border border-border bg-card p-6"
+        style={{ boxShadow: "var(--card-shadow-rest)" }}
+      >
+        <div className="flex items-center gap-2">
           <CheckCircle2 className="h-4 w-4 text-primary" />
-          {t("enterprise.caseDetail.evidenceSection")}
-        </h2>
+          <h2 className="t-label text-foreground">{t("enterprise.caseDetail.evidenceSection")}</h2>
+        </div>
         {caseData.evidence.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t("enterprise.caseDetail.noEvidence")}</p>
+          <p className="t-sm">{t("enterprise.caseDetail.noEvidence")}</p>
         ) : (
           <div className="space-y-2">
             {caseData.evidence.map((ev) => (
-              <div key={ev.id} className="rounded-lg border border-border/50 bg-muted/20 p-3 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary uppercase">
-                    {ev.evidenceType}
-                  </span>
-                  <span className="font-medium text-foreground">{ev.title}</span>
-                </div>
+              <div
+                key={ev.id}
+                className="flex items-center gap-3 rounded-lg p-3"
+                style={{
+                  background: "hsl(var(--surface-2))",
+                  border: "1px solid hsl(var(--border) / 0.5)",
+                }}
+              >
+                <span
+                  className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    background: "hsl(var(--primary) / 0.12)",
+                    color: "hsl(var(--primary))",
+                    borderColor: "hsl(var(--primary) / 0.25)",
+                  }}
+                >
+                  {ev.evidenceType}
+                </span>
+                <span className="text-sm font-medium text-foreground">{ev.title}</span>
               </div>
             ))}
           </div>
@@ -332,7 +501,12 @@ export default function CaseDetail() {
             </div>
             <div className="flex justify-end gap-2 pt-1">
               <Button variant="ghost" onClick={() => setUpdateOpen(false)}>{t("enterprise.common.cancel")}</Button>
-              <Button onClick={handleUpdate} disabled={updating}>
+              <Button
+                onClick={handleUpdate}
+                disabled={updating}
+                className="text-white"
+                style={{ background: "var(--gradient-brand)", boxShadow: "var(--glow-shadow-sm)" }}
+              >
                 {updating && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
                 {t("enterprise.common.save")}
               </Button>
@@ -370,7 +544,12 @@ export default function CaseDetail() {
             </div>
             <div className="flex justify-end gap-2 pt-1">
               <Button variant="ghost" onClick={() => setFeedbackOpen(false)}>{t("enterprise.common.cancel")}</Button>
-              <Button onClick={handleFeedback} disabled={submittingFeedback}>
+              <Button
+                onClick={handleFeedback}
+                disabled={submittingFeedback}
+                className="text-white"
+                style={{ background: "var(--gradient-brand)", boxShadow: "var(--glow-shadow-sm)" }}
+              >
                 {submittingFeedback && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
                 {t("enterprise.common.submit")}
               </Button>

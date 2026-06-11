@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import datetime
 import logging
+import os
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
@@ -29,8 +30,14 @@ logger = logging.getLogger(__name__)
 # Configuration
 # ---------------------------------------------------------------------------
 
-_DEFAULT_MAX_WORKERS = 2
-_STALE_TASK_MINUTES = 30
+# Read from the same environment variables the application config uses
+# (see backend/config.py: BACKGROUND_ANALYSIS_WORKERS / STALE_TASK_MINUTES).
+# The executor is instantiated at import time -- before any Flask app exists --
+# so it cannot read ``app.config`` directly; aligning on the env var keeps the
+# two in sync.  ``cleanup_stale_tasks`` additionally honours the live app
+# config at call time.
+_DEFAULT_MAX_WORKERS = max(1, int(os.environ.get("BG_ANALYSIS_WORKERS", "2")))
+_STALE_TASK_MINUTES = max(1, int(os.environ.get("STALE_TASK_MINUTES", "30")))
 
 # ---------------------------------------------------------------------------
 # Task registry
@@ -56,6 +63,8 @@ def _run_analysis_background(
     code1: str,
     code2: str,
     language: str,
+    persist_analysis: bool = True,
+    extra_result: dict | None = None,
 ) -> None:
     """Execute an analysis in a background thread.
 
@@ -66,6 +75,16 @@ def _run_analysis_background(
     """
     try:
         with app.app_context():
+            # Mark the task as running so the polling endpoint can distinguish
+            # "queued but not started" (pending) from "actively executing"
+            # (running).  Previously the worker only ever set pending →
+            # completed/failed, so the "running" branch in the API was dead.
+            with _analysis_tasks_lock:
+                task = _analysis_tasks.get(task_id)
+                if task is not None:
+                    task["status"] = "running"
+                    task["started_at"] = datetime.datetime.now(datetime.timezone.utc)
+
             # Deferred import to avoid circular dependency at module load
             # time.  ``analysis_service`` depends on ``progress_service``
             # and ``cache_service``, which are lightweight; but importing it
@@ -76,23 +95,29 @@ def _run_analysis_background(
                 code1,
                 code2,
                 language,
-                persist_analysis=True,
+                persist_analysis=persist_analysis,
                 _bg_user_id=user_id,
             )
+            if extra_result:
+                context.update(extra_result)
             with _analysis_tasks_lock:
+                submitted_at = (_analysis_tasks.get(task_id) or {}).get("submitted_at")
                 _analysis_tasks[task_id] = {
                     "status": "completed",
                     "result": context,
                     "user_id": user_id,
+                    "submitted_at": submitted_at,
                     "completed_at": datetime.datetime.now(datetime.timezone.utc),
                 }
     except Exception as exc:
         logger.error("Background analysis failed: %s", exc, exc_info=True)
         with _analysis_tasks_lock:
+            submitted_at = (_analysis_tasks.get(task_id) or {}).get("submitted_at")
             _analysis_tasks[task_id] = {
                 "status": "failed",
                 "error": "An error occurred during analysis. Please try again.",
                 "user_id": user_id,
+                "submitted_at": submitted_at,
                 "completed_at": datetime.datetime.now(datetime.timezone.utc),
             }
     finally:
@@ -110,6 +135,8 @@ def submit_analysis_task(
     code1: str,
     code2: str,
     language: str,
+    persist_analysis: bool = True,
+    extra_result: dict | None = None,
 ) -> None:
     """Submit a new analysis to the background thread pool.
 
@@ -153,6 +180,8 @@ def submit_analysis_task(
         code1,
         code2,
         language,
+        persist_analysis,
+        extra_result,
     )
     logger.info(
         "Submitted background analysis task %s for user %s [lang=%s]",
@@ -192,7 +221,15 @@ def cleanup_stale_tasks() -> int:
     int
         Number of tasks removed.
     """
-    cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=_STALE_TASK_MINUTES)
+    minutes = _STALE_TASK_MINUTES
+    try:
+        from flask import current_app
+        minutes = int(current_app.config.get("STALE_TASK_MINUTES", _STALE_TASK_MINUTES))
+    except (RuntimeError, KeyError, TypeError, ValueError):
+        # No application context (or misconfigured value): fall back to the
+        # module default derived from the environment.
+        pass
+    cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=minutes)
     removed = 0
     with _analysis_tasks_lock:
         stale_keys = [

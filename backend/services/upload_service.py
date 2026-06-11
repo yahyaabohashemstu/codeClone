@@ -36,6 +36,21 @@ _ZIP_MAX_TOTAL_BYTES: int = 50 * 1024 * 1024          # 50 MB total
 _ZIP_MAX_FILE_COUNT: int = 200
 
 
+def _config_limit(key: str, default: int) -> int:
+    """Return a byte limit, honouring the live app config when available.
+
+    The corresponding keys are declared in :mod:`backend.config`
+    (``MAX_SOURCE_UPLOAD_BYTES`` etc.); module-level constants above remain
+    the fallback for Flask-free contexts (tests, scripts).
+    """
+    try:
+        from flask import current_app
+
+        return max(1, int(current_app.config.get(key, default)))
+    except (RuntimeError, ImportError, TypeError, ValueError):
+        return default
+
+
 # ---------------------------------------------------------------------------
 # Stream helpers
 # ---------------------------------------------------------------------------
@@ -164,8 +179,8 @@ def extract_zip(zip_file, extract_dir: str | None = None) -> list[str]:
         A Werkzeug ``FileStorage`` or file-like object containing the ZIP.
     extract_dir:
         Base directory for temporary extraction.  Defaults to the system
-        temp directory.  In production this should be set to the application
-        ``UPLOAD_FOLDER``.
+        temp directory, which is appropriate in all current deployments —
+        extracted files are read into memory and deleted before returning.
 
     Returns
     -------
@@ -253,10 +268,14 @@ def read_spreadsheet_code(
         On invalid row number, empty spreadsheet, or processing errors.
     """
     ensure_uploaded_file_within_limit(
-        excel_file, MAX_SPREADSHEET_UPLOAD_BYTES, "Spreadsheet upload"
+        excel_file,
+        _config_limit("MAX_SPREADSHEET_UPLOAD_BYTES", MAX_SPREADSHEET_UPLOAD_BYTES),
+        "Spreadsheet upload",
     )
     ensure_zip_like_upload_within_limit(
-        excel_file, MAX_SPREADSHEET_ARCHIVE_BYTES, "Spreadsheet upload"
+        excel_file,
+        _config_limit("MAX_SPREADSHEET_ARCHIVE_BYTES", MAX_SPREADSHEET_ARCHIVE_BYTES),
+        "Spreadsheet upload",
     )
 
     row_number = 1
@@ -364,7 +383,9 @@ def read_uploaded_code(
         code = "\n".join(extract_zip(uploaded_zip, extract_dir=extract_dir))
     elif uploaded_file and getattr(uploaded_file, "filename", None):
         ensure_uploaded_file_within_limit(
-            uploaded_file, MAX_SOURCE_UPLOAD_BYTES, "Source upload"
+            uploaded_file,
+            _config_limit("MAX_SOURCE_UPLOAD_BYTES", MAX_SOURCE_UPLOAD_BYTES),
+            "Source upload",
         )
         file_stream = rewind_uploaded_stream(uploaded_file)
         raw = file_stream.read(_MAX_SINGLE_FILE_BYTES + 1)

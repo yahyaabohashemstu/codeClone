@@ -17,7 +17,6 @@ from backend.api.v1 import v1_bp
 from backend.extensions import limiter
 from backend.services.ai_service import (
     check_ai_health,
-    classify_ai_health_error,
     generate_ai_chat,
 )
 from backend.services.cache_service import get_cached_results_for_user

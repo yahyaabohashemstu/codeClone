@@ -4,10 +4,11 @@ Enterprise code similarity analysis platform powered by AI.
 
 ## Features
 
-- **Multi-language clone detection** -- supports Python, JavaScript, Java, C/C++, and more
+- **Multi-language clone detection** -- 15 languages via tree-sitter (Python, JavaScript, Java, C, Go, Rust, and more)
 - **AI-powered analysis** -- Mistral LLM integration for intelligent code review and explanations
-- **BERT semantic similarity** -- deep learning embeddings for meaning-aware comparison
-- **Enterprise workspaces** -- team-based code review with role-based access control
+- **BERT semantic similarity** -- GraphCodeBERT embeddings for meaning-aware comparison
+- **Enterprise workspaces** -- team-based code review with role-based access control, encrypted storage, and scan workers
+- **CI/CD gate** -- `POST /api/v1/ci/check` similarity check for pull-request pipelines
 - **PDF report generation** -- exportable analysis reports with charts and metrics
 - **Bilingual UI** -- full English and Arabic (RTL) interface support
 
@@ -15,20 +16,28 @@ Enterprise code similarity analysis platform powered by AI.
 
 ```
 CodeClone/
-  app.py                  # Flask backend (REST API, auth, analysis engine)
-  api.py                  # API helper utilities
+  wsgi.py                 # WSGI entry point (creates the app via the factory)
+  backend/                # Modular Flask app: factory, REST API v1, engine, services
   enterprise_platform/    # Enterprise features (workspaces, cases, scans)
+  enterprise_worker.py    # Standalone scan-queue worker (ENTERPRISE_USE_WORKER=1)
+  enterprise_cli.py       # Admin CLI (orgs, workspaces, keys, retention, migrations)
   code-sleuth-react-ui/   # React 18 frontend (Vite + TypeScript + Tailwind)
-  templates/              # Legacy Jinja2 templates (Flask-served pages)
-  static/                 # Legacy static assets
-  functions/              # Deprecated Netlify serverless function
+  templates/              # Single fallback page shown when the React build is missing
+  docker/                 # Dockerfiles, nginx config, dev + prod compose stacks
 ```
 
 **Backend:** Flask + SQLAlchemy + Flask-Login + Waitress WSGI server
 
 **Frontend:** React 18 + TypeScript + Vite + Tailwind CSS + shadcn/ui + Recharts
 
-**Enterprise:** Workspace management, review cases, encrypted data storage
+**Enterprise:** Workspace management, review cases, encrypted data at rest, retention enforcement
+
+> **Same-origin by design.** The backend has no CORS support, sends a
+> `connect-src 'self'` CSP, and uses SameSite session cookies. The SPA must be
+> served from the same origin as the API — either by Flask itself (it serves
+> `code-sleuth-react-ui/dist`) or behind the bundled Nginx `/api` reverse
+> proxy. Pointing a separately-hosted frontend at the API via
+> `VITE_API_BASE_URL` is **not supported**.
 
 ## Prerequisites
 
@@ -38,21 +47,52 @@ CodeClone/
 
 ## Quick Start
 
-```bash
-# Backend
-python -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env  # Edit with your settings
-python app.py
+**Option A — single server (recommended):**
 
-# Frontend (development)
-cd code-sleuth-react-ui
-npm install
-npm run dev
+```bash
+pip install -r requirements.txt
+cp .env.example .env           # edit as needed
+cd code-sleuth-react-ui && npm ci && npm run build && cd ..
+python wsgi.py                 # Flask serves the built SPA + API on :5000
 ```
 
-The frontend dev server proxies `/api` requests to the Flask backend on port 5000.
-Open `http://localhost:8080` in your browser.
+On Windows simply run `start.bat` (does the same).
+
+**Option B — frontend dev server with hot reload:**
+
+```bash
+python wsgi.py                          # API on :5000
+cd code-sleuth-react-ui && npm run dev  # UI on :8080, /api proxied to :5000
+```
+
+On first run with an empty database a default admin is created; its
+credentials are printed to `instance/bootstrap_admin_credentials.txt`
+(or set `DEFAULT_ADMIN_USERNAME` / `DEFAULT_ADMIN_PASSWORD`, min 8 chars).
+
+## Docker
+
+**Development stack** (SQLite, source mounted):
+
+```bash
+docker compose -f docker/docker-compose.yml up --build
+```
+
+Browse `http://localhost:3000` — Nginx serves the SPA and proxies `/api/*`
+to the backend container. Code changes need `docker compose restart backend`
+(Waitress has no auto-reloader).
+
+**Production stack** (PostgreSQL + Redis + dedicated enterprise scan worker):
+
+```bash
+docker compose -f docker/docker-compose.prod.yml up -d --build
+```
+
+The prod file is **standalone — do not combine it with the dev file** (Compose
+merges volume lists, which would leak dev bind-mounts into production).
+Required in `.env`: `SECRET_KEY`, `POSTGRES_PASSWORD`; recommended:
+`ENTERPRISE_DATA_KEY`, `MISTRAL_API_KEY`. The stack terminates plain HTTP on
+`:80`; once TLS is added, remove the `SESSION_COOKIE_SECURE: "0"` override in
+`docker-compose.prod.yml`.
 
 ## Environment Variables
 
@@ -60,60 +100,78 @@ See `.env.example` for all available configuration options. Key variables:
 
 | Variable | Description | Default |
 |---|---|---|
-| `FLASK_SECRET_KEY` | Session signing key | Auto-generated |
+| `SECRET_KEY` | Session signing key (required in production) | Auto-generated (dev) |
+| `BIND_HOST` | Listen address (`0.0.0.0` inside Docker) | `127.0.0.1` |
 | `PORT` | HTTP server port | `5000` |
+| `DATABASE_URL` | SQLAlchemy URL (Postgres driver included) | SQLite in `instance/` |
+| `REDIS_URL` | Rate-limit storage | in-process `memory://` |
 | `MISTRAL_API_KEY` | Mistral AI API key | None |
-| `DEFAULT_ADMIN_PASSWORD` | Initial admin password (min 12 chars) | None |
-| `ENTERPRISE_DATA_KEY` | Encryption key for enterprise data | None |
-| `VITE_API_BASE_URL` | API base URL for production frontend | Empty (same-origin) |
+| `DEFAULT_ADMIN_PASSWORD` | Initial admin password (min 8 chars) | Random, written to `instance/` |
+| `ENTERPRISE_DATA_KEY` | Encryption key for enterprise data at rest | Falls back to `SECRET_KEY` |
+| `ENTERPRISE_USE_WORKER` | `1` = queue scans for `enterprise_worker.py` | unset (in-process scans) |
+| `CI_API_KEY` | Shared secret for `POST /api/v1/ci/check` | None |
 
-## Deployment
+## Enterprise administration
 
-The frontend and backend are deployed separately:
+```bash
+python enterprise_cli.py create-organization --name "Acme"
+python enterprise_cli.py create-workspace --organization-id 1 --name "Course CS101"
+python enterprise_cli.py create-repository --workspace-id 1 --provider github --name app --clone-url https://github.com/acme/app.git
+python enterprise_cli.py enforce-retention --dry-run     # honors retention_days + legal_hold
+python enterprise_cli.py migrate-encryption --dry-run    # re-encrypt legacy ciphertext to v2
+```
 
-**Frontend (Netlify / Vercel):**
+GitHub webhooks work natively: configure the `webhookSecret` returned at
+repository creation as the GitHub webhook **secret** — deliveries are verified
+via `X-Hub-Signature-256` (GitLab uses `X-Gitlab-Token`).
 
-- Static build from `code-sleuth-react-ui/`
-- Configure `VITE_API_BASE_URL` to point to your backend
-- See `netlify.toml` for Netlify configuration
+## Testing
 
-**Backend (Railway / Render / Docker):**
+```bash
+pip install -r requirements-dev.txt
+pytest tests/
+```
 
-- Deploy the Flask application (`app.py`)
-- Set environment variables from `.env.example`
-- Ensure `instance/` directory is writable (SQLite database + key storage)
-- Use Waitress as the WSGI server (included in `requirements.txt`)
+GitHub Actions runs the backend suite with coverage, a frontend
+lint/typecheck/build, and validation builds of both Docker images
+(`.github/workflows/ci.yml`).
 
 ## Project Structure
 
 ```
 CodeClone/
-├── app.py                     # Main Flask application
-├── api.py                     # API utilities
-├── wsgi.py                    # WSGI entry point
-├── requirements.txt           # Python dependencies
+├── wsgi.py                    # WSGI entry point (production)
+├── backend/                   # Modular Flask application
+│   ├── app_factory.py         #   Application factory (create_app)
+│   ├── config.py              #   Environment-driven configuration
+│   ├── api/v1/                #   Versioned REST API endpoints
+│   ├── engine/                #   Clone-detection + AI similarity engine
+│   ├── services/              #   Business logic (analysis, AI, cache, uploads)
+│   ├── models/                #   SQLAlchemy models (User, Analysis)
+│   └── tasks/                 #   Background analysis workers
+├── requirements.txt           # Python runtime dependencies
+├── requirements-dev.txt       # + pinned pytest/pytest-cov for tests & CI
 ├── .env.example               # Environment variable template
-├── netlify.toml               # Netlify deployment config
 ├── enterprise_platform/       # Enterprise module
-│   ├── models.py              #   Database models
-│   ├── routes.py              #   API routes
+│   ├── models.py              #   Database models + encrypted storage
+│   ├── routes.py              #   API routes (/api/enterprise/v1, webhooks)
 │   ├── services.py            #   Business logic
-│   ├── scans.py               #   Code scanning engine
+│   ├── scans.py               #   Scan pipeline + job queue
 │   └── utils.py               #   Shared utilities
+├── enterprise_worker.py       # Standalone scan worker
+├── enterprise_cli.py          # Admin CLI
+├── docker/                    # Dockerfiles, nginx.conf, compose stacks
 ├── code-sleuth-react-ui/      # React frontend
 │   ├── src/
-│   │   ├── components/        #   UI components (common, layout, ui, upload, results)
+│   │   ├── components/        #   UI components (common, layout, ui, results)
 │   │   ├── context/           #   React contexts (Auth, Theme, Language, Analysis)
-│   │   ├── hooks/             #   Custom React hooks
 │   │   ├── lib/               #   Utilities and API client
-│   │   ├── pages/             #   Route pages
-│   │   │   └── enterprise/    #   Enterprise pages
+│   │   ├── pages/             #   Route pages (+ enterprise/)
 │   │   └── types/             #   TypeScript type definitions
-│   ├── vite.config.ts         #   Vite configuration
-│   └── tsconfig.app.json      #   TypeScript configuration
-├── templates/                 # Legacy Jinja2 templates
-├── static/                    # Legacy static assets
-└── instance/                  # Runtime data (SQLite DB, keys)
+│   └── public/                #   Fonts + brand assets (tracked in git)
+├── templates/                 # "Frontend build missing" fallback page
+├── tests/                     # Pytest suite (backend + enterprise)
+└── instance/                  # Runtime data (SQLite DB, keys) — never commit
 ```
 
 ## License

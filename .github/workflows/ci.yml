@@ -31,15 +31,23 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: pip-${{ runner.os }}-py3.11-${{ hashFiles('requirements.txt') }}
+          key: pip-${{ runner.os }}-py3.11-${{ hashFiles('requirements.txt', 'requirements-dev.txt') }}
           restore-keys: |
             pip-${{ runner.os }}-py3.11-
+
+      # The CI tests exercise the real GraphCodeBERT model; cache the
+      # HuggingFace download (~500 MB) so it is not re-fetched every run
+      # (the pip cache above does not cover model files).
+      - name: Cache HuggingFace models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-models-graphcodebert-base-v1
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest pytest-cov
+          pip install -r requirements-dev.txt
 
       - name: Run tests with coverage
         env:
@@ -50,6 +58,7 @@ jobs:
             --cov=enterprise_platform \
             --cov-report=term-missing \
             --cov-report=xml:coverage.xml \
+            --cov-fail-under=45 \
             -v
 
       - name: Upload coverage report
@@ -80,10 +89,12 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Cache npm packages
+      # Cache the npm download cache, NOT node_modules: `npm ci` deletes
+      # node_modules at install start, so caching it provided zero speedup.
+      - name: Cache npm download cache
         uses: actions/cache@v4
         with:
-          path: code-sleuth-react-ui/node_modules
+          path: ~/.npm
           key: npm-${{ runner.os }}-node20-${{ hashFiles('code-sleuth-react-ui/package-lock.json') }}
           restore-keys: |
             npm-${{ runner.os }}-node20-

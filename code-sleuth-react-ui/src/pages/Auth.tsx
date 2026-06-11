@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowRight, Code2, Eye, EyeOff, Lock, UserRound } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Lock, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
@@ -21,12 +21,8 @@ const Auth = () => {
   const [error, setError] = useState("");
 
   const rawFrom = (location.state as { from?: string })?.from;
-  const redirectTarget = rawFrom && rawFrom.startsWith("/") && !rawFrom.startsWith("//") ? rawFrom : "/analysis";
-
-  const featureCards = t("auth.featureCards", { returnObjects: true }) as Array<{
-    title: string;
-    description: string;
-  }>;
+  const redirectTarget =
+    rawFrom && rawFrom.startsWith("/") && !rawFrom.startsWith("//") ? rawFrom : "/analysis";
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -42,138 +38,177 @@ const Auth = () => {
       await login(username.trim(), password);
       navigate(redirectTarget, { replace: true });
     } catch (submitError) {
-      setError(submitError instanceof Error ? localizeRuntimeMessage(submitError.message) : t("auth.errors.invalidCredentials"));
+      setError(
+        submitError instanceof Error
+          ? localizeRuntimeMessage(submitError.message)
+          : t("auth.errors.invalidCredentials"),
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="grid w-full max-w-6xl gap-8 lg:grid-cols-[1.05fr_0.95fr]">
-      <section className="card-premium relative overflow-hidden border-primary/20 bg-gradient-brand p-10 text-white shadow-glow-md">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.18),transparent_45%),linear-gradient(180deg,rgba(255,255,255,0.08),transparent)]" />
-        <div className="relative space-y-8">
-          <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-sm">
-              <Code2 className="h-7 w-7" />
+    <div
+      className="mx-auto grid w-full max-w-6xl overflow-hidden rounded-2xl border border-border bg-card md:grid-cols-2"
+      style={{ minHeight: "640px", boxShadow: "var(--card-shadow-rest)" }}
+    >
+      {/* ── Brand side (dark panel) ── */}
+      <section
+        className="relative flex flex-col justify-between overflow-hidden p-10 text-white"
+        style={{ background: "hsl(222 28% 7%)" }}
+      >
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-20 -top-32 h-[500px] w-[500px] rounded-full"
+          style={{ background: "radial-gradient(circle, hsl(var(--primary) / 0.4), transparent 70%)" }}
+        />
+
+        <div className="relative">
+          <div className="flex items-center gap-3">
+            <div
+              className="flex h-10 w-10 items-center justify-center rounded-[10px] overflow-hidden"
+              style={{ background: "var(--gradient-brand)" }}
+            >
+              <img src="/brand/logo.png" alt="CodeSimilar" className="h-10 w-10 object-contain" />
             </div>
-            <div>
-              <div className="text-3xl font-bold tracking-tight">CodeSimilar</div>
-              <div className="text-sm text-white/80">{t("auth.platform")}</div>
-            </div>
+            <span className="text-[18px] font-extrabold tracking-tight">CodeSimilar</span>
           </div>
 
-          <div className="space-y-4">
-            <h1 className="max-w-xl text-4xl font-bold leading-[1.15] sm:text-5xl">
-              {t("auth.welcomeTitle")}
-            </h1>
-            <p className="max-w-xl text-lg leading-relaxed text-white/80">
-              {t("auth.welcomeSubtitle")}
-            </p>
-          </div>
+          <h2
+            className="mt-10 text-4xl font-extrabold leading-[1.1]"
+            style={{ letterSpacing: "-0.025em" }}
+          >
+            {t("auth.welcomeTitle")}
+          </h2>
+          <p className="mt-4 max-w-[40ch] text-sm leading-[1.6] text-white/70">
+            {t("auth.welcomeSubtitle")}
+          </p>
+        </div>
 
-          <div className="grid gap-4">
-            {featureCards.map((item) => (
-              <div key={item.title} className="rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur-sm">
-                <h3 className="text-xl font-semibold">{item.title}</h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-white/78">{item.description}</p>
-              </div>
-            ))}
-          </div>
+        <div
+          className="relative mt-10 rounded-lg border-l-[3px] border-primary p-5 text-sm leading-[1.6]"
+          style={{ background: "rgba(255,255,255,0.05)" }}
+        >
+          {t("auth.quote")}
+          <div className="mt-2 text-xs not-italic text-white/60">— {t("auth.quoteCite")}</div>
         </div>
       </section>
 
-      <section className="card-premium p-8 sm:p-10">
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Lock className="h-4 w-4" />
-              {t("auth.secureAccess")}
-            </div>
-            <h2 className="text-3xl font-bold tracking-tight text-foreground">{t("auth.signIn")}</h2>
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              {t("auth.loginDescription")}
-            </p>
-          </div>
-
-          {error && (
-            <div className="rounded-xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              {error}
-            </div>
-          )}
-
-          <form className="space-y-4" onSubmit={(event) => void handleSubmit(event)}>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-foreground/80">{t("auth.username")}</label>
-              <div className="relative">
-                <UserRound className={cn("absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground", isRTL ? "right-3" : "left-3")} />
-                <Input
-                  type="text"
-                  placeholder={t("auth.usernamePlaceholder")}
-                  value={username}
-                  autoComplete="username"
-                  onChange={(event) => setUsername(event.target.value)}
-                  className={cn(
-                    "h-11 border-border/60 bg-muted/30 text-sm focus:border-primary/60 focus:ring-primary/20",
-                    isRTL ? "pr-9 text-right" : "pl-9",
-                  )}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-foreground/80">{t("auth.password")}</label>
-              <div className="relative">
-                <Lock className={cn("absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground", isRTL ? "right-3" : "left-3")} />
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  placeholder={t("auth.passwordPlaceholder")}
-                  value={password}
-                  autoComplete="current-password"
-                  onChange={(event) => setPassword(event.target.value)}
-                  className={cn(
-                    "h-11 border-border/60 bg-muted/30 text-sm focus:border-primary/60 focus:ring-primary/20",
-                    isRTL ? "pr-9 pl-10 text-right" : "pl-9 pr-10",
-                  )}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((current) => !current)}
-                  className={cn("absolute top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground", isRTL ? "left-3" : "right-3")}
-                >
-                  {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                </button>
-              </div>
-            </div>
-
-            <Button type="submit" className="h-11 w-full gap-2 shadow-glow-sm font-medium" disabled={isSubmitting}>
-              {isSubmitting ? (
-                <span className="flex items-center gap-2">
-                  <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary-foreground/40 border-t-primary-foreground" />
-                  {t("auth.signingIn")}
-                </span>
-              ) : (
-                <>
-                  {t("auth.submitLogin")}
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </>
-              )}
-            </Button>
-          </form>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-border/40" />
-            </div>
-            <div className="relative flex justify-center">
-              <span className="bg-card px-3 text-xs text-muted-foreground">{t("auth.orExploreFirst")}</span>
-            </div>
-          </div>
-
-          <Button asChild variant="outline" className="h-11 w-full border-border/60 text-sm hover:border-primary/40">
-            <Link to="/">{t("auth.goHome")}</Link>
-          </Button>
+      {/* ── Form side ── */}
+      <section className="flex flex-col justify-center p-10">
+        <div className="mb-6 flex items-center justify-end gap-2 text-xs text-muted-foreground">
+          <Lock className="h-3.5 w-3.5" />
+          {t("auth.secureAccess")}
         </div>
+
+        <h3 className="text-2xl font-bold tracking-tight" style={{ letterSpacing: "-0.015em" }}>
+          {t("auth.signIn")}
+        </h3>
+        <p className="mt-1.5 mb-6 text-sm text-muted-foreground">{t("auth.loginDescription")}</p>
+
+        {error && (
+          <div
+            className="mb-4 rounded-md border px-4 py-3 text-sm"
+            style={{
+              borderColor: "hsl(var(--destructive) / 0.25)",
+              background: "hsl(var(--destructive) / 0.06)",
+              color: "hsl(var(--destructive))",
+            }}
+            role="alert"
+          >
+            {error}
+          </div>
+        )}
+
+        <form className="space-y-4" onSubmit={(e) => void handleSubmit(e)}>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-foreground">
+              {t("auth.username")}
+            </label>
+            <div className="relative">
+              <UserRound
+                className={cn(
+                  "absolute top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground",
+                  isRTL ? "right-3" : "left-3",
+                )}
+              />
+              <Input
+                type="text"
+                placeholder={t("auth.usernamePlaceholder")}
+                value={username}
+                autoComplete="username"
+                onChange={(e) => setUsername(e.target.value)}
+                className={cn("h-10", isRTL ? "pr-10 text-right" : "pl-10")}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-foreground">
+              {t("auth.password")}
+            </label>
+            <div className="relative">
+              <Lock
+                className={cn(
+                  "absolute top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground",
+                  isRTL ? "right-3" : "left-3",
+                )}
+              />
+              <Input
+                type={showPassword ? "text" : "password"}
+                placeholder={t("auth.passwordPlaceholder")}
+                value={password}
+                autoComplete="current-password"
+                onChange={(e) => setPassword(e.target.value)}
+                className={cn("h-10", isRTL ? "pr-10 pl-10 text-right" : "pl-10 pr-10")}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className={cn(
+                  "absolute top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground",
+                  isRTL ? "left-3" : "right-3",
+                )}
+                aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+
+          <Button
+            type="submit"
+            disabled={isSubmitting}
+            className="mt-2 h-11 w-full gap-2 text-white"
+            style={{ background: "var(--gradient-brand)", boxShadow: "var(--glow-shadow-sm)" }}
+          >
+            {isSubmitting ? (
+              <span className="flex items-center gap-2">
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                {t("auth.signingIn")}
+              </span>
+            ) : (
+              <>
+                {t("auth.submitLogin")}
+                <ArrowRight className="h-4 w-4" />
+              </>
+            )}
+          </Button>
+        </form>
+
+        <div
+          className="my-5 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground"
+          aria-hidden
+        >
+          <span className="h-px flex-1 bg-border" />
+          {t("auth.or")}
+          <span className="h-px flex-1 bg-border" />
+        </div>
+
+        <Button asChild variant="outline" className="h-10 w-full text-sm">
+          <Link to="/">{t("auth.goHome")}</Link>
+        </Button>
       </section>
     </div>
   );

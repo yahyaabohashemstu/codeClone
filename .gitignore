@@ -65,3 +65,7 @@ app.py.react_migration_backup
 
 # Claude Code local settings (may contain sensitive paths)
 .claude/
+
+# Local working materials (raw font downloads + design-spec kit), not runtime code
+fonts/
+new design/

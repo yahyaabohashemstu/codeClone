@@ -1068,16 +1068,21 @@ const Results = () => {
     const emptyStateDescription = error || t("results.emptyDescription");
 
     return (
-      <div className="card-premium mx-auto max-w-2xl p-10 text-center">
-        <h2 className="text-2xl font-bold text-foreground">{emptyStateTitle}</h2>
-        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          {emptyStateDescription}
-        </p>
+      <div
+        className="mx-auto max-w-2xl rounded-2xl border border-border bg-card p-10 text-center"
+        style={{ boxShadow: "var(--card-shadow-rest)" }}
+      >
+        <h2 className="h-3">{emptyStateTitle}</h2>
+        <p className="mx-auto mt-3 max-w-md t-body">{emptyStateDescription}</p>
         <div className="mt-6 flex justify-center gap-3">
-          <Button asChild>
+          <Button
+            asChild
+            className="h-10 gap-2 text-white"
+            style={{ background: "var(--gradient-brand)", boxShadow: "var(--glow-shadow-sm)" }}
+          >
             <Link to="/analysis">{t("results.startAnalysis")}</Link>
           </Button>
-          <Button asChild variant="outline">
+          <Button asChild variant="outline" className="h-10">
             <Link to="/history">{t("results.openHistory")}</Link>
           </Button>
         </div>
@@ -1085,127 +1090,259 @@ const Results = () => {
     );
   }
 
+  // Score ring colors
+  const scoreRingColor =
+    overallScore >= 80
+      ? "hsl(var(--destructive))"
+      : overallScore >= 50
+        ? "hsl(var(--warning))"
+        : "hsl(var(--success))";
+
   return (
     <div className="space-y-5 animate-fade-in" ref={resultRef}>
-      {error && <div className="rounded-xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>}
+      {error && (
+        <div
+          className="rounded-xl border px-4 py-3 text-sm"
+          style={{
+            borderColor: "hsl(var(--destructive) / 0.25)",
+            background: "hsl(var(--destructive) / 0.06)",
+            color: "hsl(var(--destructive))",
+          }}
+          role="alert"
+        >
+          {error}
+        </div>
+      )}
 
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Link to="/analysis">
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">{t("results.title")}</h1>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {result.source_labels.code1} \u2194 {result.source_labels.code2} \u00b7 {getProgrammingLanguageLabel(result.language)}
-              {result.saved_analysis_id ? ` \u00b7 ${t("results.saved")} #${result.saved_analysis_id}` : ""}
+      {/* Main result header — score ring + title + actions */}
+      <section
+        className="overflow-hidden rounded-2xl border border-border bg-card"
+        style={{ boxShadow: "var(--card-shadow-rest)" }}
+      >
+        <div className="flex flex-wrap items-center gap-6 p-6">
+          {/* Score ring */}
+          <div className="relative h-32 w-32 shrink-0">
+            <svg className="h-full w-full -rotate-90" viewBox="0 0 128 128">
+              <defs>
+                <linearGradient id="score-gr" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor={scoreRingColor} />
+                  <stop offset="100%" stopColor={scoreRingColor} stopOpacity="0.7" />
+                </linearGradient>
+              </defs>
+              <circle
+                cx="64"
+                cy="64"
+                r="56"
+                fill="none"
+                stroke="hsl(var(--muted))"
+                strokeWidth="10"
+              />
+              <circle
+                cx="64"
+                cy="64"
+                r="56"
+                fill="none"
+                stroke="url(#score-gr)"
+                strokeWidth="10"
+                strokeLinecap="round"
+                strokeDasharray={2 * Math.PI * 56}
+                strokeDashoffset={2 * Math.PI * 56 * (1 - overallScore / 100)}
+                style={{ transition: "stroke-dashoffset 1s ease" }}
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span
+                className={cn(
+                  "font-mono font-bold leading-none tabular-nums",
+                  scoreTone.color,
+                  isCompactOverallScore ? "text-[1.75rem]" : "text-[2.125rem]",
+                )}
+                style={{ letterSpacing: "-0.04em" }}
+              >
+                {overallScoreLabel}
+              </span>
+              <span
+                className="mt-1 font-mono text-[11px] font-semibold text-muted-foreground"
+                style={{ letterSpacing: "0.04em" }}
+              >
+                % {t("results.match", { defaultValue: "match" }).toLowerCase()}
+              </span>
+            </div>
+          </div>
+
+          {/* Title + source labels */}
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {result.saved_analysis_id && (
+                <span
+                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 font-mono text-xs font-semibold"
+                  style={{
+                    background: "hsl(var(--secondary))",
+                    color: "hsl(var(--secondary-foreground))",
+                  }}
+                >
+                  #{result.saved_analysis_id}
+                </span>
+              )}
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold",
+                  scoreTone.badge,
+                )}
+              >
+                {scoreTone.label}
+              </span>
+              <span
+                className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                style={{
+                  background: "hsl(var(--secondary))",
+                  color: "hsl(var(--secondary-foreground))",
+                }}
+              >
+                {getProgrammingLanguageLabel(result.language)}
+              </span>
+            </div>
+            <h1 className="h-3 truncate">
+              {result.source_labels.code1} × {result.source_labels.code2}
+            </h1>
+            <p className="max-w-2xl text-sm text-muted-foreground">
+              {t("results.summaryDescription")}
             </p>
+          </div>
+
+          {/* Actions */}
+          <div className="flex shrink-0 flex-col gap-2">
+            <Button
+              size="sm"
+              className="h-9 gap-2 text-white"
+              style={{
+                background: "var(--gradient-brand)",
+                boxShadow: "var(--glow-shadow-sm)",
+              }}
+              onClick={() => setPdfOpen(true)}
+            >
+              <Download className="h-4 w-4" />
+              {t("results.export.pdf")}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 gap-2"
+              onClick={() => setActiveTab("chat")}
+            >
+              <Sparkles className="h-4 w-4" />
+              {t("results.askAnalyst", { defaultValue: "Ask analyst" })}
+            </Button>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs border-success/30 text-success" disabled>
-            <Bookmark className="h-3.5 w-3.5 fill-success" />
+        {/* Top engines row */}
+        <div
+          className="grid grid-cols-2 gap-3 border-t border-border p-6 sm:grid-cols-4"
+          style={{ background: "hsl(var(--surface-2) / 0.5)" }}
+        >
+          {result.similarity_items.slice(0, 4).map((item) => {
+            const color =
+              item.value >= 80
+                ? "hsl(var(--destructive))"
+                : item.value >= 50
+                  ? "hsl(var(--warning))"
+                  : "hsl(var(--success))";
+            return (
+              <div
+                key={item.name}
+                className="rounded-md p-3"
+                style={{ background: "hsl(var(--surface-2))" }}
+              >
+                <div className="t-label truncate">{translateSimilarityName(item.name, t)}</div>
+                <div
+                  className="mt-1 font-mono text-xl font-bold tabular-nums"
+                  style={{ color, letterSpacing: "-0.01em" }}
+                >
+                  {item.value.toFixed(1)}%
+                </div>
+                <div
+                  className="mt-2 h-1 overflow-hidden rounded-full"
+                  style={{ background: "hsl(var(--muted))" }}
+                >
+                  <div
+                    className="h-full transition-all duration-700"
+                    style={{ width: `${Math.min(100, item.value)}%`, background: color }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Secondary actions strip */}
+        <div className="flex flex-wrap items-center gap-2 border-t border-border px-6 py-3">
+          <Link to="/analysis">
+            <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs">
+              <ChevronLeft className="h-3.5 w-3.5" />
+              {t("buttons.backToAnalysis", { defaultValue: "Back" })}
+            </Button>
+          </Link>
+          <div className="mx-1 h-4 w-px bg-border" />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1.5 text-xs"
+            disabled
+            style={{ color: "hsl(var(--success))" }}
+          >
+            <Bookmark className="h-3.5 w-3.5" />
             {result.saved_analysis_id ? t("results.saved") : t("results.autoSaveUnavailable")}
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 gap-1.5 text-xs border-primary/40 text-primary hover:bg-primary/8 hover:border-primary/60"
-            onClick={() => setPdfOpen(true)}
-          >
-            <FileText className="h-3.5 w-3.5" />
-            {t("results.export.pdf")}
-          </Button>
+          <div className="mx-1 h-4 w-px bg-border" />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs border-border/60">
+              <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs">
                 <Download className="h-3.5 w-3.5" />
                 {t("results.export.button")}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => exportAsJson(result)}>{t("results.export.json")}</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => exportAsText(result, t)}>{t("results.export.text")}</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportAsJson(result)}>
+                {t("results.export.json")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportAsText(result, t)}>
+                {t("results.export.text")}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => void handleRerun()} disabled={isLoading}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1.5 text-xs"
+            onClick={() => void handleRerun()}
+            disabled={isLoading}
+          >
             <RefreshCw className="h-3.5 w-3.5" />
             {t("results.rerun")}
           </Button>
         </div>
-      </div>
+      </section>
 
-      <div className="card-premium flex flex-wrap items-center gap-6 px-6 py-5">
-        <div className="relative h-24 w-24 shrink-0">
-          <svg className="h-full w-full -rotate-90" viewBox="0 0 80 80">
-            <circle cx="40" cy="40" r="34" fill="transparent" stroke="hsl(var(--muted))" strokeWidth="6" />
-            <circle
-              cx="40"
-              cy="40"
-              r="34"
-              fill="transparent"
-              stroke={overallScore >= 80 ? "hsl(var(--destructive))" : overallScore >= 50 ? "hsl(var(--warning))" : "hsl(var(--success))"}
-              strokeWidth="6"
-              strokeLinecap="round"
-              strokeDasharray={2 * Math.PI * 34}
-              strokeDashoffset={2 * Math.PI * 34 * (1 - overallScore / 100)}
-              style={{ transition: "stroke-dashoffset 1s ease" }}
-            />
-          </svg>
-          <div className="absolute inset-[13px] flex flex-col items-center justify-center rounded-full border border-border/50 bg-background/85 shadow-[inset_0_1px_0_hsl(var(--background)/0.9),0_10px_24px_hsl(var(--background)/0.22)] backdrop-blur-[2px]">
-            <div className="flex items-end justify-center leading-none">
-              <span
-                className={cn(
-                  "tabular-nums font-bold tracking-[-0.06em]",
-                  isCompactOverallScore ? "text-[1.28rem]" : "text-[1.45rem]",
-                  scoreTone.color,
-                )}
-              >
-                {overallScoreLabel}
-              </span>
-              <span className={cn("mb-0.5 text-[0.72rem] font-semibold", scoreTone.color)}>%</span>
-            </div>
-            <span className="mt-1 text-[0.52rem] font-semibold uppercase tracking-[0.22em] text-muted-foreground">{t("results.similarity")}</span>
-          </div>
-        </div>
-
-        <div className="min-w-0 flex-1 space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className={cn("text-lg font-bold", scoreTone.color)}>{scoreTone.label}</span>
-            <span className={scoreTone.badge}>{getProgrammingLanguageLabel(result.language)}</span>
-          </div>
-          <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">
-            {t("results.summaryDescription")}
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {result.similarity_items.slice(0, 3).map((item) => (
-            <div key={item.name} className="rounded-lg border border-border/50 bg-muted/30 px-3 py-2 text-center">
-              <div className="text-sm font-bold text-foreground">{item.value.toFixed(1)}%</div>
-              <div className="text-[10px] text-muted-foreground">{translateSimilarityName(item.name, t)}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-1 border-b border-border/50">
+      {/* Tabs — underline style */}
+      <div className="flex flex-wrap gap-1 border-b border-border overflow-x-auto">
         {tabs.map((tab) => {
           const Icon = tab.icon;
+          const active = activeTab === tab.id;
           return (
             <button
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                "-mb-px flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-xs font-medium transition-all",
-                activeTab === tab.id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground",
+                "-mb-px flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition-all",
+                active
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
               )}
+              style={active ? { fontWeight: 600 } : undefined}
             >
-              <Icon className="h-3.5 w-3.5" />
+              <Icon className="h-4 w-4" />
               {tab.label}
             </button>
           );

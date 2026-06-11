@@ -50,11 +50,38 @@ function StatCard({ icon: Icon, label, value, sub, color }: {
   color?: string;
 }) {
   return (
-    <div className="stat-card">
-      <Icon className={cn("mb-2 h-4 w-4", color ?? "text-primary")} />
-      <div className="text-2xl font-bold tracking-tight text-foreground">{value}</div>
-      <div className="mt-0.5 text-xs font-medium text-foreground">{label}</div>
-      {sub && <div className="mt-1 text-xs text-muted-foreground">{sub}</div>}
+    <div
+      className="rounded-xl border border-border bg-card p-5 transition-all hover:-translate-y-0.5"
+      style={{ boxShadow: "var(--card-shadow-rest)" }}
+    >
+      <div className="flex items-center justify-between">
+        <span className="t-label">{label}</span>
+        <Icon className={cn("h-4 w-4", color ?? "text-muted-foreground/70")} />
+      </div>
+      <div
+        className="mt-3 text-3xl font-bold tracking-tight text-foreground"
+        style={{ fontVariantNumeric: "tabular-nums", fontFamily: "var(--font-mono)", letterSpacing: "-0.02em" }}
+      >
+        {value}
+      </div>
+      {sub && <div className="mt-1 t-xs">{sub}</div>}
+    </div>
+  );
+}
+
+function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div
+      className="overflow-hidden rounded-2xl border border-border bg-card"
+      style={{ boxShadow: "var(--card-shadow-rest)" }}
+    >
+      <div
+        className="border-b border-border px-5 py-3"
+        style={{ background: "hsl(var(--surface-2))" }}
+      >
+        <h3 className="t-label text-foreground">{title}</h3>
+      </div>
+      <div className="p-4">{children}</div>
     </div>
   );
 }
@@ -86,12 +113,28 @@ const Analytics = () => {
 
   if (data.total === 0) {
     return (
-      <div className="card-premium mx-auto max-w-xl p-12 text-center">
-        <BarChart3 className="mx-auto mb-4 h-12 w-12 text-muted-foreground/30" />
-        <h2 className="text-xl font-bold text-foreground">{t("analytics.title")}</h2>
-        <p className="mt-3 text-sm text-muted-foreground">{t("analytics.noData")}</p>
-        <Button asChild className="mt-6">
-          <Link to="/analysis"><Plus className="mr-2 h-4 w-4" />{t("analytics.startAnalysis")}</Link>
+      <div
+        className="mx-auto max-w-xl rounded-2xl border border-border bg-card p-12 text-center"
+        style={{ boxShadow: "var(--card-shadow-rest)" }}
+      >
+        <div
+          className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full text-white"
+          style={{ background: "var(--gradient-brand)", boxShadow: "var(--glow-shadow-sm)" }}
+        >
+          <BarChart3 className="h-7 w-7" />
+        </div>
+        <h2 className="h-3">{t("analytics.title")}</h2>
+        <p className="mt-3 t-body">{t("analytics.noData")}</p>
+        <Button
+          asChild
+          size="lg"
+          className="mt-6 h-11 gap-2 px-5 text-white"
+          style={{ background: "var(--gradient-brand)", boxShadow: "var(--glow-shadow-sm)" }}
+        >
+          <Link to="/analysis">
+            <Plus className="h-4 w-4" />
+            {t("analytics.startAnalysis")}
+          </Link>
         </Button>
       </div>
     );
@@ -99,6 +142,7 @@ const Analytics = () => {
 
   const topScore = data.top_analyses[0]?.similarity ?? 0;
   const uniqueLangs = data.language_dist.length;
+  const totalActivity = data.activity.reduce((sum, d) => sum + d.count, 0);
 
   // Shorten dates to MM/DD for activity chart
   const activityData = data.activity.map((d) => ({
@@ -108,65 +152,134 @@ const Analytics = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="page-header">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <BarChart3 className="h-6 w-6 text-primary" />
-          {t("analytics.title")}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t("analytics.description")}</p>
-      </div>
+      {/* Hero header card */}
+      <section
+        className="relative overflow-hidden rounded-2xl border border-border bg-card"
+        style={{ boxShadow: "var(--card-shadow-rest)" }}
+      >
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-24 right-0 h-56 w-96 rounded-full opacity-30 blur-3xl"
+          style={{ background: "radial-gradient(ellipse, hsl(var(--primary) / 0.28), transparent 70%)" }}
+        />
+        <div className="relative p-6">
+          <div
+            className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold text-primary"
+            style={{ background: "hsl(var(--primary) / 0.08)", border: "1px solid hsl(var(--primary) / 0.18)" }}
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+            <BarChart3 className="h-3 w-3" />
+            {t("analytics.eyebrow", { defaultValue: "Insights overview" })}
+          </div>
+          <h1 className="mt-3 h-2">{t("analytics.title")}</h1>
+          <p className="mt-1 max-w-[60ch] t-body">{t("analytics.description")}</p>
+        </div>
+      </section>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-        <StatCard icon={Activity} label={t("analytics.totalAnalyses")} value={data.total} sub={t("analytics.totalDesc")} />
-        <StatCard icon={GitCompare} label={t("analytics.languages")} value={uniqueLangs} sub={t("analytics.languagesDesc")} color="text-accent" />
-        <StatCard icon={TrendingUp} label={t("analytics.topScore")} value={`${topScore.toFixed(1)}%`} sub={t("analytics.topScoreDesc")} color="text-warning" />
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <StatCard
+          icon={Activity}
+          label={t("analytics.totalAnalyses")}
+          value={data.total}
+          sub={t("analytics.totalDesc")}
+          color="text-primary"
+        />
+        <StatCard
+          icon={GitCompare}
+          label={t("analytics.languages")}
+          value={uniqueLangs}
+          sub={t("analytics.languagesDesc")}
+          color="text-accent"
+        />
+        <StatCard
+          icon={TrendingUp}
+          label={t("analytics.topScore")}
+          value={`${topScore.toFixed(1)}%`}
+          sub={t("analytics.topScoreDesc")}
+          color="text-warning"
+        />
+        <StatCard
+          icon={Clock7Icon}
+          label={t("analytics.last7Days", { defaultValue: "Last 7 days" })}
+          value={totalActivity}
+          sub={t("analytics.analyses")}
+          color="text-success"
+        />
       </div>
 
       {/* Activity chart */}
-      <div className="card-premium overflow-hidden">
-        <div className="border-b border-border/50 px-5 py-4">
-          <h3 className="text-sm font-semibold text-foreground">{t("analytics.activity")}</h3>
-        </div>
-        <div className="p-4">
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={activityData} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
-              <defs>
-                <linearGradient id="actGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(235 84% 59%)" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="hsl(235 84% 59%)" stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.4)" />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} interval={4} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} />
-              <Tooltip
-                contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
-                labelStyle={{ color: "hsl(var(--foreground))" }}
-              />
-              <Area type="monotone" dataKey="count" stroke="hsl(235 84% 59%)" strokeWidth={2} fill="url(#actGrad)" name={t("analytics.analyses")} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+      <ChartCard title={t("analytics.activity")}>
+        <ResponsiveContainer width="100%" height={220}>
+          <AreaChart data={activityData} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
+            <defs>
+              <linearGradient id="actGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="hsl(235 84% 59%)" stopOpacity={0.35} />
+                <stop offset="95%" stopColor="hsl(235 84% 59%)" stopOpacity={0.02} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.4)" />
+            <XAxis
+              dataKey="date"
+              tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontFamily: "var(--font-mono)" }}
+              tickLine={false}
+              interval={4}
+            />
+            <YAxis
+              allowDecimals={false}
+              tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontFamily: "var(--font-mono)" }}
+              tickLine={false}
+            />
+            <Tooltip
+              contentStyle={{
+                background: "hsl(var(--card))",
+                border: "1px solid hsl(var(--border))",
+                borderRadius: 12,
+                fontSize: 12,
+                boxShadow: "var(--card-shadow-rest)",
+              }}
+              labelStyle={{ color: "hsl(var(--foreground))" }}
+            />
+            <Area
+              type="monotone"
+              dataKey="count"
+              stroke="hsl(235 84% 59%)"
+              strokeWidth={2}
+              fill="url(#actGrad)"
+              name={t("analytics.analyses")}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </ChartCard>
 
       {/* Two-column row */}
       <div className="grid gap-5 xl:grid-cols-2">
         {/* Language distribution */}
-        <div className="card-premium overflow-hidden">
-          <div className="border-b border-border/50 px-5 py-4">
-            <h3 className="text-sm font-semibold text-foreground">{t("analytics.langDist")}</h3>
-          </div>
-          <div className="flex items-center justify-center gap-4 p-4">
-            <ResponsiveContainer width="45%" height={180}>
+        <ChartCard title={t("analytics.langDist")}>
+          <div className="flex items-center justify-center gap-4">
+            <ResponsiveContainer width="45%" height={200}>
               <PieChart>
-                <Pie data={data.language_dist} dataKey="count" nameKey="language" cx="50%" cy="50%" outerRadius={72} strokeWidth={0}>
+                <Pie
+                  data={data.language_dist}
+                  dataKey="count"
+                  nameKey="language"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={80}
+                  strokeWidth={0}
+                >
                   {data.language_dist.map((_, i) => (
                     <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
                   ))}
                 </Pie>
                 <Tooltip
-                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
+                  contentStyle={{
+                    background: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: 12,
+                    fontSize: 12,
+                    boxShadow: "var(--card-shadow-rest)",
+                  }}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -174,99 +287,167 @@ const Analytics = () => {
               {data.language_dist.slice(0, 7).map((d, i) => (
                 <div key={d.language} className="flex items-center justify-between gap-2 text-xs">
                   <span className="flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full shrink-0" style={{ background: PALETTE[i % PALETTE.length] }} />
-                    <span className="text-foreground font-medium capitalize">{d.language}</span>
+                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: PALETTE[i % PALETTE.length] }} />
+                    <span className="font-medium capitalize text-foreground">{d.language}</span>
                   </span>
-                  <span className="text-muted-foreground tabular-nums">{d.count}</span>
+                  <span
+                    className="tabular-nums text-muted-foreground"
+                    style={{ fontFamily: "var(--font-mono)" }}
+                  >
+                    {d.count}
+                  </span>
                 </div>
               ))}
             </div>
           </div>
-        </div>
+        </ChartCard>
 
         {/* Similarity distribution */}
-        <div className="card-premium overflow-hidden">
-          <div className="border-b border-border/50 px-5 py-4">
-            <h3 className="text-sm font-semibold text-foreground">{t("analytics.simDist")}</h3>
-          </div>
-          <div className="p-4">
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={data.similarity_dist} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.4)" />
-                <XAxis dataKey="range" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} />
-                <Tooltip
-                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
-                />
-                <Bar dataKey="count" radius={[4, 4, 0, 0]} name={t("analytics.count")}>
-                  {data.similarity_dist.map((d) => (
-                    <Cell
-                      key={d.range}
-                      fill={
-                        d.range === "75-100"
-                          ? "hsl(var(--destructive))"
-                          : d.range === "50-75"
-                          ? "hsl(var(--warning))"
-                          : d.range === "25-50"
-                          ? "hsl(235 84% 59%)"
-                          : "hsl(var(--success))"
-                      }
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+        <ChartCard title={t("analytics.simDist")}>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={data.similarity_dist} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.4)" />
+              <XAxis
+                dataKey="range"
+                tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))", fontFamily: "var(--font-mono)" }}
+                tickLine={false}
+              />
+              <YAxis
+                allowDecimals={false}
+                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontFamily: "var(--font-mono)" }}
+                tickLine={false}
+              />
+              <Tooltip
+                contentStyle={{
+                  background: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
+                  borderRadius: 12,
+                  fontSize: 12,
+                  boxShadow: "var(--card-shadow-rest)",
+                }}
+              />
+              <Bar dataKey="count" radius={[6, 6, 0, 0]} name={t("analytics.count")}>
+                {data.similarity_dist.map((d) => (
+                  <Cell
+                    key={d.range}
+                    fill={
+                      d.range === "75-100"
+                        ? "hsl(var(--destructive))"
+                        : d.range === "50-75"
+                        ? "hsl(var(--warning))"
+                        : d.range === "25-50"
+                        ? "hsl(235 84% 59%)"
+                        : "hsl(var(--success))"
+                    }
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
       </div>
 
       {/* Clone type frequency */}
       {data.clone_dist.length > 0 && (
-        <div className="card-premium overflow-hidden">
-          <div className="border-b border-border/50 px-5 py-4">
-            <h3 className="text-sm font-semibold text-foreground">{t("analytics.cloneDist")}</h3>
-          </div>
-          <div className="p-4">
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={data.clone_dist} layout="vertical" margin={{ top: 0, right: 8, left: 8, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.4)" horizontal={false} />
-                <XAxis type="number" allowDecimals={false} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} />
-                <YAxis type="category" dataKey="name" width={148} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} />
-                <Tooltip
-                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
-                />
-                <Bar dataKey="count" fill="hsl(235 84% 59%)" radius={[0, 4, 4, 0]} name={t("analytics.count")} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+        <ChartCard title={t("analytics.cloneDist")}>
+          <ResponsiveContainer width="100%" height={Math.max(200, data.clone_dist.length * 28)}>
+            <BarChart data={data.clone_dist} layout="vertical" margin={{ top: 0, right: 8, left: 8, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.4)" horizontal={false} />
+              <XAxis
+                type="number"
+                allowDecimals={false}
+                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontFamily: "var(--font-mono)" }}
+                tickLine={false}
+              />
+              <YAxis
+                type="category"
+                dataKey="name"
+                width={160}
+                tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                tickLine={false}
+              />
+              <Tooltip
+                contentStyle={{
+                  background: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
+                  borderRadius: 12,
+                  fontSize: 12,
+                  boxShadow: "var(--card-shadow-rest)",
+                }}
+              />
+              <Bar dataKey="count" fill="hsl(235 84% 59%)" radius={[0, 6, 6, 0]} name={t("analytics.count")} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
       )}
 
       {/* Top analyses table */}
       {data.top_analyses.length > 0 && (
-        <div className="card-premium overflow-hidden">
-          <div className="border-b border-border/50 px-5 py-4">
-            <h3 className="text-sm font-semibold text-foreground">{t("analytics.topAnalyses")}</h3>
+        <div
+          className="overflow-hidden rounded-2xl border border-border bg-card"
+          style={{ boxShadow: "var(--card-shadow-rest)" }}
+        >
+          <div
+            className="border-b border-border px-5 py-3"
+            style={{ background: "hsl(var(--surface-2))" }}
+          >
+            <h3 className="t-label text-foreground">{t("analytics.topAnalyses")}</h3>
           </div>
           <div className="overflow-x-auto scrollbar-thin">
-            <table className="w-full min-w-[560px]">
+            <table className="w-full min-w-[560px] text-sm">
               <thead>
-                <tr className="border-b border-border/40 bg-muted/20">
-                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground">{t("analytics.source")} A</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground">{t("analytics.source")} B</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground">{t("analytics.language")}</th>
-                  <th className="px-5 py-3 text-center text-xs font-medium text-muted-foreground">{t("analytics.similarity")}</th>
+                <tr style={{ background: "hsl(var(--surface-2))" }}>
+                  <th className="border-b border-border px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    {t("analytics.source")} A
+                  </th>
+                  <th className="border-b border-border px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    {t("analytics.source")} B
+                  </th>
+                  <th className="border-b border-border px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    {t("analytics.language")}
+                  </th>
+                  <th className="border-b border-border px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    {t("analytics.similarity")}
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {data.top_analyses.map((a, i) => (
-                  <tr key={a.id} className={i % 2 === 1 ? "border-b border-border/30 bg-muted/5" : "border-b border-border/30"}>
-                    <td className="px-5 py-3 text-xs font-mono text-foreground">{a.sourceA}</td>
-                    <td className="px-5 py-3 text-xs font-mono text-foreground">{a.sourceB}</td>
-                    <td className="px-5 py-3"><span className="badge-info capitalize">{a.language}</span></td>
-                    <td className="px-5 py-3 text-center text-sm font-bold tabular-nums text-foreground">{a.similarity.toFixed(1)}%</td>
-                  </tr>
-                ))}
+                {data.top_analyses.map((a) => {
+                  const scoreColorValue =
+                    a.similarity >= 75 ? "hsl(var(--destructive))"
+                      : a.similarity >= 50 ? "hsl(var(--warning))"
+                      : "hsl(var(--success))";
+                  return (
+                    <tr
+                      key={a.id}
+                      className="border-b border-border/40 transition-colors last:border-b-0 hover:bg-muted/30"
+                    >
+                      <td className="max-w-[200px] truncate px-4 py-3 font-mono text-xs text-foreground">{a.sourceA}</td>
+                      <td className="max-w-[200px] truncate px-4 py-3 font-mono text-xs text-foreground">{a.sourceB}</td>
+                      <td className="px-4 py-3">
+                        <span
+                          className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium capitalize"
+                          style={{
+                            fontFamily: "var(--font-mono)",
+                            background: "hsl(var(--primary) / 0.1)",
+                            color: "hsl(var(--primary))",
+                            borderColor: "hsl(var(--primary) / 0.25)",
+                          }}
+                        >
+                          {a.language}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span
+                          className="text-sm font-bold tabular-nums"
+                          style={{ fontFamily: "var(--font-mono)", color: scoreColorValue }}
+                        >
+                          {a.similarity.toFixed(1)}%
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -275,5 +456,15 @@ const Analytics = () => {
     </div>
   );
 };
+
+// Small inline clock icon (Activity used above; rename for semantic clarity)
+function Clock7Icon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <circle cx={12} cy={12} r={10} />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  );
+}
 
 export default Analytics;

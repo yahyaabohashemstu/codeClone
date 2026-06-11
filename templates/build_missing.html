@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CodeSimilar — Frontend build missing</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: #0f1117; color: #e5e7eb;
+    }
+    .card {
+      max-width: 560px; margin: 2rem; padding: 2.5rem;
+      background: #181b25; border: 1px solid #2a2f3e; border-radius: 12px;
+    }
+    h1 { font-size: 1.25rem; margin: 0 0 .75rem; color: #818cf8; }
+    p { line-height: 1.6; margin: .5rem 0; }
+    code { background: #232838; padding: .15rem .45rem; border-radius: 5px; font-size: .9em; }
+    .ar { direction: rtl; text-align: right; border-top: 1px solid #2a2f3e; margin-top: 1.25rem; padding-top: 1.25rem; }
+    .ok { color: #34d399; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Frontend build not found</h1>
+    <p>The API server is running <span class="ok">&#10003;</span> but the React build
+       (<code>code-sleuth-react-ui/dist</code>) is missing, so there is no UI to serve.</p>
+    <p>Build it with <code>cd code-sleuth-react-ui &amp;&amp; npm ci &amp;&amp; npm run build</code>
+       (or just run <code>start.bat</code>), then reload this page.</p>
+    <p>The REST API itself is available under <code>/api/v1</code> (e.g. <code>/api/v1/health</code>).</p>
+    <div class="ar">
+      <h1>لم يتم العثور على بناء الواجهة الأمامية</h1>
+      <p>خادم الـ API يعمل، لكن مجلد <code>code-sleuth-react-ui/dist</code> غير موجود.</p>
+      <p>ابنِ الواجهة عبر <code>npm run build</code> داخل مجلد الواجهة (أو شغّل <code>start.bat</code>) ثم أعد تحميل الصفحة.</p>
+    </div>
+  </div>
+</body>
+</html>

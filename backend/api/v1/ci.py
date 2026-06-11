@@ -10,7 +10,6 @@ Authentication is via API key (``Authorization: Bearer <key>`` or
 
 from __future__ import annotations
 
-import hashlib
 import hmac
 import logging
 import time
@@ -19,10 +18,9 @@ from typing import Any
 from flask import jsonify, request
 
 from backend.api.v1 import v1_bp
-from backend.extensions import db, limiter
+from backend.extensions import limiter
 from backend.engine.clone_detector import SUPPORTED_LANGUAGES, get_detector
 from backend.services.analysis_service import analyze_similarities
-from backend.utils.serialization import json_dumps_compact
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +29,24 @@ logger = logging.getLogger(__name__)
 DEFAULT_THRESHOLD = 80.0  # percent
 MAX_CI_SOURCE_BYTES = 512 * 1024  # 512 KB per source
 MAX_CI_PAIRS = 50  # max pairs per request
+
+# Maps the boolean ``*_clone_result`` keys returned by ``analyze_similarities``
+# to the short clone-type labels surfaced in the CI response.  The previous
+# implementation filtered for keys beginning with ``is_``, which never matched
+# any real key, so ``clone_types_detected`` was always empty.
+_CLONE_TYPE_LABELS: dict[str, str] = {
+    "exact_clone_result": "exact",
+    "near_miss_clone_result": "near_miss",
+    "parameterized_clone_result": "parameterized",
+    "function_clone_result": "function",
+    "non_contiguous_clone_result": "non_contiguous",
+    "structural_clone_result": "structural",
+    "reordered_clone_result": "reordered",
+    "function_reordered_clone_result": "function_reordered",
+    "gapped_clone_result": "gapped",
+    "intertwined_clone_result": "intertwined",
+    "semantic_clone_result": "semantic",
+}
 
 
 def _authenticate_ci_request() -> dict[str, Any] | None:
@@ -60,6 +76,7 @@ def _authenticate_ci_request() -> dict[str, Any] | None:
                 actor = resolve_actor(db_session, require_authenticated=True)
                 return actor
         except Exception:
+            logger.warning("CI enterprise API-key authentication failed.", exc_info=True)
             return None
 
     # For simple CI tokens, validate against configured CI_API_KEY
@@ -245,18 +262,22 @@ def ci_check():
                 "ai_similarity": round(similarity_data.get("ai_similarity_score", 0) * 100, 2),
                 "is_violation": is_violation,
                 "clone_types_detected": [
-                    k for k, v in similarity_data.items()
-                    if k.startswith("is_") and v is True
+                    label for key, label in _CLONE_TYPE_LABELS.items()
+                    if similarity_data.get(key) is True
                 ],
             }
             results.append(result_entry)
 
         except Exception as exc:
-            logger.warning("CI check pair analysis failed: %s", exc)
+            # Log the real exception server-side but return a generic message:
+            # raw exception text can leak internal paths/library details to
+            # any API-key holder.
+            logger.warning("CI check pair analysis failed: %s", exc, exc_info=True)
             results.append({
                 "label_a": pair["label_a"],
                 "label_b": pair["label_b"],
-                "error": str(exc),
+                "error": "Analysis failed for this pair.",
+                "code": "pair_analysis_failed",
                 "is_violation": False,
             })
 

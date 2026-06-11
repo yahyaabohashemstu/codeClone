@@ -1,4 +1,46 @@
-/* Fonts loaded via <link> in index.html for non-render-blocking behavior */
+/* Self-hosted brand fonts from /public/fonts (non-render-blocking via font-display: swap) */
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/Inter-VariableFont_opsz_wght.ttf') format('truetype-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrainsMono-VariableFont_wght.ttf') format('truetype-variations');
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  src: url('/fonts/IBMPlexSansArabic-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  src: url('/fonts/IBMPlexSansArabic-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  src: url('/fonts/IBMPlexSansArabic-SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  src: url('/fonts/IBMPlexSansArabic-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
 
 @tailwind base;
 @tailwind components;
@@ -69,6 +111,74 @@
     --card-shadow-hover: 0 22px 52px rgba(24, 39, 75, 0.12), 0 6px 18px rgba(24, 39, 75, 0.08);
     --glow-shadow-sm: 0 0 0 1px hsl(var(--primary) / 0.08), 0 16px 34px hsl(var(--primary) / 0.18);
     --glow-shadow-md: 0 0 0 1px hsl(var(--primary) / 0.1), 0 24px 52px hsl(var(--primary) / 0.22);
+    --shadow-glow-sm: 0 0 12px hsl(var(--primary) / 0.2);
+    --shadow-glow-md: 0 0 24px hsl(var(--primary) / 0.3);
+    --shadow-glow-lg: 0 0 40px hsl(var(--primary) / 0.4);
+
+    /* Brand gradients (used across surfaces) */
+    --gradient-brand: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
+    --gradient-surface: linear-gradient(160deg, hsl(var(--surface-1)), hsl(var(--surface-2)));
+    --gradient-page:
+      radial-gradient(circle at top, hsl(var(--primary) / 0.09), transparent 28%),
+      radial-gradient(circle at 90% 85%, hsl(var(--accent) / 0.08), transparent 22%),
+      linear-gradient(180deg, hsl(var(--surface-2)), hsl(var(--background)));
+
+    /* Radius scale */
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: 1rem;
+    --radius-2xl: 1.25rem;
+    --radius-full: 9999px;
+
+    /* Spatial scale (4-pt grid) */
+    --space-0: 0;
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.25rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+    --space-10: 2.5rem;
+    --space-12: 3rem;
+    --space-16: 4rem;
+
+    /* Motion */
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+    --dur-fast: 150ms;
+    --dur-base: 200ms;
+    --dur-slow: 300ms;
+
+    /* Typography: font stacks */
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    --font-arabic: 'IBM Plex Sans Arabic', 'Inter', system-ui, sans-serif;
+
+    /* Typography: scale */
+    --fs-hero: 4.5rem;
+    --fs-h1: 3rem;
+    --fs-h2: 2rem;
+    --fs-h3: 1.5rem;
+    --fs-h4: 1.25rem;
+    --fs-h5: 1.125rem;
+    --fs-body: 1rem;
+    --fs-sm: 0.875rem;
+    --fs-xs: 0.75rem;
+    --fs-micro: 0.625rem;
+
+    --lh-tight: 1.1;
+    --lh-heading: 1.25;
+    --lh-body: 1.6;
+    --lh-code: 1.5;
+
+    --fw-light: 300;
+    --fw-regular: 400;
+    --fw-medium: 500;
+    --fw-semibold: 600;
+    --fw-bold: 700;
+    --fw-extrabold: 800;
   }
 
   .dark {
@@ -142,13 +252,13 @@
 
   html {
     font-size: 100%;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   html[lang="ar"] {
-    font-family: 'IBM Plex Sans Arabic', 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: var(--font-arabic);
   }
 
   body {
@@ -173,7 +283,7 @@
   }
 
   code, pre, .font-mono {
-    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-family: var(--font-mono);
   }
 
   body[dir="rtl"] .code-surface,
@@ -372,6 +482,20 @@
 }
 
 @layer utilities {
+  /* Typography scale utilities — match new design system */
+  .h-hero { font-size: var(--fs-hero); font-weight: var(--fw-bold); line-height: 1.08; letter-spacing: -0.02em; }
+  .h-1    { font-size: var(--fs-h1);   font-weight: var(--fw-bold); line-height: var(--lh-heading); letter-spacing: -0.015em; }
+  .h-2    { font-size: var(--fs-h2);   font-weight: var(--fw-bold); line-height: var(--lh-heading); letter-spacing: -0.01em; }
+  .h-3    { font-size: var(--fs-h3);   font-weight: var(--fw-bold); line-height: var(--lh-heading); }
+  .h-4    { font-size: var(--fs-h4);   font-weight: var(--fw-semibold); line-height: var(--lh-heading); }
+  .h-5    { font-size: var(--fs-h5);   font-weight: var(--fw-semibold); line-height: 1.4; }
+  .t-body { font-size: var(--fs-body); font-weight: var(--fw-regular); line-height: var(--lh-body); color: hsl(var(--muted-foreground)); }
+  .t-sm   { font-size: var(--fs-sm);   font-weight: var(--fw-regular); line-height: 1.55; color: hsl(var(--muted-foreground)); }
+  .t-xs   { font-size: var(--fs-xs);   font-weight: var(--fw-medium);  line-height: 1.45; color: hsl(var(--muted-foreground)); }
+  .t-label{ font-size: var(--fs-xs);   font-weight: var(--fw-semibold);letter-spacing: 0.04em; text-transform: uppercase; color: hsl(var(--muted-foreground)); }
+  .t-mono { font-family: var(--font-mono); font-size: var(--fs-sm); line-height: var(--lh-code); }
+  .t-stat { font-size: var(--fs-h1); font-weight: var(--fw-bold); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+
   .shadow-glow-sm {
     box-shadow: var(--glow-shadow-sm);
   }

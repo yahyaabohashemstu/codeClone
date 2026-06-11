@@ -11,7 +11,7 @@ from flask import jsonify
 from flask_login import current_user
 
 from backend.api.v1 import v1_bp
-from backend.engine.clone_detector import SUPPORTED_LANGUAGES, clone_detectors
+from backend.engine.clone_detector import SUPPORTED_LANGUAGES
 from backend.extensions import db
 from backend.models import Analysis
 from backend.services.analysis_service import serialize_history_summary
@@ -36,7 +36,7 @@ def api_home():
     return jsonify({
         "totalAnalyses": Analysis.query.count(),
         "userAnalyses": user_analysis_count,
-        "languagesSupported": len(clone_detectors),
+        "languagesSupported": len(SUPPORTED_LANGUAGES),
         "latestAnalysisId": latest_analysis.id if latest_analysis else None,
         "latestAnalysisSummary": (
             serialize_history_summary(latest_analysis) if latest_analysis else None

@@ -17,19 +17,19 @@ import type { EnterpriseCase, CaseStatus, EnterpriseWorkspace } from "@/types/en
 import { cn } from "@/lib/utils";
 
 const STATUS_BADGE: Record<CaseStatus, string> = {
-  open: "bg-blue-500/15 text-blue-600",
-  in_review: "bg-yellow-500/15 text-yellow-600",
-  confirmed_clone: "bg-destructive/15 text-destructive",
-  false_positive: "bg-muted text-muted-foreground",
-  dismissed: "bg-muted text-muted-foreground",
-  resolved: "bg-green-500/15 text-green-600",
+  open: "bg-accent/15 text-accent border-accent/30",
+  in_review: "bg-warning/15 text-warning border-warning/30",
+  confirmed_clone: "bg-destructive/15 text-destructive border-destructive/30",
+  false_positive: "bg-muted text-muted-foreground border-border/60",
+  dismissed: "bg-muted text-muted-foreground border-border/60",
+  resolved: "bg-success/15 text-success border-success/30",
 };
 
 const SEVERITY_DOT: Record<string, string> = {
-  critical: "bg-red-500",
-  high: "bg-orange-500",
-  medium: "bg-yellow-500",
-  low: "bg-blue-400",
+  critical: "bg-destructive",
+  high: "bg-warning",
+  medium: "bg-warning/70",
+  low: "bg-accent",
 };
 
 const ALL_STATUSES: Array<CaseStatus | "all"> = [
@@ -87,132 +87,246 @@ export default function ReviewCases() {
     const q = search.toLowerCase();
     const pathA = c.match?.artifactA?.logicalPath?.toLowerCase() ?? "";
     const pathB = c.match?.artifactB?.logicalPath?.toLowerCase() ?? "";
-    return pathA.includes(q) || pathB.includes(q);
+    return pathA.includes(q) || pathB.includes(q) || String(c.id).includes(q);
   });
 
+  const scoreColor = (score: number): string => {
+    if (score >= 80) return "hsl(var(--destructive))";
+    if (score >= 60) return "hsl(14 85% 38%)";
+    if (score >= 40) return "hsl(var(--warning))";
+    return "hsl(var(--muted-foreground))";
+  };
+
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-6" dir={isRTL ? "rtl" : "ltr"}>
-      {/* Header */}
-      <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold text-foreground">
-          <Scale className="h-6 w-6 text-primary" />
-          {t("enterprise.cases.title")}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t("enterprise.cases.subtitle")}</p>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        {/* Workspace picker */}
-        <Select value={selectedWs} onValueChange={setSelectedWs}>
-          <SelectTrigger className="w-52">
-            <SelectValue placeholder={t("enterprise.cases.allWorkspaces")} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t("enterprise.cases.allWorkspaces")}</SelectItem>
-            {workspaces.map((ws) => (
-              <SelectItem key={ws.id} value={String(ws.id)}>{ws.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {/* Status picker */}
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as CaseStatus | "all")}>
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder={t("enterprise.cases.allStatuses")} />
-          </SelectTrigger>
-          <SelectContent>
-            {ALL_STATUSES.map((s) => (
-              <SelectItem key={s} value={s}>{t(`enterprise.status.${s}`)}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {/* Search */}
-        <div className="relative flex-1 min-w-48">
-          <Search className={cn("absolute top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground", isRTL ? "right-3" : "left-3")} />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t("enterprise.cases.searchPlaceholder")}
-            className={isRTL ? "pr-9" : "pl-9"}
-          />
+    <div className="mx-auto max-w-6xl space-y-6 p-6" dir={isRTL ? "rtl" : "ltr"}>
+      {/* Header hero */}
+      <section
+        className="relative overflow-hidden rounded-2xl border border-border bg-card"
+        style={{ boxShadow: "var(--card-shadow-rest)" }}
+      >
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-24 right-0 h-56 w-96 rounded-full opacity-30 blur-3xl"
+          style={{ background: "radial-gradient(ellipse, hsl(var(--primary) / 0.28), transparent 70%)" }}
+        />
+        <div className="relative p-6">
+          <div
+            className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold text-primary"
+            style={{ background: "hsl(var(--primary) / 0.08)", border: "1px solid hsl(var(--primary) / 0.18)" }}
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+            <Scale className="h-3 w-3" />
+            {t("enterprise.cases.eyebrow", { defaultValue: "Review queue" })}
+          </div>
+          <h1 className="mt-3 h-2">{t("enterprise.cases.title")}</h1>
+          <p className="mt-1 max-w-[60ch] t-body">{t("enterprise.cases.subtitle")}</p>
         </div>
-      </div>
+      </section>
 
-      {/* Content */}
-      {loading ? (
-        <div className="flex items-center gap-2 justify-center py-16 text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          {t("enterprise.common.loading")}
-        </div>
-      ) : error ? (
-        <div className="flex items-center gap-2 justify-center py-16 text-destructive">
-          <AlertCircle className="h-4 w-4" />
-          {error}
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="card-premium flex flex-col items-center gap-3 py-16 text-center">
-          <Scale className="h-10 w-10 text-muted-foreground/30" />
-          <p className="text-muted-foreground">{t("enterprise.cases.noCases")}</p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {filtered.map((c) => {
-            const wsName = workspaces.find((w) => w.id === c.workspaceId)?.name;
-            const pathA = c.match?.artifactA?.logicalPath ?? "\u2014";
-            const pathB = c.match?.artifactB?.logicalPath ?? "\u2014";
-            return (
-              <Link key={c.id} to={`/enterprise/cases/${c.id}`} className="block group">
-                <div className="card-premium flex items-start gap-4 p-4 transition-all duration-150 hover:border-primary/40 hover:shadow-glow-sm">
-                  {/* Severity dot */}
-                  <div className="mt-1 shrink-0">
-                    <span
-                      className={cn(
-                        "block h-2.5 w-2.5 rounded-full",
-                        SEVERITY_DOT[c.severity] ?? "bg-muted",
-                      )}
-                    />
-                  </div>
+      {/* Content card with filters + table */}
+      <div
+        className="overflow-hidden rounded-2xl border border-border bg-card"
+        style={{ boxShadow: "var(--card-shadow-rest)" }}
+      >
+        {/* Filter bar */}
+        <div
+          className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-3"
+          style={{ background: "hsl(var(--surface-2))" }}
+        >
+          {/* Workspace picker */}
+          <Select value={selectedWs} onValueChange={setSelectedWs}>
+            <SelectTrigger className="h-9 w-52 bg-card">
+              <SelectValue placeholder={t("enterprise.cases.allWorkspaces")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("enterprise.cases.allWorkspaces")}</SelectItem>
+              {workspaces.map((ws) => (
+                <SelectItem key={ws.id} value={String(ws.id)}>{ws.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-                  {/* Main content */}
-                  <div className="min-w-0 flex-1 space-y-1.5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className={cn(
-                          "rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize",
-                          STATUS_BADGE[c.status] ?? "bg-muted text-muted-foreground",
-                        )}
-                      >
-                        {t(`enterprise.status.${c.status}`, { defaultValue: c.status })}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {t("enterprise.cases.cloneType")}: <span className="text-foreground font-medium">{c.cloneType}</span>
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {t("enterprise.cases.confidence")}: <span className="text-foreground font-medium">{Math.round(c.confidenceScore)}%</span>
-                      </span>
-                      {wsName && (
-                        <span className="text-xs text-muted-foreground">
-                          {t("enterprise.cases.workspace")}: <span className="text-foreground font-medium">{wsName}</span>
+          {/* Status picker */}
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as CaseStatus | "all")}>
+            <SelectTrigger className="h-9 w-44 bg-card">
+              <SelectValue placeholder={t("enterprise.cases.allStatuses")} />
+            </SelectTrigger>
+            <SelectContent>
+              {ALL_STATUSES.map((s) => (
+                <SelectItem key={s} value={s}>{t(`enterprise.status.${s}`)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Search */}
+          <div className="relative min-w-48 flex-1">
+            <Search className={cn("pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground", isRTL ? "right-3" : "left-3")} />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t("enterprise.cases.searchPlaceholder")}
+              className={cn("h-9 bg-card", isRTL ? "pr-9" : "pl-9")}
+            />
+          </div>
+          <span
+            className="text-xs tabular-nums text-muted-foreground"
+            style={{ fontFamily: "var(--font-mono)" }}
+          >
+            {t("enterprise.cases.showing", { defaultValue: "Showing" })} {filtered.length} / {cases.length}
+          </span>
+        </div>
+
+        {/* Content */}
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {t("enterprise.common.loading")}
+          </div>
+        ) : error ? (
+          <div className="flex items-center justify-center gap-2 py-16 text-destructive">
+            <AlertCircle className="h-4 w-4" />
+            {error}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center gap-3 py-16 text-center">
+            <div
+              className="flex h-12 w-12 items-center justify-center rounded-full"
+              style={{ background: "hsl(var(--primary) / 0.1)", color: "hsl(var(--primary))" }}
+            >
+              <Scale className="h-6 w-6" />
+            </div>
+            <p className="t-body">{t("enterprise.cases.noCases")}</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto scrollbar-thin">
+            <table className="w-full min-w-[900px] text-sm">
+              <thead>
+                <tr style={{ background: "hsl(var(--surface-2))" }}>
+                  <th className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
+                    {t("enterprise.cases.colCase", { defaultValue: "Case" })}
+                  </th>
+                  <th className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
+                    {t("enterprise.cases.colPaths", { defaultValue: "Artifacts" })}
+                  </th>
+                  <th className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
+                    {t("enterprise.cases.colScore", { defaultValue: "Score" })}
+                  </th>
+                  <th className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
+                    {t("enterprise.cases.colType", { defaultValue: "Clone type" })}
+                  </th>
+                  <th className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
+                    {t("enterprise.cases.colStatus", { defaultValue: "Status" })}
+                  </th>
+                  <th className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
+                    {t("enterprise.cases.workspace")}
+                  </th>
+                  <th className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-left" : "text-right")}>
+                    &nbsp;
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((c) => {
+                  const wsName = workspaces.find((w) => w.id === c.workspaceId)?.name;
+                  const pathA = c.match?.artifactA?.logicalPath ?? "\u2014";
+                  const pathB = c.match?.artifactB?.logicalPath ?? "\u2014";
+                  const score = Math.round(c.confidenceScore);
+                  return (
+                    <tr
+                      key={c.id}
+                      className="border-b border-border/40 transition-colors last:border-b-0 hover:bg-muted/30"
+                    >
+                      <td className="px-4 py-3 align-middle">
+                        <div className="flex items-center gap-2">
+                          <span
+                            aria-hidden
+                            className={cn(
+                              "h-2 w-2 shrink-0 rounded-full",
+                              SEVERITY_DOT[c.severity] ?? "bg-muted",
+                            )}
+                          />
+                          <span
+                            className="font-medium text-muted-foreground"
+                            style={{ fontFamily: "var(--font-mono)" }}
+                          >
+                            #C-{c.id}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="max-w-[280px] px-4 py-3 align-middle">
+                        <div className="space-y-0.5 text-xs">
+                          <div className="flex items-center gap-1.5">
+                            <span className="shrink-0 text-muted-foreground">A</span>
+                            <span className="truncate font-mono text-foreground">{pathA}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="shrink-0 text-muted-foreground">B</span>
+                            <span className="truncate font-mono text-foreground">{pathB}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 align-middle">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="h-1.5 w-14 overflow-hidden rounded-full"
+                            style={{ background: "hsl(var(--muted))" }}
+                          >
+                            <span
+                              className="block h-full"
+                              style={{ width: `${score}%`, background: scoreColor(score) }}
+                            />
+                          </span>
+                          <span
+                            className="text-sm font-semibold tabular-nums"
+                            style={{ fontFamily: "var(--font-mono)", color: scoreColor(score) }}
+                          >
+                            {score}%
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 align-middle">
+                        <span
+                          className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium capitalize"
+                          style={{
+                            fontFamily: "var(--font-mono)",
+                            background: "hsl(var(--secondary))",
+                            color: "hsl(var(--secondary-foreground))",
+                            borderColor: "hsl(var(--border))",
+                          }}
+                        >
+                          {c.cloneType.replace(/_/g, " ")}
                         </span>
-                      )}
-                    </div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      <span className="font-medium text-foreground">{pathA}</span>
-                      {" \u2194 "}
-                      <span className="font-medium text-foreground">{pathB}</span>
-                    </div>
-                  </div>
-
-                  {/* Arrow */}
-                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      )}
+                      </td>
+                      <td className="px-4 py-3 align-middle">
+                        <span
+                          className={cn(
+                            "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold capitalize",
+                            STATUS_BADGE[c.status] ?? "bg-muted text-muted-foreground border-border/60",
+                          )}
+                        >
+                          {t(`enterprise.status.${c.status}`, { defaultValue: c.status })}
+                        </span>
+                      </td>
+                      <td className="max-w-[160px] px-4 py-3 align-middle text-xs text-muted-foreground">
+                        <span className="truncate">{wsName ?? "\u2014"}</span>
+                      </td>
+                      <td className={cn("px-4 py-3 align-middle", isRTL ? "text-left" : "text-right")}>
+                        <Link
+                          to={`/enterprise/cases/${c.id}`}
+                          className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                        >
+                          {t("enterprise.cases.viewCase")}
+                          <ChevronRight className={cn("h-3 w-3", isRTL && "rotate-180")} />
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

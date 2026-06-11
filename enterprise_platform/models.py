@@ -4,16 +4,13 @@ import base64
 import datetime as dt
 import hashlib
 import hmac
-from io import BytesIO
 import json
+import logging
 import os
 import re
 import secrets
-import shutil
-import subprocess
-import tempfile
 import threading
-from collections import Counter, defaultdict
+from collections import Counter, OrderedDict, defaultdict
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Optional
@@ -43,6 +40,8 @@ from sqlalchemy.sql.sqltypes import String
 
 
 Base = declarative_base()
+
+logger = logging.getLogger(__name__)
 
 UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 ENTERPRISE_API_PREFIX = "/api/enterprise"
@@ -278,6 +277,12 @@ class RepositoryConnection(Base):
     declared_region = Column(String(32), nullable=False, default=DEFAULT_STORAGE_REGION)
     webhook_secret_hash = Column(String(128), nullable=True)
     webhook_secret_hint = Column(String(24), nullable=True)
+    # Encrypted copy of the full webhook token ("hint.secret").  Needed to
+    # verify GitHub's X-Hub-Signature-256 natively: github.com cannot send
+    # custom headers, so the server must be able to recompute the HMAC itself.
+    # Nullable — repositories created before this column rely on the
+    # header-based verification path.
+    webhook_secret_encrypted = Column(Text, nullable=True)
     last_webhook_at = Column(DateTime(timezone=True), nullable=True)
     created_by_legacy_user_id = Column(Integer, nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: dt.datetime.now(dt.timezone.utc))
@@ -523,12 +528,25 @@ class WorkspaceVectorIndex:
         self.version_marker = version_marker
 
 
+# Enterprise encryption of data at rest.
+#   v2 (current): "v2:<b64 per-record salt>:<fernet token>" -- HKDF-SHA256 with
+#       a random per-record salt.  ALL new writes use this format.
+#   v1 (legacy, read-only): bare Fernet token, HKDF with a fixed salt.
+#   v0 (legacy, read-only): bare Fernet token, unsalted SHA-256 key.
+_ENTERPRISE_ENC_V2_PREFIX = "v2:"
+_ENTERPRISE_ENC_INFO = b"codeclone-enterprise-fernet"
+
+
 class EnterpriseStorage:
     def __init__(self) -> None:
         self._init_lock = threading.Lock()
         self._engine = None
         self._session_factory = None
-        self._encryption_service: Optional[Fernet] = None
+        self._raw_key: Optional[str] = None
+        self._v1_read_service: Optional[Fernet] = None
+        self._legacy_encryption_service: Optional[Fernet] = None
+        self._v2_key_cache: "OrderedDict[str, Fernet]" = OrderedDict()
+        self._v2_cache_lock = threading.Lock()
         self._app = None
         self._index_cache: dict[int, WorkspaceVectorIndex] = {}
         self._index_lock = threading.Lock()
@@ -548,20 +566,79 @@ class EnterpriseStorage:
                 sessionmaker(bind=self._engine, autocommit=False, autoflush=False, expire_on_commit=False, future=True)
             )
             self._app = app
-            self._encryption_service = Fernet(self._derive_fernet_key(app))
-            # Keep legacy key for backward-compatible decryption of old data
-            legacy_key = self._derive_legacy_fernet_key(app)
-            self._legacy_encryption_service = Fernet(legacy_key) if legacy_key else None
+            self._raw_key = self._resolve_raw_key(app)
+            # Read-only keys for data written before the v2 migration:
+            #   v1 = HKDF with a fixed salt; v0 = unsalted SHA-256.
+            self._v1_read_service = Fernet(self._derive_static_salt_key(self._raw_key))
+            self._legacy_encryption_service = Fernet(self._derive_legacy_key(self._raw_key))
             Base.metadata.create_all(self._engine)
+            self._apply_additive_migrations()
 
-    def _derive_fernet_key(self, app) -> bytes:
-        raw_key = os.environ.get("ENTERPRISE_DATA_KEY") or app.config.get("SECRET_KEY")
+    def _apply_additive_migrations(self) -> None:
+        """Apply additive schema upgrades for pre-existing databases.
+
+        ``create_all`` only creates missing *tables* — it never alters
+        existing ones, so nullable columns added after a deployment must be
+        back-filled here with a plain ``ALTER TABLE ... ADD COLUMN`` (safe on
+        both SQLite and PostgreSQL).
+        """
+        from sqlalchemy import inspect as sa_inspect, text
+
+        additive_columns = {
+            "enterprise_repository_connection": [
+                ("webhook_secret_encrypted", "TEXT"),
+            ],
+        }
+        inspector = sa_inspect(self._engine)
+        with self._engine.begin() as connection:
+            for table_name, columns in additive_columns.items():
+                if not inspector.has_table(table_name):
+                    continue
+                existing = {col["name"] for col in inspector.get_columns(table_name)}
+                for column_name, column_type in columns:
+                    if column_name in existing:
+                        continue
+                    connection.execute(text(
+                        f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"
+                    ))
+                    logger.info(
+                        "Applied additive migration: %s.%s", table_name, column_name,
+                    )
+
+    def _resolve_raw_key(self, app) -> str:
+        """Resolve the master key material, preferring an explicit key.
+
+        ``ENTERPRISE_DATA_KEY`` should be set explicitly so the encryption key
+        is independent of the Flask session secret.  Falling back to
+        ``SECRET_KEY`` is supported for backward compatibility, but rotating
+        ``SECRET_KEY`` would then render existing ciphertext unrecoverable, so
+        we emit a loud warning when that happens.
+        """
+        raw_key = os.environ.get("ENTERPRISE_DATA_KEY")
+        if not raw_key:
+            raw_key = app.config.get("SECRET_KEY")
+            if raw_key and not app.config.get("TESTING"):
+                logger.warning(
+                    "ENTERPRISE_DATA_KEY is not set; falling back to SECRET_KEY to "
+                    "encrypt enterprise data at rest. Rotating SECRET_KEY will make "
+                    "existing encrypted enterprise data unrecoverable. Set "
+                    "ENTERPRISE_DATA_KEY explicitly in production."
+                )
         if not raw_key:
             raise RuntimeError(
                 "Enterprise encryption key is not configured. "
                 "Set the ENTERPRISE_DATA_KEY environment variable or ensure "
                 "SECRET_KEY is present in the Flask app configuration."
             )
+        return raw_key
+
+    @staticmethod
+    def _derive_static_salt_key(raw_key: str) -> bytes:
+        """v1 read key: HKDF-SHA256 with the historical fixed salt.
+
+        Retained only to decrypt data written before the v2 (per-record salt)
+        migration; new data is never written with this key.
+        """
         from cryptography.hazmat.primitives.kdf.hkdf import HKDF
         from cryptography.hazmat.primitives import hashes
         hkdf = HKDF(
@@ -570,16 +647,36 @@ class EnterpriseStorage:
             salt=b"codeclone-enterprise-v1",
             info=b"fernet-encryption-key",
         )
-        derived = hkdf.derive(raw_key.encode("utf-8"))
-        return base64.urlsafe_b64encode(derived)
+        return base64.urlsafe_b64encode(hkdf.derive(raw_key.encode("utf-8")))
 
-    def _derive_legacy_fernet_key(self, app) -> bytes:
-        """Derive the old SHA-256-only key for backward compatibility."""
-        raw_key = os.environ.get("ENTERPRISE_DATA_KEY") or app.config.get("SECRET_KEY")
-        if not raw_key:
-            return b""
+    @staticmethod
+    def _derive_legacy_key(raw_key: str) -> bytes:
+        """v0 read key: unsalted SHA-256 (oldest format), read-only."""
         digest = hashlib.sha256(raw_key.encode("utf-8")).digest()
         return base64.urlsafe_b64encode(digest)
+
+    def _derive_v2_fernet(self, salt: bytes) -> Fernet:
+        """Return the Fernet for a per-record *salt* (v2), with a small LRU cache."""
+        cache_key = base64.urlsafe_b64encode(salt).decode("ascii")
+        with self._v2_cache_lock:
+            cached = self._v2_key_cache.get(cache_key)
+            if cached is not None:
+                self._v2_key_cache.move_to_end(cache_key)
+                return cached
+        from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+        from cryptography.hazmat.primitives import hashes
+        hkdf = HKDF(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=salt,
+            info=_ENTERPRISE_ENC_INFO,
+        )
+        fernet = Fernet(base64.urlsafe_b64encode(hkdf.derive(self._raw_key.encode("utf-8"))))
+        with self._v2_cache_lock:
+            self._v2_key_cache[cache_key] = fernet
+            if len(self._v2_key_cache) > 512:
+                self._v2_key_cache.popitem(last=False)
+        return fernet
 
     def session(self):
         if self._session_factory is None:
@@ -590,26 +687,48 @@ class EnterpriseStorage:
         if self._session_factory is not None:
             self._session_factory.remove()
 
+    @staticmethod
+    def is_v2_ciphertext(value: Optional[str]) -> bool:
+        """True if *value* is already in the current (v2) on-disk format."""
+        return bool(value) and value.startswith(_ENTERPRISE_ENC_V2_PREFIX)
+
     def encrypt_text(self, value: Optional[str]) -> Optional[str]:
         if value is None:
             return None
-        return self._encryption_service.encrypt(value.encode("utf-8")).decode("utf-8")
+        if self._raw_key is None:
+            raise RuntimeError("Enterprise storage is not configured.")
+        salt = secrets.token_bytes(16)
+        token = self._derive_v2_fernet(salt).encrypt(value.encode("utf-8")).decode("utf-8")
+        salt_b64 = base64.urlsafe_b64encode(salt).decode("ascii")
+        return f"{_ENTERPRISE_ENC_V2_PREFIX}{salt_b64}:{token}"
 
     def decrypt_text(self, value: Optional[str]) -> Optional[str]:
         if value is None:
             return None
-        raw = value.encode("utf-8")
-        # Try current key first
-        try:
-            return self._encryption_service.decrypt(raw).decode("utf-8")
-        except InvalidToken:
-            pass
-        # Fall back to legacy key for data encrypted before HKDF migration
-        if self._legacy_encryption_service is not None:
+
+        # v2: per-record salt embedded in the payload.
+        if value.startswith(_ENTERPRISE_ENC_V2_PREFIX):
             try:
-                return self._legacy_encryption_service.decrypt(raw).decode("utf-8")
+                _, salt_b64, token = value.split(":", 2)
+                salt = base64.urlsafe_b64decode(salt_b64.encode("ascii"))
+                return self._derive_v2_fernet(salt).decrypt(token.encode("utf-8")).decode("utf-8")
+            except (InvalidToken, ValueError):
+                raise EnterpriseError(
+                    500,
+                    "Encrypted enterprise payload cannot be decrypted.",
+                    code="invalid_encryption_payload",
+                )
+
+        # Legacy formats (read-only): bare Fernet tokens written before the v2
+        # migration -- v1 (fixed-salt HKDF) then v0 (unsalted SHA-256).
+        raw = value.encode("utf-8")
+        for service in (self._v1_read_service, self._legacy_encryption_service):
+            if service is None:
+                continue
+            try:
+                return service.decrypt(raw).decode("utf-8")
             except InvalidToken:
-                pass
+                continue
         raise EnterpriseError(500, "Encrypted enterprise payload cannot be decrypted.", code="invalid_encryption_payload")
 
     def invalidate_workspace_index(self, workspace_id: int) -> None:

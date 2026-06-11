@@ -1,10 +1,14 @@
-import { useTheme } from "next-themes"
 import { Toaster as Sonner } from "sonner"
+
+import { useTheme } from "@/context/ThemeContext"
 
 type ToasterProps = React.ComponentProps<typeof Sonner>
 
+// Uses the app's own ThemeContext (theming is hand-rolled — there is no
+// next-themes provider in the tree, so its useTheme always returned
+// "system" and the toaster never matched the active theme).
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme()
+  const { theme } = useTheme()
 
   return (
     <Sonner
