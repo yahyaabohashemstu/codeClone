@@ -68,6 +68,29 @@ class TestCsrfEnforcement:
         # Bad credentials => 401, but crucially NOT a CSRF 403.
         assert resp.status_code != 403
 
+    def test_legacy_login_redirect_is_exempt(self, csrf_client):
+        """POST /api/auth/login (the path the SPA calls) must 307-redirect,
+        not die with a CSRF 403 — the redirect shim has no side effects and
+        CSRF is enforced at the v1 target instead."""
+        resp = csrf_client.post(
+            "/api/auth/login",
+            json={"username": "nobody", "password": "wrong"},
+        )
+        assert resp.status_code == 307
+        assert resp.headers["Location"].endswith("/api/v1/auth/login")
+
+    def test_legacy_redirect_target_still_enforces_csrf(self, csrf_client, csrf_app):
+        """Exempting the redirect layer must NOT bypass protection: a
+        state-changing legacy call still hits CSRF at the v1 target."""
+        _login(csrf_client, csrf_app.config["_TEST_USER_ID"], csrf_token="tok")
+        # The shim itself redirects freely...
+        redirect = csrf_client.post("/api/history/1/rerun")
+        assert redirect.status_code == 307
+        # ...but following it lands on the protected v1 endpoint -> 403
+        # without a valid X-CSRF-Token header.
+        followed = csrf_client.post("/api/v1/history/1/rerun")
+        assert followed.status_code == 403
+
     def test_state_change_without_token_rejected(self, csrf_app, csrf_client):
         """An authenticated POST without a CSRF token is rejected with 403."""
         _login(csrf_client, csrf_app.config["_TEST_USER_ID"])

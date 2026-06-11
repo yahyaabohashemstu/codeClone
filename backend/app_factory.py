@@ -143,6 +143,12 @@ def _register_csrf(app: Flask) -> None:
             return None
         if request.endpoint in _CSRF_EXEMPT_ENDPOINTS:
             return None
+        # The legacy_api blueprint contains only 307 redirect shims with no
+        # side effects; CSRF is enforced at the redirect *target* instead.
+        # Without this, POST /api/auth/login (the path the SPA calls) was
+        # blocked here before it could reach the CSRF-exempt v1 login.
+        if request.blueprint == "legacy_api":
+            return None
         if _csrf_is_valid():
             return None
         return jsonify({"success": False, "message": "Invalid or missing CSRF token."}), 403
