@@ -16,6 +16,13 @@ from __future__ import annotations
 import argparse
 import sys
 
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass
+
 from backend.app_factory import create_app
 from backend.extensions import db
 from backend.models import User

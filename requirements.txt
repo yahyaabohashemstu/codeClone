@@ -88,3 +88,5 @@ redis==5.2.1
 alembic==1.14.0
 # TOTP two-factor authentication
 pyotp==2.9.0
+# Load a local .env at startup (wsgi.py / manage.py); no-op in Docker/PaaS
+python-dotenv==1.0.1

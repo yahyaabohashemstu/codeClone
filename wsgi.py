@@ -5,7 +5,17 @@ Uses the application factory -- the monolith ``app.py`` is NO LONGER the
 production entry point.
 """
 
-from backend.app_factory import create_app
+# Load a local .env (if present) BEFORE importing the app, so config classes —
+# which read os.environ at import time — pick up the values. Optional: a missing
+# python-dotenv or missing .env is a no-op (Docker/PaaS inject env directly).
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass
+
+from backend.app_factory import create_app  # noqa: E402
 
 app = create_app()
 
