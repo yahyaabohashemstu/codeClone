@@ -16,6 +16,8 @@ const Analysis = lazy(() => import("@/pages/Analysis"));
 const Analytics = lazy(() => import("@/pages/Analytics"));
 const Results = lazy(() => import("@/pages/Results"));
 const Auth = lazy(() => import("@/pages/Auth"));
+const VerifyEmail = lazy(() => import("@/pages/VerifyEmail"));
+const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
 const Chat = lazy(() => import("@/pages/Chat"));
 const Help = lazy(() => import("@/pages/Help"));
 const History = lazy(() => import("@/pages/History"));
@@ -44,6 +46,8 @@ const RoutedContent = () => {
           <Route path="/help" element={<Help />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/login" element={<Auth />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route
             path="/analysis"
             element={

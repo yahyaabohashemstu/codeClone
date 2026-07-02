@@ -11,6 +11,10 @@ interface AuthContextValue {
   refreshSession: () => Promise<SessionResponse>;
   login: (username: string, password: string) => Promise<void>;
   register: (username: string, password: string) => Promise<void>;
+  signup: (username: string, email: string, password: string) => Promise<{ verificationRequired: boolean }>;
+  requestPasswordReset: (email: string) => Promise<void>;
+  resetPassword: (token: string, password: string) => Promise<void>;
+  verifyEmail: (token: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -99,6 +103,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await refreshSession();
   }, [refreshSession]);
 
+  const signup = useCallback(async (username: string, email: string, password: string) => {
+    const result = await apiFetch<{
+      success: boolean; verificationRequired?: boolean; csrfToken?: string;
+    }>("/api/auth/signup", {
+      method: "POST",
+      body: JSON.stringify({ username: username.trim(), email: email.trim(), password }),
+    });
+    if (result.csrfToken) {
+      setCsrfToken(result.csrfToken);
+    }
+    // When verification is not required the server signs the user in; refresh
+    // the session so protected routes unlock.
+    if (!result.verificationRequired) {
+      await refreshSession();
+    }
+    return { verificationRequired: Boolean(result.verificationRequired) };
+  }, [refreshSession]);
+
+  const requestPasswordReset = useCallback(async (email: string) => {
+    await apiFetch<{ success: boolean }>("/api/auth/request-password-reset", {
+      method: "POST",
+      body: JSON.stringify({ email: email.trim() }),
+    });
+  }, []);
+
+  const resetPassword = useCallback(async (token: string, password: string) => {
+    await apiFetch<{ success: boolean }>("/api/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token, password }),
+    });
+  }, []);
+
+  const verifyEmail = useCallback(async (token: string) => {
+    await apiFetch<{ success: boolean }>("/api/auth/verify-email", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    });
+  }, []);
+
   const logout = useCallback(async () => {
     await apiFetch<{ success: boolean }>("/api/auth/logout", { method: "POST" });
     const nextSession = await refreshSession();
@@ -114,8 +157,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refreshSession,
     login,
     register,
+    signup,
+    requestPasswordReset,
+    resetPassword,
+    verifyEmail,
     logout,
-  }), [isLoading, session, refreshSession, login, register, logout]);
+  }), [isLoading, session, refreshSession, login, register, signup, requestPasswordReset, resetPassword, verifyEmail, logout]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

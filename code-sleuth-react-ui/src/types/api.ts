@@ -1,6 +1,8 @@
 export interface UserSummary {
   id: number;
   username: string;
+  email?: string | null;
+  email_verified?: boolean;
   is_admin: boolean;
 }
 

@@ -1,52 +1,118 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowRight, Eye, EyeOff, Lock, UserRound } from "lucide-react";
+import { ArrowRight, AtSign, CheckCircle2, Eye, EyeOff, Lock, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { cn } from "@/lib/utils";
 
+type Mode = "signin" | "signup" | "forgot";
+
 const Auth = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
+  const { login, signup, requestPasswordReset } = useAuth();
   const { isRTL, localizeRuntimeMessage } = useLanguage();
   const { t } = useTranslation("auth");
+  const [mode, setMode] = useState<Mode>("signin");
   const [showPassword, setShowPassword] = useState(false);
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   const rawFrom = (location.state as { from?: string })?.from;
   const redirectTarget =
     rawFrom && rawFrom.startsWith("/") && !rawFrom.startsWith("//") ? rawFrom : "/analysis";
 
+  const switchMode = (next: Mode) => {
+    setMode(next);
+    setError("");
+    setNotice("");
+  };
+
+  const asMessage = (e: unknown) =>
+    e instanceof Error ? localizeRuntimeMessage(e.message) : t("auth.errors.invalidCredentials");
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError("");
+    setNotice("");
 
+    if (mode === "forgot") {
+      if (!email.trim()) {
+        setError(t("auth.requiredCredentials"));
+        return;
+      }
+      setIsSubmitting(true);
+      try {
+        await requestPasswordReset(email.trim());
+        setNotice(t("auth.resetSentDescription"));
+      } catch (e) {
+        setError(asMessage(e));
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
+    if (mode === "signup") {
+      if (!username.trim() || !email.trim() || !password) {
+        setError(t("auth.requiredCredentials"));
+        return;
+      }
+      setIsSubmitting(true);
+      try {
+        const { verificationRequired } = await signup(username.trim(), email.trim(), password);
+        if (verificationRequired) {
+          setNotice(t("auth.verifyNoticeDescription"));
+        } else {
+          navigate(redirectTarget, { replace: true });
+        }
+      } catch (e) {
+        setError(asMessage(e));
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
+    // signin
     if (!username.trim() || !password.trim()) {
       setError(t("auth.requiredCredentials"));
       return;
     }
-
     setIsSubmitting(true);
     try {
       await login(username.trim(), password);
       navigate(redirectTarget, { replace: true });
-    } catch (submitError) {
-      setError(
-        submitError instanceof Error
-          ? localizeRuntimeMessage(submitError.message)
-          : t("auth.errors.invalidCredentials"),
-      );
+    } catch (e) {
+      setError(asMessage(e));
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const headingTitle =
+    mode === "signup" ? t("auth.createAccountTitle")
+    : mode === "forgot" ? t("auth.forgotTitle")
+    : t("auth.signIn");
+  const headingDescription =
+    mode === "signup" ? t("auth.createAccountDescription")
+    : mode === "forgot" ? t("auth.forgotDescription")
+    : t("auth.loginDescription");
+  const submitLabel =
+    mode === "signup" ? t("auth.submitRegister")
+    : mode === "forgot" ? t("auth.sendResetLink")
+    : t("auth.submitLogin");
+  const submittingLabel =
+    mode === "signup" ? t("auth.creatingAccount")
+    : mode === "forgot" ? t("auth.sending")
+    : t("auth.signingIn");
 
   return (
     <div
@@ -103,9 +169,9 @@ const Auth = () => {
         </div>
 
         <h3 className="text-2xl font-bold tracking-tight" style={{ letterSpacing: "-0.015em" }}>
-          {t("auth.signIn")}
+          {headingTitle}
         </h3>
-        <p className="mt-1.5 mb-6 text-sm text-muted-foreground">{t("auth.loginDescription")}</p>
+        <p className="mt-1.5 mb-6 text-sm text-muted-foreground">{headingDescription}</p>
 
         {error && (
           <div
@@ -120,62 +186,114 @@ const Auth = () => {
             {error}
           </div>
         )}
+        {notice && (
+          <div
+            className="mb-4 flex items-start gap-2 rounded-md border px-4 py-3 text-sm"
+            style={{
+              borderColor: "hsl(var(--success) / 0.3)",
+              background: "hsl(var(--success) / 0.08)",
+              color: "hsl(var(--success))",
+            }}
+            role="status"
+          >
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{notice}</span>
+          </div>
+        )}
 
         <form className="space-y-4" onSubmit={(e) => void handleSubmit(e)}>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
-              {t("auth.username")}
-            </label>
-            <div className="relative">
-              <UserRound
-                className={cn(
-                  "absolute top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground",
-                  isRTL ? "right-3" : "left-3",
-                )}
-              />
-              <Input
-                type="text"
-                placeholder={t("auth.usernamePlaceholder")}
-                value={username}
-                autoComplete="username"
-                onChange={(e) => setUsername(e.target.value)}
-                className={cn("h-10", isRTL ? "pr-10 text-right" : "pl-10")}
-              />
+          {mode !== "forgot" && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
+                {t("auth.username")}
+              </label>
+              <div className="relative">
+                <UserRound
+                  className={cn(
+                    "absolute top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground",
+                    isRTL ? "right-3" : "left-3",
+                  )}
+                />
+                <Input
+                  type="text"
+                  placeholder={t("auth.usernamePlaceholder")}
+                  value={username}
+                  autoComplete="username"
+                  onChange={(e) => setUsername(e.target.value)}
+                  className={cn("h-10", isRTL ? "pr-10 text-right" : "pl-10")}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
-              {t("auth.password")}
-            </label>
-            <div className="relative">
-              <Lock
-                className={cn(
-                  "absolute top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground",
-                  isRTL ? "right-3" : "left-3",
-                )}
-              />
-              <Input
-                type={showPassword ? "text" : "password"}
-                placeholder={t("auth.passwordPlaceholder")}
-                value={password}
-                autoComplete="current-password"
-                onChange={(e) => setPassword(e.target.value)}
-                className={cn("h-10", isRTL ? "pr-10 pl-10 text-right" : "pl-10 pr-10")}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((v) => !v)}
-                className={cn(
-                  "absolute top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground",
-                  isRTL ? "left-3" : "right-3",
-                )}
-                aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
+          {mode !== "signin" && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
+                {t("auth.email")}
+              </label>
+              <div className="relative">
+                <AtSign
+                  className={cn(
+                    "absolute top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground",
+                    isRTL ? "right-3" : "left-3",
+                  )}
+                />
+                <Input
+                  type="email"
+                  placeholder={t("auth.emailPlaceholder")}
+                  value={email}
+                  autoComplete="email"
+                  dir="ltr"
+                  onChange={(e) => setEmail(e.target.value)}
+                  className={cn("h-10", isRTL ? "pr-10 text-right" : "pl-10")}
+                />
+              </div>
             </div>
-          </div>
+          )}
+
+          {mode !== "forgot" && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
+                {t("auth.password")}
+              </label>
+              <div className="relative">
+                <Lock
+                  className={cn(
+                    "absolute top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground",
+                    isRTL ? "right-3" : "left-3",
+                  )}
+                />
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  placeholder={t("auth.passwordPlaceholder")}
+                  value={password}
+                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className={cn("h-10", isRTL ? "pr-10 pl-10 text-right" : "pl-10 pr-10")}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className={cn(
+                    "absolute top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground",
+                    isRTL ? "left-3" : "right-3",
+                  )}
+                  aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {mode === "signin" && (
+                <button
+                  type="button"
+                  onClick={() => switchMode("forgot")}
+                  className={cn("mt-2 text-xs text-primary hover:underline", isRTL ? "float-left" : "float-right")}
+                >
+                  {t("auth.forgotPassword")}
+                </button>
+              )}
+            </div>
+          )}
 
           <Button
             type="submit"
@@ -186,16 +304,34 @@ const Auth = () => {
             {isSubmitting ? (
               <span className="flex items-center gap-2">
                 <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                {t("auth.signingIn")}
+                {submittingLabel}
               </span>
             ) : (
               <>
-                {t("auth.submitLogin")}
+                {submitLabel}
                 <ArrowRight className="h-4 w-4" />
               </>
             )}
           </Button>
         </form>
+
+        <div className="mt-5 text-center text-sm text-muted-foreground">
+          {mode === "signin" && (
+            <button type="button" onClick={() => switchMode("signup")} className="text-primary hover:underline">
+              {t("auth.signupCta")}
+            </button>
+          )}
+          {mode === "signup" && (
+            <button type="button" onClick={() => switchMode("signin")} className="text-primary hover:underline">
+              {t("auth.loginCta")}
+            </button>
+          )}
+          {mode === "forgot" && (
+            <button type="button" onClick={() => switchMode("signin")} className="text-primary hover:underline">
+              {t("auth.backToLogin")}
+            </button>
+          )}
+        </div>
 
         <div
           className="my-5 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground"
