@@ -80,6 +80,29 @@ class BaseConfig:
     # --- Enterprise ----------------------------------------------------------
     ENTERPRISE_DATA_KEY: str = os.environ.get("ENTERPRISE_DATA_KEY", "")
 
+    # --- Accounts / self-service auth ---------------------------------------
+    # Public base URL used to build verification / password-reset links in
+    # emails.  Falls back to same-origin relative links when unset.
+    APP_BASE_URL: str = os.environ.get("APP_BASE_URL", "").rstrip("/")
+    # Feature flag: allow public self-registration (POST /api/v1/auth/signup).
+    ALLOW_SELF_REGISTRATION: bool = os.environ.get("ALLOW_SELF_REGISTRATION", "1") == "1"
+    # Require a verified email before login succeeds.  Off by default so a
+    # deployment without SMTP configured is still usable.
+    REQUIRE_EMAIL_VERIFICATION: bool = os.environ.get("REQUIRE_EMAIL_VERIFICATION", "0") == "1"
+    # Signed-token lifetimes (seconds).
+    EMAIL_VERIFICATION_MAX_AGE: int = int(os.environ.get("EMAIL_VERIFICATION_MAX_AGE", str(60 * 60 * 24 * 3)))
+    PASSWORD_RESET_MAX_AGE: int = int(os.environ.get("PASSWORD_RESET_MAX_AGE", str(60 * 60)))
+
+    # --- Email delivery ------------------------------------------------------
+    # Provider: "console" (log to stdout, dev default), "smtp", or "disabled".
+    EMAIL_PROVIDER: str = os.environ.get("EMAIL_PROVIDER", "console").lower()
+    EMAIL_FROM: str = os.environ.get("EMAIL_FROM", "no-reply@codesimilar.local")
+    SMTP_HOST: str = os.environ.get("SMTP_HOST", "")
+    SMTP_PORT: int = int(os.environ.get("SMTP_PORT", "587"))
+    SMTP_USERNAME: str = os.environ.get("SMTP_USERNAME", "")
+    SMTP_PASSWORD: str = os.environ.get("SMTP_PASSWORD", "")
+    SMTP_USE_TLS: bool = os.environ.get("SMTP_USE_TLS", "1") == "1"
+
 
 class DevelopmentConfig(BaseConfig):
     """Local development with SQLite."""

@@ -120,6 +120,14 @@ def create_app(config_override: dict[str, Any] | None = None) -> Flask:
 _CSRF_EXEMPT_ENDPOINTS: frozenset[str] = frozenset({
     "api_v1.api_login",
     "api_v1.ci_check",
+    # Public self-service auth endpoints: the caller has no session CSRF token
+    # yet. They are unauthenticated, rate-limited, and (for reset/verify)
+    # protected by signed single-use tokens instead.
+    "api_v1.api_signup",
+    "api_v1.api_verify_email",
+    "api_v1.api_resend_verification",
+    "api_v1.api_request_password_reset",
+    "api_v1.api_reset_password",
 })
 
 
@@ -190,7 +198,41 @@ def _register_blueprints(app: Flask) -> None:
 def _initialize_database(app: Flask) -> None:
     """Create tables and ensure bootstrap data exists."""
     db.create_all()
+    _apply_core_additive_migrations(app)
     _ensure_default_admin(app)
+
+
+# New nullable columns added after the initial release.  ``db.create_all()``
+# only creates missing *tables*, never alters existing ones, so a database
+# created before a column existed must be upgraded in place with a plain
+# ``ALTER TABLE ADD COLUMN`` (valid on both SQLite and PostgreSQL).  Each entry
+# is (table, column, column-type-with-optional-default).  Adding a column that
+# already exists is skipped.  This is the same additive approach the enterprise
+# platform uses; a full migration tool (Alembic) is the documented next step.
+_CORE_ADDITIVE_COLUMNS: tuple[tuple[str, str, str], ...] = (
+    ("user", "email", "VARCHAR(255)"),
+    ("user", "email_verified", "BOOLEAN NOT NULL DEFAULT 0"),
+    ("user", "created_at", "DATETIME"),
+)
+
+
+def _apply_core_additive_migrations(app: Flask) -> None:
+    from sqlalchemy import inspect as sa_inspect, text
+
+    inspector = sa_inspect(db.engine)
+    existing_tables = set(inspector.get_table_names())
+    for table, column, column_type in _CORE_ADDITIVE_COLUMNS:
+        if table not in existing_tables:
+            continue  # create_all will have built it with the column already
+        columns = {c["name"] for c in inspector.get_columns(table)}
+        if column in columns:
+            continue
+        try:
+            with db.engine.begin() as conn:
+                conn.execute(text(f'ALTER TABLE "{table}" ADD COLUMN {column} {column_type}'))
+            logger.info("Added missing column %s.%s", table, column)
+        except Exception:
+            logger.exception("Failed to add column %s.%s", table, column)
 
 
 def _ensure_default_admin(app: Flask) -> None:
