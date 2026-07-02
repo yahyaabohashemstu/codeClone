@@ -4,6 +4,7 @@ import {
   Building2,
   ChevronLeft,
   ChevronRight,
+  CreditCard,
   GitCompare,
   HelpCircle,
   History,
@@ -39,6 +40,7 @@ const navItems: NavItem[] = [
   { labelKey: "nav.history", icon: History, path: "/history" },
   { labelKey: "nav.analytics", icon: LineChart, path: "/analytics" },
   { labelKey: "nav.chat", icon: MessageSquare, path: "/chat" },
+  { labelKey: "nav.billing", icon: CreditCard, path: "/billing" },
   { labelKey: "nav.help", icon: HelpCircle, path: "/help" },
 ];
 

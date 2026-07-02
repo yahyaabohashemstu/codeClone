@@ -11,7 +11,8 @@
     "cases": "قضايا المراجعة",
     "collapse": "طي الشريط",
     "expand": "توسيع الشريط",
-    "enterprise": "المؤسسة"
+    "enterprise": "المؤسسة",
+    "billing": "الفوترة"
   },
   "header": {
     "signedInAs": "تم تسجيل الدخول باسم",
@@ -34,7 +35,8 @@
     "/analytics": "لوحة الإحصائيات",
     "/enterprise/workspaces": "مساحات العمل",
     "/enterprise/cases": "حالات المراجعة",
-    "notFound": "الصفحة غير موجودة"
+    "notFound": "الصفحة غير موجودة",
+    "/billing": "الخطة والاستخدام"
   },
   "buttons": {
     "save": "حفظ",
@@ -70,7 +72,7 @@
   },
   "footer": {
     "copyright": "منصة تحليل CodeSimilar",
-    "fullCopyright": "\u00a9 2026 CodeSimilar \u2014 منصة ذكية لتحليل الشيفرة"
+    "fullCopyright": "© 2026 CodeSimilar — منصة ذكية لتحليل الشيفرة"
   },
   "guard": {
     "loadingWorkspace": "جارٍ تحميل مساحة العمل...",
@@ -190,7 +192,7 @@
       "languagesUsed": "اللغات المستخدمة",
       "last7Days": "آخر 7 أيام"
     },
-    "searchPlaceholder": "ابحث في المصادر أو اللغة\u2026",
+    "searchPlaceholder": "ابحث في المصادر أو اللغة…",
     "allLanguages": "كل اللغات",
     "allSeverity": "كل المستويات",
     "highSimilarity": "تشابه مرتفع",
@@ -240,5 +242,24 @@
     "openHistory": "فتح السجل",
     "pageTitle": "دردشة التحليل الذكية",
     "pageDescription": "اطرح أسئلة متابعة مبنية على نتيجة التحليل الحالية واحصل على إجابات واعية بالسياق."
+  },
+  "billing": {
+    "title": "الخطة والاستخدام",
+    "subtitle": "أدر اشتراكك وتابع استخدامك الشهري.",
+    "currentPlan": "الخطة الحالية",
+    "status": "الحالة",
+    "usageThisMonth": "التحليلات هذا الشهر",
+    "unlimited": "غير محدود",
+    "of": "من",
+    "remaining": "متبقٍ {{count}}",
+    "availablePlans": "الخطط المتاحة",
+    "perMonth": "/شهريًا",
+    "current": "الحالية",
+    "upgrade": "ترقية",
+    "choose": "اختيار",
+    "free": "مجانية",
+    "billingDisabled": "الدفع الإلكتروني غير مُفعّل في هذا النشر. تواصل مع المشرف لتغيير الخطة.",
+    "checkoutError": "تعذّر بدء الدفع. حاول مرة أخرى.",
+    "quotaReached": "لقد بلغت حدّ التحليلات الشهري. رقِّ خطتك لتشغيل المزيد."
   }
 }

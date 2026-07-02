@@ -11,7 +11,8 @@
     "cases": "Review Cases",
     "collapse": "Collapse",
     "expand": "Expand",
-    "enterprise": "Enterprise"
+    "enterprise": "Enterprise",
+    "billing": "Billing"
   },
   "header": {
     "signedInAs": "Signed in as",
@@ -34,7 +35,8 @@
     "/analytics": "Analytics Dashboard",
     "/enterprise/workspaces": "Enterprise Workspaces",
     "/enterprise/cases": "Review Cases",
-    "notFound": "Page Not Found"
+    "notFound": "Page Not Found",
+    "/billing": "Plan & Usage"
   },
   "buttons": {
     "save": "Save",
@@ -70,10 +72,10 @@
   },
   "footer": {
     "copyright": "CodeSimilar Analysis Platform",
-    "fullCopyright": "\u00a9 2026 CodeSimilar \u2014 Intelligent Code Analysis Platform"
+    "fullCopyright": "© 2026 CodeSimilar — Intelligent Code Analysis Platform"
   },
   "guard": {
-    "loadingWorkspace": "Loading your workspace\u2026",
+    "loadingWorkspace": "Loading your workspace…",
     "adminRequired": "This area requires administrator access."
   },
   "upload": {
@@ -190,7 +192,7 @@
       "languagesUsed": "Languages Used",
       "last7Days": "Last 7 Days"
     },
-    "searchPlaceholder": "Search sources or language\u2026",
+    "searchPlaceholder": "Search sources or language…",
     "allLanguages": "All Languages",
     "allSeverity": "All Severity",
     "highSimilarity": "High Similarity",
@@ -214,7 +216,7 @@
     "deleteDescription": "Permanently delete analysis #{{id}}? This action cannot be undone.",
     "previewTitle": "Analysis Preview #{{id}}",
     "openFullResults": "Open Full Results",
-    "loadingPreview": "Loading preview\u2026",
+    "loadingPreview": "Loading preview…",
     "exportSections": {
       "analysisId": "Analysis ID",
       "language": "Language",
@@ -234,11 +236,30 @@
     }
   },
   "chat": {
-    "loading": "Loading the latest analysis context\u2026",
+    "loading": "Loading the latest analysis context…",
     "noContextTitle": "No active analysis context",
     "noContextDescription": "Run or reopen an analysis first so the AI chat can ground its answers in real comparison data.",
     "openHistory": "Open History",
     "pageTitle": "AI Analysis Chat",
     "pageDescription": "Ask grounded follow-up questions about the current analysis result and receive context-aware answers."
+  },
+  "billing": {
+    "title": "Plan & Usage",
+    "subtitle": "Manage your subscription and monitor monthly usage.",
+    "currentPlan": "Current plan",
+    "status": "Status",
+    "usageThisMonth": "Analyses this month",
+    "unlimited": "Unlimited",
+    "of": "of",
+    "remaining": "{{count}} remaining",
+    "availablePlans": "Available plans",
+    "perMonth": "/mo",
+    "current": "Current",
+    "upgrade": "Upgrade",
+    "choose": "Choose",
+    "free": "Free",
+    "billingDisabled": "Online checkout is not enabled on this deployment. Contact your administrator to change plans.",
+    "checkoutError": "Could not start checkout. Please try again.",
+    "quotaReached": "You've reached your monthly analysis limit. Upgrade your plan to run more analyses."
   }
 }
