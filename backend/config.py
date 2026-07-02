@@ -80,6 +80,11 @@ class BaseConfig:
     # --- Enterprise ----------------------------------------------------------
     ENTERPRISE_DATA_KEY: str = os.environ.get("ENTERPRISE_DATA_KEY", "")
 
+    # --- Observability -------------------------------------------------------
+    LOG_LEVEL: str = os.environ.get("LOG_LEVEL", "INFO")
+    SENTRY_DSN: str = os.environ.get("SENTRY_DSN", "")
+    SENTRY_TRACES_SAMPLE_RATE: float = float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0") or "0")
+
     # --- Accounts / self-service auth ---------------------------------------
     # Public base URL used to build verification / password-reset links in
     # emails.  Falls back to same-origin relative links when unset.

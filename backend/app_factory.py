@@ -64,6 +64,10 @@ def create_app(config_override: dict[str, Any] | None = None) -> Flask:
     if config_override:
         app.config.update(config_override)
 
+    # -- Observability (logging + optional Sentry) ---------------------------
+    from backend.observability import init_observability
+    init_observability(app)
+
     # Ensure instance directory exists
     os.makedirs(app.instance_path, exist_ok=True)
 
