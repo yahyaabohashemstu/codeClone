@@ -25,6 +25,7 @@ from backend.engine.clone_detector import SUPPORTED_LANGUAGES
 from backend.extensions import db, limiter
 from backend.models import Analysis
 from backend.services.analysis_service import restore_saved_analysis_context
+from backend.services.billing_service import try_consume_analysis_quota
 from backend.services.cache_service import (
     get_cached_context_for_user,
     invalidate_cached_analysis_for_user,
@@ -101,10 +102,27 @@ def api_analysis():
             has_results=False,
         )), 400
 
+    user_id = current_user.id
+
+    # Enforce the per-plan monthly analysis quota BEFORE doing any work.  A
+    # refusal returns 402 Payment Required with the current usage so the client
+    # can prompt an upgrade.  Reserving here (rather than on completion) also
+    # rate-limits abuse of the async pipeline.
+    quota = try_consume_analysis_quota(user_id)
+    if not quota.get("allowed"):
+        return jsonify({
+            "success": False,
+            "code": "quota_exceeded",
+            "message": (
+                f"You've reached your {quota['planName']} plan limit of "
+                f"{quota['limit']} analyses this month. Upgrade to continue."
+            ),
+            "billing": quota,
+        }), 402
+
     # Clean up stale background tasks (older than 30 minutes)
     cleanup_stale_tasks()
 
-    user_id = current_user.id
     task_id = secrets.token_hex(16)
 
     set_current_user_progress("Starting analysis...", 0)

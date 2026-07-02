@@ -20,3 +20,4 @@ from backend.api.v1 import health as _health  # noqa: F401, E402
 from backend.api.v1 import chat as _chat  # noqa: F401, E402
 from backend.api.v1 import home as _home  # noqa: F401, E402
 from backend.api.v1 import ci as _ci  # noqa: F401, E402
+from backend.api.v1 import billing as _billing  # noqa: F401, E402

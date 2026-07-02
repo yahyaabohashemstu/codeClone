@@ -128,6 +128,9 @@ _CSRF_EXEMPT_ENDPOINTS: frozenset[str] = frozenset({
     "api_v1.api_resend_verification",
     "api_v1.api_request_password_reset",
     "api_v1.api_reset_password",
+    # Stripe webhook: authenticated by the Stripe-Signature HMAC, not a session
+    # cookie, so it is not susceptible to CSRF and cannot carry a CSRF token.
+    "api_v1.api_billing_webhook",
 })
 
 

@@ -93,6 +93,16 @@ class BaseConfig:
     EMAIL_VERIFICATION_MAX_AGE: int = int(os.environ.get("EMAIL_VERIFICATION_MAX_AGE", str(60 * 60 * 24 * 3)))
     PASSWORD_RESET_MAX_AGE: int = int(os.environ.get("PASSWORD_RESET_MAX_AGE", str(60 * 60)))
 
+    # --- Billing (Stripe, optional) -----------------------------------------
+    # When STRIPE_SECRET_KEY is unset, billing endpoints return 503 and every
+    # account stays on the free plan — quotas still apply.
+    STRIPE_SECRET_KEY: str = os.environ.get("STRIPE_SECRET_KEY", "")
+    STRIPE_WEBHOOK_SECRET: str = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+    STRIPE_PRICE_PRO: str = os.environ.get("STRIPE_PRICE_PRO", "")
+    STRIPE_PRICE_TEAM: str = os.environ.get("STRIPE_PRICE_TEAM", "")
+    BILLING_SUCCESS_URL: str = os.environ.get("BILLING_SUCCESS_URL", "")
+    BILLING_CANCEL_URL: str = os.environ.get("BILLING_CANCEL_URL", "")
+
     # --- Email delivery ------------------------------------------------------
     # Provider: "console" (log to stdout, dev default), "smtp", or "disabled".
     EMAIL_PROVIDER: str = os.environ.get("EMAIL_PROVIDER", "console").lower()
