@@ -21,6 +21,7 @@ const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
 const Chat = lazy(() => import("@/pages/Chat"));
 const Billing = lazy(() => import("@/pages/Billing"));
 const Settings = lazy(() => import("@/pages/Settings"));
+const Admin = lazy(() => import("@/pages/Admin"));
 const Help = lazy(() => import("@/pages/Help"));
 const History = lazy(() => import("@/pages/History"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
@@ -103,6 +104,14 @@ const RoutedContent = () => {
             element={
               <ProtectedRoute>
                 <Settings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute requireAdmin>
+                <Admin />
               </ProtectedRoute>
             }
           />

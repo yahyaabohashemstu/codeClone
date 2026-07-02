@@ -68,6 +68,10 @@ def _authenticate_ci_request() -> dict[str, Any] | None:
     if not token:
         return None
 
+    # Per-user API keys (csk_<prefix>.<secret>) from the account API-keys page.
+    if token.startswith("csk_"):
+        return _authenticate_user_api_key(token)
+
     # For enterprise API keys (epk_ prefix), validate against enterprise credentials
     if token.startswith("epk_"):
         try:
@@ -93,6 +97,33 @@ def _authenticate_ci_request() -> dict[str, Any] | None:
         }
 
     return None
+
+
+def _authenticate_user_api_key(token: str):
+    """Validate a csk_<prefix>.<secret> per-user key and stamp last_used_at."""
+    import datetime
+
+    from backend.extensions import db
+    from backend.models import ApiKey
+
+    if "." not in token:
+        return None
+    prefix, _, secret = token.partition(".")
+    key = ApiKey.query.filter_by(prefix=prefix, revoked_at=None).first()
+    if not key:
+        return None
+    if not hmac.compare_digest(key.key_hash, ApiKey.hash_secret(prefix, secret)):
+        return None
+    key.last_used_at = datetime.datetime.now(datetime.timezone.utc)
+    db.session.commit()
+    return {
+        "kind": "user_api_key",
+        "legacy_user_id": key.user_id,
+        "workspace_id": None,
+        "organization_id": None,
+        "scopes": ["ci:check"],
+        "is_admin": False,
+    }
 
 
 @v1_bp.route("/ci/check", methods=["POST"])

@@ -13,7 +13,8 @@
     "expand": "Expand",
     "enterprise": "Enterprise",
     "billing": "Billing",
-    "settings": "Settings"
+    "settings": "Settings",
+    "admin": "Admin"
   },
   "header": {
     "signedInAs": "Signed in as",
@@ -38,7 +39,8 @@
     "/enterprise/cases": "Review Cases",
     "notFound": "Page Not Found",
     "/billing": "Plan & Usage",
-    "/settings": "Settings"
+    "/settings": "Settings",
+    "/admin": "Admin"
   },
   "buttons": {
     "save": "Save",
@@ -291,6 +293,34 @@
     "logoutAll": "Log out of all devices",
     "logoutAllIntro": "Sign out everywhere and invalidate all active sessions.",
     "cancel": "Cancel",
-    "copied": "Copied"
+    "copied": "Copied",
+    "apiKeys": {
+      "title": "API keys",
+      "intro": "Use these to call the API (e.g. the CI similarity check) without a browser session.",
+      "create": "Create key",
+      "nameHint": "Key name (optional)",
+      "tokenOnce": "Copy this key now — it won't be shown again.",
+      "noKeys": "No API keys yet.",
+      "revoke": "Revoke",
+      "revoked": "Revoked",
+      "lastUsed": "Last used",
+      "never": "never"
+    }
+  },
+  "admin": {
+    "title": "Admin",
+    "subtitle": "Platform overview and user management.",
+    "users": "Users",
+    "totalUsers": "Total users",
+    "totalAnalyses": "Total analyses",
+    "verified": "Verified",
+    "twofa": "2FA on",
+    "plan": "Plan",
+    "email": "Email",
+    "username": "Username",
+    "created": "Created",
+    "auditLog": "Recent activity",
+    "action": "Action",
+    "when": "When"
   }
 }

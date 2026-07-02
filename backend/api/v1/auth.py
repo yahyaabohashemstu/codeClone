@@ -36,6 +36,7 @@ from backend.engine.clone_detector import SUPPORTED_LANGUAGES
 from backend.extensions import db, limiter
 from backend.models import User
 from backend.services.ai_service import check_ai_health
+from backend.services.audit_service import record_audit
 from backend.services.cache_service import invalidate_cached_analysis_for_user
 from backend.services.email_service import send_email
 
@@ -147,6 +148,7 @@ def api_login():
     if not user or not user.check_password(password):
         if user:
             _register_failed_login(user)
+            record_audit("login.failed", user_id=user.id)
         return jsonify({"success": False, "message": "Invalid credentials."}), 401
 
     # Optional gate: block unverified accounts when the deployment requires a
@@ -175,6 +177,7 @@ def api_login():
         })
 
     login_user(user)
+    record_audit("login.success", user_id=user.id)
     return jsonify({
         "success": True,
         "user": _serialize_user(user),
@@ -438,6 +441,7 @@ def api_2fa_enable():
     current_user.totp_enabled = True
     current_user.recovery_codes_json = hashed_json
     db.session.commit()
+    record_audit("2fa.enabled", user_id=current_user.id)
     return jsonify({"success": True, "recoveryCodes": plain_codes, "user": _serialize_user(current_user)})
 
 
@@ -460,6 +464,7 @@ def api_2fa_disable():
         return jsonify({"success": False, "message": "Invalid code."}), 400
     twofa_service.clear_2fa(current_user)
     db.session.commit()
+    record_audit("2fa.disabled", user_id=current_user.id)
     return jsonify({"success": True, "user": _serialize_user(current_user)})
 
 

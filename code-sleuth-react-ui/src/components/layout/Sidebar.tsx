@@ -15,6 +15,7 @@ import {
   LineChart,
   Scale,
   Settings,
+  LayoutDashboard,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
@@ -47,6 +48,7 @@ const navItems: NavItem[] = [
 ];
 
 const enterpriseItems: NavItem[] = [
+  { labelKey: "nav.admin", icon: LayoutDashboard, path: "/admin" },
   { labelKey: "nav.workspaces", icon: Building2, path: "/enterprise/workspaces" },
   { labelKey: "nav.cases", icon: Scale, path: "/enterprise/cases" },
 ];
