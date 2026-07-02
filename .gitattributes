@@ -1,0 +1,5 @@
+# Normalize line endings: workflow + config YAML must be LF (GitHub Actions and
+# most tooling expect LF; CRLF in workflow files can cause parse/startup issues).
+*.yml text eol=lf
+*.yaml text eol=lf
+.gitattributes text eol=lf
