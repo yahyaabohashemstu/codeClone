@@ -57,6 +57,22 @@ def api_billing_checkout():
     return jsonify({"success": True, "checkoutUrl": url})
 
 
+@v1_bp.route("/billing/portal", methods=["POST"])
+@limiter.limit("10 per minute")
+@login_required
+def api_billing_portal():
+    """Open the Stripe billing portal for the current user to manage/cancel."""
+    from backend.services.billing_service import get_or_create_subscription
+
+    sub = get_or_create_subscription(current_user.id)
+    return_url = current_app.config.get("BILLING_SUCCESS_URL") or _fallback_url("/billing")
+    try:
+        url = stripe_service.create_billing_portal_session(sub.stripe_customer_id or "", return_url)
+    except StripeNotConfigured as exc:
+        return jsonify({"success": False, "message": str(exc), "code": "billing_not_configured"}), 503
+    return jsonify({"success": True, "portalUrl": url})
+
+
 @v1_bp.route("/billing/webhook", methods=["POST"])
 def api_billing_webhook():
     signature = request.headers.get("Stripe-Signature", "")

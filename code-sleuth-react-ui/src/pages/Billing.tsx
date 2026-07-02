@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { AlertCircle, CheckCircle2, CreditCard, Loader2, Zap } from "lucide-react";
+import { AlertCircle, CheckCircle2, CreditCard, Loader2, Settings, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
   getBillingSummary,
   getPlans,
+  openBillingPortal,
   startCheckout,
   type BillingPlan,
   type BillingSummary,
@@ -15,11 +17,13 @@ import { cn } from "@/lib/utils";
 
 const Billing = () => {
   const { t } = useTranslation("common");
+  const [params, setParams] = useSearchParams();
   const [summary, setSummary] = useState<BillingSummary | null>(null);
   const [plans, setPlans] = useState<BillingPlan[]>([]);
   const [billingEnabled, setBillingEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [checkingOut, setCheckingOut] = useState<string | null>(null);
+  const [openingPortal, setOpeningPortal] = useState(false);
 
   useEffect(() => {
     Promise.all([getBillingSummary(), getPlans()])
@@ -31,6 +35,36 @@ const Billing = () => {
       .catch(() => undefined)
       .finally(() => setLoading(false));
   }, []);
+
+  // Handle the return from Stripe Checkout (?status=success|cancel).
+  useEffect(() => {
+    const status = params.get("status");
+    if (!status) return;
+    if (status === "success") {
+      toast.success(t("billing.checkoutSuccess"));
+      getBillingSummary().then(setSummary).catch(() => undefined);
+    } else if (status === "cancel") {
+      toast(t("billing.checkoutCanceled"));
+    }
+    params.delete("status");
+    setParams(params, { replace: true });
+  }, [params, setParams, t]);
+
+  const handlePortal = async () => {
+    setOpeningPortal(true);
+    try {
+      const url = await openBillingPortal();
+      window.location.href = url;
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 503) {
+        toast.error(t("billing.billingDisabled"));
+      } else {
+        toast.error(t("billing.checkoutError"));
+      }
+    } finally {
+      setOpeningPortal(false);
+    }
+  };
 
   const handleChoose = async (planCode: string) => {
     setCheckingOut(planCode);
@@ -95,6 +129,17 @@ const Billing = () => {
                 </span>
               </div>
             </div>
+            {billingEnabled && summary.plan !== "free" && (
+              <Button
+                variant="outline"
+                onClick={handlePortal}
+                disabled={openingPortal}
+                className="h-9 gap-2"
+              >
+                {openingPortal ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Settings className="h-3.5 w-3.5" />}
+                {t("billing.manageSubscription")}
+              </Button>
+            )}
             <div className="min-w-[220px]">
               <div className="t-label">{t("billing.usageThisMonth")}</div>
               {summary.unlimited ? (

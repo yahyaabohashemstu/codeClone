@@ -260,6 +260,9 @@
     "free": "Free",
     "billingDisabled": "Online checkout is not enabled on this deployment. Contact your administrator to change plans.",
     "checkoutError": "Could not start checkout. Please try again.",
-    "quotaReached": "You've reached your monthly analysis limit. Upgrade your plan to run more analyses."
+    "quotaReached": "You've reached your monthly analysis limit. Upgrade your plan to run more analyses.",
+    "manageSubscription": "Manage subscription",
+    "checkoutSuccess": "Subscription updated — welcome aboard!",
+    "checkoutCanceled": "Checkout canceled. No changes were made."
   }
 }

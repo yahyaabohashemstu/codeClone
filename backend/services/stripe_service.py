@@ -66,6 +66,19 @@ def create_checkout_session(user, plan_code: str, success_url: str, cancel_url: 
     return session.url
 
 
+def create_billing_portal_session(customer_id: str, return_url: str) -> str:
+    """Return a Stripe Billing Portal URL so a customer can manage/cancel.
+
+    Raises StripeNotConfigured when Stripe is unavailable or the user has no
+    Stripe customer id yet (i.e. never checked out).
+    """
+    stripe = _client()
+    if not customer_id:
+        raise StripeNotConfigured("No Stripe customer on file for this account.")
+    session = stripe.billing_portal.Session.create(customer=customer_id, return_url=return_url)
+    return session.url
+
+
 def verify_and_parse_webhook(payload: bytes, signature_header: str):
     """Verify a Stripe webhook signature and return the parsed event, or None."""
     stripe = _client()
