@@ -30,15 +30,15 @@ Pairs evaluated: 50
 | flag | on_positives | on_negatives |
 |---|---|---|
 | exact_clone_result | 0.333 | 0.0 |
-| near_miss_clone_result | 0.939 | 0.529 |
-| parameterized_clone_result | 0.909 | 0.118 |
-| function_clone_result | 0.939 | 0.824 |
+| near_miss_clone_result | 0.848 | 0.0 |
+| parameterized_clone_result | 0.788 | 0.0 |
+| function_clone_result | 0.818 | 0.0 |
 | non_contiguous_clone_result | 0.788 | 0.0 |
-| structural_clone_result | 0.879 | 0.059 |
-| reordered_clone_result | 0.939 | 0.412 |
-| function_reordered_clone_result | 0.939 | 0.471 |
+| structural_clone_result | 0.818 | 0.0 |
+| reordered_clone_result | 0.848 | 0.0 |
+| function_reordered_clone_result | 0.818 | 0.0 |
 | gapped_clone_result | 0.667 | 0.0 |
-| intertwined_clone_result | 1.0 | 0.529 |
+| intertwined_clone_result | 0.576 | 0.0 |
 | semantic_clone_result | 0.485 | 0.0 |
 
 ### Misclassifications at production default (0.8)

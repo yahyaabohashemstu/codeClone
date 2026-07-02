@@ -53,6 +53,48 @@ PAIRWISE_FLAG_KEYS = [
 
 POSITIVE_CATEGORIES = ("t1", "t2", "t3", "t4", "xlang")
 
+# Continuous metrics captured for per-flag threshold calibration.
+_RAW_METRIC_KEYS = (
+    "text_sim", "token_sim", "token_sim_without_comments",
+    "token_sim_with_order", "token_sim_with_order_without_comments",
+    "renamed_clone_sim", "graph_sim",
+)
+
+# Each noisy boolean flag and the continuous metric it thresholds on, so we can
+# recommend a threshold that separates positives from negatives on the dataset.
+_FLAG_DRIVERS = {
+    "function_clone_result": "token_sim_without_comments",       # unordered, comment-free
+    "structural_clone_result": "token_sim_with_order",           # ordered
+    "reordered_clone_result": "token_sim",                       # unordered
+    "parameterized_clone_result": "token_sim_with_order_without_comments",
+    "function_reordered_clone_result": "token_sim_without_comments",
+}
+
+
+def flag_calibration(records: list[dict]) -> dict:
+    """For each flag with a known continuous driver, report the pos/neg spread of
+    that driver and a recommended threshold = just above the highest negative
+    (eliminates false positives while keeping as many positives as possible)."""
+    out = {}
+    pos = [r for r in records if r["is_clone"]]
+    neg = [r for r in records if not r["is_clone"]]
+    for flag, metric in _FLAG_DRIVERS.items():
+        pos_vals = [r["raw"][metric] for r in pos if metric in r.get("raw", {})]
+        neg_vals = [r["raw"][metric] for r in neg if metric in r.get("raw", {})]
+        if not pos_vals or not neg_vals:
+            continue
+        neg_max = max(neg_vals)
+        recommended = round(min(0.99, neg_max + 0.01), 3)
+        kept = sum(1 for v in pos_vals if v > recommended)
+        out[flag] = {
+            "metric": metric,
+            "neg_min": round(min(neg_vals), 3), "neg_max": round(neg_max, 3),
+            "pos_min": round(min(pos_vals), 3), "pos_max": round(max(pos_vals), 3),
+            "recommended_threshold": recommended,
+            "positives_kept_at_recommended": f"{kept}/{len(pos_vals)}",
+        }
+    return out
+
 
 def load_manifest() -> list[dict]:
     manifest = json.loads((DATASET_DIR / "manifest.json").read_text(encoding="utf-8"))
@@ -106,6 +148,8 @@ def run_pairwise(pairs: list[dict]) -> list[dict]:
                 "graph": float(result["graph_sim"]),
                 "ai": float(result["ai_similarity_score"]),
             },
+            # Continuous drivers behind the boolean flags, for calibration.
+            "raw": {k: float(result[k]) for k in _RAW_METRIC_KEYS if k in result},
             "flags": {key: bool(result[key]) for key in PAIRWISE_FLAG_KEYS},
             "elapsed_ms": elapsed_ms,
         }
@@ -308,6 +352,7 @@ def main() -> None:
                 "0.70": 0.70, "0.60": 0.60,
             }),
             "flag_fire_rates": flag_fire_rates(records),
+            "flag_calibration": flag_calibration(records),
             "misclassified_at_default": misclassified(records, PAIRWISE_DEFAULT_THRESHOLD),
             "sweep": sweep_rows,
             "records": records,

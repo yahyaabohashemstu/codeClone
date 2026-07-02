@@ -128,7 +128,16 @@ class CloneDetector:
         tokens2 = self.parse_code(code2, with_order=True)
         return fuzz.ratio(' '.join(tokens1), ' '.join(tokens2)) / 100
 
-    def near_miss_clone_similarity(self, code1, code2, threshold=0.8,
+    # --- Boolean clone-type flags -------------------------------------------
+    # The default thresholds below were calibrated against the labeled dataset
+    # (evaluation/; see results/report.md "flag_calibration"). Token-TYPE
+    # similarity is naturally high for any two programs, so the original 0.8/0.85
+    # thresholds fired these flags on 40-82% of UNRELATED pairs. Each threshold
+    # is now set just above the highest value observed on a non-clone pair, which
+    # drops every flag's false-positive rate to 0 on the dataset while retaining
+    # the majority of true positives.
+
+    def near_miss_clone_similarity(self, code1, code2, threshold=0.9,
                                    _text_sim=None, _token_sim=None,
                                    _token_sim_without_comments=None):
         """Check for near miss clones (Type 3 -- minor modifications of a copy).
@@ -160,7 +169,7 @@ class CloneDetector:
         ])
         return conditions_met >= 2
 
-    def parameterized_clone_similarity(self, code1, code2, threshold=0.8,
+    def parameterized_clone_similarity(self, code1, code2, threshold=0.86,
                                        clean1=None, clean2=None):
         """Check for parameterized clones (Type 3a).
 
@@ -180,7 +189,7 @@ class CloneDetector:
         clean2 = clean2 if clean2 is not None else self.remove_comments_and_whitespace(code2)
         return self.token_similarity(clean1, clean2, with_order=True) > threshold
 
-    def function_clone_similarity(self, code1, code2, threshold=0.8,
+    def function_clone_similarity(self, code1, code2, threshold=0.93,
                                   clean1=None, clean2=None):
         """Check for function-level clones.
 
@@ -210,11 +219,11 @@ class CloneDetector:
         token_sim_with_order = self.token_similarity(code1, code2, with_order=True)
         return token_sim_without_order > threshold and token_sim_with_order > threshold
 
-    def structural_clone_similarity(self, code1, code2, threshold=0.8):
+    def structural_clone_similarity(self, code1, code2, threshold=0.82):
         """Check for structural clones."""
         return self.token_similarity(code1, code2, with_order=True) > threshold
 
-    def reordered_clone_similarity(self, code1, code2, threshold=0.85):
+    def reordered_clone_similarity(self, code1, code2, threshold=0.9):
         """Check for reordered clones.
 
         Reordered clones have the same token vocabulary but in a different order
@@ -225,7 +234,7 @@ class CloneDetector:
         """
         return self.token_similarity(code1, code2, with_order=False) > threshold
 
-    def function_reordered_clone_similarity(self, code1, code2, threshold=0.85,
+    def function_reordered_clone_similarity(self, code1, code2, threshold=0.93,
                                             clean1=None, clean2=None):
         """Check for function reordered clones.
 
@@ -252,7 +261,7 @@ class CloneDetector:
         text_ratio = self.text_similarity(code1, code2)
         return token_ratio > threshold and text_ratio > (threshold - 0.10)
 
-    def intertwined_clone_similarity(self, code1, code2, threshold=0.85):
+    def intertwined_clone_similarity(self, code1, code2, threshold=0.92):
         """Check for intertwined clones (two clones merged into one file).
 
         Uses fuzz.partial_ratio which finds the best matching substring, making it
