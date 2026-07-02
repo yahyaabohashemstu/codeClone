@@ -110,6 +110,13 @@ class BaseConfig:
     # Signed-token lifetimes (seconds).
     EMAIL_VERIFICATION_MAX_AGE: int = int(os.environ.get("EMAIL_VERIFICATION_MAX_AGE", str(60 * 60 * 24 * 3)))
     PASSWORD_RESET_MAX_AGE: int = int(os.environ.get("PASSWORD_RESET_MAX_AGE", str(60 * 60)))
+    # Brute-force lockout: after N failed logins, lock the account for M minutes.
+    LOGIN_MAX_ATTEMPTS: int = int(os.environ.get("LOGIN_MAX_ATTEMPTS", "8"))
+    LOGIN_LOCKOUT_MINUTES: int = int(os.environ.get("LOGIN_LOCKOUT_MINUTES", "15"))
+    # Optional Have I Been Pwned k-anonymity password check on set/reset.
+    # Off by default (makes an external API call); best-effort — never blocks
+    # if the service is unreachable.
+    PASSWORD_BREACH_CHECK: bool = os.environ.get("PASSWORD_BREACH_CHECK", "0") == "1"
 
     # --- Billing (Stripe, optional) -----------------------------------------
     # When STRIPE_SECRET_KEY is unset, billing endpoints return 503 and every

@@ -103,7 +103,31 @@ def create_app(config_override: dict[str, Any] | None = None) -> Flask:
     @login_manager.user_loader
     def _load_user(user_id: str):
         from backend.models.user import User
-        return db.session.get(User, int(user_id))
+
+        # Identity is "<id>.<session_version>" (see User.get_id).  A bare id
+        # (older sessions) is still accepted.  A session-version mismatch means
+        # the user did "log out everywhere" — reject the stale session.
+        raw = str(user_id)
+        version = None
+        if "." in raw:
+            id_part, _, ver_part = raw.partition(".")
+        else:
+            id_part, ver_part = raw, None
+        try:
+            pk = int(id_part)
+        except (TypeError, ValueError):
+            return None
+        user = db.session.get(User, pk)
+        if user is None:
+            return None
+        if ver_part is not None:
+            try:
+                version = int(ver_part)
+            except (TypeError, ValueError):
+                return None
+            if version != (user.session_version or 0):
+                return None
+        return user
 
     # -- Unauthorized handler ------------------------------------------------
     # This is an API-first backend.  ``login_manager.login_view`` would
@@ -146,6 +170,9 @@ _CSRF_EXEMPT_ENDPOINTS: frozenset[str] = frozenset({
     "api_v1.api_resend_verification",
     "api_v1.api_request_password_reset",
     "api_v1.api_reset_password",
+    # Second factor of login: the caller holds the 2FA challenge token, not a
+    # session/CSRF token yet.
+    "api_v1.api_2fa_login",
     # Stripe webhook: authenticated by the Stripe-Signature HMAC, not a session
     # cookie, so it is not susceptible to CSRF and cannot carry a CSRF token.
     "api_v1.api_billing_webhook",
@@ -234,6 +261,12 @@ _CORE_ADDITIVE_COLUMNS: tuple[tuple[str, str, str], ...] = (
     ("user", "email", "VARCHAR(255)"),
     ("user", "email_verified", "BOOLEAN NOT NULL DEFAULT 0"),
     ("user", "created_at", "DATETIME"),
+    ("user", "totp_secret_encrypted", "TEXT"),
+    ("user", "totp_enabled", "BOOLEAN NOT NULL DEFAULT 0"),
+    ("user", "recovery_codes_json", "TEXT"),
+    ("user", "failed_login_count", "INTEGER NOT NULL DEFAULT 0"),
+    ("user", "locked_until", "DATETIME"),
+    ("user", "session_version", "INTEGER NOT NULL DEFAULT 0"),
 )
 
 

@@ -12,7 +12,8 @@
     "collapse": "طي الشريط",
     "expand": "توسيع الشريط",
     "enterprise": "المؤسسة",
-    "billing": "الفوترة"
+    "billing": "الفوترة",
+    "settings": "الإعدادات"
   },
   "header": {
     "signedInAs": "تم تسجيل الدخول باسم",
@@ -36,7 +37,8 @@
     "/enterprise/workspaces": "مساحات العمل",
     "/enterprise/cases": "حالات المراجعة",
     "notFound": "الصفحة غير موجودة",
-    "/billing": "الخطة والاستخدام"
+    "/billing": "الخطة والاستخدام",
+    "/settings": "الإعدادات"
   },
   "buttons": {
     "save": "حفظ",
@@ -264,5 +266,31 @@
     "manageSubscription": "إدارة الاشتراك",
     "checkoutSuccess": "تم تحديث الاشتراك — أهلًا بك!",
     "checkoutCanceled": "أُلغيت عملية الدفع. لم يتغيّر شيء."
+  },
+  "settings": {
+    "title": "الإعدادات",
+    "subtitle": "أدر أمان حسابك.",
+    "security": "الأمان",
+    "twofa": "المصادقة الثنائية",
+    "twofaOn": "مُفعّلة",
+    "twofaOff": "معطّلة",
+    "twofaIntro": "أضف خطوة ثانية لتسجيل الدخول عبر تطبيق مصادقة (TOTP).",
+    "enable2fa": "تفعيل المصادقة الثنائية",
+    "disable2fa": "تعطيل المصادقة الثنائية",
+    "scanOrEnter": "أضف مفتاح السرّ هذا إلى تطبيق المصادقة (Google Authenticator أو Authy أو 1Password…) ثم أدخل الرمز المكوّن من 6 أرقام للتأكيد:",
+    "secretKey": "مفتاح السرّ",
+    "authCode": "رمز من 6 أرقام",
+    "confirmEnable": "تأكيد وتفعيل",
+    "recoveryTitle": "احفظ رموز الاسترداد",
+    "recoveryIntro": "خزّنها في مكان آمن. كل رمز يُستخدم مرة واحدة إن فقدت تطبيق المصادقة. تُعرض الآن فقط.",
+    "done": "تم",
+    "disableIntro": "أدخل كلمة المرور ورمزًا حاليًا (أو رمز استرداد) لإيقاف المصادقة الثنائية.",
+    "currentPassword": "كلمة المرور",
+    "confirmDisable": "تعطيل",
+    "sessions": "الجلسات",
+    "logoutAll": "تسجيل الخروج من كل الأجهزة",
+    "logoutAllIntro": "سجّل الخروج من كل مكان وأبطل كل الجلسات النشطة.",
+    "cancel": "إلغاء",
+    "copied": "تم النسخ"
   }
 }

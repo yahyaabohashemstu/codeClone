@@ -21,10 +21,14 @@ from backend.auth.security import (
     get_csrf_token,
     password_is_weak,
 )
+import datetime
+
 from backend.auth.tokens import (
+    generate_2fa_login_token,
     generate_email_verification_token,
     generate_password_reset_token,
     password_reset_binding,
+    verify_2fa_login_token,
     verify_email_verification_token,
     verify_password_reset_token,
 )
@@ -48,8 +52,39 @@ def _serialize_user(user) -> dict:
         "username": user.username,
         "email": getattr(user, "email", None),
         "email_verified": bool(getattr(user, "email_verified", False)),
+        "twofa_enabled": bool(getattr(user, "totp_enabled", False)),
         "is_admin": user.is_admin,
     }
+
+
+def _utcnow() -> datetime.datetime:
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
+def _is_locked(user) -> bool:
+    locked_until = getattr(user, "locked_until", None)
+    if not locked_until:
+        return False
+    if locked_until.tzinfo is None:
+        locked_until = locked_until.replace(tzinfo=datetime.timezone.utc)
+    return locked_until > _utcnow()
+
+
+def _register_failed_login(user) -> None:
+    user.failed_login_count = (user.failed_login_count or 0) + 1
+    max_attempts = int(current_app.config.get("LOGIN_MAX_ATTEMPTS", 8))
+    if user.failed_login_count >= max_attempts:
+        minutes = int(current_app.config.get("LOGIN_LOCKOUT_MINUTES", 15))
+        user.locked_until = _utcnow() + datetime.timedelta(minutes=minutes)
+        user.failed_login_count = 0
+    db.session.commit()
+
+
+def _clear_lockout(user) -> None:
+    if user.failed_login_count or user.locked_until:
+        user.failed_login_count = 0
+        user.locked_until = None
+        db.session.commit()
 
 
 def _password_problem(password: str) -> str | None:
@@ -58,6 +93,8 @@ def _password_problem(password: str) -> str | None:
         return "Password must be at least 8 characters."
     if password.lower() in INSECURE_DEFAULT_PASSWORDS:
         return "Password is too common. Choose a stronger password."
+    if _password_is_breached(password):
+        return "This password has appeared in a known data breach. Choose a different one."
     return None
 
 
@@ -98,7 +135,18 @@ def api_login():
         return jsonify({"success": False, "message": "Username and password are required."}), 400
 
     user = User.query.filter_by(username=username).first()
+
+    # Account lockout: refuse early (uniform message) while locked.
+    if user and _is_locked(user):
+        return jsonify({
+            "success": False,
+            "message": "Too many failed attempts. Try again later.",
+            "code": "account_locked",
+        }), 429
+
     if not user or not user.check_password(password):
+        if user:
+            _register_failed_login(user)
         return jsonify({"success": False, "message": "Invalid credentials."}), 401
 
     # Optional gate: block unverified accounts when the deployment requires a
@@ -115,12 +163,42 @@ def api_login():
             "code": "email_unverified",
         }), 403
 
+    _clear_lockout(user)
+
+    # Two-factor: password ok but 2FA is enabled → issue a short-lived challenge
+    # token instead of a session. The client exchanges it at /auth/2fa/login.
+    if user.totp_enabled:
+        return jsonify({
+            "success": True,
+            "twofaRequired": True,
+            "twofaToken": generate_2fa_login_token(user.id),
+        })
+
     login_user(user)
     return jsonify({
         "success": True,
         "user": _serialize_user(user),
         "csrfToken": get_csrf_token(),
     })
+
+
+def _password_is_breached(password: str) -> bool:
+    """Best-effort Have I Been Pwned k-anonymity check. Never raises; returns
+    False on any error or when disabled, so it can only add safety, not block
+    logins if the service is down."""
+    if not current_app.config.get("PASSWORD_BREACH_CHECK"):
+        return False
+    import hashlib
+    try:
+        import requests
+        sha1 = hashlib.sha1(password.encode("utf-8")).hexdigest().upper()
+        prefix, suffix = sha1[:5], sha1[5:]
+        resp = requests.get(f"https://api.pwnedpasswords.com/range/{prefix}", timeout=4)
+        if resp.status_code != 200:
+            return False
+        return any(line.split(":")[0] == suffix for line in resp.text.splitlines())
+    except Exception:
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -320,12 +398,115 @@ def api_register():
 
 
 # ---------------------------------------------------------------------------
+# Two-factor authentication (TOTP)
+# ---------------------------------------------------------------------------
+@v1_bp.route("/auth/2fa/setup", methods=["POST"])
+@limiter.limit("10 per minute")
+@login_required
+def api_2fa_setup():
+    """Begin 2FA enrollment: generate (but don't yet enable) a secret and return
+    the otpauth URI for the authenticator app."""
+    from backend.services import twofa_service
+
+    if current_user.totp_enabled:
+        return jsonify({"success": False, "message": "Two-factor auth is already enabled."}), 409
+    secret = twofa_service.generate_secret()
+    twofa_service.store_secret(current_user, secret)
+    db.session.commit()
+    return jsonify({
+        "success": True,
+        "secret": secret,
+        "otpauthUri": twofa_service.provisioning_uri(current_user, secret),
+    })
+
+
+@v1_bp.route("/auth/2fa/enable", methods=["POST"])
+@limiter.limit("10 per minute")
+@login_required
+def api_2fa_enable():
+    """Confirm enrollment by verifying a code, then return one-time recovery codes."""
+    from backend.services import twofa_service
+
+    payload = request.get_json(silent=True) or {}
+    code = (payload.get("code") or "").strip()
+    secret = twofa_service.get_secret(current_user)
+    if not secret:
+        return jsonify({"success": False, "message": "Start setup first."}), 400
+    if not twofa_service.verify_totp(secret, code):
+        return jsonify({"success": False, "message": "Invalid code. Try again."}), 400
+    plain_codes, hashed_json = twofa_service.generate_recovery_codes()
+    current_user.totp_enabled = True
+    current_user.recovery_codes_json = hashed_json
+    db.session.commit()
+    return jsonify({"success": True, "recoveryCodes": plain_codes, "user": _serialize_user(current_user)})
+
+
+@v1_bp.route("/auth/2fa/disable", methods=["POST"])
+@limiter.limit("10 per minute")
+@login_required
+def api_2fa_disable():
+    """Disable 2FA. Requires the current password plus a valid TOTP or recovery code."""
+    from backend.services import twofa_service
+
+    payload = request.get_json(silent=True) or {}
+    password = payload.get("password") or ""
+    code = (payload.get("code") or "").strip()
+    if not current_user.check_password(password):
+        return jsonify({"success": False, "message": "Password is incorrect."}), 403
+    secret = twofa_service.get_secret(current_user)
+    ok = (secret and twofa_service.verify_totp(secret, code)) or \
+        twofa_service.consume_recovery_code(current_user, code)
+    if not ok:
+        return jsonify({"success": False, "message": "Invalid code."}), 400
+    twofa_service.clear_2fa(current_user)
+    db.session.commit()
+    return jsonify({"success": True, "user": _serialize_user(current_user)})
+
+
+@v1_bp.route("/auth/2fa/login", methods=["POST"])
+@limiter.limit("10 per minute")
+def api_2fa_login():
+    """Second factor of login: exchange the 2FA challenge token + a TOTP or
+    recovery code for a session."""
+    from backend.services import twofa_service
+
+    payload = request.get_json(silent=True) or {}
+    token = (payload.get("token") or "").strip()
+    code = (payload.get("code") or "").strip()
+    user_id = verify_2fa_login_token(token)
+    if not user_id:
+        return jsonify({"success": False, "message": "This sign-in attempt expired. Start over."}), 400
+    user = db.session.get(User, user_id)
+    if not user or not user.totp_enabled:
+        return jsonify({"success": False, "message": "Invalid sign-in attempt."}), 400
+    secret = twofa_service.get_secret(user)
+    if not ((secret and twofa_service.verify_totp(secret, code)) or twofa_service.consume_recovery_code(user, code)):
+        return jsonify({"success": False, "message": "Invalid authentication code."}), 401
+    db.session.commit()  # persist any consumed recovery code
+    login_user(user)
+    return jsonify({"success": True, "user": _serialize_user(user), "csrfToken": get_csrf_token()})
+
+
+# ---------------------------------------------------------------------------
 # POST /api/v1/auth/logout
 # ---------------------------------------------------------------------------
 @v1_bp.route("/auth/logout", methods=["POST"])
 @login_required
 def api_logout():
     invalidate_cached_analysis_for_user(current_user.id)
+    logout_user()
+    return jsonify({"success": True})
+
+
+# ---------------------------------------------------------------------------
+# POST /api/v1/auth/logout-all  (invalidate every session for this user)
+# ---------------------------------------------------------------------------
+@v1_bp.route("/auth/logout-all", methods=["POST"])
+@login_required
+def api_logout_all():
+    invalidate_cached_analysis_for_user(current_user.id)
+    current_user.session_version = (current_user.session_version or 0) + 1
+    db.session.commit()
     logout_user()
     return jsonify({"success": True})
 

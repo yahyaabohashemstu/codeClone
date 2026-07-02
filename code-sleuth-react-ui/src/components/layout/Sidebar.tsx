@@ -14,6 +14,7 @@ import {
   MessageSquare,
   LineChart,
   Scale,
+  Settings,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
@@ -41,6 +42,7 @@ const navItems: NavItem[] = [
   { labelKey: "nav.analytics", icon: LineChart, path: "/analytics" },
   { labelKey: "nav.chat", icon: MessageSquare, path: "/chat" },
   { labelKey: "nav.billing", icon: CreditCard, path: "/billing" },
+  { labelKey: "nav.settings", icon: Settings, path: "/settings" },
   { labelKey: "nav.help", icon: HelpCircle, path: "/help" },
 ];
 

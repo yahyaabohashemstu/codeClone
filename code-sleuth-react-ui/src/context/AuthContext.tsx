@@ -9,7 +9,12 @@ interface AuthContextValue {
   supportedLanguages: string[];
   aiStatus: SessionResponse["ai"] | null;
   refreshSession: () => Promise<SessionResponse>;
-  login: (username: string, password: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<{ twofaRequired: boolean; twofaToken?: string }>;
+  complete2faLogin: (token: string, code: string) => Promise<void>;
+  setup2fa: () => Promise<{ secret: string; otpauthUri: string }>;
+  enable2fa: (code: string) => Promise<string[]>;
+  disable2fa: (password: string, code: string) => Promise<void>;
+  logoutAll: () => Promise<void>;
   register: (username: string, password: string) => Promise<void>;
   signup: (username: string, email: string, password: string) => Promise<{ verificationRequired: boolean }>;
   requestPasswordReset: (email: string) => Promise<void>;
@@ -84,9 +89,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!username.trim() || !password) {
       throw new Error("Username and password are required.");
     }
-    const result = await apiFetch<{ success: boolean; user: UserSummary; csrfToken: string }>("/api/auth/login", {
+    const result = await apiFetch<{
+      success: boolean; user?: UserSummary; csrfToken?: string;
+      twofaRequired?: boolean; twofaToken?: string;
+    }>("/api/v1/auth/login", {
       method: "POST",
       body: JSON.stringify({ username: username.trim(), password }),
+    });
+    if (result.twofaRequired) {
+      // Password accepted; a second factor is required before a session exists.
+      return { twofaRequired: true, twofaToken: result.twofaToken };
+    }
+    if (result.csrfToken) {
+      setCsrfToken(result.csrfToken);
+    }
+    await refreshSession();
+    return { twofaRequired: false };
+  }, [refreshSession]);
+
+  const complete2faLogin = useCallback(async (token: string, code: string) => {
+    const result = await apiFetch<{ success: boolean; csrfToken?: string }>("/api/v1/auth/2fa/login", {
+      method: "POST",
+      body: JSON.stringify({ token, code: code.trim() }),
     });
     if (result.csrfToken) {
       setCsrfToken(result.csrfToken);
@@ -94,8 +118,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await refreshSession();
   }, [refreshSession]);
 
+  const setup2fa = useCallback(async () => {
+    const res = await apiFetch<{ success: boolean; secret: string; otpauthUri: string }>("/api/v1/auth/2fa/setup", {
+      method: "POST",
+    });
+    return { secret: res.secret, otpauthUri: res.otpauthUri };
+  }, []);
+
+  const enable2fa = useCallback(async (code: string) => {
+    const res = await apiFetch<{ success: boolean; recoveryCodes: string[] }>("/api/v1/auth/2fa/enable", {
+      method: "POST",
+      body: JSON.stringify({ code: code.trim() }),
+    });
+    await refreshSession();
+    return res.recoveryCodes;
+  }, [refreshSession]);
+
+  const disable2fa = useCallback(async (password: string, code: string) => {
+    await apiFetch<{ success: boolean }>("/api/v1/auth/2fa/disable", {
+      method: "POST",
+      body: JSON.stringify({ password, code: code.trim() }),
+    });
+    await refreshSession();
+  }, [refreshSession]);
+
+  const logoutAll = useCallback(async () => {
+    await apiFetch<{ success: boolean }>("/api/v1/auth/logout-all", { method: "POST" });
+    const nextSession = await refreshSession();
+    setSession(nextSession);
+  }, [refreshSession]);
+
   const register = useCallback(async (username: string, password: string) => {
-    const result = await apiFetch<{ success: boolean; user: UserSummary; csrfToken: string }>("/api/auth/register", {
+    const result = await apiFetch<{ success: boolean; user: UserSummary; csrfToken: string }>("/api/v1/auth/register", {
       method: "POST",
       body: JSON.stringify({ username, password }),
     });
@@ -106,7 +160,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signup = useCallback(async (username: string, email: string, password: string) => {
     const result = await apiFetch<{
       success: boolean; verificationRequired?: boolean; csrfToken?: string;
-    }>("/api/auth/signup", {
+    }>("/api/v1/auth/signup", {
       method: "POST",
       body: JSON.stringify({ username: username.trim(), email: email.trim(), password }),
     });
@@ -122,28 +176,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [refreshSession]);
 
   const requestPasswordReset = useCallback(async (email: string) => {
-    await apiFetch<{ success: boolean }>("/api/auth/request-password-reset", {
+    await apiFetch<{ success: boolean }>("/api/v1/auth/request-password-reset", {
       method: "POST",
       body: JSON.stringify({ email: email.trim() }),
     });
   }, []);
 
   const resetPassword = useCallback(async (token: string, password: string) => {
-    await apiFetch<{ success: boolean }>("/api/auth/reset-password", {
+    await apiFetch<{ success: boolean }>("/api/v1/auth/reset-password", {
       method: "POST",
       body: JSON.stringify({ token, password }),
     });
   }, []);
 
   const verifyEmail = useCallback(async (token: string) => {
-    await apiFetch<{ success: boolean }>("/api/auth/verify-email", {
+    await apiFetch<{ success: boolean }>("/api/v1/auth/verify-email", {
       method: "POST",
       body: JSON.stringify({ token }),
     });
   }, []);
 
   const logout = useCallback(async () => {
-    await apiFetch<{ success: boolean }>("/api/auth/logout", { method: "POST" });
+    await apiFetch<{ success: boolean }>("/api/v1/auth/logout", { method: "POST" });
     const nextSession = await refreshSession();
     setSession(nextSession);
   }, [refreshSession]);
@@ -156,13 +210,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     aiStatus: session?.ai ?? null,
     refreshSession,
     login,
+    complete2faLogin,
+    setup2fa,
+    enable2fa,
+    disable2fa,
+    logoutAll,
     register,
     signup,
     requestPasswordReset,
     resetPassword,
     verifyEmail,
     logout,
-  }), [isLoading, session, refreshSession, login, register, signup, requestPasswordReset, resetPassword, verifyEmail, logout]);
+  }), [isLoading, session, refreshSession, login, complete2faLogin, setup2fa, enable2fa, disable2fa, logoutAll, register, signup, requestPasswordReset, resetPassword, verifyEmail, logout]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

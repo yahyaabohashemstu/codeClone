@@ -12,7 +12,8 @@
     "collapse": "Collapse",
     "expand": "Expand",
     "enterprise": "Enterprise",
-    "billing": "Billing"
+    "billing": "Billing",
+    "settings": "Settings"
   },
   "header": {
     "signedInAs": "Signed in as",
@@ -36,7 +37,8 @@
     "/enterprise/workspaces": "Enterprise Workspaces",
     "/enterprise/cases": "Review Cases",
     "notFound": "Page Not Found",
-    "/billing": "Plan & Usage"
+    "/billing": "Plan & Usage",
+    "/settings": "Settings"
   },
   "buttons": {
     "save": "Save",
@@ -264,5 +266,31 @@
     "manageSubscription": "Manage subscription",
     "checkoutSuccess": "Subscription updated — welcome aboard!",
     "checkoutCanceled": "Checkout canceled. No changes were made."
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Manage your account security.",
+    "security": "Security",
+    "twofa": "Two-factor authentication",
+    "twofaOn": "Enabled",
+    "twofaOff": "Disabled",
+    "twofaIntro": "Add a second step to sign-in using an authenticator app (TOTP).",
+    "enable2fa": "Enable 2FA",
+    "disable2fa": "Disable 2FA",
+    "scanOrEnter": "Add this secret key to your authenticator app (Google Authenticator, Authy, 1Password…), then enter the 6-digit code to confirm:",
+    "secretKey": "Secret key",
+    "authCode": "6-digit code",
+    "confirmEnable": "Confirm & enable",
+    "recoveryTitle": "Save your recovery codes",
+    "recoveryIntro": "Store these somewhere safe. Each can be used once if you lose your authenticator. They are shown only now.",
+    "done": "Done",
+    "disableIntro": "Enter your password and a current code (or a recovery code) to turn off 2FA.",
+    "currentPassword": "Password",
+    "confirmDisable": "Disable",
+    "sessions": "Sessions",
+    "logoutAll": "Log out of all devices",
+    "logoutAllIntro": "Sign out everywhere and invalidate all active sessions.",
+    "cancel": "Cancel",
+    "copied": "Copied"
   }
 }

@@ -8,12 +8,12 @@ import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { cn } from "@/lib/utils";
 
-type Mode = "signin" | "signup" | "forgot";
+type Mode = "signin" | "signup" | "forgot" | "twofa";
 
 const Auth = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, signup, requestPasswordReset } = useAuth();
+  const { login, signup, requestPasswordReset, complete2faLogin } = useAuth();
   const { isRTL, localizeRuntimeMessage } = useLanguage();
   const { t } = useTranslation("auth");
   const [mode, setMode] = useState<Mode>("signin");
@@ -21,6 +21,8 @@ const Auth = () => {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [twofaCode, setTwofaCode] = useState("");
+  const [twofaToken, setTwofaToken] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -81,6 +83,23 @@ const Auth = () => {
       return;
     }
 
+    if (mode === "twofa") {
+      if (!twofaCode.trim()) {
+        setError(t("auth.requiredCredentials"));
+        return;
+      }
+      setIsSubmitting(true);
+      try {
+        await complete2faLogin(twofaToken, twofaCode.trim());
+        navigate(redirectTarget, { replace: true });
+      } catch (e) {
+        setError(asMessage(e));
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
     // signin
     if (!username.trim() || !password.trim()) {
       setError(t("auth.requiredCredentials"));
@@ -88,8 +107,14 @@ const Auth = () => {
     }
     setIsSubmitting(true);
     try {
-      await login(username.trim(), password);
-      navigate(redirectTarget, { replace: true });
+      const result = await login(username.trim(), password);
+      if (result.twofaRequired) {
+        setTwofaToken(result.twofaToken || "");
+        setTwofaCode("");
+        switchMode("twofa");
+      } else {
+        navigate(redirectTarget, { replace: true });
+      }
     } catch (e) {
       setError(asMessage(e));
     } finally {
@@ -100,14 +125,17 @@ const Auth = () => {
   const headingTitle =
     mode === "signup" ? t("auth.createAccountTitle")
     : mode === "forgot" ? t("auth.forgotTitle")
+    : mode === "twofa" ? t("auth.twofaTitle")
     : t("auth.signIn");
   const headingDescription =
     mode === "signup" ? t("auth.createAccountDescription")
     : mode === "forgot" ? t("auth.forgotDescription")
+    : mode === "twofa" ? t("auth.twofaDescription")
     : t("auth.loginDescription");
   const submitLabel =
     mode === "signup" ? t("auth.submitRegister")
     : mode === "forgot" ? t("auth.sendResetLink")
+    : mode === "twofa" ? t("auth.verify")
     : t("auth.submitLogin");
   const submittingLabel =
     mode === "signup" ? t("auth.creatingAccount")
@@ -202,7 +230,25 @@ const Auth = () => {
         )}
 
         <form className="space-y-4" onSubmit={(e) => void handleSubmit(e)}>
-          {mode !== "forgot" && (
+          {mode === "twofa" && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
+                {t("auth.twofaCodeLabel")}
+              </label>
+              <Input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                autoFocus
+                placeholder="123456"
+                value={twofaCode}
+                dir="ltr"
+                onChange={(e) => setTwofaCode(e.target.value)}
+                className="h-10 text-center tracking-[0.3em]"
+              />
+            </div>
+          )}
+          {(mode === "signin" || mode === "signup") && (
             <div>
               <label className="mb-1.5 block text-sm font-medium text-foreground">
                 {t("auth.username")}
@@ -226,7 +272,7 @@ const Auth = () => {
             </div>
           )}
 
-          {mode !== "signin" && (
+          {(mode === "signup" || mode === "forgot") && (
             <div>
               <label className="mb-1.5 block text-sm font-medium text-foreground">
                 {t("auth.email")}
@@ -251,7 +297,7 @@ const Auth = () => {
             </div>
           )}
 
-          {mode !== "forgot" && (
+          {(mode === "signin" || mode === "signup") && (
             <div>
               <label className="mb-1.5 block text-sm font-medium text-foreground">
                 {t("auth.password")}
@@ -326,7 +372,7 @@ const Auth = () => {
               {t("auth.loginCta")}
             </button>
           )}
-          {mode === "forgot" && (
+          {(mode === "forgot" || mode === "twofa") && (
             <button type="button" onClick={() => switchMode("signin")} className="text-primary hover:underline">
               {t("auth.backToLogin")}
             </button>

@@ -21,6 +21,22 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 _VERIFY_SALT = "codesimilar.email-verify.v1"
 _RESET_SALT = "codesimilar.password-reset.v1"
+_TWOFA_SALT = "codesimilar.2fa-login.v1"
+
+
+def generate_2fa_login_token(user_id: int) -> str:
+    """Short-lived token proving the password step passed; exchanged for a
+    session by POST /auth/2fa/login together with a TOTP or recovery code."""
+    return _serializer().dumps({"uid": int(user_id)}, salt=_TWOFA_SALT)
+
+
+def verify_2fa_login_token(token: str, max_age: int = 300) -> int | None:
+    try:
+        data = _serializer().loads(token, salt=_TWOFA_SALT, max_age=max_age)
+    except (BadSignature, SignatureExpired):
+        return None
+    uid = data.get("uid") if isinstance(data, dict) else None
+    return int(uid) if isinstance(uid, int) else None
 
 
 def password_reset_binding(password_hash: str) -> str:

@@ -3,6 +3,7 @@ export interface UserSummary {
   username: string;
   email?: string | null;
   email_verified?: boolean;
+  twofa_enabled?: boolean;
   is_admin: boolean;
 }
 
