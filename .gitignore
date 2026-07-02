@@ -72,6 +72,12 @@ secret_key
 evaluation/results/metrics.json
 evaluation/results/full_run.log
 
+# Frontend test artifacts
+code-sleuth-react-ui/coverage/
+code-sleuth-react-ui/test-results/
+code-sleuth-react-ui/playwright-report/
+code-sleuth-react-ui/.playwright/
+
 # Claude Code local settings (may contain sensitive paths)
 .claude/
 
