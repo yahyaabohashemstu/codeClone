@@ -107,7 +107,7 @@ const Home = () => {
             {engineLabels.join(" · ")}
           </div>
 
-          <h1 className="mt-6 h-hero leading-[1.04] tracking-tight" style={{ fontSize: "clamp(2.25rem, 6vw, 4.5rem)" }}>
+          <h1 className="mt-6 t-hero leading-[1.04] tracking-tight" style={{ fontSize: "clamp(2.25rem, 6vw, 4.5rem)" }}>
             {t("home.titlePrefix")}{" "}
             <span className="text-gradient-brand">{t("home.titleHighlight")}</span>
           </h1>
@@ -237,7 +237,7 @@ const Home = () => {
       {/* ── Features grid ── */}
       <section className="space-y-6">
         <div className="space-y-2 text-center">
-          <h2 className="h-2">{t("home.featuresTitle")}</h2>
+          <h2 className="t-h2">{t("home.featuresTitle")}</h2>
           <p className="mx-auto max-w-2xl t-body">{t("home.featuresDescription")}</p>
         </div>
 

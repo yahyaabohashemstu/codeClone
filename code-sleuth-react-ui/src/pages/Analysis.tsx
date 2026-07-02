@@ -431,7 +431,7 @@ const Analysis = () => {
               <span className="h-1.5 w-1.5 rounded-full bg-primary" />
               {t("analysis.eyebrow", { defaultValue: "Pairwise analysis" })}
             </div>
-            <h1 className="mt-3 h-2">{t("analysis.title")}</h1>
+            <h1 className="mt-3 t-h2">{t("analysis.title")}</h1>
             <p className="mt-1 max-w-[60ch] t-body">{t("analysis.subtitle")}</p>
           </div>
 

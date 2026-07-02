@@ -271,7 +271,7 @@ const History = () => {
               <HistoryIcon className="h-3 w-3" />
               {t("history.eyebrow", { defaultValue: "Recent analyses" })}
             </div>
-            <h1 className="mt-3 h-2">{t("history.pageTitle")}</h1>
+            <h1 className="mt-3 t-h2">{t("history.pageTitle")}</h1>
             <p className="mt-1 max-w-[60ch] t-body">{t("history.pageDescription")}</p>
           </div>
           <Button

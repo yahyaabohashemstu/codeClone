@@ -54,9 +54,19 @@ VECTOR_TOP_K = 12
 MAX_SOURCE_FILE_BYTES = 512 * 1024
 REPOSITORY_SCAN_TIMEOUT_SECONDS = 300
 DEFAULT_STORAGE_REGION = "global"
-DEFAULT_WORKSPACE_THRESHOLD = 0.78
-DEFAULT_SEMANTIC_THRESHOLD = 0.86
-DEFAULT_REVIEW_THRESHOLD = 0.68
+# Thresholds calibrated against the labeled dataset in evaluation/ (see
+# evaluation/results/report.md).  Feature-hash similarity scores are heavily
+# inflated: unrelated same-language files scored 0.71-0.91 overall, so the
+# previous defaults (workspace 0.78 / review 0.68) flagged 71%/100% of
+# non-clones.  At 0.91 the engine is exact on the dataset (precision 1.0,
+# recall 1.0 on Type-1/2/3 clones); 0.88 keeps a small review margin below
+# the decision point (precision 0.94).  True Type-4 / cross-language clones
+# score inside the non-clone range and are NOT reliably detectable by this
+# engine.  Existing DB rows keep their stored values — only new workspaces
+# and threshold profiles pick these up.
+DEFAULT_WORKSPACE_THRESHOLD = 0.91
+DEFAULT_SEMANTIC_THRESHOLD = 0.95
+DEFAULT_REVIEW_THRESHOLD = 0.88
 DEFAULT_RETENTION_DAYS = 365
 
 ROLE_ORDER = {

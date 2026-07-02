@@ -63,7 +63,17 @@
       "roleAdmin": "مسؤول",
       "roleOwner": "مالك",
       "scanCompleted": "اكتمل الفحص",
-      "scanFailed": "فشل الفحص"
+      "scanFailed": "فشل الفحص",
+      "secretsTitle": "بيانات اعتماد الـ Webhook",
+      "secretsIntro": "احفظها الآن — سرّ الـ webhook يُعرض مرة واحدة فقط ولا يمكن استرجاعه لاحقًا.",
+      "secretsWebhookLabel": "سرّ الـ webhook",
+      "secretsGithubLabel": "رابط webhook لـ GitHub",
+      "secretsGitlabLabel": "رابط webhook لـ GitLab",
+      "secretsHint": "أضف الرابط كـ webhook في مزوّد Git لديك، والصق السرّ في حقل \"Secret\".",
+      "secretsDone": "تم",
+      "copy": "نسخ",
+      "copied": "تم النسخ إلى الحافظة",
+      "copyFailed": "فشل النسخ"
     },
     "cases": {
       "title": "قضايا المراجعة",

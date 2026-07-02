@@ -122,7 +122,7 @@ export default function Workspaces() {
               <Building2 className="h-3 w-3" />
               {t("enterprise.workspaces.eyebrow", { defaultValue: "Enterprise admin" })}
             </div>
-            <h1 className="mt-3 h-2">{t("enterprise.workspaces.title")}</h1>
+            <h1 className="mt-3 t-h2">{t("enterprise.workspaces.title")}</h1>
             <p className="mt-1 max-w-[60ch] t-body">{t("enterprise.workspaces.subtitle")}</p>
           </div>
 

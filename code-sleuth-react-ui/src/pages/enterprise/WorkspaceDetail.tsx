@@ -5,8 +5,10 @@ import {
   AlertCircle,
   ArrowLeft,
   ChevronRight,
+  Copy,
   FileCode2,
   GitBranch,
+  KeyRound,
   Loader2,
   Play,
   Plus,
@@ -14,6 +16,7 @@ import {
   Scan,
   Search,
   Shield,
+  ShieldAlert,
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -43,6 +46,7 @@ import type {
   EnterpriseCase,
   EnterpriseRepository,
   EnterpriseWorkspace,
+  RepositorySecrets,
   WorkspaceMembership,
 } from "@/types/enterprise";
 import { cn } from "@/lib/utils";
@@ -109,6 +113,9 @@ export default function WorkspaceDetail() {
   const [probing, setProbing] = useState(false);
   const [probedBranches, setProbedBranches] = useState<string[]>([]);
   const [probeError, setProbeError] = useState("");
+  // Webhook credentials returned once by createRepository — held until the user
+  // dismisses the dialog, since they cannot be fetched again.
+  const [repoSecrets, setRepoSecrets] = useState<RepositorySecrets | null>(null);
 
   // Add member dialog
   const [memberOpen, setMemberOpen] = useState(false);
@@ -211,21 +218,39 @@ export default function WorkspaceDetail() {
     }
   };
 
+  const copyToClipboard = async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success(t("enterprise.workspaceDetail.copied"));
+    } catch {
+      toast.error(t("enterprise.workspaceDetail.copyFailed"));
+    }
+  };
+
   const handleCreateRepo = async () => {
     if (!repoName.trim()) return;
+    const isLocal = repoProvider === "local";
     setCreatingRepo(true);
     try {
-      const { item } = await createRepository(wsId, {
+      // Send only the location field the selected provider uses; the backend
+      // rejects requests that carry both localPath and cloneUrl.
+      const { item, secrets } = await createRepository(wsId, {
         name: repoName.trim(),
         provider: repoProvider,
-        localPath: repoPath.trim() || undefined,
-        cloneUrl: repoUrl.trim() || undefined,
+        localPath: isLocal ? repoPath.trim() || undefined : undefined,
+        cloneUrl: isLocal ? undefined : repoUrl.trim() || undefined,
         defaultBranch: repoBranch.trim() || "main",
       });
       setRepos((prev) => [item, ...prev]);
       setRepoOpen(false);
       setRepoName(""); setRepoPath(""); setRepoUrl(""); setRepoBranch("main");
+      setProbedBranches([]); setProbeError("");
       toast.success(t("enterprise.workspaceDetail.repoAdded"));
+      // Webhook credentials are returned exactly once; surface them for remote
+      // repositories so the admin can wire up the provider webhook.
+      if (item.provider !== "local" && secrets?.webhookSecret) {
+        setRepoSecrets(secrets);
+      }
     } catch (e: unknown) {
       toast.error(t("enterprise.workspaceDetail.failed"), { description: (e as { message?: string })?.message ?? String(e) });
     } finally {
@@ -340,7 +365,7 @@ export default function WorkspaceDetail() {
                   {t("enterprise.workspaceDetail.active", { defaultValue: "Active" })}
                 </span>
               </div>
-              <h1 className="h-3 text-foreground">{workspace.name}</h1>
+              <h1 className="t-h3 text-foreground">{workspace.name}</h1>
               {workspace.description && (
                 <p className="mt-1 t-body">{workspace.description}</p>
               )}
@@ -816,6 +841,68 @@ export default function WorkspaceDetail() {
               >
                 {creatingRepo && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
                 {t("enterprise.workspaceDetail.addRepo")}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* One-time webhook credentials dialog */}
+      <Dialog open={!!repoSecrets} onOpenChange={(open) => { if (!open) setRepoSecrets(null); }}>
+        <DialogContent className="sm:max-w-lg" dir={isRTL ? "rtl" : "ltr"}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound className="h-4 w-4 text-primary" />
+              {t("enterprise.workspaceDetail.secretsTitle")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div
+              className="flex items-start gap-2 rounded-lg border p-3 text-xs"
+              style={{ background: "hsl(var(--warning) / 0.1)", borderColor: "hsl(var(--warning) / 0.3)" }}
+            >
+              <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+              <span className="text-warning">{t("enterprise.workspaceDetail.secretsIntro")}</span>
+            </div>
+
+            {([
+              { label: t("enterprise.workspaceDetail.secretsWebhookLabel"), value: repoSecrets?.webhookSecret, mono: true },
+              { label: t("enterprise.workspaceDetail.secretsGithubLabel"), value: repoSecrets?.githubWebhookUrl, mono: false },
+              { label: t("enterprise.workspaceDetail.secretsGitlabLabel"), value: repoSecrets?.gitlabWebhookUrl, mono: false },
+            ] as const).map((field) => (
+              <div key={field.label} className="space-y-1.5">
+                <Label>{field.label}</Label>
+                <div className="flex gap-2">
+                  <Input
+                    readOnly
+                    value={field.value ?? ""}
+                    onFocus={(e) => e.currentTarget.select()}
+                    className={cn("flex-1", field.mono && "font-mono text-xs")}
+                    dir="ltr"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 gap-1.5"
+                    onClick={() => field.value && copyToClipboard(field.value)}
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    {t("enterprise.workspaceDetail.copy")}
+                  </Button>
+                </div>
+              </div>
+            ))}
+
+            <p className="text-xs text-muted-foreground">{t("enterprise.workspaceDetail.secretsHint")}</p>
+
+            <div className="flex justify-end pt-2">
+              <Button
+                onClick={() => setRepoSecrets(null)}
+                className="text-white"
+                style={{ background: "var(--gradient-brand)", boxShadow: "var(--glow-shadow-sm)" }}
+              >
+                {t("enterprise.workspaceDetail.secretsDone")}
               </Button>
             </div>
           </div>

@@ -63,6 +63,15 @@ uploads/
 *.backup
 app.py.react_migration_backup
 
+# Secret key material saved locally — MUST NOT be committed
+ENTERPRISE_DATA_KEY.txt
+*.key
+secret_key
+
+# Evaluation run artifacts (regenerable via evaluation/run_eval.py); keep report.md
+evaluation/results/metrics.json
+evaluation/results/full_run.log
+
 # Claude Code local settings (may contain sensitive paths)
 .claude/
 

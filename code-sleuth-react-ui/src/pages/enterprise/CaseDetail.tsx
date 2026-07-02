@@ -295,7 +295,7 @@ export default function CaseDetail() {
               </span>
             </div>
 
-            <h1 className="h-3 text-foreground">
+            <h1 className="t-h3 text-foreground">
               {t("enterprise.caseDetail.caseId")} #{caseData.id}
             </h1>
             <p className="mt-1 t-body">

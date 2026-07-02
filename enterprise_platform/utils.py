@@ -183,6 +183,14 @@ def structural_score(extraction_a: ArtifactExtraction, extraction_b: ArtifactExt
 
 
 def classify_clone(raw_hash_equal: bool, canonical_hash_equal: bool, is_cross_language: bool, overall: float, token_score_value: float, semantic_score_value: float) -> str:
+    # Rung thresholds calibrated against evaluation/ (results/report.md):
+    # hard negatives reached overall 0.91 and token 0.83, so the former
+    # semantic_clone rung at overall>=0.84 labeled 5/7 unrelated hard-negative
+    # pairs as clones; 0.92 clears every observed non-clone while keeping
+    # Type-3 pairs (0.91-0.97).  token>=0.88 already sits above the non-clone
+    # token range.  The type_4 rung (cross-language semantic>=0.92) never
+    # fired on real ports (they scored ~0.77) — kept for API stability, but
+    # feature-hash embeddings cannot reliably detect cross-language clones.
     if raw_hash_equal:
         return "type_1_exact"
     if canonical_hash_equal and not is_cross_language:
@@ -191,7 +199,7 @@ def classify_clone(raw_hash_equal: bool, canonical_hash_equal: bool, is_cross_la
         return "type_4_cross_language_semantic"
     if token_score_value >= 0.88:
         return "type_3_structural"
-    if overall >= 0.84:
+    if overall >= 0.92:
         return "semantic_clone"
     return "suspicious_similarity"
 

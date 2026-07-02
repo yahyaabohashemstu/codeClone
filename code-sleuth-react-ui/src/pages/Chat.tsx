@@ -34,7 +34,7 @@ const Chat = () => {
         >
           <MessageSquare className="h-8 w-8" />
         </div>
-        <h2 className="h-3">{t("chat.noContextTitle")}</h2>
+        <h2 className="t-h3">{t("chat.noContextTitle")}</h2>
         <p className="mx-auto mt-3 max-w-md t-body">{t("chat.noContextDescription")}</p>
         <div className="mt-6 flex justify-center gap-3">
           <Button
@@ -64,7 +64,7 @@ const Chat = () => {
             <Sparkles className="h-4 w-4" />
           </div>
           <div>
-            <h1 className="h-3">{t("chat.pageTitle")}</h1>
+            <h1 className="t-h3">{t("chat.pageTitle")}</h1>
             <p className="mt-0.5 t-xs">
               {currentResult.source_labels.code1} ↔ {currentResult.source_labels.code2}
             </p>

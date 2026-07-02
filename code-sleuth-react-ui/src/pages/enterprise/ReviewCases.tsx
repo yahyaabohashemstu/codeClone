@@ -118,7 +118,7 @@ export default function ReviewCases() {
             <Scale className="h-3 w-3" />
             {t("enterprise.cases.eyebrow", { defaultValue: "Review queue" })}
           </div>
-          <h1 className="mt-3 h-2">{t("enterprise.cases.title")}</h1>
+          <h1 className="mt-3 t-h2">{t("enterprise.cases.title")}</h1>
           <p className="mt-1 max-w-[60ch] t-body">{t("enterprise.cases.subtitle")}</p>
         </div>
       </section>

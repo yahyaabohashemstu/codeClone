@@ -123,7 +123,7 @@ const Analytics = () => {
         >
           <BarChart3 className="h-7 w-7" />
         </div>
-        <h2 className="h-3">{t("analytics.title")}</h2>
+        <h2 className="t-h3">{t("analytics.title")}</h2>
         <p className="mt-3 t-body">{t("analytics.noData")}</p>
         <Button
           asChild
@@ -171,7 +171,7 @@ const Analytics = () => {
             <BarChart3 className="h-3 w-3" />
             {t("analytics.eyebrow", { defaultValue: "Insights overview" })}
           </div>
-          <h1 className="mt-3 h-2">{t("analytics.title")}</h1>
+          <h1 className="mt-3 t-h2">{t("analytics.title")}</h1>
           <p className="mt-1 max-w-[60ch] t-body">{t("analytics.description")}</p>
         </div>
       </section>
