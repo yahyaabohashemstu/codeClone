@@ -202,7 +202,7 @@ export default function WorkspaceDetail() {
     setProbeError("");
     setProbedBranches([]);
     try {
-      const result = await probeGitUrl(url);
+      const result = await probeGitUrl(wsId, url);
       setProbedBranches(result.branches);
       setRepoBranch(result.defaultBranch);
       toast.success(

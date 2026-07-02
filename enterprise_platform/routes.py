@@ -325,6 +325,11 @@ def add_workspace_member(workspace_id: int):
     payload = require_json_body()
     with session_scope() as db_session:
         actor = resolve_actor(db_session)
+        # Membership management is a privilege-granting operation: block API-key
+        # actors so a leaked workspace:write key cannot mint/upgrade members
+        # (a write scope already maps to admin-equivalent access). Matches
+        # remove_workspace_member and the credential/archive/delete routes.
+        require_human_actor(actor, "API keys cannot manage workspace members.")
         require_workspace_access(db_session, workspace_id, actor, "admin")
         try:
             legacy_user_id = int(payload.get("legacyUserId") or 0)
@@ -459,8 +464,19 @@ def git_probe():
     import subprocess
 
     payload = require_json_body()
+    # Probing spawns a git subprocess against an arbitrary URL, so it must be a
+    # privileged, workspace-scoped operation — not open to any authenticated
+    # user. It is only ever invoked from the admin-only add-repository flow, so
+    # gate it on admin access to the target workspace (mirrors create_repository).
+    try:
+        workspace_id = int(payload.get("workspaceId") or 0)
+    except (TypeError, ValueError):
+        raise EnterpriseError(400, "workspaceId must be an integer.", code="invalid_input")
+    if not workspace_id:
+        raise EnterpriseError(400, "workspaceId is required.", code="missing_workspace_id")
     with session_scope() as db_session:
-        resolve_actor(db_session)  # require authentication
+        actor = resolve_actor(db_session)
+        require_workspace_access(db_session, workspace_id, actor, "admin")
 
     clone_url = (payload.get("cloneUrl") or "").strip()
     if not clone_url:
