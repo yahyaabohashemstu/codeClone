@@ -64,8 +64,15 @@ class BaseConfig:
     MAX_SPREADSHEET_UPLOAD_BYTES: int = 5 * 1024 * 1024
     MAX_SPREADSHEET_ARCHIVE_BYTES: int = 25 * 1024 * 1024
 
+    # --- Coordination backend (multi-replica) --------------------------------
+    # "memory" (default) keeps background-task state + progress in-process —
+    # correct and optimal for a single replica. Set to "redis" (with REDIS_URL)
+    # to share that state across replicas so load-balanced polling works.
+    COORDINATION_BACKEND: str = os.environ.get("COORDINATION_BACKEND", "memory").lower()
+
     # --- Rate limiting -------------------------------------------------------
     RATELIMIT_STORAGE_URI: str = os.environ.get("REDIS_URL", "memory://")
+    REDIS_URL: str = os.environ.get("REDIS_URL", "")
     RATELIMIT_DEFAULT: str = ""  # no global default
     RATELIMIT_HEADERS_ENABLED: bool = True
 

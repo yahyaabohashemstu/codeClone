@@ -224,11 +224,15 @@ Readiness will report `sentryConfigured: true`.
 
 ## Notes & limits
 
-- **Scale:** the shipped stack is a single app process (Waitress). Analysis
-  task state, progress, and result cache live in-process — correct for one
-  replica. To run multiple backend replicas you must move that coordination
-  state to Redis (rate limiting already supports `REDIS_URL`); this is a
-  deliberate, documented follow-up, not wired yet.
+- **Scale:** the default is a single app process (Waitress) with in-process
+  task state — correct and optimal for one replica. To run **multiple backend
+  replicas** behind a load balancer, set `REDIS_URL` and
+  `COORDINATION_BACKEND=redis`: background-task state and progress are then
+  shared through Redis so a poll that lands on a different replica still sees
+  the right progress/result. (Each analysis still executes on the replica that
+  received it; a replica crash mid-analysis means the user retries — a full
+  re-queueing worker system is the next step beyond this.) Rate limiting also
+  uses `REDIS_URL` when set.
 - **Database:** defaults to SQLite in the persisted `app-instance` volume. For
   higher load, set `DATABASE_URL=postgresql://...` (the `psycopg2-binary` driver
   is already in `requirements.txt`). New columns are applied automatically on

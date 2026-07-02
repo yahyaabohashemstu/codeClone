@@ -53,6 +53,15 @@ def _iso_stamp() -> str:
     return _utcnow().isoformat()
 
 
+def _redis_progress_store():
+    """Return the Redis progress store when coordination=redis, else None."""
+    try:
+        from backend.services.coordination import get_redis_progress_store
+        return get_redis_progress_store()
+    except Exception:  # pragma: no cover - defensive; never break progress
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -76,6 +85,10 @@ def update_analysis_progress(
         An optional numeric progress value (0--100).
     """
     if not user_id:
+        return
+    _store = _redis_progress_store()
+    if _store is not None:
+        _store.set(user_id, stage, progress, _iso_stamp())
         return
     with _analysis_progress_lock:
         _analysis_progress[user_id] = {
@@ -102,6 +115,10 @@ def get_analysis_progress_for_user(user_id: int | None) -> dict:
     if not user_id:
         return idle
 
+    _store = _redis_progress_store()
+    if _store is not None:
+        return _store.get(user_id) or idle
+
     with _analysis_progress_lock:
         # Clean stale entries older than the configured threshold.
         cutoff = (
@@ -121,6 +138,10 @@ def get_analysis_progress_for_user(user_id: int | None) -> dict:
 def clear_analysis_progress(user_id: int | None) -> None:
     """Remove the progress entry for *user_id*."""
     if not user_id:
+        return
+    _store = _redis_progress_store()
+    if _store is not None:
+        _store.clear(user_id)
         return
     with _analysis_progress_lock:
         _analysis_progress.pop(user_id, None)

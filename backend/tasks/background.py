@@ -51,6 +51,20 @@ _analysis_executor = ThreadPoolExecutor(
 )
 
 
+def _redis_task_store():
+    """Return the Redis task store when coordination=redis, else None.
+
+    When active, task state is shared across replicas (load-balanced polling
+    works); when None, the in-memory ``_analysis_tasks`` path below is used
+    unchanged.
+    """
+    try:
+        from backend.services.coordination import get_redis_task_store
+        return get_redis_task_store()
+    except Exception:  # pragma: no cover - never break the task path
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Worker function
 # ---------------------------------------------------------------------------
@@ -73,17 +87,25 @@ def _run_analysis_background(
     submission time so that a new Flask application is never created
     just for a background task.
     """
+    store = _redis_task_store()
     try:
         with app.app_context():
+            # Re-resolve inside the app context so config-driven backend
+            # selection (COORDINATION_BACKEND) is honored.
+            store = _redis_task_store()
             # Mark the task as running so the polling endpoint can distinguish
             # "queued but not started" (pending) from "actively executing"
             # (running).  Previously the worker only ever set pending →
             # completed/failed, so the "running" branch in the API was dead.
-            with _analysis_tasks_lock:
-                task = _analysis_tasks.get(task_id)
-                if task is not None:
-                    task["status"] = "running"
-                    task["started_at"] = datetime.datetime.now(datetime.timezone.utc)
+            started_at = datetime.datetime.now(datetime.timezone.utc)
+            if store is not None:
+                store.update_status(task_id, {"status": "running", "started_at": started_at})
+            else:
+                with _analysis_tasks_lock:
+                    task = _analysis_tasks.get(task_id)
+                    if task is not None:
+                        task["status"] = "running"
+                        task["started_at"] = started_at
 
             # Deferred import to avoid circular dependency at module load
             # time.  ``analysis_service`` depends on ``progress_service``
@@ -100,28 +122,43 @@ def _run_analysis_background(
             )
             if extra_result:
                 context.update(extra_result)
-            with _analysis_tasks_lock:
-                submitted_at = (_analysis_tasks.get(task_id) or {}).get("submitted_at")
-                _analysis_tasks[task_id] = {
-                    "status": "completed",
-                    "result": context,
-                    "user_id": user_id,
-                    "submitted_at": submitted_at,
-                    "completed_at": datetime.datetime.now(datetime.timezone.utc),
-                }
-    except Exception as exc:
-        logger.error("Background analysis failed: %s", exc, exc_info=True)
-        with _analysis_tasks_lock:
-            submitted_at = (_analysis_tasks.get(task_id) or {}).get("submitted_at")
-            _analysis_tasks[task_id] = {
-                "status": "failed",
-                "error": "An error occurred during analysis. Please try again.",
+            completed = {
+                "status": "completed",
+                "result": context,
                 "user_id": user_id,
-                "submitted_at": submitted_at,
+                "submitted_at": _submitted_at(store, task_id),
                 "completed_at": datetime.datetime.now(datetime.timezone.utc),
             }
+            if store is not None:
+                store.put(task_id, completed)
+            else:
+                with _analysis_tasks_lock:
+                    _analysis_tasks[task_id] = completed
+    except Exception as exc:
+        logger.error("Background analysis failed: %s", exc, exc_info=True)
+        failed = {
+            "status": "failed",
+            "error": "An error occurred during analysis. Please try again.",
+            "user_id": user_id,
+            "submitted_at": _submitted_at(store, task_id),
+            "completed_at": datetime.datetime.now(datetime.timezone.utc),
+        }
+        if store is not None:
+            store.put(task_id, failed)
+        else:
+            with _analysis_tasks_lock:
+                _analysis_tasks[task_id] = failed
     finally:
         clear_analysis_progress(user_id)
+
+
+def _submitted_at(store, task_id: str):
+    """Best-effort recovery of the original submitted_at timestamp."""
+    if store is not None:
+        existing = store.get(task_id)
+        return (existing or {}).get("submitted_at")
+    with _analysis_tasks_lock:
+        return (_analysis_tasks.get(task_id) or {}).get("submitted_at")
 
 
 # ---------------------------------------------------------------------------
@@ -165,12 +202,17 @@ def submit_analysis_task(
     from flask import current_app
     app = current_app._get_current_object()  # type: ignore[attr-defined]
 
-    with _analysis_tasks_lock:
-        _analysis_tasks[task_id] = {
-            "status": "pending",
-            "user_id": user_id,
-            "submitted_at": datetime.datetime.now(datetime.timezone.utc),
-        }
+    pending = {
+        "status": "pending",
+        "user_id": user_id,
+        "submitted_at": datetime.datetime.now(datetime.timezone.utc),
+    }
+    store = _redis_task_store()
+    if store is not None:
+        store.put(task_id, pending)
+    else:
+        with _analysis_tasks_lock:
+            _analysis_tasks[task_id] = pending
 
     _analysis_executor.submit(
         _run_analysis_background,
@@ -193,6 +235,9 @@ def submit_analysis_task(
 
 def get_task_status(task_id: str) -> dict | None:
     """Return the current task dict for *task_id*, or ``None`` if unknown."""
+    store = _redis_task_store()
+    if store is not None:
+        return store.get(task_id)
     with _analysis_tasks_lock:
         return _analysis_tasks.get(task_id)
 
@@ -204,6 +249,14 @@ def consume_task_result(task_id: str) -> dict | None:
     completed (or failed) result, the entry is deleted.  Returns ``None``
     when the task does not exist or is still pending.
     """
+    store = _redis_task_store()
+    if store is not None:
+        task = store.get(task_id)
+        if task is None:
+            return None
+        if task.get("status") in ("completed", "failed"):
+            return store.pop(task_id)
+        return task
     with _analysis_tasks_lock:
         task = _analysis_tasks.get(task_id)
         if task is None:
@@ -230,6 +283,10 @@ def cleanup_stale_tasks() -> int:
         # module default derived from the environment.
         pass
     cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=minutes)
+    store = _redis_task_store()
+    if store is not None:
+        # Redis TTLs already expire old entries; nothing to sweep here.
+        return store.cleanup(cutoff)
     removed = 0
     with _analysis_tasks_lock:
         stale_keys = [
@@ -252,6 +309,9 @@ def get_tasks_for_user(user_id: int) -> dict[str, dict]:
     whether any background task has completed or failed for the authenticated
     user.
     """
+    store = _redis_task_store()
+    if store is not None:
+        return store.for_user(user_id)
     with _analysis_tasks_lock:
         return {
             tid: task
