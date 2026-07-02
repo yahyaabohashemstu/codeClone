@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";
@@ -51,7 +51,14 @@ export function MainLayout({ children }: MainLayoutProps) {
         <Header toggleSidebar={() => setIsSidebarOpen((current) => !current)} />
         <main className="mx-auto flex-1 w-full max-w-[1480px] px-4 py-6 md:px-6 lg:px-8">{children}</main>
         <footer className="border-t border-border/30 px-6 py-4 text-center text-xs text-muted-foreground/50">
-          {t("footer.fullCopyright")}
+          <div>{t("footer.fullCopyright")}</div>
+          <div className="mt-1 flex justify-center gap-3">
+            <Link to="/terms" className="hover:text-foreground">{t("footer.terms", { defaultValue: "Terms" })}</Link>
+            <span aria-hidden>·</span>
+            <Link to="/privacy" className="hover:text-foreground">{t("footer.privacy", { defaultValue: "Privacy" })}</Link>
+            <span aria-hidden>·</span>
+            <Link to="/status" className="hover:text-foreground">{t("footer.status", { defaultValue: "Status" })}</Link>
+          </div>
         </footer>
       </div>
     </div>

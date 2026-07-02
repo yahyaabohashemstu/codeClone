@@ -129,6 +129,34 @@ class TestAnalysisQuotaEnforcement:
                 PLANS["free"].monthly_analysis_quota
 
 
+class TestQuotaAlerts:
+    def test_alert_emails_sent_once_per_threshold(self, app, monkeypatch):
+        import backend.services.email_service as email_mod
+        from backend.services import billing_service
+        from backend.models.billing import UsageRecord
+
+        sent = []
+        monkeypatch.setattr(email_mod, "send_email", lambda to, subj, body: sent.append(subj) or True)
+
+        uid = _make_user(app, "alertee")
+        limit = PLANS["free"].monthly_analysis_quota
+        with app.app_context():
+            period = billing_service.current_period()
+            # Jump to one below 80%.
+            rec = UsageRecord(user_id=uid, period=period, analyses_count=int(limit * 0.8) - 1)
+            _db.session.add(rec)
+            _db.session.commit()
+            billing_service.try_consume_analysis_quota(uid)   # crosses 80%
+            billing_service.try_consume_analysis_quota(uid)   # still 80%, no new mail
+            assert sum("80%" in s for s in sent) == 1
+            # Jump to just below 100%.
+            rec = UsageRecord.query.filter_by(user_id=uid, period=period).first()
+            rec.analyses_count = limit - 1
+            _db.session.commit()
+            billing_service.try_consume_analysis_quota(uid)   # reaches 100%
+            assert sum("limit" in s.lower() for s in sent) == 1
+
+
 class TestStripeGating:
     def test_checkout_returns_503_when_unconfigured(self, app, client):
         uid = _make_user(app, "buyer")

@@ -94,7 +94,40 @@ def try_consume_analysis_quota(user_id: int) -> dict:
 
     record.analyses_count += 1
     db.session.commit()
+    _maybe_send_quota_alert(user_id, record, plan.monthly_analysis_quota)
     return {"allowed": True, **quota_summary(user_id)}
+
+
+def _maybe_send_quota_alert(user_id: int, record, limit: int) -> None:
+    """Email the user once when they first cross 80% and 100% of their quota."""
+    if limit <= 0:
+        return
+    pct = (record.analyses_count / limit) * 100
+    threshold = 100 if pct >= 100 else (80 if pct >= 80 else 0)
+    if threshold == 0 or record.alert_sent >= threshold:
+        return
+    record.alert_sent = threshold
+    db.session.commit()
+    try:
+        from backend.models import User
+        from backend.services.email_service import send_email
+        user = db.session.get(User, user_id)
+        if user and user.email:
+            if threshold == 100:
+                subject, body = (
+                    "You've reached your CodeSimilar monthly limit",
+                    f"You've used all {limit} analyses in your plan this month. "
+                    "Upgrade your plan to keep running analyses.",
+                )
+            else:
+                subject, body = (
+                    "You're at 80% of your CodeSimilar monthly quota",
+                    f"You've used {record.analyses_count} of {limit} analyses this month.",
+                )
+            send_email(user.email, subject, body)
+    except Exception:  # pragma: no cover - never break the request path
+        import logging
+        logging.getLogger(__name__).exception("Quota alert email failed")
 
 
 def set_plan(user_id: int, plan_code: str, *, status: str = "active",

@@ -267,6 +267,7 @@ _CORE_ADDITIVE_COLUMNS: tuple[tuple[str, str, str], ...] = (
     ("user", "failed_login_count", "INTEGER NOT NULL DEFAULT 0"),
     ("user", "locked_until", "DATETIME"),
     ("user", "session_version", "INTEGER NOT NULL DEFAULT 0"),
+    ("usage_record", "alert_sent", "INTEGER NOT NULL DEFAULT 0"),
 )
 
 

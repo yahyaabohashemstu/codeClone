@@ -69,6 +69,9 @@ class UsageRecord(db.Model):  # type: ignore[name-defined]
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
     period = db.Column(db.String(7), nullable=False, index=True)  # YYYY-MM
     analyses_count = db.Column(db.Integer, nullable=False, default=0)
+    # Highest quota-alert threshold already emailed this period (0/80/100), so
+    # a user is warned at most once per threshold per month.
+    alert_sent = db.Column(db.Integer, nullable=False, default=0)
     updated_at = db.Column(db.DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     def __repr__(self) -> str:
