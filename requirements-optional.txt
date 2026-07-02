@@ -1,0 +1,10 @@
+# Optional integrations — install only if you enable the corresponding feature.
+# The application imports these lazily and degrades gracefully when they are
+# absent (billing returns 503; Sentry is skipped), so they are NOT in the core
+# requirements.txt and CI does not need them.
+
+# Stripe billing (set STRIPE_SECRET_KEY to activate):
+stripe==11.4.1
+
+# Sentry error tracking (set SENTRY_DSN to activate):
+sentry-sdk[flask]==2.20.0
