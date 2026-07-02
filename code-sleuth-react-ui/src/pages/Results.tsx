@@ -1072,7 +1072,7 @@ const Results = () => {
         className="mx-auto max-w-2xl rounded-2xl border border-border bg-card p-10 text-center"
         style={{ boxShadow: "var(--card-shadow-rest)" }}
       >
-        <h2 className="h-3">{emptyStateTitle}</h2>
+        <h2 className="t-h3">{emptyStateTitle}</h2>
         <p className="mx-auto mt-3 max-w-md t-body">{emptyStateDescription}</p>
         <div className="mt-6 flex justify-center gap-3">
           <Button
@@ -1202,7 +1202,7 @@ const Results = () => {
                 {getProgrammingLanguageLabel(result.language)}
               </span>
             </div>
-            <h1 className="h-3 truncate">
+            <h1 className="t-h3 truncate">
               {result.source_labels.code1} × {result.source_labels.code2}
             </h1>
             <p className="max-w-2xl text-sm text-muted-foreground">

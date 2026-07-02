@@ -89,7 +89,7 @@ const Help = () => {
               <HelpCircle className="h-3 w-3" />
               {t("help.eyebrow", { defaultValue: "Support & docs" })}
             </div>
-            <h1 className="mt-3 h-2">{t("help.title")}</h1>
+            <h1 className="mt-3 t-h2">{t("help.title")}</h1>
             <p className="mt-1 max-w-[60ch] t-body">{t("help.subtitle")}</p>
           </div>
         </div>
@@ -109,7 +109,7 @@ const Help = () => {
                 <Icon className={`h-5 w-5 ${card.color}`} />
               </div>
               <div>
-                <h3 className="h-5 text-foreground">{t(card.titleKey)}</h3>
+                <h3 className="t-h5 text-foreground">{t(card.titleKey)}</h3>
                 <p className="mt-1 t-sm leading-relaxed">{t(card.descKey)}</p>
               </div>
               {card.href ? (

@@ -378,7 +378,20 @@ class TestClassifyClone:
         assert result == "type_4_cross_language_semantic"
 
     def test_classify_clone_semantic(self):
-        """High overall score but moderate token score => semantic_clone."""
+        """Very high overall score but moderate token score => semantic_clone."""
+        result = classify_clone(
+            raw_hash_equal=False,
+            canonical_hash_equal=False,
+            is_cross_language=False,
+            overall=0.93,
+            token_score_value=0.70,
+            semantic_score_value=0.80,
+        )
+        assert result == "semantic_clone"
+
+    def test_classify_clone_inflated_overall_is_suspicious(self):
+        """Overall in the measured non-clone range (<=0.91) must NOT be labeled
+        semantic_clone — hard negatives in evaluation/ scored up to 0.91."""
         result = classify_clone(
             raw_hash_equal=False,
             canonical_hash_equal=False,
@@ -387,7 +400,7 @@ class TestClassifyClone:
             token_score_value=0.70,
             semantic_score_value=0.80,
         )
-        assert result == "semantic_clone"
+        assert result == "suspicious_similarity"
 
 
 # =========================================================================

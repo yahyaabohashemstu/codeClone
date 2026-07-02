@@ -6,11 +6,24 @@ Enterprise code similarity analysis platform powered by AI.
 
 - **Multi-language clone detection** -- 15 languages via tree-sitter (Python, JavaScript, Java, C, Go, Rust, and more)
 - **AI-powered analysis** -- Mistral LLM integration for intelligent code review and explanations
-- **BERT semantic similarity** -- GraphCodeBERT embeddings for meaning-aware comparison
+- **BERT semantic similarity** -- GraphCodeBERT embeddings as one signal in a combined score
+- **Accounts & billing** -- self-service signup, email verification, password reset, and per-plan monthly usage quotas (Stripe-ready)
 - **Enterprise workspaces** -- team-based code review with role-based access control, encrypted storage, and scan workers
 - **CI/CD gate** -- `POST /api/v1/ci/check` similarity check for pull-request pipelines
 - **PDF report generation** -- exportable analysis reports with charts and metrics
 - **Bilingual UI** -- full English and Arabic (RTL) interface support
+
+### Detection accuracy & scope
+
+Detection thresholds are calibrated against a labeled dataset (see `evaluation/`)
+rather than hand-picked. On that set the tuned engines detect Type-1 (identical),
+Type-2 (renamed), and Type-3 (near-miss) clones with high precision and recall.
+
+**Known limitation:** Type-4 (behaviourally-equivalent but structurally different)
+and cross-language clones are **not** reliably detected — their scores overlap the
+unrelated-code range with the current embeddings. Treat the tool as strong for
+copy/rename/near-miss detection and advisory-only for deep semantic equivalence.
+Run `python evaluation/run_eval.py` to reproduce the numbers.
 
 ## Architecture
 
@@ -93,6 +106,17 @@ Required in `.env`: `SECRET_KEY`, `POSTGRES_PASSWORD`; recommended:
 `ENTERPRISE_DATA_KEY`, `MISTRAL_API_KEY`. The stack terminates plain HTTP on
 `:80`; once TLS is added, remove the `SESSION_COOKIE_SECURE: "0"` override in
 `docker-compose.prod.yml`.
+
+**Domain + automatic HTTPS** (single container behind Caddy, Let's Encrypt):
+
+```bash
+docker compose -f docker/docker-compose.caddy.yml up -d --build
+```
+
+This is the recommended turnkey path for a public deployment with a real domain,
+TLS, email, and Stripe billing. Follow the step-by-step
+**[deployment runbook](docs/DEPLOYMENT.md)** — it covers domain/TLS, SMTP, and
+Stripe (test + live) with a go-live checklist.
 
 ## Environment Variables
 

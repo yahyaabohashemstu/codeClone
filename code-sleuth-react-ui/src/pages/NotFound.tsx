@@ -35,7 +35,7 @@ const NotFound = () => {
             <span className="font-mono">{t("notFound.title")}</span>
           </div>
 
-          <h1 className="h-2">{t("notFound.heading")}</h1>
+          <h1 className="t-h2">{t("notFound.heading")}</h1>
           <p className="max-w-md t-body">{t("notFound.description")}</p>
 
           <Button

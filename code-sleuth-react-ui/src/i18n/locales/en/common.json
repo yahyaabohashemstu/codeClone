@@ -11,7 +11,10 @@
     "cases": "Review Cases",
     "collapse": "Collapse",
     "expand": "Expand",
-    "enterprise": "Enterprise"
+    "enterprise": "Enterprise",
+    "billing": "Billing",
+    "settings": "Settings",
+    "admin": "Admin"
   },
   "header": {
     "signedInAs": "Signed in as",
@@ -34,7 +37,10 @@
     "/analytics": "Analytics Dashboard",
     "/enterprise/workspaces": "Enterprise Workspaces",
     "/enterprise/cases": "Review Cases",
-    "notFound": "Page Not Found"
+    "notFound": "Page Not Found",
+    "/billing": "Plan & Usage",
+    "/settings": "Settings",
+    "/admin": "Admin"
   },
   "buttons": {
     "save": "Save",
@@ -70,10 +76,10 @@
   },
   "footer": {
     "copyright": "CodeSimilar Analysis Platform",
-    "fullCopyright": "\u00a9 2026 CodeSimilar \u2014 Intelligent Code Analysis Platform"
+    "fullCopyright": "© 2026 CodeSimilar — Intelligent Code Analysis Platform"
   },
   "guard": {
-    "loadingWorkspace": "Loading your workspace\u2026",
+    "loadingWorkspace": "Loading your workspace…",
     "adminRequired": "This area requires administrator access."
   },
   "upload": {
@@ -190,7 +196,7 @@
       "languagesUsed": "Languages Used",
       "last7Days": "Last 7 Days"
     },
-    "searchPlaceholder": "Search sources or language\u2026",
+    "searchPlaceholder": "Search sources or language…",
     "allLanguages": "All Languages",
     "allSeverity": "All Severity",
     "highSimilarity": "High Similarity",
@@ -214,7 +220,7 @@
     "deleteDescription": "Permanently delete analysis #{{id}}? This action cannot be undone.",
     "previewTitle": "Analysis Preview #{{id}}",
     "openFullResults": "Open Full Results",
-    "loadingPreview": "Loading preview\u2026",
+    "loadingPreview": "Loading preview…",
     "exportSections": {
       "analysisId": "Analysis ID",
       "language": "Language",
@@ -234,11 +240,95 @@
     }
   },
   "chat": {
-    "loading": "Loading the latest analysis context\u2026",
+    "loading": "Loading the latest analysis context…",
     "noContextTitle": "No active analysis context",
     "noContextDescription": "Run or reopen an analysis first so the AI chat can ground its answers in real comparison data.",
     "openHistory": "Open History",
     "pageTitle": "AI Analysis Chat",
     "pageDescription": "Ask grounded follow-up questions about the current analysis result and receive context-aware answers."
+  },
+  "billing": {
+    "title": "Plan & Usage",
+    "subtitle": "Manage your subscription and monitor monthly usage.",
+    "currentPlan": "Current plan",
+    "status": "Status",
+    "usageThisMonth": "Analyses this month",
+    "unlimited": "Unlimited",
+    "of": "of",
+    "remaining": "{{count}} remaining",
+    "availablePlans": "Available plans",
+    "perMonth": "/mo",
+    "current": "Current",
+    "upgrade": "Upgrade",
+    "choose": "Choose",
+    "free": "Free",
+    "billingDisabled": "Online checkout is not enabled on this deployment. Contact your administrator to change plans.",
+    "checkoutError": "Could not start checkout. Please try again.",
+    "quotaReached": "You've reached your monthly analysis limit. Upgrade your plan to run more analyses.",
+    "manageSubscription": "Manage subscription",
+    "checkoutSuccess": "Subscription updated — welcome aboard!",
+    "checkoutCanceled": "Checkout canceled. No changes were made."
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Manage your account security.",
+    "security": "Security",
+    "twofa": "Two-factor authentication",
+    "twofaOn": "Enabled",
+    "twofaOff": "Disabled",
+    "twofaIntro": "Add a second step to sign-in using an authenticator app (TOTP).",
+    "enable2fa": "Enable 2FA",
+    "disable2fa": "Disable 2FA",
+    "scanOrEnter": "Add this secret key to your authenticator app (Google Authenticator, Authy, 1Password…), then enter the 6-digit code to confirm:",
+    "secretKey": "Secret key",
+    "authCode": "6-digit code",
+    "confirmEnable": "Confirm & enable",
+    "recoveryTitle": "Save your recovery codes",
+    "recoveryIntro": "Store these somewhere safe. Each can be used once if you lose your authenticator. They are shown only now.",
+    "done": "Done",
+    "disableIntro": "Enter your password and a current code (or a recovery code) to turn off 2FA.",
+    "currentPassword": "Password",
+    "confirmDisable": "Disable",
+    "sessions": "Sessions",
+    "logoutAll": "Log out of all devices",
+    "logoutAllIntro": "Sign out everywhere and invalidate all active sessions.",
+    "cancel": "Cancel",
+    "copied": "Copied",
+    "apiKeys": {
+      "title": "API keys",
+      "intro": "Use these to call the API (e.g. the CI similarity check) without a browser session.",
+      "create": "Create key",
+      "nameHint": "Key name (optional)",
+      "tokenOnce": "Copy this key now — it won't be shown again.",
+      "noKeys": "No API keys yet.",
+      "revoke": "Revoke",
+      "revoked": "Revoked",
+      "lastUsed": "Last used",
+      "never": "never"
+    },
+    "privacy": "Privacy & data",
+    "exportData": "Export my data",
+    "exportIntro": "Download a machine-readable copy of your account data.",
+    "dangerZone": "Delete account",
+    "deleteIntro": "Permanently delete your account and all associated data. This cannot be undone.",
+    "deleteConfirm": "Type your password to confirm deletion.",
+    "deleteButton": "Delete my account",
+    "deleting": "Deleting…"
+  },
+  "admin": {
+    "title": "Admin",
+    "subtitle": "Platform overview and user management.",
+    "users": "Users",
+    "totalUsers": "Total users",
+    "totalAnalyses": "Total analyses",
+    "verified": "Verified",
+    "twofa": "2FA on",
+    "plan": "Plan",
+    "email": "Email",
+    "username": "Username",
+    "created": "Created",
+    "auditLog": "Recent activity",
+    "action": "Action",
+    "when": "When"
   }
 }

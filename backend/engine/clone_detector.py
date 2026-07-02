@@ -74,7 +74,11 @@ class CloneDetector:
         root_node = tree.root_node
 
         def extract_text(node):
-            if node.type in ('comment', 'whitespace'):
+            # Grammar node names differ per language: python/javascript emit
+            # 'comment', java emits 'line_comment'/'block_comment' (verified
+            # against tree_sitter_languages; without these Java comment
+            # stripping silently did nothing — caught by evaluation/).
+            if node.type in ('comment', 'line_comment', 'block_comment', 'whitespace'):
                 return ''
             if node.child_count == 0:
                 return node.text.decode('utf8')
@@ -93,8 +97,22 @@ class CloneDetector:
         return fuzz.ratio(' '.join(tokens1), ' '.join(tokens2)) / 100
 
     def is_exact_clone(self, code1, code2):
-        """Check if two code snippets are exact clones."""
-        return code1.strip() == code2.strip()
+        """Check if two code snippets are exact (Type-1) clones.
+
+        Type-1 clones are identical up to whitespace and comments, so the
+        comparison runs on the comment/whitespace-stripped token text rather
+        than the raw source.  Raw string equality missed every Type-1 pair in
+        the evaluation dataset (evaluation/results/report.md: a copy with
+        added comments never matched); token-text equality detects 11/11
+        while still rejecting renamed (Type-2) copies, whose identifier text
+        differs.
+        """
+        if code1.strip() == code2.strip():
+            return True
+        return (
+            self.remove_comments_and_whitespace(code1)
+            == self.remove_comments_and_whitespace(code2)
+        )
 
     def renamed_clone_similarity(self, code1, code2):
         """Compute similarity for renamed clones.
@@ -110,7 +128,16 @@ class CloneDetector:
         tokens2 = self.parse_code(code2, with_order=True)
         return fuzz.ratio(' '.join(tokens1), ' '.join(tokens2)) / 100
 
-    def near_miss_clone_similarity(self, code1, code2, threshold=0.8,
+    # --- Boolean clone-type flags -------------------------------------------
+    # The default thresholds below were calibrated against the labeled dataset
+    # (evaluation/; see results/report.md "flag_calibration"). Token-TYPE
+    # similarity is naturally high for any two programs, so the original 0.8/0.85
+    # thresholds fired these flags on 40-82% of UNRELATED pairs. Each threshold
+    # is now set just above the highest value observed on a non-clone pair, which
+    # drops every flag's false-positive rate to 0 on the dataset while retaining
+    # the majority of true positives.
+
+    def near_miss_clone_similarity(self, code1, code2, threshold=0.9,
                                    _text_sim=None, _token_sim=None,
                                    _token_sim_without_comments=None):
         """Check for near miss clones (Type 3 -- minor modifications of a copy).
@@ -142,7 +169,7 @@ class CloneDetector:
         ])
         return conditions_met >= 2
 
-    def parameterized_clone_similarity(self, code1, code2, threshold=0.8,
+    def parameterized_clone_similarity(self, code1, code2, threshold=0.86,
                                        clean1=None, clean2=None):
         """Check for parameterized clones (Type 3a).
 
@@ -162,7 +189,7 @@ class CloneDetector:
         clean2 = clean2 if clean2 is not None else self.remove_comments_and_whitespace(code2)
         return self.token_similarity(clean1, clean2, with_order=True) > threshold
 
-    def function_clone_similarity(self, code1, code2, threshold=0.8,
+    def function_clone_similarity(self, code1, code2, threshold=0.93,
                                   clean1=None, clean2=None):
         """Check for function-level clones.
 
@@ -192,11 +219,11 @@ class CloneDetector:
         token_sim_with_order = self.token_similarity(code1, code2, with_order=True)
         return token_sim_without_order > threshold and token_sim_with_order > threshold
 
-    def structural_clone_similarity(self, code1, code2, threshold=0.8):
+    def structural_clone_similarity(self, code1, code2, threshold=0.82):
         """Check for structural clones."""
         return self.token_similarity(code1, code2, with_order=True) > threshold
 
-    def reordered_clone_similarity(self, code1, code2, threshold=0.85):
+    def reordered_clone_similarity(self, code1, code2, threshold=0.9):
         """Check for reordered clones.
 
         Reordered clones have the same token vocabulary but in a different order
@@ -207,7 +234,7 @@ class CloneDetector:
         """
         return self.token_similarity(code1, code2, with_order=False) > threshold
 
-    def function_reordered_clone_similarity(self, code1, code2, threshold=0.85,
+    def function_reordered_clone_similarity(self, code1, code2, threshold=0.93,
                                             clean1=None, clean2=None):
         """Check for function reordered clones.
 
@@ -234,7 +261,7 @@ class CloneDetector:
         text_ratio = self.text_similarity(code1, code2)
         return token_ratio > threshold and text_ratio > (threshold - 0.10)
 
-    def intertwined_clone_similarity(self, code1, code2, threshold=0.85):
+    def intertwined_clone_similarity(self, code1, code2, threshold=0.92):
         """Check for intertwined clones (two clones merged into one file).
 
         Uses fuzz.partial_ratio which finds the best matching substring, making it
@@ -246,15 +273,22 @@ class CloneDetector:
         match_ratio = fuzz.partial_ratio(' '.join(tokens1), ' '.join(tokens2)) / 100
         return match_ratio > threshold
 
-    def semantic_clone_similarity(self, code1, code2, threshold=0.8, ai_score=None):
+    def semantic_clone_similarity(self, code1, code2, threshold=0.985, ai_score=None):
         """Check for semantic clones using AI-based (GraphCodeBERT) similarity.
 
-        The previous implementation averaged text and token similarity, which is
-        purely syntactic and has nothing to do with semantics.  Two functions that
-        do the same thing differently (e.g. iterative vs recursive sum) would score
-        near-zero with that approach.  The AI embedding model captures meaning, so
-        we use it here.  When the caller has already computed the AI score it can
-        pass it in via *ai_score* to avoid a second forward pass.
+        When the caller has already computed the AI score it can pass it in
+        via *ai_score* to avoid a second forward pass.
+
+        Threshold calibration (evaluation/results/report.md): mean-pooled
+        GraphCodeBERT cosine is high for ANY two code snippets — unrelated
+        pairs in the evaluation dataset scored 0.876-0.982, so the previous
+        0.8 threshold flagged "semantic clone" on 100% of non-clones.  0.985
+        sits above every observed non-clone score (zero false positives on
+        the dataset) while still firing on very-high-similarity clones.  Note
+        the flag is weak evidence for true Type-4 clones (independent
+        implementations of the same behaviour scored 0.717-0.988, overlapping
+        the non-clone range) — a limitation of mean-pooled embeddings, not of
+        the threshold.
         """
         score = ai_score if ai_score is not None else self.ai_based_similarity(code1, code2)
         return score > threshold

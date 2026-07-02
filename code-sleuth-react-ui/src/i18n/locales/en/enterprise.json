@@ -63,7 +63,17 @@
       "roleAdmin": "Admin",
       "roleOwner": "Owner",
       "scanCompleted": "Scan completed",
-      "scanFailed": "Scan failed"
+      "scanFailed": "Scan failed",
+      "secretsTitle": "Webhook credentials",
+      "secretsIntro": "Save these now — the webhook secret is shown only once and cannot be retrieved later.",
+      "secretsWebhookLabel": "Webhook secret",
+      "secretsGithubLabel": "GitHub webhook URL",
+      "secretsGitlabLabel": "GitLab webhook URL",
+      "secretsHint": "Add the URL as a webhook in your Git provider and paste the secret into its \"Secret\" field.",
+      "secretsDone": "Done",
+      "copy": "Copy",
+      "copied": "Copied to clipboard",
+      "copyFailed": "Copy failed"
     },
     "cases": {
       "title": "Review Cases",

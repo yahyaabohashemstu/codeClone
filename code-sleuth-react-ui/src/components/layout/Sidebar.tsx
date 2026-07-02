@@ -4,6 +4,7 @@ import {
   Building2,
   ChevronLeft,
   ChevronRight,
+  CreditCard,
   GitCompare,
   HelpCircle,
   History,
@@ -13,6 +14,8 @@ import {
   MessageSquare,
   LineChart,
   Scale,
+  Settings,
+  LayoutDashboard,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
@@ -39,10 +42,13 @@ const navItems: NavItem[] = [
   { labelKey: "nav.history", icon: History, path: "/history" },
   { labelKey: "nav.analytics", icon: LineChart, path: "/analytics" },
   { labelKey: "nav.chat", icon: MessageSquare, path: "/chat" },
+  { labelKey: "nav.billing", icon: CreditCard, path: "/billing" },
+  { labelKey: "nav.settings", icon: Settings, path: "/settings" },
   { labelKey: "nav.help", icon: HelpCircle, path: "/help" },
 ];
 
 const enterpriseItems: NavItem[] = [
+  { labelKey: "nav.admin", icon: LayoutDashboard, path: "/admin" },
   { labelKey: "nav.workspaces", icon: Building2, path: "/enterprise/workspaces" },
   { labelKey: "nav.cases", icon: Scale, path: "/enterprise/cases" },
 ];

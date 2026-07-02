@@ -3,3 +3,5 @@
 -r requirements.txt
 pytest==8.3.4
 pytest-cov==6.0.0
+# In-memory Redis for the coordination-backend tests (keeps redis pinned at 5.2.1).
+fakeredis==2.26.1

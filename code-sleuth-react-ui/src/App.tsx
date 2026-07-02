@@ -10,13 +10,22 @@ import { AnalysisProvider } from "@/context/AnalysisContext";
 import { LanguageProvider } from "@/context/LanguageContext";
 import { ProtectedRoute } from "@/components/guards/ProtectedRoute";
 import { MainLayout } from "@/components/layout/MainLayout";
+import { CookieConsent } from "@/components/common/CookieConsent";
 
 const Home = lazy(() => import("@/pages/Home"));
 const Analysis = lazy(() => import("@/pages/Analysis"));
 const Analytics = lazy(() => import("@/pages/Analytics"));
 const Results = lazy(() => import("@/pages/Results"));
 const Auth = lazy(() => import("@/pages/Auth"));
+const VerifyEmail = lazy(() => import("@/pages/VerifyEmail"));
+const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
 const Chat = lazy(() => import("@/pages/Chat"));
+const Billing = lazy(() => import("@/pages/Billing"));
+const Settings = lazy(() => import("@/pages/Settings"));
+const Admin = lazy(() => import("@/pages/Admin"));
+const Terms = lazy(() => import("@/pages/Terms"));
+const Privacy = lazy(() => import("@/pages/Privacy"));
+const Status = lazy(() => import("@/pages/Status"));
 const Help = lazy(() => import("@/pages/Help"));
 const History = lazy(() => import("@/pages/History"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
@@ -42,8 +51,13 @@ const RoutedContent = () => {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/help" element={<Help />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/status" element={<Status />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/login" element={<Auth />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route
             path="/analysis"
             element={
@@ -81,6 +95,30 @@ const RoutedContent = () => {
             element={
               <ProtectedRoute>
                 <Chat />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/billing"
+            element={
+              <ProtectedRoute>
+                <Billing />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <Settings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute requireAdmin>
+                <Admin />
               </ProtectedRoute>
             }
           />
@@ -135,6 +173,7 @@ const App = () => (
               <MainLayout>
                 <RoutedContent />
               </MainLayout>
+              <CookieConsent />
             </BrowserRouter>
           </TooltipProvider>
         </AnalysisProvider>

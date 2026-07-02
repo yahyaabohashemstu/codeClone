@@ -1,0 +1,202 @@
+openapi: 3.0.3
+info:
+  title: CodeSimilar API
+  version: "1.0"
+  description: >
+    Public HTTP API for the CodeSimilar code-similarity platform. All endpoints
+    are same-origin and versioned under /api/v1. Session endpoints use a cookie
+    plus an X-CSRF-Token header on mutating verbs (obtained from /api/v1/session
+    or a login/signup response). The CI endpoint uses an API key instead.
+servers:
+  - url: /api/v1
+tags:
+  - name: auth
+  - name: billing
+  - name: analysis
+  - name: ci
+  - name: health
+
+paths:
+  /session:
+    get:
+      tags: [auth]
+      summary: Current session + CSRF token
+      responses:
+        "200": { description: Session state, CSRF token, supported languages, AI health }
+
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Sign in (CSRF-exempt)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string }
+      responses:
+        "200": { description: Signed in; returns user + csrfToken }
+        "401": { description: Invalid credentials }
+        "403": { description: Email unverified (code=email_unverified) when required }
+
+  /auth/signup:
+    post:
+      tags: [auth]
+      summary: Public self-registration (CSRF-exempt, 5/min)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, email, password]
+              properties:
+                username: { type: string, maxLength: 80 }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+      responses:
+        "201": { description: Account created (verificationRequired indicates next step) }
+        "400": { description: Validation error }
+        "403": { description: Self-registration disabled }
+        "409": { description: Username or email already exists }
+
+  /auth/verify-email:
+    post:
+      tags: [auth]
+      summary: Confirm an email address with a signed token (CSRF-exempt)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [token], properties: { token: { type: string } } }
+      responses:
+        "200": { description: Verified }
+        "400": { description: Invalid or expired link }
+
+  /auth/request-password-reset:
+    post:
+      tags: [auth]
+      summary: Request a reset link (CSRF-exempt, 3/min, no account enumeration)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [email], properties: { email: { type: string, format: email } } }
+      responses:
+        "200": { description: Uniform success regardless of whether the address exists }
+
+  /auth/reset-password:
+    post:
+      tags: [auth]
+      summary: Set a new password with a signed single-use token (CSRF-exempt, 5/min)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token: { type: string }
+                password: { type: string, minLength: 8 }
+      responses:
+        "200": { description: Password updated }
+        "400": { description: Invalid/expired/used link or weak password }
+
+  /billing/plans:
+    get:
+      tags: [billing]
+      summary: List available plans (public)
+      responses:
+        "200": { description: Plans + billingEnabled flag }
+
+  /billing/summary:
+    get:
+      tags: [billing]
+      summary: Current user's plan and monthly usage
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200": { description: plan, status, used, limit, remaining, unlimited }
+        "401": { description: Not authenticated }
+
+  /billing/checkout:
+    post:
+      tags: [billing]
+      summary: Start a Stripe Checkout session for a paid plan
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [plan], properties: { plan: { type: string, enum: [pro, team] } } }
+      responses:
+        "200": { description: Returns checkoutUrl }
+        "400": { description: Invalid plan }
+        "503": { description: Billing not configured (code=billing_not_configured) }
+
+  /billing/webhook:
+    post:
+      tags: [billing]
+      summary: Stripe webhook (CSRF-exempt, verified by Stripe-Signature)
+      responses:
+        "200": { description: Processed }
+        "400": { description: Invalid signature }
+        "503": { description: Billing not configured }
+
+  /analysis:
+    post:
+      tags: [analysis]
+      summary: Submit a pairwise analysis (async, 20/min)
+      description: >
+        multipart/form-data with language + code1/code2 (or file/zip/excel
+        inputs). Enforces the caller's monthly quota before queuing.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "202": { description: Accepted; returns taskId }
+        "400": { description: Validation error }
+        "402": { description: Monthly quota exceeded (code=quota_exceeded) }
+
+  /ci/check:
+    post:
+      tags: [ci]
+      summary: CI similarity gate (API-key auth, CSRF-exempt, 60/min)
+      security: [{ apiKey: [] }, { bearer: [] }]
+      responses:
+        "200": { description: verdict=pass }
+        "422": { description: verdict=fail (similarity >= threshold) }
+        "400": { description: Validation error }
+        "401": { description: Missing/invalid API key }
+
+  /health:
+    get:
+      tags: [health]
+      summary: Liveness (database connectivity)
+      responses:
+        "200": { description: healthy }
+        "503": { description: unhealthy }
+
+  /health/readiness:
+    get:
+      tags: [health]
+      summary: Subsystem/config readiness (public, no secrets)
+      responses:
+        "200": { description: ok }
+        "503": { description: degraded (database down) }
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: session
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    bearer:
+      type: http
+      scheme: bearer

@@ -84,3 +84,7 @@ Flask-Limiter>=3.0.0
 # crash on first DB connection / limiter init.
 psycopg2-binary==2.9.10
 redis==5.2.1
+# Schema migrations (alembic upgrade head); see migrations/ and docs/DEPLOYMENT.md
+alembic==1.14.0
+# TOTP two-factor authentication
+pyotp==2.9.0

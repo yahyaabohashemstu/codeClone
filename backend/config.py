@@ -24,6 +24,12 @@ class BaseConfig:
     SESSION_COOKIE_SECURE: bool = os.environ.get("SESSION_COOKIE_SECURE", "0") == "1"
     PERMANENT_SESSION_LIFETIME: timedelta = timedelta(hours=8)
 
+    # Number of trusted reverse-proxy hops in front of the app.  0 (default)
+    # disables ProxyFix.  Set to 1 when running behind a single TLS-terminating
+    # proxy (Caddy/Nginx/Coolify) so X-Forwarded-Proto (correct https scheme)
+    # and X-Forwarded-For (correct per-client IP for rate limiting) are honored.
+    TRUST_PROXY_HEADERS: int = int(os.environ.get("TRUST_PROXY_HEADERS", "0") or "0")
+
     # --- Database ------------------------------------------------------------
     SQLALCHEMY_DATABASE_URI: str = os.environ.get(
         "DATABASE_URL",
@@ -58,8 +64,15 @@ class BaseConfig:
     MAX_SPREADSHEET_UPLOAD_BYTES: int = 5 * 1024 * 1024
     MAX_SPREADSHEET_ARCHIVE_BYTES: int = 25 * 1024 * 1024
 
+    # --- Coordination backend (multi-replica) --------------------------------
+    # "memory" (default) keeps background-task state + progress in-process —
+    # correct and optimal for a single replica. Set to "redis" (with REDIS_URL)
+    # to share that state across replicas so load-balanced polling works.
+    COORDINATION_BACKEND: str = os.environ.get("COORDINATION_BACKEND", "memory").lower()
+
     # --- Rate limiting -------------------------------------------------------
     RATELIMIT_STORAGE_URI: str = os.environ.get("REDIS_URL", "memory://")
+    REDIS_URL: str = os.environ.get("REDIS_URL", "")
     RATELIMIT_DEFAULT: str = ""  # no global default
     RATELIMIT_HEADERS_ENABLED: bool = True
 
@@ -79,6 +92,54 @@ class BaseConfig:
 
     # --- Enterprise ----------------------------------------------------------
     ENTERPRISE_DATA_KEY: str = os.environ.get("ENTERPRISE_DATA_KEY", "")
+
+    # --- Observability -------------------------------------------------------
+    LOG_LEVEL: str = os.environ.get("LOG_LEVEL", "INFO")
+    SENTRY_DSN: str = os.environ.get("SENTRY_DSN", "")
+    SENTRY_TRACES_SAMPLE_RATE: float = float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0") or "0")
+    # Prometheus metrics at /api/v1/metrics (requires prometheus_client).
+    METRICS_ENABLED: bool = os.environ.get("METRICS_ENABLED", "0") == "1"
+    METRICS_TOKEN: str = os.environ.get("METRICS_TOKEN", "")  # optional bearer to protect the endpoint
+
+    # --- Accounts / self-service auth ---------------------------------------
+    # Public base URL used to build verification / password-reset links in
+    # emails.  Falls back to same-origin relative links when unset.
+    APP_BASE_URL: str = os.environ.get("APP_BASE_URL", "").rstrip("/")
+    # Feature flag: allow public self-registration (POST /api/v1/auth/signup).
+    ALLOW_SELF_REGISTRATION: bool = os.environ.get("ALLOW_SELF_REGISTRATION", "1") == "1"
+    # Require a verified email before login succeeds.  Off by default so a
+    # deployment without SMTP configured is still usable.
+    REQUIRE_EMAIL_VERIFICATION: bool = os.environ.get("REQUIRE_EMAIL_VERIFICATION", "0") == "1"
+    # Signed-token lifetimes (seconds).
+    EMAIL_VERIFICATION_MAX_AGE: int = int(os.environ.get("EMAIL_VERIFICATION_MAX_AGE", str(60 * 60 * 24 * 3)))
+    PASSWORD_RESET_MAX_AGE: int = int(os.environ.get("PASSWORD_RESET_MAX_AGE", str(60 * 60)))
+    # Brute-force lockout: after N failed logins, lock the account for M minutes.
+    LOGIN_MAX_ATTEMPTS: int = int(os.environ.get("LOGIN_MAX_ATTEMPTS", "8"))
+    LOGIN_LOCKOUT_MINUTES: int = int(os.environ.get("LOGIN_LOCKOUT_MINUTES", "15"))
+    # Optional Have I Been Pwned k-anonymity password check on set/reset.
+    # Off by default (makes an external API call); best-effort — never blocks
+    # if the service is unreachable.
+    PASSWORD_BREACH_CHECK: bool = os.environ.get("PASSWORD_BREACH_CHECK", "0") == "1"
+
+    # --- Billing (Stripe, optional) -----------------------------------------
+    # When STRIPE_SECRET_KEY is unset, billing endpoints return 503 and every
+    # account stays on the free plan — quotas still apply.
+    STRIPE_SECRET_KEY: str = os.environ.get("STRIPE_SECRET_KEY", "")
+    STRIPE_WEBHOOK_SECRET: str = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+    STRIPE_PRICE_PRO: str = os.environ.get("STRIPE_PRICE_PRO", "")
+    STRIPE_PRICE_TEAM: str = os.environ.get("STRIPE_PRICE_TEAM", "")
+    BILLING_SUCCESS_URL: str = os.environ.get("BILLING_SUCCESS_URL", "")
+    BILLING_CANCEL_URL: str = os.environ.get("BILLING_CANCEL_URL", "")
+
+    # --- Email delivery ------------------------------------------------------
+    # Provider: "console" (log to stdout, dev default), "smtp", or "disabled".
+    EMAIL_PROVIDER: str = os.environ.get("EMAIL_PROVIDER", "console").lower()
+    EMAIL_FROM: str = os.environ.get("EMAIL_FROM", "no-reply@codesimilar.local")
+    SMTP_HOST: str = os.environ.get("SMTP_HOST", "")
+    SMTP_PORT: int = int(os.environ.get("SMTP_PORT", "587"))
+    SMTP_USERNAME: str = os.environ.get("SMTP_USERNAME", "")
+    SMTP_PASSWORD: str = os.environ.get("SMTP_PASSWORD", "")
+    SMTP_USE_TLS: bool = os.environ.get("SMTP_USE_TLS", "1") == "1"
 
 
 class DevelopmentConfig(BaseConfig):

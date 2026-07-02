@@ -50,41 +50,24 @@ const languageMeta: Record<AppLanguage, LanguageMeta> = {
   },
 };
 
-const programmingLanguageLabels: Record<AppLanguage, Record<string, string>> = {
-  en: {
-    python: "Python",
-    c: "C",
-    java: "Java",
-    javascript: "JavaScript",
-    ruby: "Ruby",
-    go: "Go",
-    typescript: "TypeScript",
-    php: "PHP",
-    kotlin: "Kotlin",
-    r: "R",
-    rust: "Rust",
-    scala: "Scala",
-    elixir: "Elixir",
-    haskell: "Haskell",
-    perl: "Perl",
-  },
-  ar: {
-    python: "بايثون",
-    c: "سي",
-    java: "جافا",
-    javascript: "جافاسكربت",
-    ruby: "روبي",
-    go: "جو",
-    typescript: "تايب سكربت",
-    php: "بي إتش بي",
-    kotlin: "كوتلن",
-    r: "آر",
-    rust: "رست",
-    scala: "سكالا",
-    elixir: "إلكسير",
-    haskell: "هاسكل",
-    perl: "بيرل",
-  },
+// Programming-language names are proper nouns / brand names, so they stay in
+// their canonical English (Latin) form in every UI language — never transliterated.
+const programmingLanguageLabels: Record<string, string> = {
+  python: "Python",
+  c: "C",
+  java: "Java",
+  javascript: "JavaScript",
+  ruby: "Ruby",
+  go: "Go",
+  typescript: "TypeScript",
+  php: "PHP",
+  kotlin: "Kotlin",
+  r: "R",
+  rust: "Rust",
+  scala: "Scala",
+  elixir: "Elixir",
+  haskell: "Haskell",
+  perl: "Perl",
 };
 
 const runtimeMessageMap: Record<AppLanguage, Record<string, string>> = {
@@ -267,8 +250,8 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   );
 
   const getProgrammingLanguageLabel = useCallback(
-    (languageCode: string) => programmingLanguageLabels[language][languageCode.toLowerCase()] || languageCode,
-    [language],
+    (languageCode: string) => programmingLanguageLabels[languageCode.toLowerCase()] || languageCode,
+    [],
   );
 
   const value = useMemo<LanguageContextValue>(

@@ -1,0 +1,680 @@
+{
+  "version": 1,
+  "pair_count": 52,
+  "pairs": [
+    {
+      "id": "t1_binary_search_python",
+      "category": "t1",
+      "is_clone": true,
+      "file_a": "seeds/python/binary_search.py",
+      "file_b": "variants/generated/t1_binary_search.py",
+      "language_a": "python",
+      "language_b": "python",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t2_binary_search_python",
+      "category": "t2",
+      "is_clone": true,
+      "file_a": "seeds/python/binary_search.py",
+      "file_b": "variants/generated/t2_binary_search.py",
+      "language_a": "python",
+      "language_b": "python",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t1_lru_cache_python",
+      "category": "t1",
+      "is_clone": true,
+      "file_a": "seeds/python/lru_cache.py",
+      "file_b": "variants/generated/t1_lru_cache.py",
+      "language_a": "python",
+      "language_b": "python",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t2_lru_cache_python",
+      "category": "t2",
+      "is_clone": true,
+      "file_a": "seeds/python/lru_cache.py",
+      "file_b": "variants/generated/t2_lru_cache.py",
+      "language_a": "python",
+      "language_b": "python",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t1_csv_stats_python",
+      "category": "t1",
+      "is_clone": true,
+      "file_a": "seeds/python/csv_stats.py",
+      "file_b": "variants/generated/t1_csv_stats.py",
+      "language_a": "python",
+      "language_b": "python",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t2_csv_stats_python",
+      "category": "t2",
+      "is_clone": true,
+      "file_a": "seeds/python/csv_stats.py",
+      "file_b": "variants/generated/t2_csv_stats.py",
+      "language_a": "python",
+      "language_b": "python",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t1_slugify_python",
+      "category": "t1",
+      "is_clone": true,
+      "file_a": "seeds/python/slugify.py",
+      "file_b": "variants/generated/t1_slugify.py",
+      "language_a": "python",
+      "language_b": "python",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t2_slugify_python",
+      "category": "t2",
+      "is_clone": true,
+      "file_a": "seeds/python/slugify.py",
+      "file_b": "variants/generated/t2_slugify.py",
+      "language_a": "python",
+      "language_b": "python",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t1_matrix_ops_python",
+      "category": "t1",
+      "is_clone": true,
+      "file_a": "seeds/python/matrix_ops.py",
+      "file_b": "variants/generated/t1_matrix_ops.py",
+      "language_a": "python",
+      "language_b": "python",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t2_matrix_ops_python",
+      "category": "t2",
+      "is_clone": true,
+      "file_a": "seeds/python/matrix_ops.py",
+      "file_b": "variants/generated/t2_matrix_ops.py",
+      "language_a": "python",
+      "language_b": "python",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t1_task_scheduler_python",
+      "category": "t1",
+      "is_clone": true,
+      "file_a": "seeds/python/task_scheduler.py",
+      "file_b": "variants/generated/t1_task_scheduler.py",
+      "language_a": "python",
+      "language_b": "python",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t2_task_scheduler_python",
+      "category": "t2",
+      "is_clone": true,
+      "file_a": "seeds/python/task_scheduler.py",
+      "file_b": "variants/generated/t2_task_scheduler.py",
+      "language_a": "python",
+      "language_b": "python",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t1_debounce_javascript",
+      "category": "t1",
+      "is_clone": true,
+      "file_a": "seeds/javascript/debounce.js",
+      "file_b": "variants/generated/t1_debounce.js",
+      "language_a": "javascript",
+      "language_b": "javascript",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t2_debounce_javascript",
+      "category": "t2",
+      "is_clone": true,
+      "file_a": "seeds/javascript/debounce.js",
+      "file_b": "variants/generated/t2_debounce.js",
+      "language_a": "javascript",
+      "language_b": "javascript",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t1_group_by_javascript",
+      "category": "t1",
+      "is_clone": true,
+      "file_a": "seeds/javascript/group_by.js",
+      "file_b": "variants/generated/t1_group_by.js",
+      "language_a": "javascript",
+      "language_b": "javascript",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t2_group_by_javascript",
+      "category": "t2",
+      "is_clone": true,
+      "file_a": "seeds/javascript/group_by.js",
+      "file_b": "variants/generated/t2_group_by.js",
+      "language_a": "javascript",
+      "language_b": "javascript",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t1_event_emitter_javascript",
+      "category": "t1",
+      "is_clone": true,
+      "file_a": "seeds/javascript/event_emitter.js",
+      "file_b": "variants/generated/t1_event_emitter.js",
+      "language_a": "javascript",
+      "language_b": "javascript",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t2_event_emitter_javascript",
+      "category": "t2",
+      "is_clone": true,
+      "file_a": "seeds/javascript/event_emitter.js",
+      "file_b": "variants/generated/t2_event_emitter.js",
+      "language_a": "javascript",
+      "language_b": "javascript",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t1_stringcalculator_java",
+      "category": "t1",
+      "is_clone": true,
+      "file_a": "seeds/java/StringCalculator.java",
+      "file_b": "variants/generated/T1StringCalculator.java",
+      "language_a": "java",
+      "language_b": "java",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t2_stringcalculator_java",
+      "category": "t2",
+      "is_clone": true,
+      "file_a": "seeds/java/StringCalculator.java",
+      "file_b": "variants/generated/T2StringCalculator.java",
+      "language_a": "java",
+      "language_b": "java",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t1_bankaccount_java",
+      "category": "t1",
+      "is_clone": true,
+      "file_a": "seeds/java/BankAccount.java",
+      "file_b": "variants/generated/T1BankAccount.java",
+      "language_a": "java",
+      "language_b": "java",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t2_bankaccount_java",
+      "category": "t2",
+      "is_clone": true,
+      "file_a": "seeds/java/BankAccount.java",
+      "file_b": "variants/generated/T2BankAccount.java",
+      "language_a": "java",
+      "language_b": "java",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t3_binary_search_python",
+      "category": "t3",
+      "is_clone": true,
+      "file_a": "seeds/python/binary_search.py",
+      "file_b": "variants/t3_binary_search.py",
+      "language_a": "python",
+      "language_b": "python",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t3_lru_cache_python",
+      "category": "t3",
+      "is_clone": true,
+      "file_a": "seeds/python/lru_cache.py",
+      "file_b": "variants/t3_lru_cache.py",
+      "language_a": "python",
+      "language_b": "python",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t3_slugify_python",
+      "category": "t3",
+      "is_clone": true,
+      "file_a": "seeds/python/slugify.py",
+      "file_b": "variants/t3_slugify.py",
+      "language_a": "python",
+      "language_b": "python",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t3_debounce_javascript",
+      "category": "t3",
+      "is_clone": true,
+      "file_a": "seeds/javascript/debounce.js",
+      "file_b": "variants/t3_debounce.js",
+      "language_a": "javascript",
+      "language_b": "javascript",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t3_group_by_javascript",
+      "category": "t3",
+      "is_clone": true,
+      "file_a": "seeds/javascript/group_by.js",
+      "file_b": "variants/t3_group_by.js",
+      "language_a": "javascript",
+      "language_b": "javascript",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t3_bankaccount_java",
+      "category": "t3",
+      "is_clone": true,
+      "file_a": "seeds/java/BankAccount.java",
+      "file_b": "variants/T3SavingsAccount.java",
+      "language_a": "java",
+      "language_b": "java",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t4_binary_search_python",
+      "category": "t4",
+      "is_clone": true,
+      "file_a": "seeds/python/binary_search.py",
+      "file_b": "variants/t4_binary_search.py",
+      "language_a": "python",
+      "language_b": "python",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t4_matrix_ops_python",
+      "category": "t4",
+      "is_clone": true,
+      "file_a": "seeds/python/matrix_ops.py",
+      "file_b": "variants/t4_matrix_ops.py",
+      "language_a": "python",
+      "language_b": "python",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t4_slugify_python",
+      "category": "t4",
+      "is_clone": true,
+      "file_a": "seeds/python/slugify.py",
+      "file_b": "variants/t4_slugify.py",
+      "language_a": "python",
+      "language_b": "python",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t4_group_by_javascript",
+      "category": "t4",
+      "is_clone": true,
+      "file_a": "seeds/javascript/group_by.js",
+      "file_b": "variants/t4_group_by.js",
+      "language_a": "javascript",
+      "language_b": "javascript",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "t4_stringcalculator_java",
+      "category": "t4",
+      "is_clone": true,
+      "file_a": "seeds/java/StringCalculator.java",
+      "file_b": "variants/T4StreamCalculator.java",
+      "language_a": "java",
+      "language_b": "java",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "xlang_binary_search",
+      "category": "xlang",
+      "is_clone": true,
+      "file_a": "seeds/python/binary_search.py",
+      "file_b": "variants/xlang_binary_search.js",
+      "language_a": "python",
+      "language_b": "javascript",
+      "engines": [
+        "enterprise"
+      ]
+    },
+    {
+      "id": "xlang_group_by",
+      "category": "xlang",
+      "is_clone": true,
+      "file_a": "seeds/javascript/group_by.js",
+      "file_b": "variants/xlang_group_by.py",
+      "language_a": "javascript",
+      "language_b": "python",
+      "engines": [
+        "enterprise"
+      ]
+    },
+    {
+      "id": "hard_binary_search_python",
+      "category": "hard_negative",
+      "is_clone": false,
+      "file_a": "seeds/python/binary_search.py",
+      "file_b": "negatives/hard_merge_sorted.py",
+      "language_a": "python",
+      "language_b": "python",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "hard_lru_cache_python",
+      "category": "hard_negative",
+      "is_clone": false,
+      "file_a": "seeds/python/lru_cache.py",
+      "file_b": "negatives/hard_bounded_stack.py",
+      "language_a": "python",
+      "language_b": "python",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "hard_csv_stats_python",
+      "category": "hard_negative",
+      "is_clone": false,
+      "file_a": "seeds/python/csv_stats.py",
+      "file_b": "negatives/hard_log_parser.py",
+      "language_a": "python",
+      "language_b": "python",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "hard_slugify_python",
+      "category": "hard_negative",
+      "is_clone": false,
+      "file_a": "seeds/python/slugify.py",
+      "file_b": "negatives/hard_password_strength.py",
+      "language_a": "python",
+      "language_b": "python",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "hard_debounce_javascript",
+      "category": "hard_negative",
+      "is_clone": false,
+      "file_a": "seeds/javascript/debounce.js",
+      "file_b": "negatives/hard_memoize.js",
+      "language_a": "javascript",
+      "language_b": "javascript",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "hard_event_emitter_javascript",
+      "category": "hard_negative",
+      "is_clone": false,
+      "file_a": "seeds/javascript/event_emitter.js",
+      "file_b": "negatives/hard_state_machine.js",
+      "language_a": "javascript",
+      "language_b": "javascript",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "hard_bankaccount_java",
+      "category": "hard_negative",
+      "is_clone": false,
+      "file_a": "seeds/java/BankAccount.java",
+      "file_b": "negatives/HardTemperatureLogger.java",
+      "language_a": "java",
+      "language_b": "java",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "easy_binary_search_vs_csv_stats",
+      "category": "easy_negative",
+      "is_clone": false,
+      "file_a": "seeds/python/binary_search.py",
+      "file_b": "seeds/python/csv_stats.py",
+      "language_a": "python",
+      "language_b": "python",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "easy_lru_cache_vs_slugify",
+      "category": "easy_negative",
+      "is_clone": false,
+      "file_a": "seeds/python/lru_cache.py",
+      "file_b": "seeds/python/slugify.py",
+      "language_a": "python",
+      "language_b": "python",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "easy_matrix_ops_vs_task_scheduler",
+      "category": "easy_negative",
+      "is_clone": false,
+      "file_a": "seeds/python/matrix_ops.py",
+      "file_b": "seeds/python/task_scheduler.py",
+      "language_a": "python",
+      "language_b": "python",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "easy_binary_search_vs_matrix_ops",
+      "category": "easy_negative",
+      "is_clone": false,
+      "file_a": "seeds/python/binary_search.py",
+      "file_b": "seeds/python/matrix_ops.py",
+      "language_a": "python",
+      "language_b": "python",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "easy_csv_stats_vs_task_scheduler",
+      "category": "easy_negative",
+      "is_clone": false,
+      "file_a": "seeds/python/csv_stats.py",
+      "file_b": "seeds/python/task_scheduler.py",
+      "language_a": "python",
+      "language_b": "python",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "easy_slugify_vs_binary_search",
+      "category": "easy_negative",
+      "is_clone": false,
+      "file_a": "seeds/python/slugify.py",
+      "file_b": "seeds/python/binary_search.py",
+      "language_a": "python",
+      "language_b": "python",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "easy_debounce_vs_group_by",
+      "category": "easy_negative",
+      "is_clone": false,
+      "file_a": "seeds/javascript/debounce.js",
+      "file_b": "seeds/javascript/group_by.js",
+      "language_a": "javascript",
+      "language_b": "javascript",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "easy_event_emitter_vs_debounce",
+      "category": "easy_negative",
+      "is_clone": false,
+      "file_a": "seeds/javascript/event_emitter.js",
+      "file_b": "seeds/javascript/debounce.js",
+      "language_a": "javascript",
+      "language_b": "javascript",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "easy_group_by_vs_event_emitter",
+      "category": "easy_negative",
+      "is_clone": false,
+      "file_a": "seeds/javascript/group_by.js",
+      "file_b": "seeds/javascript/event_emitter.js",
+      "language_a": "javascript",
+      "language_b": "javascript",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    },
+    {
+      "id": "easy_stringcalculator_vs_bankaccount",
+      "category": "easy_negative",
+      "is_clone": false,
+      "file_a": "seeds/java/StringCalculator.java",
+      "file_b": "seeds/java/BankAccount.java",
+      "language_a": "java",
+      "language_b": "java",
+      "engines": [
+        "pairwise",
+        "enterprise"
+      ]
+    }
+  ]
+}
