@@ -123,7 +123,44 @@ jobs:
           retention-days: 7
 
   # ===========================================================================
-  # 3. Docker build -- Build images after tests and frontend pass
+  # 3. Security audit -- dependency vulnerabilities + Python SAST
+  # ===========================================================================
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install audit tools
+        run: pip install pip-audit==2.7.3 bandit==1.8.0
+
+      # Non-blocking: advisories need human triage, but surface them in the log.
+      - name: Python dependency audit (pip-audit)
+        continue-on-error: true
+        run: pip-audit -r requirements.txt
+
+      - name: Python SAST (bandit)
+        continue-on-error: true
+        run: bandit -r backend enterprise_platform -ll -x tests
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: npm dependency audit
+        continue-on-error: true
+        working-directory: code-sleuth-react-ui
+        run: npm audit --omit=dev || true
+
+  # ===========================================================================
+  # 4. Docker build -- Build images after tests and frontend pass
   # ===========================================================================
   docker-build:
     name: Docker Build

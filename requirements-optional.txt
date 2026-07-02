@@ -8,3 +8,6 @@ stripe==11.4.1
 
 # Sentry error tracking (set SENTRY_DSN to activate):
 sentry-sdk[flask]==2.20.0
+
+# Prometheus metrics (set METRICS_ENABLED=1 to activate):
+prometheus-client==0.21.1

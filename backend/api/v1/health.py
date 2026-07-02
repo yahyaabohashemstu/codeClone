@@ -63,6 +63,27 @@ def health_readiness():
 
 
 # ---------------------------------------------------------------------------
+# GET /api/v1/metrics  -- Prometheus exposition (optional, gated)
+# ---------------------------------------------------------------------------
+@v1_bp.route("/metrics", methods=["GET"])
+def metrics_endpoint():
+    import hmac
+
+    from backend.metrics import is_enabled, render_metrics
+
+    if not is_enabled():
+        return jsonify({"success": False, "message": "Metrics are not enabled."}), 404
+    token = current_app.config.get("METRICS_TOKEN", "")
+    if token:
+        auth = request.headers.get("Authorization", "")
+        provided = auth[7:].strip() if auth.startswith("Bearer ") else ""
+        if not hmac.compare_digest(provided, token):
+            return jsonify({"success": False, "message": "Unauthorized."}), 401
+    body, content_type = render_metrics()
+    return current_app.response_class(body, mimetype=content_type)
+
+
+# ---------------------------------------------------------------------------
 # GET /api/v1/health-ai
 # ---------------------------------------------------------------------------
 @v1_bp.route("/health-ai", methods=["GET"])

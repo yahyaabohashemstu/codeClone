@@ -82,6 +82,10 @@ def create_app(config_override: dict[str, Any] | None = None) -> Flask:
     from backend.observability import init_observability
     init_observability(app)
 
+    # -- Optional Prometheus metrics (gated by METRICS_ENABLED) --------------
+    from backend.metrics import init_metrics
+    init_metrics(app)
+
     # Ensure instance directory exists
     os.makedirs(app.instance_path, exist_ok=True)
 
