@@ -107,6 +107,17 @@ Required in `.env`: `SECRET_KEY`, `POSTGRES_PASSWORD`; recommended:
 `:80`; once TLS is added, remove the `SESSION_COOKIE_SECURE: "0"` override in
 `docker-compose.prod.yml`.
 
+**Domain + automatic HTTPS** (single container behind Caddy, Let's Encrypt):
+
+```bash
+docker compose -f docker/docker-compose.caddy.yml up -d --build
+```
+
+This is the recommended turnkey path for a public deployment with a real domain,
+TLS, email, and Stripe billing. Follow the step-by-step
+**[deployment runbook](docs/DEPLOYMENT.md)** — it covers domain/TLS, SMTP, and
+Stripe (test + live) with a go-live checklist.
+
 ## Environment Variables
 
 See `.env.example` for all available configuration options. Key variables:
