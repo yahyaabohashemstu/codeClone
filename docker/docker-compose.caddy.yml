@@ -1,0 +1,78 @@
+# Turnkey single-domain deployment with automatic HTTPS.
+#
+#   Caddy (TLS, ports 80/443)  ->  app (single container: SPA + Flask API :5000)
+#
+# The app image is the repo-root Dockerfile (builds the React SPA and serves it
+# same-origin from Flask), so there is no CORS and no separate frontend.
+#
+# Usage:
+#   1. Point your domain's A/AAAA record at this host.
+#   2. Create docker/.env with at least:
+#        SITE_ADDRESS=your-domain.com
+#        SECRET_KEY=<64 hex chars>
+#        ENTERPRISE_DATA_KEY=<random>
+#        # optional: MISTRAL_API_KEY, STRIPE_*, SMTP_*, APP_BASE_URL=https://your-domain.com
+#   3. docker compose -f docker/docker-compose.caddy.yml up -d --build
+#
+# Caddy fetches a real Let's Encrypt certificate automatically; renewals are
+# automatic. Use SITE_ADDRESS=localhost for a local self-signed test.
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      FLASK_ENV: production
+      BIND_HOST: 0.0.0.0
+      PORT: "5000"
+      # Behind Caddy (one hop): trust forwarded headers + require secure cookies.
+      TRUST_PROXY_HEADERS: "1"
+      SESSION_COOKIE_SECURE: "1"
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in docker/.env}
+      ENTERPRISE_DATA_KEY: ${ENTERPRISE_DATA_KEY:-}
+      APP_BASE_URL: ${APP_BASE_URL:-https://${SITE_ADDRESS}}
+      DATABASE_URL: ${DATABASE_URL:-}
+      REDIS_URL: ${REDIS_URL:-}
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+      # Billing (optional)
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRICE_PRO: ${STRIPE_PRICE_PRO:-}
+      STRIPE_PRICE_TEAM: ${STRIPE_PRICE_TEAM:-}
+      # Email (optional)
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-console}
+      EMAIL_FROM: ${EMAIL_FROM:-no-reply@${SITE_ADDRESS}}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION:-0}
+      # Observability (optional)
+      SENTRY_DSN: ${SENTRY_DSN:-}
+    volumes:
+      # Persist SQLite DB + generated key material across redeploys.
+      - app-instance:/app/instance
+    expose:
+      - "5000"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS (your domain) in docker/.env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  app-instance:
+  caddy-data:
+  caddy-config:

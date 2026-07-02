@@ -64,6 +64,20 @@ def create_app(config_override: dict[str, Any] | None = None) -> Flask:
     if config_override:
         app.config.update(config_override)
 
+    # -- Reverse-proxy awareness ---------------------------------------------
+    # Behind a TLS-terminating proxy the app receives plain HTTP with the real
+    # scheme/client in X-Forwarded-* headers.  Without ProxyFix, request.scheme
+    # is wrong (breaks _external URLs) and request.remote_addr is the proxy's IP
+    # (so Flask-Limiter throttles all users together).  Only trust these headers
+    # when explicitly configured, to avoid client IP spoofing when NOT proxied.
+    proxy_hops = int(app.config.get("TRUST_PROXY_HEADERS", 0) or 0)
+    if proxy_hops > 0:
+        from werkzeug.middleware.proxy_fix import ProxyFix
+        app.wsgi_app = ProxyFix(  # type: ignore[method-assign]
+            app.wsgi_app, x_for=proxy_hops, x_proto=proxy_hops,
+            x_host=proxy_hops, x_port=proxy_hops,
+        )
+
     # -- Observability (logging + optional Sentry) ---------------------------
     from backend.observability import init_observability
     init_observability(app)

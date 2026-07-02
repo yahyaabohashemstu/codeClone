@@ -64,3 +64,47 @@ class TestObservability:
         })
         after = [h for h in logging.getLogger().handlers if getattr(h, "_codesimilar", False)]
         assert len(after) == max(1, len(before))
+
+
+class TestProxyFix:
+    def test_not_wrapped_by_default(self):
+        from werkzeug.middleware.proxy_fix import ProxyFix
+        app = create_app({
+            "FLASK_ENV": "testing", "TESTING": True,
+            "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:", "SECRET_KEY": "x",
+            "WTF_CSRF_ENABLED": False, "RATELIMIT_ENABLED": False,
+        })
+        assert not isinstance(app.wsgi_app, ProxyFix)
+
+    def test_wrapped_when_trust_proxy_headers_set(self):
+        from werkzeug.middleware.proxy_fix import ProxyFix
+        app = create_app({
+            "FLASK_ENV": "testing", "TESTING": True,
+            "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:", "SECRET_KEY": "x",
+            "WTF_CSRF_ENABLED": False, "RATELIMIT_ENABLED": False,
+            "TRUST_PROXY_HEADERS": 1,
+        })
+        assert isinstance(app.wsgi_app, ProxyFix)
+
+    def test_forwarded_proto_is_honored_when_trusted(self):
+        """With ProxyFix active, X-Forwarded-Proto=https makes the request secure."""
+        app = create_app({
+            "FLASK_ENV": "testing", "TESTING": True,
+            "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:", "SECRET_KEY": "x",
+            "WTF_CSRF_ENABLED": False, "RATELIMIT_ENABLED": False,
+            "TRUST_PROXY_HEADERS": 1,
+        })
+        seen = {}
+
+        @app.route("/__scheme_probe")
+        def _probe():
+            from flask import request, jsonify
+            seen["secure"] = request.is_secure
+            return jsonify(secure=request.is_secure)
+
+        with app.app_context():
+            from backend.extensions import db as _db
+            _db.create_all()
+        client = app.test_client()
+        resp = client.get("/__scheme_probe", headers={"X-Forwarded-Proto": "https"})
+        assert resp.get_json()["secure"] is True

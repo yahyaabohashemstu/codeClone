@@ -24,6 +24,12 @@ class BaseConfig:
     SESSION_COOKIE_SECURE: bool = os.environ.get("SESSION_COOKIE_SECURE", "0") == "1"
     PERMANENT_SESSION_LIFETIME: timedelta = timedelta(hours=8)
 
+    # Number of trusted reverse-proxy hops in front of the app.  0 (default)
+    # disables ProxyFix.  Set to 1 when running behind a single TLS-terminating
+    # proxy (Caddy/Nginx/Coolify) so X-Forwarded-Proto (correct https scheme)
+    # and X-Forwarded-For (correct per-client IP for rate limiting) are honored.
+    TRUST_PROXY_HEADERS: int = int(os.environ.get("TRUST_PROXY_HEADERS", "0") or "0")
+
     # --- Database ------------------------------------------------------------
     SQLALCHEMY_DATABASE_URI: str = os.environ.get(
         "DATABASE_URL",
