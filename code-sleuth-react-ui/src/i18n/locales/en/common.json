@@ -305,7 +305,15 @@
       "revoked": "Revoked",
       "lastUsed": "Last used",
       "never": "never"
-    }
+    },
+    "privacy": "Privacy & data",
+    "exportData": "Export my data",
+    "exportIntro": "Download a machine-readable copy of your account data.",
+    "dangerZone": "Delete account",
+    "deleteIntro": "Permanently delete your account and all associated data. This cannot be undone.",
+    "deleteConfirm": "Type your password to confirm deletion.",
+    "deleteButton": "Delete my account",
+    "deleting": "Deleting…"
   },
   "admin": {
     "title": "Admin",

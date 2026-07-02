@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { createApiKey, listApiKeys, revokeApiKey, type ApiKeyRow } from "@/lib/adminApi";
+import { deleteAccount, exportAccountData } from "@/lib/accountApi";
+import { Download, Trash } from "lucide-react";
 
 type Stage = "idle" | "enrolling" | "recovery" | "disabling";
 
@@ -26,6 +28,10 @@ const Settings = () => {
   const [newKeyName, setNewKeyName] = useState("");
   const [freshToken, setFreshToken] = useState("");
   const [creatingKey, setCreatingKey] = useState(false);
+
+  const [deletePassword, setDeletePassword] = useState("");
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     listApiKeys().then(setKeys).catch(() => undefined);
@@ -112,6 +118,26 @@ const Settings = () => {
       setKeys((prev) => prev.map((k) => (k.id === id ? { ...k, revoked: true } : k)));
     } catch {
       toast.error("Failed");
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      await exportAccountData();
+    } catch {
+      toast.error("Failed");
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      await deleteAccount(deletePassword);
+      navigate("/login", { replace: true });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -259,6 +285,41 @@ const Settings = () => {
             </div>
           ))}
         </div>
+      </section>
+
+      {/* Privacy & data */}
+      <section className="rounded-2xl border border-border bg-card p-6" style={{ boxShadow: "var(--card-shadow-rest)" }}>
+        <div className="font-semibold text-foreground">{t("settings.privacy")}</div>
+        <div className="mt-3 flex items-center justify-between gap-4">
+          <p className="t-sm">{t("settings.exportIntro")}</p>
+          <Button variant="outline" onClick={handleExport} className="gap-2 shrink-0">
+            <Download className="h-4 w-4" />{t("settings.exportData")}
+          </Button>
+        </div>
+
+        {!user?.is_admin && (
+          <div className="mt-5 rounded-lg border p-4" style={{ borderColor: "hsl(var(--destructive) / 0.3)", background: "hsl(var(--destructive) / 0.05)" }}>
+            <div className="font-semibold text-destructive">{t("settings.dangerZone")}</div>
+            <p className="mt-1 t-sm">{t("settings.deleteIntro")}</p>
+            {!confirmingDelete ? (
+              <Button variant="destructive" className="mt-3 gap-2" onClick={() => setConfirmingDelete(true)}>
+                <Trash className="h-4 w-4" />{t("settings.deleteButton")}
+              </Button>
+            ) : (
+              <div className="mt-3 space-y-2">
+                <p className="t-sm">{t("settings.deleteConfirm")}</p>
+                <Input type="password" value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} className="h-10" />
+                <div className="flex justify-end gap-2">
+                  <Button variant="ghost" onClick={() => { setConfirmingDelete(false); setDeletePassword(""); }}>{t("settings.cancel")}</Button>
+                  <Button variant="destructive" disabled={deleting || !deletePassword} onClick={handleDeleteAccount}>
+                    {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash className="mr-2 h-4 w-4" />}
+                    {t("settings.deleteButton")}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </section>
     </div>
   );

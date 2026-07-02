@@ -10,6 +10,7 @@ import { AnalysisProvider } from "@/context/AnalysisContext";
 import { LanguageProvider } from "@/context/LanguageContext";
 import { ProtectedRoute } from "@/components/guards/ProtectedRoute";
 import { MainLayout } from "@/components/layout/MainLayout";
+import { CookieConsent } from "@/components/common/CookieConsent";
 
 const Home = lazy(() => import("@/pages/Home"));
 const Analysis = lazy(() => import("@/pages/Analysis"));
@@ -22,6 +23,8 @@ const Chat = lazy(() => import("@/pages/Chat"));
 const Billing = lazy(() => import("@/pages/Billing"));
 const Settings = lazy(() => import("@/pages/Settings"));
 const Admin = lazy(() => import("@/pages/Admin"));
+const Terms = lazy(() => import("@/pages/Terms"));
+const Privacy = lazy(() => import("@/pages/Privacy"));
 const Help = lazy(() => import("@/pages/Help"));
 const History = lazy(() => import("@/pages/History"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
@@ -47,6 +50,8 @@ const RoutedContent = () => {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/help" element={<Help />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/privacy" element={<Privacy />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/login" element={<Auth />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
@@ -166,6 +171,7 @@ const App = () => (
               <MainLayout>
                 <RoutedContent />
               </MainLayout>
+              <CookieConsent />
             </BrowserRouter>
           </TooltipProvider>
         </AnalysisProvider>
