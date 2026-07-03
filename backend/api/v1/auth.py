@@ -484,9 +484,22 @@ def api_2fa_login():
     user = db.session.get(User, user_id)
     if not user or not user.totp_enabled:
         return jsonify({"success": False, "message": "Invalid sign-in attempt."}), 400
+    # The second factor is subject to the SAME per-account lockout as the
+    # password step (shared failed_login_count / locked_until), so a holder of a
+    # stolen password cannot grind TOTP codes across IPs — the per-IP 10/min
+    # limit alone left the account brute-forceable via re-minted challenge tokens.
+    if _is_locked(user):
+        return jsonify({
+            "success": False,
+            "message": "Too many failed attempts. Try again later.",
+            "code": "account_locked",
+        }), 429
     secret = twofa_service.get_secret(user)
     if not ((secret and twofa_service.verify_totp(secret, code)) or twofa_service.consume_recovery_code(user, code)):
+        _register_failed_login(user)
+        record_audit("2fa.failed", user_id=user.id)
         return jsonify({"success": False, "message": "Invalid authentication code."}), 401
+    _clear_lockout(user)
     db.session.commit()  # persist any consumed recovery code
     login_user(user)
     return jsonify({"success": True, "user": _serialize_user(user), "csrfToken": get_csrf_token()})

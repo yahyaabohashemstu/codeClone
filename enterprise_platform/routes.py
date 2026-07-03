@@ -970,7 +970,10 @@ def enterprise_graphql():
 
 @api_bp.route(f"{GITHUB_WEBHOOK_PREFIX}/<int:repository_id>/webhook", methods=["POST"])
 def github_webhook(repository_id: int):
-    payload_bytes = request.get_data(cache=False)
+    # cache=True so the raw bytes (needed for HMAC) can ALSO be re-parsed as JSON
+    # below; cache=False consumed the stream, leaving payload = {} and every
+    # push scanning the default branch at commit_sha=None.
+    payload_bytes = request.get_data(cache=True)
     payload = request.get_json(silent=True) or {}
     with session_scope() as db_session:
         repository = db_session.get(RepositoryConnection, repository_id)

@@ -31,7 +31,7 @@
       "items": [
         {
           "question": "What programming languages are supported?",
-          "answer": "CodeSimilar supports Java, JavaScript, TypeScript, Python, C/C++, C#, Go, Ruby, PHP, Swift, and Kotlin. Semantic and AI-based analysis can detect patterns across different languages."
+          "answer": "CodeSimilar analyzes Python, Java, JavaScript, TypeScript, C, Go, Ruby, PHP, Kotlin, Rust, Scala, Elixir, Haskell, R, and Perl. Each comparison runs within a single language — the two files you compare must be written in the same language."
         },
         {
           "question": "How does clone detection work?",
@@ -43,7 +43,7 @@
         },
         {
           "question": "How is the similarity score calculated?",
-          "answer": "The overall score is a weighted average of token, text, AST graph, and AI similarity scores. Weights are determined dynamically based on code characteristics to maximize accuracy."
+          "answer": "The overall score is a weighted average of token, text, AST-graph, and AI similarity scores, combined using weights calibrated against a labeled benchmark of clone and non-clone pairs."
         },
         {
           "question": "Can I integrate this with my CI/CD pipeline?",
@@ -51,7 +51,7 @@
         },
         {
           "question": "Is my code secure when I upload it?",
-          "answer": "All code is encrypted in transit and at rest. We never share your code with third parties. Enterprise customers can request on-premises deployment for complete data sovereignty."
+          "answer": "All code is encrypted in transit and at rest. We don't sell your code, and we don't share it with third parties for their own purposes. When AI-powered analysis runs, your code is processed by our AI provider solely to generate your results. Enterprise customers can request on-premises deployment for complete data sovereignty."
         }
       ]
     }

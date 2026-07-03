@@ -2,7 +2,7 @@
 
 Pins the headline numbers measured by ``evaluation/run_eval.py`` against the
 labeled dataset in ``evaluation/dataset`` so that engine or threshold changes
-cannot silently degrade accuracy.  GraphCodeBERT is stubbed (score 0.0) to
+cannot silently degrade accuracy.  The AI model (UniXcoder) is stubbed (score 0.0) to
 keep CI fast — the pinned pairwise assertions therefore cover the non-AI
 signals only; run the full harness manually for the AI-inclusive numbers.
 

@@ -9,7 +9,7 @@ Engines measured
 ----------------
 * ``pairwise``    -- backend.services.analysis_service.analyze_similarities
   (the interactive /api/v1/analysis and CI /api/v1/ci/check path), including
-  the GraphCodeBERT semantic score unless ``--no-ai`` is given.
+  the UniXcoder semantic score unless ``--no-ai`` is given.
 * ``enterprise``  -- enterprise_platform.utils.compute_similarity_bundle
   (the repository-scan path).  File-level comparison: each dataset file is
   wrapped in a single file-kind ArtifactExtraction, mirroring the extractor's
@@ -17,7 +17,7 @@ Engines measured
 
 Usage (from the repo root):
     python evaluation/run_eval.py                 # both engines, AI enabled
-    python evaluation/run_eval.py --no-ai         # skip GraphCodeBERT (fast)
+    python evaluation/run_eval.py --no-ai         # skip UniXcoder (fast)
     python evaluation/run_eval.py --engine enterprise
 
 Outputs ``evaluation/results/metrics.json`` and ``evaluation/results/report.md``.
@@ -112,7 +112,7 @@ def read_pair_sources(pair: dict) -> tuple[str, str]:
 # ---------------------------------------------------------------------------
 
 def install_ai_stub() -> None:
-    """Replace GraphCodeBERT with a zero-scoring stub (for --no-ai runs)."""
+    """Replace UniXcoder with a zero-scoring stub (for --no-ai runs)."""
     import backend.engine.clone_detector as clone_detector_module
 
     class _StubAnalyzer:
@@ -278,7 +278,7 @@ def build_report(results: dict, ai_enabled: bool) -> str:
     lines = ["# Detection accuracy report", ""]
     lines.append(f"Dataset: {results['dataset_pairs']} labeled pairs "
                  f"(positives: t1/t2/t3/t4/xlang; negatives: hard/easy). "
-                 f"GraphCodeBERT: {'enabled' if ai_enabled else 'DISABLED (--no-ai)'}.")
+                 f"UniXcoder: {'enabled' if ai_enabled else 'DISABLED (--no-ai)'}.")
     lines.append("")
     for engine_name, engine in results["engines"].items():
         lines.append(f"## Engine: {engine_name}")
@@ -325,7 +325,7 @@ def build_report(results: dict, ai_enabled: bool) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--engine", choices=["pairwise", "enterprise", "both"], default="both")
-    parser.add_argument("--no-ai", action="store_true", help="stub out GraphCodeBERT (fast run)")
+    parser.add_argument("--no-ai", action="store_true", help="stub out UniXcoder (fast run)")
     args = parser.parse_args()
 
     if args.no_ai:

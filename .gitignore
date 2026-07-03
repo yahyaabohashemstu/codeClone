@@ -78,9 +78,16 @@ code-sleuth-react-ui/test-results/
 code-sleuth-react-ui/playwright-report/
 code-sleuth-react-ui/.playwright/
 
+# TypeScript incremental build cache (regenerable)
+*.tsbuildinfo
+
 # Claude Code local settings (may contain sensitive paths)
 .claude/
 
 # Local working materials (raw font downloads + design-spec kit), not runtime code
 fonts/
 new design/
+
+# Stripe CLI binary (downloaded locally, not part of the repo)
+stripe.exe
+stripe_cli.zip

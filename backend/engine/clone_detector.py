@@ -273,24 +273,28 @@ class CloneDetector:
         match_ratio = fuzz.partial_ratio(' '.join(tokens1), ' '.join(tokens2)) / 100
         return match_ratio > threshold
 
-    def semantic_clone_similarity(self, code1, code2, threshold=0.985, ai_score=None):
-        """Check for semantic clones using AI-based (GraphCodeBERT) similarity.
+    def semantic_clone_similarity(self, code1, code2, threshold=0.80, ai_score=None):
+        """Check for semantic clones using AI-based (UniXcoder) similarity.
 
         When the caller has already computed the AI score it can pass it in
         via *ai_score* to avoid a second forward pass.
 
-        Threshold calibration (evaluation/results/report.md): mean-pooled
-        GraphCodeBERT cosine is high for ANY two code snippets — unrelated
-        pairs in the evaluation dataset scored 0.876-0.982, so the previous
-        0.8 threshold flagged "semantic clone" on 100% of non-clones.  0.985
-        sits above every observed non-clone score (zero false positives on
-        the dataset) while still firing on very-high-similarity clones.  Note
-        the flag is weak evidence for true Type-4 clones (independent
-        implementations of the same behaviour scored 0.717-0.988, overlapping
-        the non-clone range) — a limitation of mean-pooled embeddings, not of
-        the threshold.
+        Threshold calibration (evaluation/results/report.md, re-run after the
+        UniXcoder swap): masked-mean-pooled UniXcoder cosine now *separates*
+        classes on the dataset — easy negatives score 0.34-0.59, hard negatives
+        (same task, independent implementation) 0.56-0.778, and true clones
+        0.65-0.98.  0.80 sits just above the highest observed non-clone (0.778),
+        giving zero false positives on the dataset while firing on
+        high-confidence semantic clones.  (The old value 0.985 was tuned to the
+        previous mean-over-padding GraphCodeBERT embedding, whose non-clone
+        cosine was inflated to 0.876-0.982 and overlapped the clone range — that
+        model contributed score inflation, not signal.)  Hard negatives can
+        still overlap Type-4 clones near 0.65-0.78, so this remains a
+        high-precision indicator rather than a perfect Type-4 detector.
         """
         score = ai_score if ai_score is not None else self.ai_based_similarity(code1, code2)
+        if score is None:  # model unavailable -> no semantic-clone claim
+            return False
         return score > threshold
 
     def code_to_graph(self, code):
@@ -365,15 +369,25 @@ class CloneDetector:
           - token similarity   (0.25) -- structural fingerprint via AST token types
           - renamed similarity (0.25) -- same as token-with-order; best for Type 2
           - graph similarity   (0.15) -- AST node-type distribution (cosine)
-          - AI similarity      (0.15) -- GraphCodeBERT semantic embedding
+          - AI similarity      (0.15) -- UniXcoder semantic embedding
         """
         text_sim    = _text_sim    if _text_sim    is not None else self.text_similarity(code1, code2)
         token_sim   = _token_sim   if _token_sim   is not None else self.token_similarity(code1, code2)
         graph_sim   = _graph_sim   if _graph_sim   is not None else self.graph_similarity(code1, code2)
         renamed_sim = _renamed_sim if _renamed_sim is not None else self.renamed_clone_similarity(code1, code2)
         ai_score    = _ai_score    if _ai_score    is not None else self.ai_based_similarity(code1, code2)
-        return (0.20 * text_sim + 0.25 * token_sim + 0.25 * renamed_sim
-                + 0.15 * graph_sim + 0.15 * ai_score)
+
+        # Weighted blend.  When the AI signal is unavailable (``None``) its 0.15
+        # weight is dropped and the remaining weights are renormalized to sum to
+        # 1.0 — so a degraded (no-model) deployment doesn't silently deflate
+        # every score instead of blending a misleading 0.0.
+        components = [
+            (text_sim, 0.20), (token_sim, 0.25), (renamed_sim, 0.25), (graph_sim, 0.15),
+        ]
+        if ai_score is not None:
+            components.append((ai_score, 0.15))
+        total_weight = sum(weight for _, weight in components)
+        return sum(value * weight for value, weight in components) / total_weight
 
     def calculate_raw_metrics(self, code):
         """Calculate raw metrics of code."""
@@ -505,13 +519,15 @@ class CloneDetector:
         }
 
     def ai_based_similarity(self, code1, code2):
-        """Compute AI-based similarity.
+        """Compute AI-based similarity, or ``None`` when the model is unavailable.
 
-        Degrades to ``0.0`` when the embedding model is unavailable (e.g. torch
-        not installed, model load failure) so the rest of the pipeline keeps
-        working.  Because the AI score carries 0.15 of the combined similarity,
-        a silent failure would deflate every result — so the FIRST failure per
-        process is logged at WARNING; repeats drop to debug to avoid log spam.
+        Returns ``None`` (rather than ``0.0``) when the embedding model can't run
+        (e.g. torch not installed, model load failure).  ``None`` lets
+        :meth:`combined_similarity` *renormalize* over the remaining signals
+        instead of blending a 0.0 that would deflate every score by up to the
+        AI signal's 0.15 weight (and flip clones from "high" to "moderate").
+        The FIRST failure per process is logged at WARNING; repeats drop to
+        debug to avoid log spam.
         """
         global _AI_FAILURE_WARNED
         try:
@@ -520,14 +536,14 @@ class CloneDetector:
             if not _AI_FAILURE_WARNED:
                 _AI_FAILURE_WARNED = True
                 logger.warning(
-                    "AI-based similarity unavailable — degrading to 0.0. The "
-                    "'AI Similarity' metric and 15%% of the combined score will "
-                    "read as zero until the embedding model loads.",
+                    "AI-based similarity unavailable — the 'AI Similarity' metric "
+                    "will read as 0 and the combined score renormalizes over the "
+                    "remaining signals until the embedding model loads.",
                     exc_info=True,
                 )
             else:
-                logger.debug("AI-based similarity unavailable; degrading to 0.0", exc_info=True)
-            return 0.0
+                logger.debug("AI-based similarity unavailable; renormalizing", exc_info=True)
+            return None
 
 
 # ---------------------------------------------------------------------------

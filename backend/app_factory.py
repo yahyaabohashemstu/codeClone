@@ -59,10 +59,18 @@ def create_app(config_override: dict[str, Any] | None = None) -> Flask:
     )
 
     # -- Configuration -------------------------------------------------------
-    cfg = get_config(config_override.get("FLASK_ENV") if config_override else None)
+    env_name = (
+        (config_override.get("FLASK_ENV") if config_override else None)
+        or os.environ.get("FLASK_ENV", "development")
+    ).lower()
+    cfg = get_config(env_name)
     app.config.from_object(cfg)
     if config_override:
         app.config.update(config_override)
+    # No config class defines FLASK_ENV, yet observability/metrics/startup banner
+    # read it — without this it is absent on a real boot and they silently run in
+    # "development" mode (prod logging/Sentry off). Pin it to the resolved env.
+    app.config.setdefault("FLASK_ENV", env_name)
 
     # -- Reverse-proxy awareness ---------------------------------------------
     # Behind a TLS-terminating proxy the app receives plain HTTP with the real
@@ -248,9 +256,20 @@ def _register_blueprints(app: Flask) -> None:
 
 
 def _initialize_database(app: Flask) -> None:
-    """Create tables and ensure bootstrap data exists."""
-    db.create_all()
-    _apply_core_additive_migrations(app)
+    """Create tables and ensure bootstrap data exists.
+
+    Once the database is Alembic-managed (an ``alembic_version`` table exists),
+    ``create_all`` is skipped: Alembic becomes the sole schema authority, so a
+    future migration that adds a table can't collide with ``create_all``
+    pre-creating it.  On a brand-new / pre-Alembic DB, ``create_all`` builds the
+    schema and the deploy entrypoint then stamps it (see backend/db_migrate.py).
+    """
+    from sqlalchemy import inspect as sa_inspect
+
+    alembic_managed = "alembic_version" in set(sa_inspect(db.engine).get_table_names())
+    if not alembic_managed:
+        db.create_all()
+        _apply_core_additive_migrations(app)
     _ensure_default_admin(app)
 
 

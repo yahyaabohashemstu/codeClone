@@ -54,11 +54,17 @@ COPY requirements.txt .
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
 # Application code.
-COPY wsgi.py ./
+COPY wsgi.py manage.py ./
 COPY backend/ backend/
 COPY enterprise_platform/ enterprise_platform/
 COPY enterprise_worker.py enterprise_cli.py enterprise_reports.py ./
 COPY templates/ templates/
+
+# Migrations + Alembic config so the entrypoint can run `db-upgrade` on deploy.
+COPY migrations/ migrations/
+COPY alembic.ini ./
+COPY docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
 
 # The built SPA must land where backend/config.py expects it
 # (FRONTEND_DIST_DIR = <repo>/code-sleuth-react-ui/dist).
@@ -75,4 +81,5 @@ EXPOSE 5000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:5000/api/v1/health || exit 1
 
-CMD ["python", "wsgi.py"]
+# Run migrations, then serve.
+ENTRYPOINT ["./docker-entrypoint.sh"]

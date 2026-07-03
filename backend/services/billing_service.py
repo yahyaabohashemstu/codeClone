@@ -22,6 +22,21 @@ def get_plan(plan_code: str | None) -> Plan:
     return PLANS.get(plan_code or DEFAULT_PLAN_CODE, PLANS[DEFAULT_PLAN_CODE])
 
 
+# A subscription only grants its paid quota while payment is in good standing.
+# ``past_due`` (failed payment) and ``canceled`` fall back to the free tier's
+# limit so access tracks payment state — the account keeps its plan *label*
+# until a webhook downgrades ``plan_code``, but not the paid allowance.
+_ACTIVE_STATUSES = ("active", "trialing")
+
+
+def _effective_plan(sub: Subscription) -> Plan:
+    """The plan whose quota actually applies, given the subscription status."""
+    plan = get_plan(sub.plan_code)
+    if sub.status not in _ACTIVE_STATUSES and plan.code != DEFAULT_PLAN_CODE:
+        return PLANS[DEFAULT_PLAN_CODE]
+    return plan
+
+
 def get_or_create_subscription(user_id: int) -> Subscription:
     sub = Subscription.query.filter_by(user_id=user_id).first()
     if sub is None:
@@ -50,17 +65,20 @@ def quota_summary(user_id: int) -> dict:
     """Read-only view of the user's plan and current-period usage."""
     sub = get_or_create_subscription(user_id)
     plan = get_plan(sub.plan_code)
+    eff = _effective_plan(sub)
     period = current_period()
     used = get_usage_count(user_id, period)
-    unlimited = plan.monthly_analysis_quota < 0
-    remaining = None if unlimited else max(0, plan.monthly_analysis_quota - used)
+    unlimited = eff.monthly_analysis_quota < 0
+    remaining = None if unlimited else max(0, eff.monthly_analysis_quota - used)
     return {
         "plan": plan.code,
         "planName": plan.name,
         "status": sub.status,
         "period": period,
         "used": used,
-        "limit": plan.monthly_analysis_quota,
+        # The *effective* limit: falls back to the free tier when the paid
+        # subscription is past_due/canceled (see _effective_plan).
+        "limit": eff.monthly_analysis_quota,
         "unlimited": unlimited,
         "remaining": remaining,
         "currentPeriodEnd": sub.current_period_end.isoformat() if sub.current_period_end else None,
@@ -77,7 +95,9 @@ def try_consume_analysis_quota(user_id: int) -> dict:
     user mid-session.
     """
     sub = get_or_create_subscription(user_id)
-    plan = get_plan(sub.plan_code)
+    # Use the *effective* plan so a past_due/canceled subscription is enforced
+    # at the free-tier limit (see _effective_plan / quota_summary).
+    plan = _effective_plan(sub)
     period = current_period()
 
     if plan.monthly_analysis_quota < 0:
@@ -86,15 +106,34 @@ def try_consume_analysis_quota(user_id: int) -> dict:
         db.session.commit()
         return {"allowed": True, **quota_summary(user_id)}
 
-    record = _get_or_create_usage(user_id, period)
-    if record.analyses_count >= plan.monthly_analysis_quota:
+    limit = plan.monthly_analysis_quota
+    _get_or_create_usage(user_id, period)  # ensure the row exists
+
+    # Atomic conditional increment: a single UPDATE that only bumps the counter
+    # when it is strictly below the limit.  Doing the check-and-increment as one
+    # statement closes the TOCTOU window where two concurrent requests both read
+    # count<limit and each increment past the cap (live on Postgres).
+    updated = (
+        db.session.query(UsageRecord)
+        .filter(
+            UsageRecord.user_id == user_id,
+            UsageRecord.period == period,
+            UsageRecord.analyses_count < limit,
+        )
+        .update(
+            {UsageRecord.analyses_count: UsageRecord.analyses_count + 1},
+            synchronize_session=False,
+        )
+    )
+    db.session.commit()
+
+    if not updated:
         summary = quota_summary(user_id)
         summary["allowed"] = False
         return summary
 
-    record.analyses_count += 1
-    db.session.commit()
-    _maybe_send_quota_alert(user_id, record, plan.monthly_analysis_quota)
+    record = _get_or_create_usage(user_id, period)  # fresh count post-commit
+    _maybe_send_quota_alert(user_id, record, limit)
     return {"allowed": True, **quota_summary(user_id)}
 
 

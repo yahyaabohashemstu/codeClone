@@ -267,7 +267,9 @@
     "quotaReached": "You've reached your monthly analysis limit. Upgrade your plan to run more analyses.",
     "manageSubscription": "Manage subscription",
     "checkoutSuccess": "Subscription updated — welcome aboard!",
-    "checkoutCanceled": "Checkout canceled. No changes were made."
+    "checkoutCanceled": "Checkout canceled. No changes were made.",
+    "loadError": "Couldn't load billing. Please try again.",
+    "retry": "Retry"
   },
   "settings": {
     "title": "Settings",

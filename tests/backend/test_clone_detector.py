@@ -450,6 +450,22 @@ class TestAIBasedSimilarity:
         )
         assert result is True
 
+    def test_combined_renormalizes_when_ai_unavailable(self, py_detector, _mock_ai):
+        """When the model is unavailable the AI weight is dropped and the other
+        weights renormalize — a degraded deploy must not deflate every score."""
+        _mock_ai.analyze_similarity.side_effect = RuntimeError("model unavailable")
+        combined = py_detector.combined_similarity(
+            "x", "y", _text_sim=1.0, _token_sim=1.0, _graph_sim=1.0, _renamed_sim=1.0,
+        )
+        # Without renormalization this would be 0.85 (0.15 AI weight blended as 0).
+        assert combined == pytest.approx(1.0)
+
+    def test_semantic_false_when_ai_unavailable(self, py_detector, _mock_ai):
+        """No semantic-clone claim can be made without the model."""
+        _mock_ai.analyze_similarity.side_effect = RuntimeError("model unavailable")
+        assert py_detector.semantic_clone_similarity("x", "y") is False
+        assert py_detector.ai_based_similarity("x", "y") is None
+
 
 # ---------------------------------------------------------------------------
 # Various clone type detectors

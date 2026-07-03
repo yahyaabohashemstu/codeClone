@@ -53,6 +53,11 @@ EMBEDDING_DIMENSION = 384
 VECTOR_TOP_K = 12
 MAX_SOURCE_FILE_BYTES = 512 * 1024
 REPOSITORY_SCAN_TIMEOUT_SECONDS = 300
+# Bound a single repository scan so a pathological/huge repo can't OOM the
+# worker: stop collecting files past either cap (partial scan + a warning beats
+# an out-of-memory crash).  Both are env-overridable.
+MAX_SCAN_FILES = int(os.environ.get("ENTERPRISE_MAX_SCAN_FILES", "5000"))
+MAX_SCAN_TOTAL_BYTES = int(os.environ.get("ENTERPRISE_MAX_SCAN_TOTAL_BYTES", str(200 * 1024 * 1024)))
 DEFAULT_STORAGE_REGION = "global"
 # Thresholds calibrated against the labeled dataset in evaluation/ (see
 # evaluation/results/report.md).  Feature-hash similarity scores are heavily
@@ -772,11 +777,21 @@ class EnterpriseStorage:
         language_families: list[str] = []
         vectors: list[np.ndarray] = []
         for row in rows:
+            # Skip (and log) a single corrupt/legacy embedding row rather than
+            # letting one bad payload 500 the entire workspace index.
+            try:
+                vector = deserialize_vector(row.embedding_vector, int(row.embedding_dim))
+            except Exception:
+                logger.warning(
+                    "Skipping artifact %s in workspace %s: unreadable embedding vector.",
+                    row.id, workspace_id,
+                )
+                continue
             artifact_ids.append(int(row.id))
             repository_ids.append(int(row.repository_id))
             snapshot_ids.append(int(row.snapshot_id))
             language_families.append(row.language_family)
-            vectors.append(deserialize_vector(row.embedding_vector, int(row.embedding_dim)))
+            vectors.append(vector)
         matrix = np.vstack(vectors).astype(np.float32) if vectors else np.zeros((0, EMBEDDING_DIMENSION), dtype=np.float32)
         index = WorkspaceVectorIndex(artifact_ids, repository_ids, snapshot_ids, language_families, matrix, marker)
         with self._index_lock:

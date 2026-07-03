@@ -58,7 +58,10 @@ def api_history_detail(analysis_id: int):
     if not analysis:
         return jsonify({"message": "Analysis not found."}), 404
 
-    context = restore_saved_analysis_context(analysis)
+    # A GET must be side-effect-free: allow_backfill=True would synchronously
+    # re-run the full pipeline and COMMIT a snapshot write on read, so a crawler
+    # or prefetch could trigger heavy work + DB writes. Read-only here.
+    context = restore_saved_analysis_context(analysis, allow_backfill=False)
     return jsonify(context)
 
 
@@ -74,6 +77,23 @@ def api_rerun_analysis(analysis_id: int):
     ).first()
     if not analysis:
         return jsonify({"message": "Analysis not found."}), 404
+
+    # A rerun executes the full paid ML + LLM pipeline, so it must draw on the
+    # monthly quota exactly like POST /analysis — otherwise the paywall is
+    # trivially bypassed by repeatedly re-running a saved analysis.
+    from backend.services.billing_service import try_consume_analysis_quota
+
+    quota = try_consume_analysis_quota(current_user.id)
+    if not quota.get("allowed"):
+        return jsonify({
+            "success": False,
+            "code": "quota_exceeded",
+            "message": (
+                f"You've reached your {quota['planName']} plan limit of "
+                f"{quota['limit']} analyses this month. Upgrade to continue."
+            ),
+            "billing": quota,
+        }), 402
 
     # Re-run asynchronously via the background pool (like POST /analysis) instead
     # of blocking a request thread on the full ML + LLM pipeline.  The result is

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from sqlalchemy.sql import func
 
+from backend.crypto import EncryptedText
 from backend.extensions import db
 
 
@@ -18,11 +19,14 @@ class Analysis(db.Model):  # type: ignore[name-defined]
     result = db.Column(db.String(50), nullable=False, default="successful")
     language = db.Column(db.String(50), nullable=False, default="python")
     similarity = db.Column(db.Float, nullable=True)
-    code1 = db.Column(db.Text, nullable=True)
-    code2 = db.Column(db.Text, nullable=True)
+    # The customer's submitted source and the full result snapshot are their
+    # crown-jewel IP: encrypt them at rest.  ``EncryptedText`` stores TEXT, so
+    # no schema migration is needed; legacy plaintext rows still read back.
+    code1 = db.Column(EncryptedText, nullable=True)
+    code2 = db.Column(EncryptedText, nullable=True)
     metrics = db.Column(db.Text, nullable=True)
-    analysis_text = db.Column(db.Text, nullable=True)
-    snapshot_json = db.Column(db.Text, nullable=True)
+    analysis_text = db.Column(EncryptedText, nullable=True)
+    snapshot_json = db.Column(EncryptedText, nullable=True)
     date_created = db.Column(db.DateTime, nullable=False, server_default=func.now(), index=True)
 
     def __repr__(self) -> str:

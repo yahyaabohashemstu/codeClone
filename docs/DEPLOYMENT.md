@@ -13,7 +13,7 @@ list). Nothing below requires editing source code.
 
 - A host with Docker + Docker Compose (any VPS, or a PaaS like Coolify).
 - A domain you control (e.g. `codesimilar.com`).
-- ~2 GB RAM (the GraphCodeBERT model loads into memory).
+- ~2 GB RAM (the UniXcoder model loads into memory).
 
 Generate the two secrets you'll need:
 
@@ -205,7 +205,41 @@ Readiness will report `sentryConfigured: true`.
 
 ---
 
-## 5. Go-live checklist
+## 5. Data protection, migrations & retention
+
+**Encryption at rest.** Submitted source code and result snapshots
+(`Analysis.code1/code2/analysis_text/snapshot_json`) are encrypted at rest with
+Fernet. The key is derived from `DATA_ENCRYPTION_KEY` (falling back to
+`SECRET_KEY`). Set it explicitly so rotating the session secret doesn't make
+stored code unreadable:
+
+```bash
+python -c "import secrets; print('DATA_ENCRYPTION_KEY=' + secrets.token_urlsafe(32))"
+```
+
+Rows written before this was enabled remain readable (legacy plaintext is passed
+through). Once set, **do not change it** or previously-encrypted code becomes
+unrecoverable — treat it like `ENTERPRISE_DATA_KEY`.
+
+**Schema migrations.** The container entrypoint runs `python manage.py
+db-upgrade` before serving. On a pre-existing database it *adopts* the current
+schema (Alembic `stamp head`); thereafter it applies new migrations
+(`alembic upgrade head`). No manual step is required on deploy.
+
+**Retention.** Set `ANALYSIS_RETENTION_DAYS=N` to auto-delete saved analyses
+(and the code they hold) older than N days. `0` (default) keeps them forever.
+Enforce on a schedule:
+
+```bash
+python manage.py purge-analyses        # honors ANALYSIS_RETENTION_DAYS
+python manage.py purge-analyses --days 90   # or force a window
+```
+
+Wire that to a cron / scheduled job (daily is fine).
+
+---
+
+## 6. Go-live checklist
 
 - [ ] `https://<domain>` loads with a valid certificate.
 - [ ] `/api/v1/health/readiness` → `database: true`.
@@ -216,7 +250,10 @@ Readiness will report `sentryConfigured: true`.
 - [ ] Stripe test checkout upgrades the plan; portal cancel downgrades it.
 - [ ] `SESSION_COOKIE_SECURE=1` and `TRUST_PROXY_HEADERS=1` are set (the Caddy
       compose file does this automatically).
-- [ ] `ENTERPRISE_DATA_KEY` is backed up somewhere safe.
+- [ ] `ENTERPRISE_DATA_KEY` **and** `DATA_ENCRYPTION_KEY` are set and backed up
+      somewhere safe (losing either makes encrypted data unrecoverable).
+- [ ] `ANALYSIS_RETENTION_DAYS` chosen and `purge-analyses` scheduled (if you
+      don't want to keep customer code forever).
 - [ ] The `app-instance` volume (SQLite DB + keys) is included in your backups,
       or you moved to Postgres via `DATABASE_URL`.
 
@@ -235,8 +272,8 @@ Readiness will report `sentryConfigured: true`.
   uses `REDIS_URL` when set.
 - **Database:** defaults to SQLite in the persisted `app-instance` volume. For
   higher load, set `DATABASE_URL=postgresql://...` (the `psycopg2-binary` driver
-  is already in `requirements.txt`). New columns are applied automatically on
-  boot; a full migration tool (Alembic) is the recommended next step for complex
-  schema changes.
+  is already in `requirements.txt`). Alembic migrations run automatically on
+  deploy via the entrypoint (`manage.py db-upgrade`), adopting an existing
+  schema on first run; `create_all` still provisions brand-new tables.
 - **Detection scope:** strong on Type-1/2/3 clones; Type-4 / cross-language are
   advisory only (see `evaluation/` and the README).

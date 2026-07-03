@@ -260,15 +260,19 @@ def analyze_similarities(
 
         # AI score must be computed before semantic_clone_result so we can
         # pass it in and avoid a second (expensive) forward pass through
-        # GraphCodeBERT.
+        # UniXcoder.
         set_current_user_progress(
             "Similarity analysis: AI similarity scoring", 45,
             user_id=_bg_user_id,
         )
-        ai_similarity_score = detector.ai_based_similarity(code1, code2)
+        # ``None`` means the embedding model is unavailable (degraded deploy):
+        # the combined score renormalizes over the remaining signals, the
+        # semantic flag is off, and the displayed metric reads 0.
+        ai_raw = detector.ai_based_similarity(code1, code2)
 
-        semantic_clone_result = detector.semantic_clone_similarity(
-            code1, code2, ai_score=ai_similarity_score,
+        semantic_clone_result = (
+            ai_raw is not None
+            and detector.semantic_clone_similarity(code1, code2, ai_score=ai_raw)
         )
 
         set_current_user_progress(
@@ -282,7 +286,7 @@ def analyze_similarities(
             _token_sim=token_sim,
             _graph_sim=graph_sim,
             _renamed_sim=renamed_clone_sim,
-            _ai_score=ai_similarity_score,
+            _ai_score=ai_raw,
         )
 
         set_current_user_progress(
@@ -309,7 +313,7 @@ def analyze_similarities(
             "semantic_clone_result": semantic_clone_result,
             "graph_sim": graph_sim,
             "combined_similarity": combined_similarity,
-            "ai_similarity_score": ai_similarity_score,
+            "ai_similarity_score": ai_raw if ai_raw is not None else 0.0,
         }
     except Exception as exc:
         logger.error("Error during similarity analysis: %s", exc, exc_info=True)

@@ -645,6 +645,47 @@ def build_workspace_analytics(db_session, workspace_id: int) -> dict[str, Any]:
     }
 
 
+def derive_thresholds(
+    confirmed: list[float],
+    false_positive: list[float],
+    prev_decision: float,
+    prev_review: float,
+) -> tuple[float, float, float, float]:
+    """Derive (decision, review, false_positive_rate, false_negative_rate) from
+    reviewer feedback.
+
+    Decision boundary: reject benign matches while keeping the bulk of confirmed
+    clones.  (The previous rule set it to the 40th percentile of *confirmed*
+    scores, which by construction pushed ~40% of true clones below the gate —
+    silent false negatives that grew as feedback accumulated.)  We instead place
+    the gate above the benign scores (p90) but no higher than the low tail of
+    confirmed scores (p10), taking the midpoint when the classes separate
+    cleanly.  Error rates are then measured *at that gate* (the FNR was
+    previously hardcoded to 0.0).
+    """
+    neg_gate = float(np.percentile(false_positive, 90)) if false_positive else None
+    pos_floor = float(np.percentile(confirmed, 10)) if confirmed else None
+    if neg_gate is not None and pos_floor is not None:
+        decision = (neg_gate + pos_floor) / 2 if neg_gate < pos_floor else neg_gate
+    elif pos_floor is not None:
+        decision = pos_floor
+    elif neg_gate is not None:
+        decision = max(neg_gate, prev_decision)
+    else:
+        decision = prev_decision
+    decision = max(0.35, min(0.99, decision))
+
+    if false_positive:
+        review = max(0.20, min(decision, float(np.percentile(false_positive, 50))))
+    else:
+        review = min(decision, prev_review)
+    review = min(review, decision)
+
+    fpr = (sum(1 for s in false_positive if s >= decision) / len(false_positive)) if false_positive else 0.0
+    fnr = (sum(1 for s in confirmed if s < decision) / len(confirmed)) if confirmed else 0.0
+    return decision, review, round(fpr, 4), round(fnr, 4)
+
+
 def recalibrate_thresholds(db_session, workspace_id: int) -> None:
     feedback_rows = db_session.execute(
         select(FeedbackEvent, ReviewCase, SimilarityMatch).join(ReviewCase, ReviewCase.id == FeedbackEvent.case_id).join(SimilarityMatch, SimilarityMatch.id == ReviewCase.match_id).where(FeedbackEvent.workspace_id == workspace_id)
@@ -659,18 +700,13 @@ def recalibrate_thresholds(db_session, workspace_id: int) -> None:
         false_positive = [score for label, score in values if label in {"false_positive", "benign_similarity"}]
         profile = ensure_threshold_profile(db_session, workspace_id, language_family, clone_type)
         sample_size = len(values)
-        if confirmed:
-            decision_threshold = max(0.35, min(0.99, float(np.percentile(confirmed, 40))))
-        else:
-            decision_threshold = profile.decision_threshold
-        if false_positive:
-            review_threshold = max(0.20, min(decision_threshold, float(np.percentile(false_positive, 90))))
-        else:
-            review_threshold = min(decision_threshold, profile.review_threshold)
+        decision_threshold, review_threshold, fpr, fnr = derive_thresholds(
+            confirmed, false_positive, profile.decision_threshold, profile.review_threshold,
+        )
         profile.decision_threshold = decision_threshold
-        profile.review_threshold = min(review_threshold, decision_threshold)
-        profile.false_positive_rate = (len(false_positive) / sample_size) if sample_size else 0.0
-        profile.false_negative_rate = 0.0
+        profile.review_threshold = review_threshold
+        profile.false_positive_rate = fpr
+        profile.false_negative_rate = fnr
         profile.sample_size = sample_size
         profile.updated_at = utcnow()
 

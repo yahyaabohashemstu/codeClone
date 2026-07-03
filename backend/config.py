@@ -93,6 +93,16 @@ class BaseConfig:
     # --- Enterprise ----------------------------------------------------------
     ENTERPRISE_DATA_KEY: str = os.environ.get("ENTERPRISE_DATA_KEY", "")
 
+    # --- Data protection (core) ---------------------------------------------
+    # Key used to encrypt stored analysis source code at rest (backend/crypto.py).
+    # Falls back to SECRET_KEY when unset; rotating SECRET_KEY then makes stored
+    # code unreadable, so set this explicitly in production to decouple them.
+    DATA_ENCRYPTION_KEY: str = os.environ.get("DATA_ENCRYPTION_KEY", "")
+    # Delete saved analyses (and the source they hold) older than this many days.
+    # 0 (default) keeps them forever.  Enforced by `python manage.py
+    # purge-analyses` — wire that to a scheduler (cron/Beat) in production.
+    ANALYSIS_RETENTION_DAYS: int = int(os.environ.get("ANALYSIS_RETENTION_DAYS", "0") or "0")
+
     # --- Observability -------------------------------------------------------
     LOG_LEVEL: str = os.environ.get("LOG_LEVEL", "INFO")
     SENTRY_DSN: str = os.environ.get("SENTRY_DSN", "")

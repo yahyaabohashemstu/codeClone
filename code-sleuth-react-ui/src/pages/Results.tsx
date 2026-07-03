@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { AnalysisChatPanel } from "@/components/results/AnalysisChatPanel";
 import { AnalysisReport } from "@/components/results/AnalysisReport";
 import { AstGraphPanel } from "@/components/results/AstGraphPanel";
@@ -188,7 +189,7 @@ function SimilarityBars({ items }: { items: SimilarityItem[] }) {
                 </span>
               </div>
               <div className="metric-bar-track w-full">
-                <div className={cn("h-full rounded-full bg-gradient-to-r transition-all duration-700", barTone)} style={{ width: `${item.value}%` }} />
+                <div className={cn("h-full rounded-full bg-gradient-to-r transition-all duration-700", barTone)} style={{ width: `${Math.max(0, Math.min(100, item.value))}%` }} />
               </div>
             </div>
           );
@@ -1029,7 +1030,9 @@ const Results = () => {
       ? currentResult
       : null
     : currentResult;
-  const overallScore = result ? getCombinedScore(result) : 0;
+  // Clamp to [0,100] at the source: a malformed/out-of-range value would make
+  // the score ring's strokeDashoffset negative (over-draw / visual wrap).
+  const overallScore = result ? Math.max(0, Math.min(100, getCombinedScore(result))) : 0;
   const scoreTone = getScoreTone(overallScore, t);
   const overallScoreLabel = overallScore.toFixed(1);
   const isCompactOverallScore = overallScoreLabel.length >= 5;
@@ -1350,6 +1353,9 @@ const Results = () => {
       </div>
 
       <div className="animate-fade-in-fast">
+        {/* Key by activeTab so a crash in one tab shows the fallback (and clears
+            on tab switch) instead of a thrown error blanking the whole page. */}
+        <ErrorBoundary key={activeTab}>
         {activeTab === "overview" && (
           <div className="space-y-5">
             <CodeComparisonPanel
@@ -1395,6 +1401,7 @@ const Results = () => {
         {activeTab === "chat" && (
           <AnalysisChatPanel contextLabel={`${result.source_labels.code1} \u2194 ${result.source_labels.code2}`} />
         )}
+        </ErrorBoundary>
       </div>
 
       <PdfExportDialog

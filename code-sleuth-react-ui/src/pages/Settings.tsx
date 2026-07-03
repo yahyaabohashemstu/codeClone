@@ -7,18 +7,20 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { createApiKey, listApiKeys, revokeApiKey, type ApiKeyRow } from "@/lib/adminApi";
-import { deleteAccount, exportAccountData } from "@/lib/accountApi";
+import { exportAccountData } from "@/lib/accountApi";
 import { Download, Trash } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 
 type Stage = "idle" | "enrolling" | "recovery" | "disabling";
 
 const Settings = () => {
   const { t } = useTranslation("common");
   const navigate = useNavigate();
-  const { user, setup2fa, enable2fa, disable2fa, logoutAll } = useAuth();
+  const { user, setup2fa, enable2fa, disable2fa, logoutAll, deleteAccount } = useAuth();
 
   const [stage, setStage] = useState<Stage>("idle");
   const [secret, setSecret] = useState("");
+  const [otpauthUri, setOtpauthUri] = useState("");
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
@@ -49,8 +51,9 @@ const Settings = () => {
   const beginEnroll = async () => {
     setBusy(true);
     try {
-      const { secret: s } = await setup2fa();
+      const { secret: s, otpauthUri: uri } = await setup2fa();
       setSecret(s);
+      setOtpauthUri(uri);
       setCode("");
       setStage("enrolling");
     } catch {
@@ -82,7 +85,7 @@ const Settings = () => {
       setCode("");
       toast.success(t("settings.twofaOff"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed");
+      toast.error(e instanceof Error ? e.message : t("errors.generic", { defaultValue: "Something went wrong." }));
     } finally {
       setBusy(false);
     }
@@ -106,7 +109,7 @@ const Settings = () => {
       setFreshToken(token);
       setNewKeyName("");
     } catch {
-      toast.error("Failed");
+      toast.error(t("errors.generic", { defaultValue: "Something went wrong." }));
     } finally {
       setCreatingKey(false);
     }
@@ -117,7 +120,7 @@ const Settings = () => {
       await revokeApiKey(id);
       setKeys((prev) => prev.map((k) => (k.id === id ? { ...k, revoked: true } : k)));
     } catch {
-      toast.error("Failed");
+      toast.error(t("errors.generic", { defaultValue: "Something went wrong." }));
     }
   };
 
@@ -125,7 +128,7 @@ const Settings = () => {
     try {
       await exportAccountData();
     } catch {
-      toast.error("Failed");
+      toast.error(t("errors.generic", { defaultValue: "Something went wrong." }));
     }
   };
 
@@ -135,7 +138,7 @@ const Settings = () => {
       await deleteAccount(deletePassword);
       navigate("/login", { replace: true });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed");
+      toast.error(e instanceof Error ? e.message : t("errors.generic", { defaultValue: "Something went wrong." }));
     } finally {
       setDeleting(false);
     }
@@ -178,6 +181,13 @@ const Settings = () => {
         {stage === "enrolling" && (
           <div className="mt-4 space-y-3">
             <p className="t-sm">{t("settings.scanOrEnter")}</p>
+            {otpauthUri && (
+              <div className="flex justify-center">
+                <div className="rounded-xl bg-white p-3">
+                  <QRCodeSVG value={otpauthUri} size={160} level="M" />
+                </div>
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <Input readOnly value={secret} dir="ltr" className="font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
               <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => copy(secret)}>

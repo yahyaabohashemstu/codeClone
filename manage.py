@@ -9,6 +9,8 @@ Usage:
     python manage.py show-plan <username>
     python manage.py send-test-email <address>
     python manage.py verify-user <username>        # mark email verified
+    python manage.py purge-analyses [--days N]     # delete old saved analyses
+    python manage.py db-upgrade                    # apply/adopt Alembic migrations
 """
 
 from __future__ import annotations
@@ -76,6 +78,23 @@ def cmd_verify_user(args) -> None:
     print(f"OK: {user.username} email marked verified")
 
 
+def cmd_purge_analyses(args) -> None:
+    from backend.services.retention_service import purge_old_analyses
+
+    deleted = purge_old_analyses(args.days)
+    if args.days is None and deleted == 0:
+        print("Retention disabled (ANALYSIS_RETENTION_DAYS=0). Pass --days N to force.")
+    else:
+        print(f"purged {deleted} analyses")
+
+
+def cmd_db_upgrade(args) -> None:
+    from backend.db_migrate import upgrade_database
+
+    action = upgrade_database()
+    print(f"database migrations: {action}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="CodeSimilar admin CLI")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -97,6 +116,14 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("verify-user", help="Mark a user's email as verified")
     p.add_argument("username")
     p.set_defaults(func=cmd_verify_user)
+
+    p = sub.add_parser("purge-analyses", help="Delete saved analyses past the retention window")
+    p.add_argument("--days", type=int, default=None,
+                   help="Override ANALYSIS_RETENTION_DAYS for this run")
+    p.set_defaults(func=cmd_purge_analyses)
+
+    p = sub.add_parser("db-upgrade", help="Apply Alembic migrations (adopts an existing schema on first run)")
+    p.set_defaults(func=cmd_db_upgrade)
 
     return parser
 

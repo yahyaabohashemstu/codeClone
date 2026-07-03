@@ -39,7 +39,7 @@ source of false accusations.
 ## Engines measured
 
 * **pairwise** — `analyze_similarities` (the `/api/v1/analysis` and CI-gate
-  path): text/token/graph metrics + GraphCodeBERT, combined score, and the 11
+  path): text/token/graph metrics + UniXcoder, combined score, and the 11
   boolean clone flags.
 * **enterprise** — `compute_similarity_bundle` (the repository-scan path):
   feature-hash "semantic" cosine + token overlap + structural score.
@@ -50,7 +50,7 @@ source of false accusations.
 
 ```bash
 python evaluation/generate_dataset.py     # only needed after editing seeds/renames
-python evaluation/run_eval.py             # both engines, GraphCodeBERT enabled
+python evaluation/run_eval.py             # both engines, UniXcoder enabled
 python evaluation/run_eval.py --no-ai     # fast run without the ML model
 ```
 

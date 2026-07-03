@@ -182,8 +182,15 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   );
 
   const formatDate = useCallback(
-    (value: string | number | Date, options?: Intl.DateTimeFormatOptions) =>
-      new Intl.DateTimeFormat(meta.locale, options).format(new Date(value)),
+    (value: string | number | Date, options?: Intl.DateTimeFormatOptions) => {
+      const parsed = new Date(value);
+      // An invalid/empty date makes Intl.format throw RangeError, which blanks
+      // the whole page. Degrade gracefully to the raw string instead.
+      if (Number.isNaN(parsed.getTime())) {
+        return typeof value === "string" ? value : "";
+      }
+      return new Intl.DateTimeFormat(meta.locale, options).format(parsed);
+    },
     [meta.locale],
   );
 

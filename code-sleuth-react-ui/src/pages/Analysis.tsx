@@ -28,6 +28,7 @@ import { useAnalysis } from "@/context/AnalysisContext";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { cn } from "@/lib/utils";
+import { ApiError } from "@/lib/api";
 
 type InputMethod = "paste" | "file" | "zip" | "excel";
 
@@ -339,10 +340,11 @@ const Analysis = () => {
   const { supportedLanguages } = useAuth();
   const { analyze, clearCurrentResult, isAnalyzing, analysisProgress } = useAnalysis();
   const { localizeRuntimeMessage, getProgrammingLanguageLabel } = useLanguage();
-  const { t } = useTranslation("analysis");
+  const { t } = useTranslation(["analysis", "common"]);
   const [selectedLanguage, setSelectedLanguage] = useState("python");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [quotaExceeded, setQuotaExceeded] = useState(false);
   const [sourceA, setSourceA] = useState<SourceState>(() => createEmptySource());
   const [sourceB, setSourceB] = useState<SourceState>(() => createEmptySource());
 
@@ -382,6 +384,7 @@ const Analysis = () => {
 
   const handleAnalyze = async () => {
     setErrorMessage("");
+    setQuotaExceeded(false);
     try {
       const result = await analyze(buildFormData());
       if (!result.has_results) {
@@ -397,6 +400,12 @@ const Analysis = () => {
         : "/results";
       navigate(nextUrl);
     } catch (error) {
+      // A 402 means the monthly quota is exhausted — surface an upgrade CTA
+      // (the primary monetization moment) rather than a dead error string.
+      if (error instanceof ApiError && error.status === 402) {
+        setQuotaExceeded(true);
+        return;
+      }
       setErrorMessage(
         error instanceof Error
           ? localizeRuntimeMessage(error.message)
@@ -487,6 +496,25 @@ const Analysis = () => {
           </div>
         </div>
       </section>
+
+      {quotaExceeded && (
+        <div
+          className="flex flex-col gap-3 rounded-xl border px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+          style={{
+            borderColor: "hsl(var(--primary) / 0.3)",
+            background: "hsl(var(--primary) / 0.06)",
+          }}
+          role="alert"
+        >
+          <div className="flex items-start gap-3">
+            <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <span>{t("common:billing.quotaReached")}</span>
+          </div>
+          <Button onClick={() => navigate("/billing")} className="shrink-0">
+            {t("common:billing.upgrade")}
+          </Button>
+        </div>
+      )}
 
       {errorMessage && (
         <div

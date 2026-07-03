@@ -20,8 +20,12 @@ logger = logging.getLogger(__name__)
 def _ip_hash() -> str | None:
     if not has_request_context():
         return None
-    ip = request.headers.get("X-Forwarded-For", request.remote_addr or "")
-    ip = (ip.split(",")[0] or "").strip()
+    # Use remote_addr, NOT the raw X-Forwarded-For header: when the app is
+    # actually behind a trusted proxy (TRUST_PROXY_HEADERS>0) ProxyFix already
+    # rewrites remote_addr to the real client IP; when it is not, reading XFF
+    # directly would let any client forge the recorded source IP on security
+    # events (login.failed, apikey.created) and poison forensic attribution.
+    ip = (request.remote_addr or "").strip()
     if not ip:
         return None
     return hashlib.sha256(ip.encode("utf-8")).hexdigest()

@@ -6,7 +6,7 @@ Enterprise code similarity analysis platform powered by AI.
 
 - **Multi-language clone detection** -- 15 languages via tree-sitter (Python, JavaScript, Java, C, Go, Rust, and more)
 - **AI-powered analysis** -- Mistral LLM integration for intelligent code review and explanations
-- **BERT semantic similarity** -- GraphCodeBERT embeddings as one signal in a combined score
+- **BERT semantic similarity** -- UniXcoder embeddings as one signal in a combined score
 - **Accounts & billing** -- self-service signup, email verification, password reset, and per-plan monthly usage quotas (Stripe-ready)
 - **Enterprise workspaces** -- team-based code review with role-based access control, encrypted storage, and scan workers
 - **CI/CD gate** -- `POST /api/v1/ci/check` similarity check for pull-request pipelines

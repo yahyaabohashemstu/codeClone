@@ -77,7 +77,13 @@ def run_repository_scan(scan_job_id: int) -> None:
                 elif clone_url:
                     clone_url = normalize_clone_url(clone_url)
                     temp_clone_dir = tempfile.mkdtemp(prefix="enterprise-repo-")
-                    clone_args = ["git", "clone", "--depth", "1"]
+                    # A shallow clone lacks the objects for any non-HEAD commit,
+                    # so every commit_sha-triggered (webhook/CI) scan would fail
+                    # at checkout.  Fetch full history when a specific commit is
+                    # requested; otherwise keep the fast --depth 1.
+                    clone_args = ["git", "clone"]
+                    if not commit_sha:
+                        clone_args.extend(["--depth", "1"])
                     if branch:
                         clone_args.extend(["--branch", branch])
                     clone_args.extend(["--no-recurse-submodules", clone_url, temp_clone_dir])
@@ -98,7 +104,10 @@ def run_repository_scan(scan_job_id: int) -> None:
                         )
                         shutil.rmtree(temp_clone_dir, ignore_errors=True)
                         temp_clone_dir = tempfile.mkdtemp(prefix="enterprise-repo-")
-                        fallback_args = ["git", "clone", "--depth", "1", "--no-recurse-submodules", clone_url, temp_clone_dir]
+                        fallback_args = ["git", "clone"]
+                        if not commit_sha:
+                            fallback_args.extend(["--depth", "1"])
+                        fallback_args.extend(["--no-recurse-submodules", clone_url, temp_clone_dir])
                         clone_process = subprocess.run(
                             fallback_args,
                             capture_output=True,

@@ -256,13 +256,39 @@ def ci_check():
             "code_b": code_b,
         })
 
+    # ── Quota ───────────────────────────────────────────────────────────
+    # Per-user API keys (csk_) draw on that user's monthly analysis quota, so a
+    # free account cannot run unlimited checks through CI.  Operator (CI_API_KEY)
+    # and enterprise (epk_) actors are metered separately and pass through here.
+    from backend.services.billing_service import try_consume_analysis_quota
+
+    billable_user_id = (
+        actor.get("legacy_user_id") if actor.get("kind") == "user_api_key" else None
+    )
+
     # ── Run analysis ────────────────────────────────────────────────────
     start_time = time.monotonic()
     detector = get_detector(language)
     results: list[dict[str, Any]] = []
     violations = 0
+    quota_blocked = False
 
     for pair in validated_pairs:
+        # Reserve one unit of quota per pair.  Once the quota is exhausted the
+        # remaining pairs are reported as skipped rather than analyzed.
+        if billable_user_id is not None and not quota_blocked:
+            if not try_consume_analysis_quota(billable_user_id).get("allowed"):
+                quota_blocked = True
+        if quota_blocked:
+            results.append({
+                "label_a": pair["label_a"],
+                "label_b": pair["label_b"],
+                "error": "Monthly analysis quota exceeded. Upgrade your plan to run more checks.",
+                "code": "quota_exceeded",
+                "is_violation": False,
+            })
+            continue
+
         code_a = pair["code_a"]
         code_b = pair["code_b"]
 
@@ -314,6 +340,7 @@ def ci_check():
 
     elapsed_ms = round((time.monotonic() - start_time) * 1000)
     verdict = "fail" if violations > 0 else "pass"
+    quota_exceeded_count = sum(1 for r in results if r.get("code") == "quota_exceeded")
 
     response = {
         "success": True,
@@ -322,11 +349,18 @@ def ci_check():
         "language": language,
         "total_pairs": len(results),
         "violations": violations,
+        "quota_exceeded": quota_exceeded_count > 0,
         "duration_ms": elapsed_ms,
         "results": results,
     }
 
-    status_code = 200 if verdict == "pass" else 422
+    # ANY pair skipped for quota fails the check with 402 — a partial batch must
+    # never report a clean "pass", or an unanalyzed pair could hide a real clone
+    # and silently green-light the build.  Otherwise: 422 on violations, 200 pass.
+    if quota_exceeded_count > 0:
+        status_code = 402
+    else:
+        status_code = 200 if verdict == "pass" else 422
     return jsonify(response), status_code
 
 

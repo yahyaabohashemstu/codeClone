@@ -21,6 +21,7 @@ interface AuthContextValue {
   resetPassword: (token: string, password: string) => Promise<void>;
   verifyEmail: (token: string) => Promise<void>;
   logout: () => Promise<void>;
+  deleteAccount: (password: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -202,6 +203,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSession(nextSession);
   }, [refreshSession]);
 
+  const deleteAccount = useCallback(async (password: string) => {
+    await apiFetch<{ success: boolean }>("/api/v1/account/delete", {
+      method: "POST",
+      body: JSON.stringify({ password }),
+    });
+    // The account and its server session are gone — clear the in-memory session
+    // so the header/nav don't keep showing the deleted user until the next 401.
+    const nextSession = await refreshSession();
+    setSession(nextSession);
+  }, [refreshSession]);
+
   const value = useMemo<AuthContextValue>(() => ({
     isLoading,
     isAuthenticated: Boolean(session?.authenticated),
@@ -221,7 +233,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     resetPassword,
     verifyEmail,
     logout,
-  }), [isLoading, session, refreshSession, login, complete2faLogin, setup2fa, enable2fa, disable2fa, logoutAll, register, signup, requestPasswordReset, resetPassword, verifyEmail, logout]);
+    deleteAccount,
+  }), [isLoading, session, refreshSession, login, complete2faLogin, setup2fa, enable2fa, disable2fa, logoutAll, register, signup, requestPasswordReset, resetPassword, verifyEmail, logout, deleteAccount]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

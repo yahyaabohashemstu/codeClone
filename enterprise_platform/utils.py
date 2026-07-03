@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import datetime as dt
 import hashlib
 import hmac
@@ -90,8 +91,13 @@ def serialize_vector(vector: np.ndarray) -> str:
 
 
 def deserialize_vector(payload: str, dim: int) -> np.ndarray:
-    raw = base64.b64decode(payload.encode("ascii"))
-    vector = np.frombuffer(raw, dtype=np.float32)
+    try:
+        raw = base64.b64decode(payload.encode("ascii"))
+        vector = np.frombuffer(raw, dtype=np.float32)
+    except (binascii.Error, ValueError, TypeError) as exc:
+        # A single corrupt/legacy embedding payload must not be an unhandled
+        # 500 — callers that build the workspace index skip+log bad rows.
+        raise EnterpriseError(500, "Stored vector payload is unreadable.", code="invalid_vector_payload") from exc
     if vector.size != dim:
         raise EnterpriseError(500, "Stored vector dimension mismatch.", code="invalid_vector_payload")
     return vector
@@ -107,15 +113,48 @@ def cosine_similarity(vector_a: np.ndarray, vector_b: np.ndarray) -> float:
 
 
 def strip_comments(source: str, language: str) -> str:
-    text = source
+    """Remove comments while PRESERVING string literals.
+
+    A comment marker is stripped only when it is not inside a string, so a URL
+    like ``"http://x/#y"`` is no longer truncated at the ``#`` / ``//`` — the
+    previous line-anchored regexes cut the string mid-literal, corrupting
+    canonicalization and manufacturing false "renamed clone" matches. Python
+    triple-quoted strings collapse to a ``STRBLOCK`` placeholder (docstrings must
+    not tokenize); other string literals are preserved for later masking.
+    """
     if language == "python":
-        text = re.sub(r"(?m)#.*$", "", text)
-        text = re.sub(r"(?s)\"\"\".*?\"\"\"", " STRBLOCK ", text)
-        text = re.sub(r"(?s)'''.*?'''", " STRBLOCK ", text)
-    else:
-        text = re.sub(r"(?s)/\*.*?\*/", " ", text)
-        text = re.sub(r"(?m)//.*$", "", text)
-    return text
+        pattern = re.compile(
+            r'"""[\s\S]*?"""'            # triple double
+            r"|'''[\s\S]*?'''"           # triple single
+            r'|"(?:\\.|[^"\\\n])*"'       # double
+            r"|'(?:\\.|[^'\\\n])*'"       # single
+            r'|#[^\n]*'                    # line comment
+        )
+
+        def _py_repl(m: "re.Match[str]") -> str:
+            s = m.group(0)
+            if s.startswith('"""') or s.startswith("'''"):
+                return " STRBLOCK "
+            if s.startswith("#"):
+                return " "
+            return s
+
+        return pattern.sub(_py_repl, source)
+
+    pattern = re.compile(
+        r'"(?:\\.|[^"\\\n])*"'            # double
+        r"|'(?:\\.|[^'\\\n])*'"           # single
+        r'|/\*[\s\S]*?\*/'                # block comment
+        r'|//[^\n]*'                       # line comment
+    )
+
+    def _c_repl(m: "re.Match[str]") -> str:
+        s = m.group(0)
+        if s.startswith("/*") or s.startswith("//"):
+            return " "
+        return s
+
+    return pattern.sub(_c_repl, source)
 
 
 def normalize_identifier(token: str) -> str:
@@ -334,13 +373,21 @@ def extract_artifacts(logical_path: str, language: str, source: str) -> list[Art
 
 def read_supported_repository_files(root_path: Path) -> list[tuple[str, str, str]]:
     files: list[tuple[str, str, str]] = []
+    total_bytes = 0
+    capped = False
     for directory, dirnames, filenames in os.walk(root_path):
+        if capped:
+            break
         dirnames[:] = [
             name
             for name in dirnames
             if name not in IGNORED_DIRECTORIES and not (Path(directory) / name).is_symlink()
         ]
         for filename in filenames:
+            # Bound the scan so a pathological repo can't exhaust memory.
+            if len(files) >= MAX_SCAN_FILES or total_bytes >= MAX_SCAN_TOTAL_BYTES:
+                capped = True
+                break
             candidate = Path(directory) / filename
             if candidate.is_symlink():
                 continue
@@ -367,6 +414,13 @@ def read_supported_repository_files(root_path: Path) -> list[tuple[str, str, str
                 continue
             relative_path = candidate.relative_to(root_path).as_posix()
             files.append((relative_path, language, source))
+            total_bytes += size_bytes
+    if capped:
+        logger.warning(
+            "Repository scan truncated at %d files / %d bytes (limits %d / %d). "
+            "Raise ENTERPRISE_MAX_SCAN_FILES / ENTERPRISE_MAX_SCAN_TOTAL_BYTES to scan more.",
+            len(files), total_bytes, MAX_SCAN_FILES, MAX_SCAN_TOTAL_BYTES,
+        )
     return files
 
 
@@ -651,8 +705,11 @@ def verify_webhook_secret(stored_hint: Optional[str], stored_hash: Optional[str]
 
 
 def audit(db_session, actor: dict[str, Any], action: str, entity_type: str, entity_id: Any, workspace_id: Optional[int], metadata: Optional[dict[str, Any]] = None) -> None:
-    forwarded = request.headers.get("X-Forwarded-For", "")
-    ip_value = forwarded.split(",")[0].strip() if forwarded else (request.remote_addr or "")
+    # Use remote_addr (ProxyFix rewrites it to the real client IP only when the
+    # deployment trusts proxy headers) rather than the raw, client-forgeable
+    # X-Forwarded-For — the audit trail is compliance/evidence and must not be
+    # spoofable.
+    ip_value = (request.remote_addr or "").strip()
     user_agent = request.headers.get("User-Agent", "")
     db_session.add(
         AuditLog(

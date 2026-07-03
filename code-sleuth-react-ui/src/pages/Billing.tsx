@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AlertCircle, CheckCircle2, CreditCard, Loader2, Settings, Zap } from "lucide-react";
@@ -24,17 +24,24 @@ const Billing = () => {
   const [loading, setLoading] = useState(true);
   const [checkingOut, setCheckingOut] = useState<string | null>(null);
   const [openingPortal, setOpeningPortal] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
-  useEffect(() => {
+  const loadBilling = useCallback(() => {
+    setLoading(true);
+    setLoadError(false);
     Promise.all([getBillingSummary(), getPlans()])
       .then(([s, p]) => {
         setSummary(s);
         setPlans(p.plans);
         setBillingEnabled(p.billingEnabled);
       })
-      .catch(() => undefined)
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    loadBilling();
+  }, [loadBilling]);
 
   // Handle the return from Stripe Checkout (?status=success|cancel).
   useEffect(() => {
@@ -42,7 +49,21 @@ const Billing = () => {
     if (!status) return;
     if (status === "success") {
       toast.success(t("billing.checkoutSuccess"));
-      getBillingSummary().then(setSummary).catch(() => undefined);
+      // The webhook may not have upgraded the plan by the time Stripe redirects
+      // back, so a single refetch can still show the old plan. Poll a few times
+      // until the plan changes (or we give up) to reconcile the displayed card.
+      let attempts = 0;
+      const poll = () => {
+        getBillingSummary()
+          .then((s) => {
+            setSummary(s);
+            if (++attempts < 5 && s.plan === "free") {
+              window.setTimeout(poll, 1500);
+            }
+          })
+          .catch(() => undefined);
+      };
+      poll();
     } else if (status === "cancel") {
       toast(t("billing.checkoutCanceled"));
     }
@@ -86,6 +107,16 @@ const Billing = () => {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (loadError && !summary) {
+    return (
+      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 text-center">
+        <AlertCircle className="h-6 w-6" style={{ color: "hsl(var(--destructive))" }} />
+        <p className="t-body">{t("billing.loadError")}</p>
+        <Button variant="outline" onClick={loadBilling}>{t("billing.retry")}</Button>
       </div>
     );
   }

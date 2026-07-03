@@ -93,11 +93,31 @@ def verify_and_parse_webhook(payload: bytes, signature_header: str):
 
 
 def apply_webhook_event(event) -> bool:
-    """Translate a Stripe event into a subscription change. Returns True if handled."""
-    from backend.services.billing_service import set_plan
+    """Translate a Stripe event into a subscription change. Returns True if handled.
+
+    Handles the full paid-lifecycle so access always tracks payment state:
+      * checkout.session.completed  -> upgrade to the purchased plan
+      * customer.subscription.updated -> sync live status (keeps the plan);
+        this is the authoritative source that also RESTORES access after a
+        past_due->active recovery, so we deliberately do NOT act on
+        invoice.payment_succeeded (a stale/out-of-order success event must not
+        re-grant paid access to a past_due or canceled account).
+      * customer.subscription.deleted -> downgrade to free
+      * invoice.payment_failed      -> mark past_due (quota drops to free tier)
+
+    Subscription/invoice events do NOT carry our checkout metadata, so the user
+    is resolved by a fallback lookup on the stored stripe_subscription_id /
+    stripe_customer_id (see ``_lookup_user_id``).
+    """
+    from backend.services.billing_service import get_or_create_subscription, set_plan
 
     event_type = event.get("type") if isinstance(event, dict) else getattr(event, "type", None)
     data_object = (event.get("data", {}) or {}).get("object", {}) if isinstance(event, dict) else {}
+    if not isinstance(data_object, dict):
+        try:
+            data_object = dict(data_object)
+        except Exception:
+            data_object = {}
 
     if event_type == "checkout.session.completed":
         metadata = data_object.get("metadata") or {}
@@ -110,20 +130,76 @@ def apply_webhook_event(event) -> bool:
                 stripe_subscription_id=data_object.get("subscription"),
             )
             return True
+        return False
 
-    elif event_type in ("customer.subscription.updated", "customer.subscription.deleted"):
-        metadata = data_object.get("metadata") or {}
-        user_id = _safe_int(metadata.get("user_id"))
-        if user_id:
-            canceled = event_type == "customer.subscription.deleted" or data_object.get("status") == "canceled"
-            set_plan(
-                user_id,
-                "free" if canceled else metadata.get("plan_code", "pro"),
-                status="canceled" if canceled else data_object.get("status", "active"),
-            )
-            return True
+    if event_type in ("customer.subscription.updated", "customer.subscription.deleted"):
+        user_id = _lookup_user_id(data_object)
+        if not user_id:
+            return False
+        status = data_object.get("status")
+        canceled = (
+            event_type == "customer.subscription.deleted"
+            or status in ("canceled", "unpaid", "incomplete_expired")
+        )
+        period_end = _ts_to_dt(data_object.get("current_period_end"))
+        if canceled:
+            set_plan(user_id, "free", status="canceled", current_period_end=period_end)
+        else:
+            # Only the status/renewal changed — preserve the current plan_code.
+            sub = get_or_create_subscription(user_id)
+            set_plan(user_id, sub.plan_code, status=status or "active", current_period_end=period_end)
+        return True
+
+    if event_type == "invoice.payment_failed":
+        user_id = _lookup_user_id(data_object)
+        if not user_id:
+            return False
+        sub = get_or_create_subscription(user_id)
+        set_plan(user_id, sub.plan_code, status="past_due")
+        return True
+
+    # invoice.payment_succeeded is intentionally NOT handled: restoring access
+    # from an invoice event is unsafe (Stripe redelivers/reorders for ~3 days, so
+    # a stale success could re-grant paid quota to a past_due/canceled account).
+    # The authoritative recovery signal is customer.subscription.updated, which
+    # carries the subscription's live status and is handled above.
 
     return False
+
+
+def _lookup_user_id(data_object: dict) -> int | None:
+    """Resolve the local user for a Stripe event.
+
+    Prefers explicit metadata/client_reference_id (present on checkout events);
+    otherwise matches the stored Subscription row by Stripe subscription id
+    (subscription events) or customer id (invoice events).
+    """
+    metadata = data_object.get("metadata") or {}
+    uid = _safe_int(metadata.get("user_id") or data_object.get("client_reference_id"))
+    if uid:
+        return uid
+
+    from backend.models.billing import Subscription
+
+    obj_type = data_object.get("object")
+    sub_id = data_object.get("id") if obj_type == "subscription" else data_object.get("subscription")
+    cust_id = data_object.get("customer")
+    row = None
+    if sub_id:
+        row = Subscription.query.filter_by(stripe_subscription_id=sub_id).first()
+    if row is None and cust_id:
+        row = Subscription.query.filter_by(stripe_customer_id=cust_id).first()
+    return row.user_id if row else None
+
+
+def _ts_to_dt(value):
+    """Convert a Stripe unix timestamp to an aware UTC datetime, or None."""
+    ts = _safe_int(value)
+    if not ts:
+        return None
+    import datetime
+
+    return datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc)
 
 
 def _safe_int(value) -> int | None:
