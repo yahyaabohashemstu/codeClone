@@ -40,7 +40,12 @@
     "notFound": "Page Not Found",
     "/billing": "Plan & Usage",
     "/settings": "Settings",
-    "/admin": "Admin"
+    "/admin": "Admin",
+    "/terms": "Terms of Service",
+    "/privacy": "Privacy Policy",
+    "/status": "System Status",
+    "/reset-password": "Reset Password",
+    "/verify-email": "Verify Email"
   },
   "buttons": {
     "save": "Save",
