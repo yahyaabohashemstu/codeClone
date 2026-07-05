@@ -1,0 +1,22 @@
+flowchart LR
+    A["Code A"] --> P
+    B["Code B"] --> P
+    P["tree-sitter parse<br/>(15 languages)"]
+
+    P --> T["Text<br/>similarity"]
+    P --> TK["Token<br/>similarity"]
+    P --> RN["Renamed<br/>(Type-2)"]
+    P --> G["AST graph<br/>node-type cosine"]
+    P --> AIe["GraphCodeBERT<br/>sliding-window embed"]
+
+    T --> C
+    TK --> C
+    RN --> C
+    G --> C
+    AIe --> C
+    C["Combined score"]
+
+    C --> F["11 clone-type flags<br/>calibrated thresholds"]
+    C --> LLM["Mistral narrative<br/>+ structured report"]
+    F --> R["Result · metrics · PDF"]
+    LLM --> R

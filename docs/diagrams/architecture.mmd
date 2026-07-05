@@ -1,0 +1,36 @@
+flowchart TB
+    subgraph client["Browser — same-origin SPA"]
+        UI["React 18 · Vite · TypeScript<br/>Tailwind · shadcn/ui · Recharts · xyflow"]
+    end
+
+    subgraph edge["Reverse proxy · TLS"]
+        PX["Caddy · Nginx · Coolify/Traefik"]
+    end
+
+    subgraph app["Flask application (Waitress WSGI)"]
+        direction TB
+        API["REST API — /api/v1 + /api/enterprise/v1"]
+        SEC["Security middleware<br/>CSRF · CSP · session · rate-limit"]
+        SVC["Services<br/>analysis · billing · audit · email · 2FA"]
+        ENG["Detection engine"]
+        BG["Background worker pool"]
+        ENT["Enterprise scan worker"]
+    end
+
+    subgraph data["Persistence"]
+        DB[("SQLite / PostgreSQL")]
+        RE[("Redis<br/>rate-limit + coordination")]
+    end
+
+    subgraph ml["AI / ML"]
+        BERT["GraphCodeBERT<br/>(local, torch)"]
+        MI["Mistral LLM<br/>(API)"]
+    end
+
+    UI -->|"fetch /api · X-CSRF-Token · SameSite"| PX --> SEC --> API
+    API --> SVC --> BG --> ENG
+    ENG --> BERT
+    SVC --> MI
+    SVC --> DB
+    SEC --> RE
+    ENT -->|"claim jobs"| DB

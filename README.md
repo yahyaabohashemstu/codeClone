@@ -1,203 +1,564 @@
+<div align="center">
+
+<img src="code-sleuth-react-ui/public/brand/logo.png" alt="CodeClone" width="120"/>
+
 # CodeClone
 
-Enterprise code similarity analysis platform powered by AI.
+### Enterprise code‑similarity & clone‑detection platform — AST analysis meets AI.
+
+*Detect copied, renamed, and near‑miss code across 15 languages. Explain it with an LLM. Ship it as a SaaS.*
+
+<br/>
+
+[![CI](https://github.com/yahyaabohashemstu/codeClone/actions/workflows/ci.yml/badge.svg)](https://github.com/yahyaabohashemstu/codeClone/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
+![Flask](https://img.shields.io/badge/Flask-3.1-000000?logo=flask&logoColor=white)
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-5-646CFF?logo=vite&logoColor=white)
+![Tailwind](https://img.shields.io/badge/Tailwind-3-06B6D4?logo=tailwindcss&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
+![License](https://img.shields.io/badge/License-All%20Rights%20Reserved-red)
+
+**[Features](#features) · [Architecture](#architecture) · [How detection works](#how-detection-works) · [Quick start](#quick-start) · [Deployment](#deployment) · [API](#api) · [Security](#security)**
+
+</div>
+
+---
+
+## Overview
+
+**CodeClone** is a full‑stack platform that answers one question with rigor: *how similar are these two pieces of code, and why?* It combines a language‑agnostic **AST engine** (tree‑sitter), a **GraphCodeBERT** semantic embedding, and an optional **Mistral LLM** narrative into a single calibrated verdict — wrapped in a production SaaS with accounts, quotas, billing, a CI/CD gate, and a multi‑tenant enterprise mode for team code review.
+
+> [!NOTE]
+> **Honest scope.** Thresholds are calibrated against a labeled dataset (`evaluation/`), not hand‑picked. The engine is **strong** on Type‑1 (identical), Type‑2 (renamed), and Type‑3 (near‑miss) clones. Type‑4 (behaviourally‑equivalent but structurally different) and **cross‑language** clones are **advisory‑only** — their scores overlap unrelated code with current embeddings. Run `python evaluation/run_eval.py` to reproduce the numbers.
+
+<details>
+<summary><b>Table of contents</b></summary>
+
+- [Features](#features)
+- [Architecture](#architecture)
+- [How detection works](#how-detection-works)
+- [Analysis request lifecycle](#analysis-request-lifecycle)
+- [Tech stack](#tech-stack)
+- [Quick start](#quick-start)
+- [Configuration](#configuration)
+- [Enterprise platform](#enterprise-platform)
+- [Data model](#data-model)
+- [API](#api)
+- [Deployment](#deployment)
+- [Security](#security)
+- [Testing](#testing)
+- [Project structure](#project-structure)
+- [Roadmap & limitations](#roadmap--limitations)
+- [License](#license)
+
+</details>
+
+---
 
 ## Features
 
-- **Multi-language clone detection** -- 15 languages via tree-sitter (Python, JavaScript, Java, C, Go, Rust, and more)
-- **AI-powered analysis** -- Mistral LLM integration for intelligent code review and explanations
-- **BERT semantic similarity** -- GraphCodeBERT embeddings as one signal in a combined score
-- **Accounts & billing** -- self-service signup, email verification, password reset, and per-plan monthly usage quotas (Stripe-ready)
-- **Enterprise workspaces** -- team-based code review with role-based access control, encrypted storage, and scan workers
-- **CI/CD gate** -- `POST /api/v1/ci/check` similarity check for pull-request pipelines
-- **PDF report generation** -- exportable analysis reports with charts and metrics
-- **Bilingual UI** -- full English and Arabic (RTL) interface support
+| | Capability | Detail |
+|:--:|---|---|
+| 🌐 | **Multi‑language detection** | **15 languages** via tree‑sitter — Python, JavaScript, TypeScript, Java, C, Go, Rust, Ruby, PHP, Kotlin, Scala, Elixir, Haskell, Perl, R |
+| 🧠 | **Hybrid scoring** | Weighted blend of text, token, AST‑structure, renamed‑structure, and **GraphCodeBERT** semantic signals |
+| 🤖 | **AI narratives** | Mistral LLM produces a human‑readable review + a structured risk report (verdict, findings, refactor hints) |
+| 🏷️ | **11 clone‑type flags** | Near‑miss, parameterized, function, structural, reordered, gapped, intertwined, semantic… each with a calibrated threshold |
+| 👤 | **Accounts & quotas** | Self‑service signup, email verification, password reset, per‑plan monthly quotas (Free / Pro / Team) |
+| 🔐 | **Auth hardening** | TOTP 2FA + recovery codes, brute‑force lockout, "log out everywhere", optional breach check |
+| 💳 | **Stripe‑ready billing** | Checkout + billing portal + webhooks; quotas work fully offline without Stripe |
+| 🏢 | **Enterprise workspaces** | Multi‑tenant org → workspace → RBAC, encrypted‑at‑rest artifacts, scan workers, review cases |
+| 🔁 | **CI/CD gate** | `POST /api/v1/ci/check` — fail a pull request when similarity crosses a threshold |
+| 📄 | **PDF reports** | Exportable analysis reports with charts and metrics |
+| 🌍 | **Bilingual UI** | Full English **and** Arabic (RTL), themeable |
+| 📊 | **Observability** | Health/readiness probes, optional Prometheus metrics, optional Sentry |
 
-### Detection accuracy & scope
-
-Detection thresholds are calibrated against a labeled dataset (see `evaluation/`)
-rather than hand-picked. On that set the tuned engines detect Type-1 (identical),
-Type-2 (renamed), and Type-3 (near-miss) clones with high precision and recall.
-
-**Known limitation:** Type-4 (behaviourally-equivalent but structurally different)
-and cross-language clones are **not** reliably detected — their scores overlap the
-unrelated-code range with the current embeddings. Treat the tool as strong for
-copy/rename/near-miss detection and advisory-only for deep semantic equivalence.
-Run `python evaluation/run_eval.py` to reproduce the numbers.
+---
 
 ## Architecture
 
+**Same‑origin by design.** The SPA and the API share one origin — no CORS, a `connect-src 'self'` CSP, and SameSite cookies. Flask serves the built React bundle *and* the API from a single process (or behind one reverse proxy).
+
+<div align="center">
+  <img src="docs/diagrams/architecture.png" alt="System architecture" width="640"/>
+</div>
+
+<details><summary><sub>Diagram source (Mermaid) — renders live on GitHub</sub></summary>
+
+```mermaid
+flowchart TB
+    subgraph client["Browser — same-origin SPA"]
+        UI["React 18 · Vite · TypeScript<br/>Tailwind · shadcn/ui · Recharts · xyflow"]
+    end
+
+    subgraph edge["Reverse proxy · TLS"]
+        PX["Caddy · Nginx · Coolify/Traefik"]
+    end
+
+    subgraph app["Flask application (Waitress WSGI)"]
+        direction TB
+        API["REST API — /api/v1 + /api/enterprise/v1"]
+        SEC["Security middleware<br/>CSRF · CSP · session · rate-limit"]
+        SVC["Services<br/>analysis · billing · audit · email · 2FA"]
+        ENG["Detection engine"]
+        BG["Background worker pool"]
+        ENT["Enterprise scan worker"]
+    end
+
+    subgraph data["Persistence"]
+        DB[("SQLite / PostgreSQL")]
+        RE[("Redis<br/>rate-limit + coordination")]
+    end
+
+    subgraph ml["AI / ML"]
+        BERT["GraphCodeBERT<br/>(local, torch)"]
+        MI["Mistral LLM<br/>(API)"]
+    end
+
+    UI -->|"fetch /api · X-CSRF-Token · SameSite"| PX --> SEC --> API
+    API --> SVC --> BG --> ENG
+    ENG --> BERT
+    SVC --> MI
+    SVC --> DB
+    SEC --> RE
+    ENT -->|"claim jobs"| DB
 ```
-CodeClone/
-  wsgi.py                 # WSGI entry point (creates the app via the factory)
-  backend/                # Modular Flask app: factory, REST API v1, engine, services
-  enterprise_platform/    # Enterprise features (workspaces, cases, scans)
-  enterprise_worker.py    # Standalone scan-queue worker (ENTERPRISE_USE_WORKER=1)
-  enterprise_cli.py       # Admin CLI (orgs, workspaces, keys, retention, migrations)
-  code-sleuth-react-ui/   # React 18 frontend (Vite + TypeScript + Tailwind)
-  templates/              # Single fallback page shown when the React build is missing
-  docker/                 # Dockerfiles, nginx config, dev + prod compose stacks
+
+</details>
+
+<details>
+<summary><b>Why a single process?</b></summary>
+
+Pointing a separately‑hosted frontend at the API via `VITE_API_BASE_URL` is **not supported** — the backend has no CORS, sends `connect-src 'self'`, and uses SameSite session cookies. Serve the SPA from Flask (`start.bat` / single container) or from the bundled Nginx that reverse‑proxies `/api`. This eliminates an entire class of cross‑origin auth and CSP bugs.
+
+</details>
+
+---
+
+## How detection works
+
+Two snippets flow through five independent signals, blended into one calibrated **combined score**, which then drives eleven boolean clone‑type flags and an optional LLM narrative.
+
+<div align="center">
+  <img src="docs/diagrams/detection-pipeline.png" alt="Detection pipeline" width="870"/>
+</div>
+
+<details><summary><sub>Diagram source (Mermaid) — renders live on GitHub</sub></summary>
+
+```mermaid
+flowchart LR
+    A["Code A"] --> P
+    B["Code B"] --> P
+    P["tree-sitter parse<br/>(15 languages)"]
+
+    P --> T["Text<br/>similarity"]
+    P --> TK["Token<br/>similarity"]
+    P --> RN["Renamed<br/>(Type-2)"]
+    P --> G["AST graph<br/>node-type cosine"]
+    P --> AIe["GraphCodeBERT<br/>sliding-window embed"]
+
+    T --> C
+    TK --> C
+    RN --> C
+    G --> C
+    AIe --> C
+    C["Combined score"]
+
+    C --> F["11 clone-type flags<br/>calibrated thresholds"]
+    C --> LLM["Mistral narrative<br/>+ structured report"]
+    F --> R["Result · metrics · PDF"]
+    LLM --> R
 ```
 
-**Backend:** Flask + SQLAlchemy + Flask-Login + Waitress WSGI server
+</details>
 
-**Frontend:** React 18 + TypeScript + Vite + Tailwind CSS + shadcn/ui + Recharts
+### Combined‑score weighting
 
-**Enterprise:** Workspace management, review cases, encrypted data at rest, retention enforcement
+| Signal | Weight | What it captures |
+|---|:--:|---|
+| Text similarity | **0.20** | Raw textual closeness (fast, whitespace/comment‑sensitive) |
+| Token similarity | **0.25** | AST token‑type fingerprint |
+| Renamed similarity | **0.25** | Ordered token‑types — best for **Type‑2** (renamed) |
+| Graph similarity | **0.15** | Cosine over AST **node‑type frequency** distributions |
+| AI (GraphCodeBERT) | **0.15** | Mean‑pooled semantic embedding (chunked over the whole file) |
 
-> **Same-origin by design.** The backend has no CORS support, sends a
-> `connect-src 'self'` CSP, and uses SameSite session cookies. The SPA must be
-> served from the same origin as the API — either by Flask itself (it serves
-> `code-sleuth-react-ui/dist`) or behind the bundled Nginx `/api` reverse
-> proxy. Pointing a separately-hosted frontend at the API via
-> `VITE_API_BASE_URL` is **not supported**.
+> [!TIP]
+> The GraphCodeBERT step uses a **sliding‑window** with masked pooling, so files longer than 512 tokens are embedded in full rather than truncated. Thresholds live as calibrated constants (see `evaluation/results/report.md`) tuned to keep the false‑positive rate at ~0 on the labeled set.
 
-## Prerequisites
+### Clone types
 
-- Python 3.11+
-- Node.js 20+
-- 2 GB+ RAM (BERT model loading)
+| Type | Meaning | Support |
+|---|---|:--:|
+| **Type‑1** | Identical up to whitespace/comments | 🟢 Strong |
+| **Type‑2** | Renamed identifiers, same structure | 🟢 Strong |
+| **Type‑3** | Near‑miss — small edits/insertions | 🟢 Strong |
+| **Type‑4** | Same behaviour, different structure | 🟡 Advisory |
+| **Cross‑language** | Same logic, different language | 🟡 Advisory |
 
-## Quick Start
+---
 
-**Option A — single server (recommended):**
+## Analysis request lifecycle
+
+Analysis is asynchronous: the request reserves quota, enqueues a background task, and the SPA polls for progress — so a heavy ML + LLM run never blocks a request thread.
+
+<div align="center">
+  <img src="docs/diagrams/analysis-lifecycle.png" alt="Analysis request lifecycle" width="760"/>
+</div>
+
+<details><summary><sub>Diagram source (Mermaid) — renders live on GitHub</sub></summary>
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant SPA as React SPA
+    participant API as Flask API
+    participant Q as Quota
+    participant W as Worker pool
+    participant E as Engine
+
+    U->>SPA: submit Code A / B
+    SPA->>API: POST /api/v1/analysis
+    API->>Q: reserve quota (atomic UPDATE)
+    alt quota exhausted
+        API-->>SPA: 402 Payment Required + billing
+    else allowed
+        API->>W: enqueue task
+        API-->>SPA: 202 taskId
+        W->>E: parse · metrics · embed · LLM
+        loop every ~1s
+            SPA->>API: GET /analysis/progress
+            API-->>SPA: stage + percent
+        end
+        E-->>W: result snapshot
+        SPA->>API: GET /analysis/task/{id}
+        API-->>SPA: full result (+ PDF export)
+    end
+```
+
+</details>
+
+---
+
+## Tech stack
+
+<table>
+<tr><td valign="top" width="50%">
+
+**Backend**
+- Flask 3.1 · SQLAlchemy 2 · Flask‑Login
+- Waitress WSGI · Flask‑Limiter
+- tree‑sitter · RapidFuzz · NetworkX · radon
+- PyTorch · Transformers (GraphCodeBERT)
+- Mistral AI · pyotp · cryptography
+- SQLite / PostgreSQL · Redis · Alembic
+
+</td><td valign="top" width="50%">
+
+**Frontend**
+- React 18 · TypeScript 5 · Vite 5
+- Tailwind CSS · shadcn/ui (Radix)
+- Recharts · @xyflow/react (AST graph)
+- react‑router · react‑hook‑form · i18next
+- DOMPurify (XSS defense)
+- Vitest · Playwright · ESLint
+
+</td></tr>
+</table>
+
+---
+
+## Quick start
+
+> **Prerequisites:** Python 3.11+ · Node.js 20+ · ~2 GB RAM (GraphCodeBERT loads into memory).
+
+<details open>
+<summary><b>Option A — single server (recommended)</b></summary>
 
 ```bash
 pip install -r requirements.txt
-cp .env.example .env           # edit as needed
+cp .env.example .env                       # edit as needed
 cd code-sleuth-react-ui && npm ci && npm run build && cd ..
-python wsgi.py                 # Flask serves the built SPA + API on :5000
+python wsgi.py                             # Flask serves the SPA + API on :5000
 ```
 
-On Windows simply run `start.bat` (does the same).
+On Windows, `start.bat` does the same.
 
-**Option B — frontend dev server with hot reload:**
+</details>
+
+<details>
+<summary><b>Option B — frontend dev server with hot reload</b></summary>
 
 ```bash
-python wsgi.py                          # API on :5000
-cd code-sleuth-react-ui && npm run dev  # UI on :8080, /api proxied to :5000
+python wsgi.py                             # API on :5000
+cd code-sleuth-react-ui && npm run dev     # UI on :8080, /api proxied to :5000
 ```
 
-On first run with an empty database a default admin is created; its
-credentials are printed to `instance/bootstrap_admin_credentials.txt`
-(or set `DEFAULT_ADMIN_USERNAME` / `DEFAULT_ADMIN_PASSWORD`, min 8 chars).
+</details>
 
-## Docker
-
-**Development stack** (SQLite, source mounted):
+<details>
+<summary><b>Option C — Docker (one command)</b></summary>
 
 ```bash
 docker compose -f docker/docker-compose.yml up --build
+#  -> http://localhost:3000  (Nginx serves the SPA and proxies /api/*)
 ```
 
-Browse `http://localhost:3000` — Nginx serves the SPA and proxies `/api/*`
-to the backend container. Code changes need `docker compose restart backend`
-(Waitress has no auto-reloader).
+</details>
 
-**Production stack** (PostgreSQL + Redis + dedicated enterprise scan worker):
+> On first run with an empty database a default admin is created; its credentials are printed to `instance/bootstrap_admin_credentials.txt` (or set `DEFAULT_ADMIN_USERNAME` / `DEFAULT_ADMIN_PASSWORD`).
 
-```bash
-docker compose -f docker/docker-compose.prod.yml up -d --build
-```
+---
 
-The prod file is **standalone — do not combine it with the dev file** (Compose
-merges volume lists, which would leak dev bind-mounts into production).
-Required in `.env`: `SECRET_KEY`, `POSTGRES_PASSWORD`; recommended:
-`ENTERPRISE_DATA_KEY`, `MISTRAL_API_KEY`. The stack terminates plain HTTP on
-`:80`; once TLS is added, remove the `SESSION_COOKIE_SECURE: "0"` override in
-`docker-compose.prod.yml`.
+## Configuration
 
-**Domain + automatic HTTPS** (single container behind Caddy, Let's Encrypt):
+Everything is environment‑driven — see **[`.env.example`](.env.example)** for the annotated, exhaustive list. The essentials:
 
-```bash
-docker compose -f docker/docker-compose.caddy.yml up -d --build
-```
-
-This is the recommended turnkey path for a public deployment with a real domain,
-TLS, email, and Stripe billing. Follow the step-by-step
-**[deployment runbook](docs/DEPLOYMENT.md)** — it covers domain/TLS, SMTP, and
-Stripe (test + live) with a go-live checklist.
-
-## Environment Variables
-
-See `.env.example` for all available configuration options. Key variables:
-
-| Variable | Description | Default |
+| Variable | Purpose | Default |
 |---|---|---|
-| `SECRET_KEY` | Session signing key (required in production) | Auto-generated (dev) |
-| `BIND_HOST` | Listen address (`0.0.0.0` inside Docker) | `127.0.0.1` |
-| `PORT` | HTTP server port | `5000` |
-| `DATABASE_URL` | SQLAlchemy URL (Postgres driver included) | SQLite in `instance/` |
-| `REDIS_URL` | Rate-limit storage | in-process `memory://` |
-| `MISTRAL_API_KEY` | Mistral AI API key | None |
-| `DEFAULT_ADMIN_PASSWORD` | Initial admin password (min 8 chars) | Random, written to `instance/` |
-| `ENTERPRISE_DATA_KEY` | Encryption key for enterprise data at rest | Falls back to `SECRET_KEY` |
-| `ENTERPRISE_USE_WORKER` | `1` = queue scans for `enterprise_worker.py` | unset (in-process scans) |
-| `CI_API_KEY` | Shared secret for `POST /api/v1/ci/check` | None |
+| `SECRET_KEY` | Session/token signing key | required in prod |
+| `DATABASE_URL` | SQLAlchemy URL (Postgres driver bundled) | SQLite in `instance/` |
+| `REDIS_URL` | Rate‑limit + coordination store | in‑process `memory://` |
+| `TRUST_PROXY_HEADERS` | Trusted proxy hops (set `1` behind a proxy) | `0` |
+| `MISTRAL_API_KEY` | Enables AI narratives | — |
+| `ENTERPRISE_DATA_KEY` | Encryption key for enterprise data at rest | falls back to `SECRET_KEY` |
+| `STRIPE_SECRET_KEY` | Enables billing (else 503, free plan) | — |
+| `EMAIL_PROVIDER` | `console` · `smtp` · `disabled` | `console` |
+| `CI_API_KEY` | Shared secret for the CI gate | — |
 
-## Enterprise administration
+**Plans** (quotas apply with or without Stripe):
+
+| Plan | Monthly analyses | Price |
+|---|:--:|:--:|
+| Free | 50 | $0 |
+| Pro | 1,000 | $19 |
+| Team | Unlimited | $99 |
+
+---
+
+## Enterprise platform
+
+A multi‑tenant module for team/course code review: organizations contain workspaces (the tenant boundary), each with role‑based membership, connected repositories, background scans, and human‑reviewed similarity cases.
+
+<div align="center">
+  <img src="docs/diagrams/enterprise-flow.png" alt="Enterprise multi-tenant flow" width="500"/>
+</div>
+
+<details><summary><sub>Diagram source (Mermaid) — renders live on GitHub</sub></summary>
+
+```mermaid
+flowchart TB
+    ORG["Organization"] --> WS["Workspace<br/>(tenant boundary)"]
+    WS --> MEM["Members<br/>owner · admin · manager · reviewer · student"]
+    WS --> REPO["Repository<br/>github · gitlab · local"]
+    REPO -->|"webhook / manual trigger"| SCAN["Scan job (queued)"]
+    SCAN -->|"SSRF-guarded git clone"| ART["Code artifacts<br/>(encrypted at rest)"]
+    ART --> VEC["Vector similarity search"]
+    VEC --> MATCH["Similarity match"]
+    MATCH -->|"policy engine"| CASE["Review case<br/>(RBAC-gated)"]
+    CASE --> RPT["PDF case report"]
+```
+
+</details>
+
+Every tenant‑scoped route passes through a single `require_workspace_access` authorization chokepoint; cross‑tenant access (IDOR) is rejected with `403`. Webhooks are verified by HMAC signature (`X-Hub-Signature-256` / GitLab token) and de‑duplicated against replay.
+
+<details>
+<summary><b>Admin CLI</b></summary>
 
 ```bash
 python enterprise_cli.py create-organization --name "Acme"
 python enterprise_cli.py create-workspace --organization-id 1 --name "Course CS101"
-python enterprise_cli.py create-repository --workspace-id 1 --provider github --name app --clone-url https://github.com/acme/app.git
+python enterprise_cli.py create-repository --workspace-id 1 --provider github \
+    --name app --clone-url https://github.com/acme/app.git
 python enterprise_cli.py enforce-retention --dry-run     # honors retention_days + legal_hold
 python enterprise_cli.py migrate-encryption --dry-run    # re-encrypt legacy ciphertext to v2
 ```
 
-GitHub webhooks work natively: configure the `webhookSecret` returned at
-repository creation as the GitHub webhook **secret** — deliveries are verified
-via `X-Hub-Signature-256` (GitLab uses `X-Gitlab-Token`).
+</details>
+
+---
+
+## Data model
+
+<div align="center">
+  <img src="docs/diagrams/data-model.png" alt="Core data model" width="800"/>
+</div>
+
+<details><summary><sub>Diagram source (Mermaid) — renders live on GitHub</sub></summary>
+
+```mermaid
+erDiagram
+    USER ||--o{ ANALYSIS : owns
+    USER ||--|| SUBSCRIPTION : has
+    USER ||--o{ USAGE_RECORD : accrues
+    USER ||--o{ API_KEY : issues
+    USER ||--o{ AUDIT_LOG : generates
+
+    USER {
+        int id PK
+        string username
+        string email
+        bool is_admin
+        bool totp_enabled
+        int session_version
+    }
+    ANALYSIS {
+        int id PK
+        int user_id FK
+        string language
+        float similarity
+        text snapshot_json
+    }
+    SUBSCRIPTION {
+        int id PK
+        string plan_code
+        string status
+        string stripe_subscription_id
+    }
+    USAGE_RECORD {
+        int id PK
+        string period
+        int analyses_count
+    }
+    API_KEY {
+        int id PK
+        string prefix
+        string key_hash
+    }
+```
+
+</details>
+
+---
+
+## API
+
+The full surface is documented in **[`docs/openapi.yaml`](docs/openapi.yaml)** (68 paths) — regenerate it from the live route table with `python tools/generate_openapi.py`.
+
+| Group | Base | Examples |
+|---|---|---|
+| Auth | `/api/v1/auth` | `login`, `signup`, `2fa/*`, `reset-password`, `logout-all` |
+| Analysis | `/api/v1/analysis` | `POST /`, `progress`, `task/{id}`, `diff` |
+| History | `/api/v1/history` | list, detail, `{id}/rerun`, delete |
+| Billing | `/api/v1/billing` | `plans`, `summary`, `checkout`, `portal`, `webhook` |
+| Account | `/api/v1/account` | `export` (GDPR), `delete` |
+| CI gate | `/api/v1/ci/check` | similarity gate for pull requests |
+| Enterprise | `/api/enterprise/v1` | orgs, workspaces, repositories, scans, cases, webhooks |
+
+<details>
+<summary><b>Example — CI/CD similarity gate</b></summary>
+
+```bash
+curl -X POST https://your-host/api/v1/ci/check \
+  -H "X-API-Key: $CI_API_KEY" -H "Content-Type: application/json" \
+  -d '{
+        "threshold": 80,
+        "language": "python",
+        "pairs": [{ "label_a": "a.py", "code_a": "...", "label_b": "b.py", "code_b": "..." }]
+      }'
+# -> { "verdict": "fail", "violations": 1, "results": [ ... ] }
+```
+
+</details>
+
+---
+
+## Deployment
+
+| Target | Command / notes | TLS |
+|---|---|:--:|
+| **Single container (Coolify / PaaS)** | Build the root `Dockerfile` → port `5000` | proxy‑provided |
+| **Docker compose (dev)** | `docker/docker-compose.yml` — SQLite, source‑mounted | — |
+| **Docker compose (prod)** | `docker/docker-compose.prod.yml` — Postgres + Redis + scan worker | terminate in front |
+| **Turnkey + auto‑HTTPS** | `docker/docker-compose.caddy.yml` — Caddy + Let's Encrypt | ✅ automatic |
+
+Follow the step‑by‑step **[deployment runbook](docs/DEPLOYMENT.md)** for domain/TLS, SMTP, and Stripe (test → live) with a go‑live checklist.
+
+> [!IMPORTANT]
+> Behind any reverse proxy, set `TRUST_PROXY_HEADERS=1` (one hop) so per‑client rate limiting and `https` URLs work, and keep `SESSION_COOKIE_SECURE=1`. On Coolify, mount a persistent volume at `/app/instance` and set `APP_BASE_URL` to your HTTPS domain.
+
+---
+
+## Security
+
+<table>
+<tr><td valign="top" width="50%">
+
+**Application**
+- Same‑origin only · strict CSP (`script-src 'self'`, no `unsafe-inline`)
+- CSRF token on all mutating requests
+- SameSite + `Secure` + `HttpOnly` session cookies
+- HSTS over TLS · `X-Frame-Options: DENY` · `nosniff`
+- DOMPurify sanitizes all AI‑generated HTML
+
+</td><td valign="top" width="50%">
+
+**Platform**
+- TOTP 2FA · brute‑force lockout · session invalidation
+- Per‑user API keys (hashed) · scoped enterprise keys
+- SSRF‑guarded git access · host allowlist
+- HMAC‑keyed audit log · encrypted enterprise data at rest
+- GDPR export/delete · retention + legal‑hold
+
+</td></tr>
+</table>
+
+Found a security issue? Please open a private report rather than a public issue.
+
+---
 
 ## Testing
 
 ```bash
 pip install -r requirements-dev.txt
-pytest tests/
+pytest tests/                              # backend + enterprise suites
+cd code-sleuth-react-ui && npm run test    # Vitest unit tests
+npm run e2e                                # Playwright end-to-end
 ```
 
-GitHub Actions runs the backend suite with coverage, a frontend
-lint/typecheck/build, and validation builds of both Docker images
-(`.github/workflows/ci.yml`).
+CI (`.github/workflows/ci.yml`) runs the backend suite with coverage, a frontend lint/typecheck/build, and validation builds of both Docker images.
 
-## Project Structure
+---
+
+## Project structure
 
 ```
 CodeClone/
 ├── wsgi.py                    # WSGI entry point (production)
-├── backend/                   # Modular Flask application
-│   ├── app_factory.py         #   Application factory (create_app)
-│   ├── config.py              #   Environment-driven configuration
-│   ├── api/v1/                #   Versioned REST API endpoints
-│   ├── engine/                #   Clone-detection + AI similarity engine
-│   ├── services/              #   Business logic (analysis, AI, cache, uploads)
-│   ├── models/                #   SQLAlchemy models (User, Analysis)
-│   └── tasks/                 #   Background analysis workers
-├── requirements.txt           # Python runtime dependencies
-├── requirements-dev.txt       # + pinned pytest/pytest-cov for tests & CI
-├── .env.example               # Environment variable template
-├── enterprise_platform/       # Enterprise module
-│   ├── models.py              #   Database models + encrypted storage
-│   ├── routes.py              #   API routes (/api/enterprise/v1, webhooks)
-│   ├── services.py            #   Business logic
-│   ├── scans.py               #   Scan pipeline + job queue
-│   └── utils.py               #   Shared utilities
-├── enterprise_worker.py       # Standalone scan worker
+├── backend/                   # Modular Flask app
+│   ├── app_factory.py         #   create_app() — extensions, blueprints, middleware
+│   ├── config.py              #   environment-driven configuration
+│   ├── api/v1/                #   versioned REST endpoints
+│   ├── engine/                #   clone-detection + AI similarity engine
+│   ├── services/              #   business logic (analysis, billing, audit, 2FA…)
+│   ├── models/                #   SQLAlchemy models
+│   └── tasks/                 #   background analysis workers
+├── enterprise_platform/       # Multi-tenant module (models, routes, scans, services)
+├── enterprise_worker.py       # Standalone scan-queue worker
 ├── enterprise_cli.py          # Admin CLI
-├── docker/                    # Dockerfiles, nginx.conf, compose stacks
-├── code-sleuth-react-ui/      # React frontend
-│   ├── src/
-│   │   ├── components/        #   UI components (common, layout, ui, results)
-│   │   ├── context/           #   React contexts (Auth, Theme, Language, Analysis)
-│   │   ├── lib/               #   Utilities and API client
-│   │   ├── pages/             #   Route pages (+ enterprise/)
-│   │   └── types/             #   TypeScript type definitions
-│   └── public/                #   Fonts + brand assets (tracked in git)
-├── templates/                 # "Frontend build missing" fallback page
-├── tests/                     # Pytest suite (backend + enterprise)
-└── instance/                  # Runtime data (SQLite DB, keys) — never commit
+├── code-sleuth-react-ui/      # React 18 + Vite + TypeScript SPA
+├── evaluation/                # Labeled dataset + threshold-calibration harness
+├── tools/generate_openapi.py  # Regenerate docs/openapi.yaml from live routes
+├── docker/                    # Dockerfiles, nginx, compose stacks
+├── docs/                      # Deployment runbook, testing, OpenAPI
+└── tests/                     # Pytest suite (backend + enterprise)
 ```
+
+---
+
+## Roadmap & limitations
+
+- 🟡 **Type‑4 / cross‑language** detection is advisory — better embeddings are the next step.
+- 🟢 **Horizontal scale:** set `REDIS_URL` and the coordination backend auto‑shares task/progress state across replicas.
+- 🟢 **Schema:** SQLite for dev, PostgreSQL + Alembic for production.
+- 🔭 **Next:** a full re‑queueing worker system (a crashed replica mid‑analysis currently means the user retries).
+
+---
 
 ## License
 
-All rights reserved.
+**All rights reserved.** © CodeClone. See the repository owner for usage terms.
+
+<div align="center"><br/><sub>Built with tree‑sitter, GraphCodeBERT, Flask, and React.</sub></div>
