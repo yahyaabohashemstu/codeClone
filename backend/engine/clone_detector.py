@@ -21,9 +21,30 @@ from rapidfuzz import fuzz
 from radon.complexity import cc_visit
 from radon.metrics import h_visit, mi_visit
 from radon.raw import analyze
-from tree_sitter_languages import get_parser
+
+try:
+    from tree_sitter_languages import get_parser
+except ImportError:  # pragma: no cover - depends on the runtime environment
+    # tree-sitter-languages ships no wheels for Python 3.13+ (abandoned). Fall
+    # back to its maintained successor, which exposes the same
+    # get_parser(language) -> Parser API. On the supported 3.11 runtime the
+    # primary import wins, so production behavior is unchanged.
+    from tree_sitter_language_pack import get_parser
 
 logger = logging.getLogger(__name__)
+
+# Upper bound on the string length fed to the O(n*m) RapidFuzz comparators.
+# 64 KB comfortably exceeds any realistic code/token stream for a single
+# comparison while capping the worst-case cost at a few seconds (defeats the
+# algorithmic-complexity DoS demonstrated with large crafted inputs).
+_MAX_FUZZ_CHARS = 64 * 1024
+
+# Upper bound on AST nodes materialized into the similarity graph. A 2 MB input
+# can produce ~1M AST nodes; building a networkx graph that large is a memory +
+# CPU DoS. graph_similarity compares node-TYPE frequency distributions, for
+# which 20k nodes is amply representative — real code has far fewer, so its
+# score is unchanged; only pathological inputs are truncated.
+_MAX_GRAPH_NODES = 20000
 
 
 # AIAnalyzer is in backend.engine.ai_analyzer — import the singleton factory
@@ -41,20 +62,54 @@ class CloneDetector:
         """Initialize CloneDetector with parser for the given language."""
         self.language = language
         self.parser = get_parser(language)
+        # tree-sitter Parser objects are NOT thread-safe: one Parser holds
+        # mutable parse state, and this detector is a process-global singleton
+        # shared by the background thread pool and Waitress request threads.
+        # Serialize every parse() on this detector so interleaved parses cannot
+        # corrupt that state (garbage token lists or a native crash).
+        self._parse_lock = threading.Lock()
+
+    def _parse(self, code):
+        """Thread-safe parse. Hold the per-detector lock only for the parse()
+        call; the returned tree is independent and traversed without the lock."""
+        with self._parse_lock:
+            return self.parser.parse(bytes(code, "utf8"))
+
+    @staticmethod
+    def _bounded(a, b):
+        """Cap the inputs to the O(n*m) fuzzy comparators.
+
+        ``fuzz.ratio`` is Indel edit distance, O(len(a)*len(b)). On a large
+        crafted input (e.g. a multi-MB token stream) that is billions of
+        operations and pins a CPU core for tens of seconds — an
+        algorithmic-complexity DoS. Real code pairs are far below the cap, so
+        their scores are unchanged; only pathologically large inputs are
+        compared on a bounded prefix.
+        """
+        if len(a) > _MAX_FUZZ_CHARS:
+            a = a[:_MAX_FUZZ_CHARS]
+        if len(b) > _MAX_FUZZ_CHARS:
+            b = b[:_MAX_FUZZ_CHARS]
+        return a, b
 
     def parse_code(self, code, with_order=False):
-        """Parse code into tokens."""
-        tree = self.parser.parse(bytes(code, "utf8"))
-        root_node = tree.root_node
-        tokens = []
+        """Parse code into tokens.
 
-        def traverse(node):
+        Iterative (explicit-stack) DFS. A recursive walk overflows Python's
+        recursion limit on deeply nested input — a small crafted file (e.g.
+        60k nested parens in ~120 KB) raises RecursionError and aborts the
+        analysis, a denial-of-service vector. The iterative form is unbounded.
+        """
+        tree = self._parse(code)
+        tokens = []
+        stack = [tree.root_node]
+        while stack:
+            node = stack.pop()
             if node.child_count == 0:
                 tokens.append(node.type)
-            for child in node.children:
-                traverse(child)
-
-        traverse(root_node)
+            else:
+                # Push children reversed so leaves are collected left-to-right.
+                stack.extend(reversed(node.children))
         if with_order:
             return tokens
         tokens.sort()
@@ -70,31 +125,36 @@ class CloneDetector:
         Changing the join to a space would shift every token-based score and
         requires recalibrating the clone thresholds against a labelled corpus.
         """
-        tree = self.parser.parse(bytes(code, "utf8"))
-        root_node = tree.root_node
-
-        def extract_text(node):
-            # Grammar node names differ per language: python/javascript emit
-            # 'comment', java emits 'line_comment'/'block_comment' (verified
-            # against tree_sitter_languages; without these Java comment
-            # stripping silently did nothing — caught by evaluation/).
-            if node.type in ('comment', 'line_comment', 'block_comment', 'whitespace'):
-                return ''
+        tree = self._parse(code)
+        # Iterative DFS (see parse_code) — a recursive walk overflows on deep
+        # nesting. Grammar node names differ per language: python/javascript
+        # emit 'comment', java emits 'line_comment'/'block_comment' (without
+        # these Java comment stripping silently did nothing — caught by
+        # evaluation/). A comment/whitespace node prunes its whole subtree.
+        skip = ('comment', 'line_comment', 'block_comment', 'whitespace')
+        parts = []
+        stack = [tree.root_node]
+        while stack:
+            node = stack.pop()
+            if node.type in skip:
+                continue
             if node.child_count == 0:
-                return node.text.decode('utf8')
-            return ''.join([extract_text(child) for child in node.children])
-
-        return extract_text(root_node)
+                parts.append(node.text.decode('utf8'))
+            else:
+                stack.extend(reversed(node.children))
+        return ''.join(parts)
 
     def text_similarity(self, code1, code2):
         """Compute text similarity between two code snippets."""
-        return fuzz.ratio(code1, code2) / 100
+        a, b = self._bounded(code1, code2)
+        return fuzz.ratio(a, b) / 100
 
     def token_similarity(self, code1, code2, with_order=False):
         """Compute token similarity between two code snippets."""
         tokens1 = self.parse_code(code1, with_order)
         tokens2 = self.parse_code(code2, with_order)
-        return fuzz.ratio(' '.join(tokens1), ' '.join(tokens2)) / 100
+        a, b = self._bounded(' '.join(tokens1), ' '.join(tokens2))
+        return fuzz.ratio(a, b) / 100
 
     def is_exact_clone(self, code1, code2):
         """Check if two code snippets are exact (Type-1) clones.
@@ -126,7 +186,8 @@ class CloneDetector:
         """
         tokens1 = self.parse_code(code1, with_order=True)
         tokens2 = self.parse_code(code2, with_order=True)
-        return fuzz.ratio(' '.join(tokens1), ' '.join(tokens2)) / 100
+        a, b = self._bounded(' '.join(tokens1), ' '.join(tokens2))
+        return fuzz.ratio(a, b) / 100
 
     # --- Boolean clone-type flags -------------------------------------------
     # The default thresholds below were calibrated against the labeled dataset
@@ -257,7 +318,8 @@ class CloneDetector:
         """
         tokens1 = self.parse_code(code1)
         tokens2 = self.parse_code(code2)
-        token_ratio = fuzz.ratio(' '.join(tokens1), ' '.join(tokens2)) / 100
+        a, b = self._bounded(' '.join(tokens1), ' '.join(tokens2))
+        token_ratio = fuzz.ratio(a, b) / 100
         text_ratio = self.text_similarity(code1, code2)
         return token_ratio > threshold and text_ratio > (threshold - 0.10)
 
@@ -270,7 +332,8 @@ class CloneDetector:
         """
         tokens1 = self.parse_code(code1)
         tokens2 = self.parse_code(code2)
-        match_ratio = fuzz.partial_ratio(' '.join(tokens1), ' '.join(tokens2)) / 100
+        a, b = self._bounded(' '.join(tokens1), ' '.join(tokens2))
+        match_ratio = fuzz.partial_ratio(a, b) / 100
         return match_ratio > threshold
 
     def semantic_clone_similarity(self, code1, code2, threshold=0.985, ai_score=None):
@@ -295,20 +358,22 @@ class CloneDetector:
 
     def code_to_graph(self, code):
         """Convert code to a graph representation."""
-        tree = self.parser.parse(bytes(code, "utf8"))
-        root_node = tree.root_node
+        tree = self._parse(code)
         graph = nx.DiGraph()
-
-        def add_nodes(node, parent=None):
+        # Iterative DFS (see parse_code) — a recursive build overflows on deep
+        # nesting. The node/edge SET is identical to the recursive version; only
+        # insertion order differs, which does not affect graph_similarity
+        # (node-type frequency) or calculate_graph_metrics (counts).
+        stack = [(tree.root_node, None)]
+        while stack and graph.number_of_nodes() < _MAX_GRAPH_NODES:
+            node, parent = stack.pop()
             graph.add_node(
                 node.id, type=node.type, start=node.start_point, end=node.end_point
             )
-            if parent:
+            if parent is not None:
                 graph.add_edge(parent.id, node.id)
             for child in node.children:
-                add_nodes(child, node)
-
-        add_nodes(root_node)
+                stack.append((child, node))
         return graph
 
     def calculate_graph_metrics(self, graph):
@@ -429,7 +494,7 @@ class CloneDetector:
         function_count = 0
         class_count = 0
         try:
-            tree = self.parser.parse(bytes(code, 'utf-8'))
+            tree = self._parse(code)
             nesting_types = {
                 'block', 'function_body', 'compound_statement', 'body',
                 'statement_block', 'do_block', 'class_body',
@@ -444,19 +509,21 @@ class CloneDetector:
                 'struct_item', 'impl_item',
             }
 
-            def walk(node, depth):
-                nonlocal max_nesting, function_count, class_count
+            # Iterative DFS (see parse_code) — carry each node's depth on the
+            # stack instead of recursing, so deep nesting cannot overflow.
+            stack = [(tree.root_node, 0)]
+            while stack:
+                node, depth = stack.pop()
                 if node.type in nesting_types:
                     depth += 1
-                    max_nesting = max(max_nesting, depth)
+                    if depth > max_nesting:
+                        max_nesting = depth
                 if node.type in function_types:
                     function_count += 1
                 if node.type in class_types:
                     class_count += 1
                 for child in node.children:
-                    walk(child, depth)
-
-            walk(tree.root_node, 0)
+                    stack.append((child, depth))
         except Exception:
             pass
 

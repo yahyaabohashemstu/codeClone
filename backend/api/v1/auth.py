@@ -12,6 +12,9 @@ from __future__ import annotations
 
 import re
 
+from sqlalchemy.exc import IntegrityError
+from werkzeug.security import check_password_hash, generate_password_hash
+
 from flask import current_app, jsonify, request
 from flask_login import current_user, login_required, login_user, logout_user
 
@@ -44,6 +47,11 @@ _USERNAME_RE = re.compile(r"^[a-zA-Z0-9_.\-]+$")
 # Deliberately permissive email check — we validate shape, not deliverability
 # (deliverability is proven by the verification link actually arriving).
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+# Precomputed hash used only to spend constant KDF time when a login is
+# attempted for a non-existent username, so response latency cannot be used to
+# enumerate valid accounts. The plaintext is never a usable credential.
+_DUMMY_PASSWORD_HASH = generate_password_hash("timing-oracle-mitigation-not-a-real-password")
 
 
 def _serialize_user(user) -> dict:
@@ -149,6 +157,11 @@ def api_login():
         if user:
             _register_failed_login(user)
             record_audit("login.failed", user_id=user.id)
+        else:
+            # Constant-work path: spend the same KDF time as a real password
+            # check so response latency does not reveal whether the username
+            # exists (timing-based username enumeration).
+            check_password_hash(_DUMMY_PASSWORD_HASH, password)
         return jsonify({"success": False, "message": "Invalid credentials."}), 401
 
     # Optional gate: block unverified accounts when the deployment requires a
@@ -239,7 +252,17 @@ def api_signup():
     user = User(username=username, email=email, email_verified=False, is_admin=False)
     user.set_password(password)
     db.session.add(user)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        # TOCTOU: a concurrent signup won the unique(username/email) constraint
+        # between the pre-checks above and this commit. Return the same 409 the
+        # pre-checks would have, rather than an uncaught 500.
+        db.session.rollback()
+        return jsonify({
+            "success": False,
+            "message": "An account with that username or email already exists.",
+        }), 409
 
     _send_verification_email(user)
 
@@ -350,10 +373,17 @@ def api_reset_password():
         return jsonify({"success": False, "message": "This reset link has already been used."}), 400
 
     user.set_password(password)
+    # Invalidate every existing session for this user. A password reset is the
+    # standard account-recovery step after a suspected compromise, so any
+    # hijacked or lingering session must stop working immediately (the
+    # user_loader rejects sessions whose embedded session_version is stale).
+    user.session_version = (user.session_version or 0) + 1
     # A successful reset also confirms control of the mailbox.
     if user.email and not user.email_verified:
         user.email_verified = True
     db.session.commit()
+    record_audit("password.reset", user_id=user.id)
+    invalidate_cached_analysis_for_user(user.id)
     return jsonify({"success": True, "message": "Password updated. You can now sign in."})
 
 

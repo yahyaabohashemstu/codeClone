@@ -5,6 +5,7 @@ import {
   Handle,
   type Node,
   type NodeProps,
+  type NodeTypes,
   Position,
   ReactFlow,
   type ReactFlowInstance,
@@ -62,6 +63,10 @@ type AstFlowNodeData = {
   parentCount: number;
   depth: number;
 };
+
+// @xyflow/react v12 parameterizes NodeProps/NodeTypes on the full Node type
+// (not just the data payload), so wrap the data shape in Node<…>.
+type AstFlowNode = Node<AstFlowNodeData, "astNode">;
 
 type LayoutNode = {
   id: string;
@@ -296,7 +301,7 @@ function buildTreeLayout(
   return baseNodes;
 }
 
-const AstNode = memo(({ data, selected }: NodeProps<AstFlowNodeData>) => {
+const AstNode = memo(({ data, selected }: NodeProps<AstFlowNode>) => {
   return (
     <div
       className={cn(
@@ -320,8 +325,8 @@ const AstNode = memo(({ data, selected }: NodeProps<AstFlowNodeData>) => {
 });
 AstNode.displayName = "AstNode";
 
-const nodeTypes = {
-  astNode: AstNode,
+const nodeTypes: NodeTypes = {
+  astNode: AstNode as NodeTypes[string],
 };
 
 function GraphExplorer({

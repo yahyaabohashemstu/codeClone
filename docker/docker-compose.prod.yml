@@ -81,6 +81,10 @@ services:
       PORT: "5000"
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
       WAITRESS_THREADS: "8"
+      # Nginx is exactly one proxy hop in front of the backend and sets
+      # X-Forwarded-For/Proto. Trust that single hop so Flask-Limiter keys on the
+      # real client IP (not nginx's) and request.scheme reflects the true scheme.
+      TRUST_PROXY_HEADERS: "1"
       DATABASE_URL: postgresql://codeclone:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/codeclone
       REDIS_URL: redis://redis:6379/0
       MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}

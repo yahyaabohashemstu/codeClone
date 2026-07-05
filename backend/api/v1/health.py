@@ -79,6 +79,15 @@ def metrics_endpoint():
         provided = auth[7:].strip() if auth.startswith("Bearer ") else ""
         if not hmac.compare_digest(provided, token):
             return jsonify({"success": False, "message": "Unauthorized."}), 401
+    elif not current_app.config.get("METRICS_ALLOW_UNAUTHENTICATED"):
+        # Fail safe: metrics are enabled but no token is configured. Refuse to
+        # serve them unauthenticated (the default) so a misconfiguration cannot
+        # silently expose business/ops counters to the public internet. An
+        # operator who truly wants open metrics must opt in explicitly.
+        return jsonify({
+            "success": False,
+            "message": "Metrics require METRICS_TOKEN, or set METRICS_ALLOW_UNAUTHENTICATED=1 to serve them openly.",
+        }), 403
     body, content_type = render_metrics()
     return current_app.response_class(body, mimetype=content_type)
 

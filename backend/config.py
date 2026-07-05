@@ -65,10 +65,16 @@ class BaseConfig:
     MAX_SPREADSHEET_ARCHIVE_BYTES: int = 25 * 1024 * 1024
 
     # --- Coordination backend (multi-replica) --------------------------------
-    # "memory" (default) keeps background-task state + progress in-process —
-    # correct and optimal for a single replica. Set to "redis" (with REDIS_URL)
-    # to share that state across replicas so load-balanced polling works.
-    COORDINATION_BACKEND: str = os.environ.get("COORDINATION_BACKEND", "memory").lower()
+    # Background-task state + analysis progress must be shared across replicas or
+    # load-balanced polling breaks (a poll may hit a replica that never ran the
+    # task). This defaults to "redis" automatically whenever REDIS_URL is set —
+    # so scaling the web tier "just works" — and to "memory" for a single-replica
+    # deployment with no Redis. An explicit COORDINATION_BACKEND always wins, and
+    # if the Redis client cannot connect the code degrades to in-process state.
+    COORDINATION_BACKEND: str = os.environ.get(
+        "COORDINATION_BACKEND",
+        "redis" if os.environ.get("REDIS_URL") else "memory",
+    ).lower()
 
     # --- Rate limiting -------------------------------------------------------
     RATELIMIT_STORAGE_URI: str = os.environ.get("REDIS_URL", "memory://")
@@ -100,6 +106,10 @@ class BaseConfig:
     # Prometheus metrics at /api/v1/metrics (requires prometheus_client).
     METRICS_ENABLED: bool = os.environ.get("METRICS_ENABLED", "0") == "1"
     METRICS_TOKEN: str = os.environ.get("METRICS_TOKEN", "")  # optional bearer to protect the endpoint
+    # Fail-safe: when metrics are enabled but no METRICS_TOKEN is set, the
+    # endpoint refuses to serve unless this is explicitly turned on. Prevents an
+    # accidental unauthenticated exposure of ops/business counters.
+    METRICS_ALLOW_UNAUTHENTICATED: bool = os.environ.get("METRICS_ALLOW_UNAUTHENTICATED", "0") == "1"
 
     # --- Accounts / self-service auth ---------------------------------------
     # Public base URL used to build verification / password-reset links in

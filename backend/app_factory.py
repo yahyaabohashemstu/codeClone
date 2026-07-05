@@ -149,6 +149,9 @@ def create_app(config_override: dict[str, Any] | None = None) -> Flask:
     # -- Register blueprints -------------------------------------------------
     _register_blueprints(app)
 
+    # -- Uniform JSON error responses ----------------------------------------
+    _register_error_handlers(app)
+
     # -- Database initialization ---------------------------------------------
     with app.app_context():
         _initialize_database(app)
@@ -216,6 +219,27 @@ def _register_csrf(app: Flask) -> None:
     app.before_request(validate_csrf_token)
 
 
+def _register_error_handlers(app: Flask) -> None:
+    """Return the API's JSON error envelope for unhandled exceptions and HTTP
+    errors instead of Flask's default HTML pages, which fetch()/JSON clients
+    cannot consume. Blueprint-specific handlers (e.g. the enterprise
+    EnterpriseError handler) still take precedence for their own routes."""
+    from werkzeug.exceptions import HTTPException
+
+    @app.errorhandler(HTTPException)
+    def _handle_http_exception(exc: HTTPException):
+        return jsonify({"success": False, "message": exc.description or exc.name}), exc.code
+
+    @app.errorhandler(Exception)
+    def _handle_unexpected(exc: Exception):
+        logger.exception("Unhandled exception while handling a request")
+        # Keep the interactive debugger in development; never leak a traceback
+        # to clients in production (DEBUG is False there).
+        if app.debug:
+            raise exc
+        return jsonify({"success": False, "message": "An internal error occurred."}), 500
+
+
 def _register_blueprints(app: Flask) -> None:
     """Register all API and view blueprints."""
     from backend.api.v1 import v1_bp
@@ -277,6 +301,18 @@ _CORE_ADDITIVE_COLUMNS: tuple[tuple[str, str, str], ...] = (
 
 def _apply_core_additive_migrations(app: Flask) -> None:
     from sqlalchemy import inspect as sa_inspect, text
+
+    # This helper emits SQLite-flavored DDL ("BOOLEAN NOT NULL DEFAULT 0",
+    # "DATETIME"), which PostgreSQL rejects (it uses TRUE/FALSE and TIMESTAMP).
+    # On Postgres these ALTERs silently failed under the try/except below,
+    # leaving the columns missing and breaking auth/2FA on a legacy upgrade.
+    # Postgres owns its schema through Alembic (docs/DEPLOYMENT.md) and
+    # create_all() already builds a fresh DB with every column, so this
+    # SQLite-only upgrade path has nothing safe to do on other dialects.
+    dialect = db.engine.dialect.name
+    if dialect != "sqlite":
+        logger.debug("Skipping additive column migration on %s (Alembic owns the schema).", dialect)
+        return
 
     inspector = sa_inspect(db.engine)
     existing_tables = set(inspector.get_table_names())

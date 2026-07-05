@@ -68,7 +68,13 @@ def run_repository_scan(scan_job_id: int) -> None:
                 clone_url = storage.decrypt_text(repository.clone_url_encrypted) if repository.clone_url_encrypted else None
                 branch = trigger_payload.get("branch") or repository.default_branch or "main"
                 commit_sha = trigger_payload.get("commitSha")
-                if branch and not re.match(r'^[a-zA-Z0-9._/\-]+$', branch):
+                if branch and (
+                    not re.match(r'^[a-zA-Z0-9._/\-]+$', branch)
+                    or branch.startswith('-')      # never let a ref be read as a git option
+                    or branch.startswith('/')
+                    or branch.endswith('/')
+                    or '..' in branch
+                ):
                     raise EnterpriseError(400, "Invalid branch name.", code="invalid_branch_name")
                 if commit_sha and not re.match(r'^[0-9a-fA-F]{4,40}$', commit_sha):
                     raise EnterpriseError(400, "Invalid commit SHA.", code="invalid_commit_sha")
@@ -77,7 +83,17 @@ def run_repository_scan(scan_job_id: int) -> None:
                 elif clone_url:
                     clone_url = normalize_clone_url(clone_url)
                     temp_clone_dir = tempfile.mkdtemp(prefix="enterprise-repo-")
-                    clone_args = ["git", "clone", "--depth", "1"]
+                    # Harden the git transport as defense-in-depth behind
+                    # normalize_clone_url: allow only https (blocks ext::/file://
+                    # SSRF-to-RCE transports) and disable HTTP redirects (blunts
+                    # redirect-based SSRF to internal hosts), so a bypass of the
+                    # URL validator alone is not enough to reach internal services.
+                    git_hardening = [
+                        "-c", "protocol.allow=never",
+                        "-c", "protocol.https.allow=always",
+                        "-c", "http.followRedirects=false",
+                    ]
+                    clone_args = ["git", *git_hardening, "clone", "--depth", "1"]
                     if branch:
                         clone_args.extend(["--branch", branch])
                     clone_args.extend(["--no-recurse-submodules", clone_url, temp_clone_dir])
@@ -98,7 +114,7 @@ def run_repository_scan(scan_job_id: int) -> None:
                         )
                         shutil.rmtree(temp_clone_dir, ignore_errors=True)
                         temp_clone_dir = tempfile.mkdtemp(prefix="enterprise-repo-")
-                        fallback_args = ["git", "clone", "--depth", "1", "--no-recurse-submodules", clone_url, temp_clone_dir]
+                        fallback_args = ["git", *git_hardening, "clone", "--depth", "1", "--no-recurse-submodules", clone_url, temp_clone_dir]
                         clone_process = subprocess.run(
                             fallback_args,
                             capture_output=True,

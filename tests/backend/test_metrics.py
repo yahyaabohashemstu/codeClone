@@ -28,7 +28,9 @@ class TestMetrics:
 
     def test_enabled_exposes_prometheus_text(self):
         pytest.importorskip("prometheus_client")
-        app = _make_app(METRICS_ENABLED=True)
+        # With no METRICS_TOKEN the endpoint fails safe (see below); opt in
+        # explicitly to exercise the exposition text.
+        app = _make_app(METRICS_ENABLED=True, METRICS_ALLOW_UNAUTHENTICATED=True)
         client = app.test_client()
         client.get("/api/v1/home")  # generate a request to count
         resp = client.get("/api/v1/metrics")
@@ -36,6 +38,13 @@ class TestMetrics:
         body = resp.get_data(as_text=True)
         assert "http_requests_total" in body
         assert "codesimilar_users_total" in body
+
+    def test_enabled_without_token_or_optin_is_forbidden(self):
+        """Fail-safe: metrics enabled but no token and no explicit opt-in => 403,
+        so an operator cannot accidentally expose metrics unauthenticated."""
+        pytest.importorskip("prometheus_client")
+        app = _make_app(METRICS_ENABLED=True)
+        assert app.test_client().get("/api/v1/metrics").status_code == 403
 
     def test_token_protection(self):
         pytest.importorskip("prometheus_client")

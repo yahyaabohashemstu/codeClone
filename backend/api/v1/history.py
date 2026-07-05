@@ -23,6 +23,7 @@ from backend.services.analysis_service import (
     restore_saved_analysis_context,
     serialize_history_summary,
 )
+from backend.services.billing_service import try_consume_analysis_quota
 from backend.services.cache_service import invalidate_cached_analysis_for_user
 from backend.services.progress_service import set_current_user_progress
 from backend.tasks.background import cleanup_stale_tasks, submit_analysis_task
@@ -74,6 +75,21 @@ def api_rerun_analysis(analysis_id: int):
     ).first()
     if not analysis:
         return jsonify({"message": "Analysis not found."}), 404
+
+    # A rerun executes the full ML + LLM pipeline, so it must consume monthly
+    # quota exactly like POST /analysis. Without this, a user could rerun a
+    # single saved analysis unlimited times and bypass the per-plan cap.
+    quota = try_consume_analysis_quota(current_user.id)
+    if not quota.get("allowed"):
+        return jsonify({
+            "success": False,
+            "code": "quota_exceeded",
+            "message": (
+                f"You've reached your {quota['planName']} plan limit of "
+                f"{quota['limit']} analyses this month. Upgrade to continue."
+            ),
+            "billing": quota,
+        }), 402
 
     # Re-run asynchronously via the background pool (like POST /analysis) instead
     # of blocking a request thread on the full ML + LLM pipeline.  The result is

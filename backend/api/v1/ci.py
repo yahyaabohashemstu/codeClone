@@ -175,6 +175,17 @@ def ci_check():
             "code": "authentication_required",
         }), 401
 
+    # Enforce the 'ci:check' scope. Enterprise (epk_) keys carry their stored
+    # scopes verbatim, so a key minted for an unrelated, restricted purpose must
+    # not be able to invoke this compute-heavy endpoint just because it exists.
+    scopes = actor.get("scopes") or []
+    if not (actor.get("is_admin") or "ci:check" in scopes or "*" in scopes):
+        return jsonify({
+            "success": False,
+            "error": "This API key is not authorized for CI checks (missing 'ci:check' scope).",
+            "code": "insufficient_scope",
+        }), 403
+
     # ── Parse request ───────────────────────────────────────────────────
     data = request.get_json(silent=True)
     if not data or not isinstance(data, dict):
@@ -184,7 +195,14 @@ def ci_check():
             "code": "invalid_request",
         }), 400
 
-    threshold = float(data.get("threshold", DEFAULT_THRESHOLD))
+    try:
+        threshold = float(data.get("threshold", DEFAULT_THRESHOLD))
+    except (TypeError, ValueError):
+        return jsonify({
+            "success": False,
+            "error": "Threshold must be a number between 0 and 100.",
+            "code": "invalid_threshold",
+        }), 400
     if threshold < 0 or threshold > 100:
         return jsonify({
             "success": False,

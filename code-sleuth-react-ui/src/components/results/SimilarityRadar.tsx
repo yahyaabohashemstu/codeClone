@@ -55,11 +55,16 @@ export function SimilarityRadar({ items }: { items: SimilarityItem[] }) {
     .filter((i) => i.name !== "Combined Similarity")
     .slice(0, 8);
 
-  const data = filtered.map((item) => ({
-    subject: shortLabel(item.name, language),
-    fullName: item.name,
-    value: Math.max(0, Math.min(100, item.value)),
-  }));
+  const data = filtered.map((item) => {
+    // Coerce and clamp; a missing/non-numeric value renders as 0 rather than
+    // surfacing "NaN%" (and a misleading green dot) in the chart and tooltip.
+    const numeric = Number(item.value);
+    return {
+      subject: shortLabel(item.name, language),
+      fullName: item.name,
+      value: Number.isFinite(numeric) ? Math.max(0, Math.min(100, numeric)) : 0,
+    };
+  });
 
   return (
     <div className="card-premium overflow-hidden">

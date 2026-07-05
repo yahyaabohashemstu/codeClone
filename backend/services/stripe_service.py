@@ -113,17 +113,49 @@ def apply_webhook_event(event) -> bool:
 
     elif event_type in ("customer.subscription.updated", "customer.subscription.deleted"):
         metadata = data_object.get("metadata") or {}
-        user_id = _safe_int(metadata.get("user_id"))
-        if user_id:
+        # Subscription objects do NOT carry the Checkout Session's metadata, so
+        # metadata.user_id is empty in practice. Resolve the account by the
+        # stripe subscription/customer id we stored at checkout, otherwise
+        # portal cancellations and downgrades are silently ignored and the user
+        # keeps their paid entitlement while Stripe stops billing them.
+        sub_row = _find_subscription_row(
+            user_id=_safe_int(metadata.get("user_id")),
+            subscription_id=data_object.get("id"),
+            customer_id=data_object.get("customer"),
+        )
+        if sub_row:
             canceled = event_type == "customer.subscription.deleted" or data_object.get("status") == "canceled"
-            set_plan(
-                user_id,
-                "free" if canceled else metadata.get("plan_code", "pro"),
-                status="canceled" if canceled else data_object.get("status", "active"),
-            )
+            if canceled:
+                target_plan, status = "free", "canceled"
+            else:
+                # A status-only change (e.g. past_due -> active) must not
+                # relabel the plan; preserve the plan recorded at checkout.
+                target_plan = metadata.get("plan_code") or sub_row.plan_code
+                status = data_object.get("status", "active")
+            set_plan(sub_row.user_id, target_plan, status=status)
             return True
 
     return False
+
+
+def _find_subscription_row(user_id=None, subscription_id=None, customer_id=None):
+    """Locate the local Subscription row for a Stripe event, trying (in order)
+    the metadata user id, the stripe subscription id, then the customer id."""
+    from backend.models.billing import Subscription
+
+    if user_id:
+        row = Subscription.query.filter_by(user_id=user_id).first()
+        if row:
+            return row
+    if subscription_id:
+        row = Subscription.query.filter_by(stripe_subscription_id=subscription_id).first()
+        if row:
+            return row
+    if customer_id:
+        row = Subscription.query.filter_by(stripe_customer_id=customer_id).first()
+        if row:
+            return row
+    return None
 
 
 def _safe_int(value) -> int | None:

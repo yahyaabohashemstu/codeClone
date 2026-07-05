@@ -9,6 +9,9 @@ from __future__ import annotations
 
 import datetime
 
+from sqlalchemy import update
+from sqlalchemy.exc import IntegrityError
+
 from backend.extensions import db
 from backend.models.billing import DEFAULT_PLAN_CODE, PLANS, Plan, Subscription, UsageRecord
 
@@ -36,7 +39,13 @@ def _get_or_create_usage(user_id: int, period: str) -> UsageRecord:
     if record is None:
         record = UsageRecord(user_id=user_id, period=period, analyses_count=0)
         db.session.add(record)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except IntegrityError:
+            # Concurrent request created the same (user_id, period) row first;
+            # the uq_usage_user_period constraint fired. Reuse the winner's row.
+            db.session.rollback()
+            record = UsageRecord.query.filter_by(user_id=user_id, period=period).first()
     return record
 
 
@@ -82,20 +91,59 @@ def try_consume_analysis_quota(user_id: int) -> dict:
 
     if plan.monthly_analysis_quota < 0:
         record = _get_or_create_usage(user_id, period)
-        record.analyses_count += 1
+        db.session.execute(
+            update(UsageRecord)
+            .where(UsageRecord.user_id == user_id, UsageRecord.period == period)
+            .values(analyses_count=UsageRecord.analyses_count + 1)
+        )
         db.session.commit()
         return {"allowed": True, **quota_summary(user_id)}
 
     record = _get_or_create_usage(user_id, period)
-    if record.analyses_count >= plan.monthly_analysis_quota:
+    # Atomic conditional increment: bump the counter only if it is still under
+    # the limit, in one SQL statement. A plain read-check-write here was a
+    # TOCTOU race — two concurrent requests could both read count=limit-1, both
+    # pass the check, and both commit, letting the user exceed the cap.
+    result = db.session.execute(
+        update(UsageRecord)
+        .where(
+            UsageRecord.user_id == user_id,
+            UsageRecord.period == period,
+            UsageRecord.analyses_count < plan.monthly_analysis_quota,
+        )
+        .values(analyses_count=UsageRecord.analyses_count + 1)
+    )
+    db.session.commit()
+    if result.rowcount != 1:
         summary = quota_summary(user_id)
         summary["allowed"] = False
         return summary
 
-    record.analyses_count += 1
-    db.session.commit()
+    db.session.refresh(record)
     _maybe_send_quota_alert(user_id, record, plan.monthly_analysis_quota)
     return {"allowed": True, **quota_summary(user_id)}
+
+
+def release_analysis_quota(user_id: int, period: str | None = None) -> None:
+    """Credit back one reserved analysis after a genuine internal failure.
+
+    Quota is reserved *before* the async pipeline runs (to rate-limit abuse), so
+    a pipeline that fails for an internal reason must not permanently consume the
+    user's allowance. Uses an atomic, floored decrement so it can never drive the
+    counter below zero and is safe under concurrency. Callers should invoke this
+    only for internal failures, never for user-input rejections.
+    """
+    period = period or current_period()
+    db.session.execute(
+        update(UsageRecord)
+        .where(
+            UsageRecord.user_id == user_id,
+            UsageRecord.period == period,
+            UsageRecord.analyses_count > 0,
+        )
+        .values(analyses_count=UsageRecord.analyses_count - 1)
+    )
+    db.session.commit()
 
 
 def _maybe_send_quota_alert(user_id: int, record, limit: int) -> None:

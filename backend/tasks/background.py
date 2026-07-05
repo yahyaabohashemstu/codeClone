@@ -136,6 +136,15 @@ def _run_analysis_background(
                     _analysis_tasks[task_id] = completed
     except Exception as exc:
         logger.error("Background analysis failed: %s", exc, exc_info=True)
+        # Quota is reserved up-front (before the async pipeline runs) to
+        # rate-limit abuse; an internal failure must credit it back so a user is
+        # not charged for an analysis that never produced a result.
+        try:
+            with app.app_context():
+                from backend.services.billing_service import release_analysis_quota
+                release_analysis_quota(user_id)
+        except Exception:
+            logger.exception("Quota refund after failed analysis did not apply.")
         failed = {
             "status": "failed",
             "error": "An error occurred during analysis. Please try again.",

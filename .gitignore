@@ -9,8 +9,11 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# Python packaging dirs — ROOT-ANCHORED so they do NOT match the frontend's
+# source directory code-sleuth-react-ui/src/lib/. An un-anchored "lib/" here
+# silently excluded the entire React data/API/sanitizer layer from git.
+/lib/
+/lib64/
 parts/
 sdist/
 var/
