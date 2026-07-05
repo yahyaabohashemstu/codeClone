@@ -1,0 +1,26 @@
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant SPA as React SPA
+    participant API as Flask API
+    participant Q as Quota
+    participant W as Worker pool
+    participant E as Engine
+
+    U->>SPA: submit Code A / B
+    SPA->>API: POST /api/v1/analysis
+    API->>Q: reserve quota (atomic UPDATE)
+    alt quota exhausted
+        API-->>SPA: 402 Payment Required + billing
+    else allowed
+        API->>W: enqueue task
+        API-->>SPA: 202 taskId
+        W->>E: parse · metrics · embed · LLM
+        loop every ~1s
+            SPA->>API: GET /analysis/progress
+            API-->>SPA: stage + percent
+        end
+        E-->>W: result snapshot
+        SPA->>API: GET /analysis/task/{id}
+        API-->>SPA: full result (+ PDF export)
+    end

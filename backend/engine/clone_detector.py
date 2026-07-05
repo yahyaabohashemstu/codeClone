@@ -73,7 +73,22 @@ class CloneDetector:
         """Thread-safe parse. Hold the per-detector lock only for the parse()
         call; the returned tree is independent and traversed without the lock."""
         with self._parse_lock:
-            return self.parser.parse(bytes(code, "utf8"))
+            try:
+                return self.parser.parse(bytes(code, "utf8"))
+            except TypeError as exc:
+                # This engine targets tree-sitter 0.21.x (parse(bytes) + a
+                # property-based Node API). A newer tree-sitter (0.23+, which
+                # tree-sitter-language-pack pulls on Python 3.13 where the pinned
+                # tree-sitter-languages has no wheels) changes parse() and the
+                # Node API and is NOT compatible. Surface an actionable message
+                # instead of a cryptic "'bytes' object is not an instance of 'str'".
+                raise RuntimeError(
+                    "Incompatible tree-sitter runtime. The analysis engine "
+                    "requires tree-sitter==0.21.3 + tree-sitter-languages==1.10.2 "
+                    "on Python 3.11/3.12. You appear to be running a newer "
+                    "tree-sitter (likely Python 3.13). Run the app with a "
+                    "supported interpreter after `pip install -r requirements.txt`."
+                ) from exc
 
     @staticmethod
     def _bounded(a, b):

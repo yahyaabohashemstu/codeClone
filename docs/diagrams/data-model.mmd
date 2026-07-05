@@ -1,0 +1,38 @@
+erDiagram
+    USER ||--o{ ANALYSIS : owns
+    USER ||--|| SUBSCRIPTION : has
+    USER ||--o{ USAGE_RECORD : accrues
+    USER ||--o{ API_KEY : issues
+    USER ||--o{ AUDIT_LOG : generates
+
+    USER {
+        int id PK
+        string username
+        string email
+        bool is_admin
+        bool totp_enabled
+        int session_version
+    }
+    ANALYSIS {
+        int id PK
+        int user_id FK
+        string language
+        float similarity
+        text snapshot_json
+    }
+    SUBSCRIPTION {
+        int id PK
+        string plan_code
+        string status
+        string stripe_subscription_id
+    }
+    USAGE_RECORD {
+        int id PK
+        string period
+        int analyses_count
+    }
+    API_KEY {
+        int id PK
+        string prefix
+        string key_hash
+    }

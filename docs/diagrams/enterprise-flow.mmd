@@ -1,0 +1,10 @@
+flowchart TB
+    ORG["Organization"] --> WS["Workspace<br/>(tenant boundary)"]
+    WS --> MEM["Members<br/>owner · admin · manager · reviewer · student"]
+    WS --> REPO["Repository<br/>github · gitlab · local"]
+    REPO -->|"webhook / manual trigger"| SCAN["Scan job (queued)"]
+    SCAN -->|"SSRF-guarded git clone"| ART["Code artifacts<br/>(encrypted at rest)"]
+    ART --> VEC["Vector similarity search"]
+    VEC --> MATCH["Similarity match"]
+    MATCH -->|"policy engine"| CASE["Review case<br/>(RBAC-gated)"]
+    CASE --> RPT["PDF case report"]
