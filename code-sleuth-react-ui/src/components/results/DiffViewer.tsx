@@ -34,6 +34,53 @@ function lineNumClass(type: DiffBlock["type"], side: "a" | "b") {
   return side === "a" ? "text-warning/70" : "text-primary/70";
 }
 
+// Fixed-height virtualization: only the rows within the viewport (plus a small
+// overscan) are mounted, so a 50k-line diff renders ~40 DOM rows instead of
+// 100k — the old implementation painted every line and froze the tab.
+const ROW_HEIGHT = 24; // px, matches leading-6 (1.5rem)
+const VIEWPORT_HEIGHT = 480; // px
+const OVERSCAN = 12; // rows rendered above/below the viewport
+
+type DiffRow = { line: string; lineNum: number | null; type: DiffBlock["type"] };
+
+function VirtualColumn({
+  rows,
+  side,
+  start,
+  end,
+  total,
+}: {
+  rows: DiffRow[];
+  side: "a" | "b";
+  start: number;
+  end: number;
+  total: number;
+}) {
+  return (
+    <div className="relative min-w-0 font-mono text-xs leading-6" style={{ height: total * ROW_HEIGHT }}>
+      {rows.slice(start, end).map((row, idx) => {
+        const i = start + idx;
+        return (
+          <div
+            key={i}
+            style={{ position: "absolute", top: i * ROW_HEIGHT, left: 0, right: 0, height: ROW_HEIGHT }}
+            className={cn(
+              "flex items-start gap-2 overflow-x-auto px-2",
+              lineClass(row.type, side),
+              row.lineNum === null && "pointer-events-none select-none opacity-0",
+            )}
+          >
+            <span className={cn("w-8 shrink-0 select-none text-right text-[10px] leading-6", lineNumClass(row.type, side))}>
+              {row.lineNum ?? ""}
+            </span>
+            <span className="whitespace-pre text-foreground/90">{row.line}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function DiffViewer({
   analysisId,
   labelA,
@@ -47,6 +94,7 @@ export function DiffViewer({
   const [data, setData] = useState<DiffResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [scrollTop, setScrollTop] = useState(0);
 
   useEffect(() => {
     setLoading(true);
@@ -96,6 +144,10 @@ export function DiffViewer({
       });
     }
   }
+
+  const total = rowsA.length;
+  const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
+  const endIndex = Math.min(total, Math.ceil((scrollTop + VIEWPORT_HEIGHT) / ROW_HEIGHT) + OVERSCAN);
 
   const legendMap = {
     equal: t("results.diff.legendEqual"),
@@ -147,67 +199,37 @@ export function DiffViewer({
           ))}
         </div>
 
-        <div className="grid grid-cols-1 divide-y divide-border/40 overflow-x-auto scrollbar-thin md:grid-cols-2 md:divide-x md:divide-y-0">
-          {/* Source A */}
-          <div className="min-w-0">
-            <div className="sticky top-0 border-b border-border/40 bg-card px-3 py-2">
-              <span className="flex items-center gap-1.5 text-xs font-semibold text-primary">
-                <span className="h-2 w-2 rounded-full bg-primary" />
-                {labelA}
-              </span>
-            </div>
-            <div className="font-mono text-xs leading-6">
-              {rowsA.map((row, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    "flex items-start gap-2 px-2",
-                    lineClass(row.type, "a"),
-                    row.lineNum === null && "opacity-0 pointer-events-none select-none",
-                  )}
-                >
-                  <span className={cn("w-8 shrink-0 select-none text-right text-[10px] leading-6", lineNumClass(row.type, "a"))}>
-                    {row.lineNum ?? ""}
-                  </span>
-                  <span className="whitespace-pre-wrap break-all text-foreground/90">{row.line}</span>
-                </div>
-              ))}
-            </div>
+        {/* Column headers (kept outside the scroll area so they stay put). */}
+        <div className="grid grid-cols-1 border-b border-border/40 md:grid-cols-2 md:divide-x md:divide-border/40">
+          <div className="bg-card px-3 py-2">
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-primary">
+              <span className="h-2 w-2 rounded-full bg-primary" />
+              {labelA}
+            </span>
           </div>
-
-          {/* Source B */}
-          <div className="min-w-0">
-            <div className="sticky top-0 border-b border-border/40 bg-card px-3 py-2">
-              <span className="flex items-center gap-1.5 text-xs font-semibold text-accent">
-                <span className="h-2 w-2 rounded-full bg-accent" />
-                {labelB}
-              </span>
-            </div>
-            <div className="font-mono text-xs leading-6">
-              {rowsB.map((row, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    "flex items-start gap-2 px-2",
-                    lineClass(row.type, "b"),
-                    row.lineNum === null && "opacity-0 pointer-events-none select-none",
-                  )}
-                >
-                  <span className={cn("w-8 shrink-0 select-none text-right text-[10px] leading-6", lineNumClass(row.type, "b"))}>
-                    {row.lineNum ?? ""}
-                  </span>
-                  <span className="whitespace-pre-wrap break-all text-foreground/90">{row.line}</span>
-                </div>
-              ))}
-            </div>
+          <div className="hidden bg-card px-3 py-2 md:block">
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-accent">
+              <span className="h-2 w-2 rounded-full bg-accent" />
+              {labelB}
+            </span>
           </div>
         </div>
 
-        {maxLines > 300 && (
-          <div className="border-t border-border/40 px-5 py-3 text-center text-xs text-muted-foreground">
-            {t("results.diff.showingLines", { count: maxLines })}
+        {/* Virtualized diff body: only the rows within the viewport are mounted. */}
+        <div
+          onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+          style={{ height: VIEWPORT_HEIGHT }}
+          className="overflow-y-auto scrollbar-thin"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 md:divide-x md:divide-border/40">
+            <VirtualColumn rows={rowsA} side="a" start={startIndex} end={endIndex} total={total} />
+            <VirtualColumn rows={rowsB} side="b" start={startIndex} end={endIndex} total={total} />
           </div>
-        )}
+        </div>
+
+        <div className="border-t border-border/40 px-5 py-3 text-center text-xs text-muted-foreground">
+          {t("results.diff.showingLines", { count: maxLines })}
+        </div>
       </div>
     </div>
   );

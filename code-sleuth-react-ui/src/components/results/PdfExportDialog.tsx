@@ -108,7 +108,7 @@ export function PdfExportDialog({ open, onOpenChange, result }: Props) {
     setSections(
       Object.fromEntries(
         SECTIONS.map((s) => [s.key, s.alwaysOn ? true : val]),
-      ) as PdfSections,
+      ) as unknown as PdfSections,
     );
   };
 

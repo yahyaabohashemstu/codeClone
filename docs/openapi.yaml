@@ -1,202 +1,1535 @@
 openapi: 3.0.3
 info:
-  title: CodeSimilar API
-  version: "1.0"
-  description: >
-    Public HTTP API for the CodeSimilar code-similarity platform. All endpoints
-    are same-origin and versioned under /api/v1. Session endpoints use a cookie
-    plus an X-CSRF-Token header on mutating verbs (obtained from /api/v1/session
-    or a login/signup response). The CI endpoint uses an API key instead.
+  title: CodeClone API
+  version: 1.0.0
+  description: Complete, auto-generated surface of the CodeClone REST API (core v1 + enterprise). Regenerate
+    with `python tools/generate_openapi.py`. The /api/* (unversioned) paths are 307 redirects to their
+    /api/v1 equivalents and are omitted here.
 servers:
-  - url: /api/v1
+- url: /
+  description: Same-origin (no CORS by design)
 tags:
-  - name: auth
-  - name: billing
-  - name: analysis
-  - name: ci
-  - name: health
-
-paths:
-  /session:
-    get:
-      tags: [auth]
-      summary: Current session + CSRF token
-      responses:
-        "200": { description: Session state, CSRF token, supported languages, AI health }
-
-  /auth/login:
-    post:
-      tags: [auth]
-      summary: Sign in (CSRF-exempt)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [username, password]
-              properties:
-                username: { type: string }
-                password: { type: string }
-      responses:
-        "200": { description: Signed in; returns user + csrfToken }
-        "401": { description: Invalid credentials }
-        "403": { description: Email unverified (code=email_unverified) when required }
-
-  /auth/signup:
-    post:
-      tags: [auth]
-      summary: Public self-registration (CSRF-exempt, 5/min)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [username, email, password]
-              properties:
-                username: { type: string, maxLength: 80 }
-                email: { type: string, format: email }
-                password: { type: string, minLength: 8 }
-      responses:
-        "201": { description: Account created (verificationRequired indicates next step) }
-        "400": { description: Validation error }
-        "403": { description: Self-registration disabled }
-        "409": { description: Username or email already exists }
-
-  /auth/verify-email:
-    post:
-      tags: [auth]
-      summary: Confirm an email address with a signed token (CSRF-exempt)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { type: object, required: [token], properties: { token: { type: string } } }
-      responses:
-        "200": { description: Verified }
-        "400": { description: Invalid or expired link }
-
-  /auth/request-password-reset:
-    post:
-      tags: [auth]
-      summary: Request a reset link (CSRF-exempt, 3/min, no account enumeration)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { type: object, required: [email], properties: { email: { type: string, format: email } } }
-      responses:
-        "200": { description: Uniform success regardless of whether the address exists }
-
-  /auth/reset-password:
-    post:
-      tags: [auth]
-      summary: Set a new password with a signed single-use token (CSRF-exempt, 5/min)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [token, password]
-              properties:
-                token: { type: string }
-                password: { type: string, minLength: 8 }
-      responses:
-        "200": { description: Password updated }
-        "400": { description: Invalid/expired/used link or weak password }
-
-  /billing/plans:
-    get:
-      tags: [billing]
-      summary: List available plans (public)
-      responses:
-        "200": { description: Plans + billingEnabled flag }
-
-  /billing/summary:
-    get:
-      tags: [billing]
-      summary: Current user's plan and monthly usage
-      security: [{ sessionCookie: [] }]
-      responses:
-        "200": { description: plan, status, used, limit, remaining, unlimited }
-        "401": { description: Not authenticated }
-
-  /billing/checkout:
-    post:
-      tags: [billing]
-      summary: Start a Stripe Checkout session for a paid plan
-      security: [{ sessionCookie: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { type: object, required: [plan], properties: { plan: { type: string, enum: [pro, team] } } }
-      responses:
-        "200": { description: Returns checkoutUrl }
-        "400": { description: Invalid plan }
-        "503": { description: Billing not configured (code=billing_not_configured) }
-
-  /billing/webhook:
-    post:
-      tags: [billing]
-      summary: Stripe webhook (CSRF-exempt, verified by Stripe-Signature)
-      responses:
-        "200": { description: Processed }
-        "400": { description: Invalid signature }
-        "503": { description: Billing not configured }
-
-  /analysis:
-    post:
-      tags: [analysis]
-      summary: Submit a pairwise analysis (async, 20/min)
-      description: >
-        multipart/form-data with language + code1/code2 (or file/zip/excel
-        inputs). Enforces the caller's monthly quota before queuing.
-      security: [{ sessionCookie: [] }]
-      responses:
-        "202": { description: Accepted; returns taskId }
-        "400": { description: Validation error }
-        "402": { description: Monthly quota exceeded (code=quota_exceeded) }
-
-  /ci/check:
-    post:
-      tags: [ci]
-      summary: CI similarity gate (API-key auth, CSRF-exempt, 60/min)
-      security: [{ apiKey: [] }, { bearer: [] }]
-      responses:
-        "200": { description: verdict=pass }
-        "422": { description: verdict=fail (similarity >= threshold) }
-        "400": { description: Validation error }
-        "401": { description: Missing/invalid API key }
-
-  /health:
-    get:
-      tags: [health]
-      summary: Liveness (database connectivity)
-      responses:
-        "200": { description: healthy }
-        "503": { description: unhealthy }
-
-  /health/readiness:
-    get:
-      tags: [health]
-      summary: Subsystem/config readiness (public, no secrets)
-      responses:
-        "200": { description: ok }
-        "503": { description: degraded (database down) }
-
+- name: account
+- name: admin
+- name: analysis
+- name: analytics
+- name: api-keys
+- name: auth
+- name: billing
+- name: chat
+- name: ci
+- name: enterprise
+- name: health
+- name: health-ai
+- name: history
+- name: home
+- name: observability
+- name: webhooks
 components:
   securitySchemes:
-    sessionCookie:
+    cookieAuth:
       type: apiKey
       in: cookie
       name: session
-    apiKey:
+      description: Flask-Login session cookie. Mutating requests also require the X-CSRF-Token header.
+    apiKeyAuth:
       type: apiKey
       in: header
       name: X-API-Key
-    bearer:
+    bearerAuth:
       type: http
       scheme: bearer
+  schemas:
+    SuccessEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+      additionalProperties: true
+    ErrorEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+        code:
+          type: string
+paths:
+  /api/enterprise/graphql:
+    post:
+      tags:
+      - enterprise
+      summary: Enterprise graphql
+      operationId: post_enterprise_api_enterprise_graphql
+      security:
+      - apiKeyAuth: []
+      - bearerAuth: []
+      responses:
+        '200': &id002
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': &id001
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/enterprise/health:
+    get:
+      tags:
+      - enterprise
+      summary: Enterprise health
+      operationId: get_enterprise_api_enterprise_health
+      security: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+  /api/enterprise/v1/cases/{case_id}:
+    get:
+      tags:
+      - enterprise
+      summary: Get case
+      operationId: get_enterprise_api_get_case
+      security:
+      - apiKeyAuth: []
+      - bearerAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      parameters:
+      - name: case_id
+        in: path
+        required: true
+        schema:
+          type: integer
+    patch:
+      tags:
+      - enterprise
+      summary: Update case
+      operationId: patch_enterprise_api_update_case
+      security:
+      - apiKeyAuth: []
+      - bearerAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      parameters:
+      - name: case_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/enterprise/v1/cases/{case_id}/feedback:
+    post:
+      tags:
+      - enterprise
+      summary: Create feedback
+      operationId: post_enterprise_api_create_feedback
+      security:
+      - apiKeyAuth: []
+      - bearerAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      parameters:
+      - name: case_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/enterprise/v1/cases/{case_id}/report.pdf:
+    get:
+      tags:
+      - enterprise
+      summary: Export case pdf
+      operationId: get_enterprise_api_export_case_pdf
+      security:
+      - apiKeyAuth: []
+      - bearerAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      parameters:
+      - name: case_id
+        in: path
+        required: true
+        schema:
+          type: integer
+  /api/enterprise/v1/git/probe:
+    post:
+      tags:
+      - enterprise
+      summary: Git probe
+      operationId: post_enterprise_api_git_probe
+      security:
+      - apiKeyAuth: []
+      - bearerAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/enterprise/v1/organizations:
+    get:
+      tags:
+      - enterprise
+      summary: List organizations
+      operationId: get_enterprise_api_list_organizations
+      security:
+      - apiKeyAuth: []
+      - bearerAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+    post:
+      tags:
+      - enterprise
+      summary: Create organization
+      operationId: post_enterprise_api_create_organization
+      security:
+      - apiKeyAuth: []
+      - bearerAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/enterprise/v1/repositories/{repository_id}/scans:
+    post:
+      tags:
+      - enterprise
+      summary: Trigger repository scan
+      operationId: post_enterprise_api_trigger_repository_scan
+      security:
+      - apiKeyAuth: []
+      - bearerAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      parameters:
+      - name: repository_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/enterprise/v1/scan-jobs/{scan_job_id}:
+    get:
+      tags:
+      - enterprise
+      summary: Get scan job
+      operationId: get_enterprise_api_get_scan_job
+      security:
+      - apiKeyAuth: []
+      - bearerAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      parameters:
+      - name: scan_job_id
+        in: path
+        required: true
+        schema:
+          type: integer
+  /api/enterprise/v1/workspaces:
+    get:
+      tags:
+      - enterprise
+      summary: List workspaces
+      operationId: get_enterprise_api_list_workspaces
+      security:
+      - apiKeyAuth: []
+      - bearerAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+    post:
+      tags:
+      - enterprise
+      summary: Create workspace
+      operationId: post_enterprise_api_create_workspace
+      security:
+      - apiKeyAuth: []
+      - bearerAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/enterprise/v1/workspaces/{workspace_id}/analytics:
+    get:
+      tags:
+      - enterprise
+      summary: Workspace analytics
+      operationId: get_enterprise_api_workspace_analytics
+      security:
+      - apiKeyAuth: []
+      - bearerAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      parameters:
+      - name: workspace_id
+        in: path
+        required: true
+        schema:
+          type: integer
+  /api/enterprise/v1/workspaces/{workspace_id}/api-keys:
+    post:
+      tags:
+      - enterprise
+      summary: Create api credential
+      operationId: post_enterprise_api_create_api_credential
+      security:
+      - apiKeyAuth: []
+      - bearerAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      parameters:
+      - name: workspace_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/enterprise/v1/workspaces/{workspace_id}/api-keys/{credential_id}:
+    delete:
+      tags:
+      - enterprise
+      summary: Revoke api credential
+      operationId: delete_enterprise_api_revoke_api_credential
+      security:
+      - apiKeyAuth: []
+      - bearerAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      parameters:
+      - name: workspace_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: credential_id
+        in: path
+        required: true
+        schema:
+          type: integer
+  /api/enterprise/v1/workspaces/{workspace_id}/archive:
+    post:
+      tags:
+      - enterprise
+      summary: Archive workspace
+      operationId: post_enterprise_api_archive_workspace
+      security:
+      - apiKeyAuth: []
+      - bearerAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      parameters:
+      - name: workspace_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/enterprise/v1/workspaces/{workspace_id}/cases:
+    get:
+      tags:
+      - enterprise
+      summary: List cases
+      operationId: get_enterprise_api_list_cases
+      security:
+      - apiKeyAuth: []
+      - bearerAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      parameters:
+      - name: workspace_id
+        in: path
+        required: true
+        schema:
+          type: integer
+  /api/enterprise/v1/workspaces/{workspace_id}/members:
+    get:
+      tags:
+      - enterprise
+      summary: List workspace members
+      operationId: get_enterprise_api_list_workspace_members
+      security:
+      - apiKeyAuth: []
+      - bearerAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      parameters:
+      - name: workspace_id
+        in: path
+        required: true
+        schema:
+          type: integer
+    post:
+      tags:
+      - enterprise
+      summary: Add workspace member
+      operationId: post_enterprise_api_add_workspace_member
+      security:
+      - apiKeyAuth: []
+      - bearerAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      parameters:
+      - name: workspace_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/enterprise/v1/workspaces/{workspace_id}/members/{membership_id}:
+    delete:
+      tags:
+      - enterprise
+      summary: Remove workspace member
+      operationId: delete_enterprise_api_remove_workspace_member
+      security:
+      - apiKeyAuth: []
+      - bearerAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      parameters:
+      - name: workspace_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: membership_id
+        in: path
+        required: true
+        schema:
+          type: integer
+  /api/enterprise/v1/workspaces/{workspace_id}/policy-sets:
+    post:
+      tags:
+      - enterprise
+      summary: Create policy set
+      operationId: post_enterprise_api_create_policy_set
+      security:
+      - apiKeyAuth: []
+      - bearerAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      parameters:
+      - name: workspace_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/enterprise/v1/workspaces/{workspace_id}/repositories:
+    get:
+      tags:
+      - enterprise
+      summary: List repositories
+      operationId: get_enterprise_api_list_repositories
+      security:
+      - apiKeyAuth: []
+      - bearerAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      parameters:
+      - name: workspace_id
+        in: path
+        required: true
+        schema:
+          type: integer
+    post:
+      tags:
+      - enterprise
+      summary: Create repository
+      operationId: post_enterprise_api_create_repository
+      security:
+      - apiKeyAuth: []
+      - bearerAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      parameters:
+      - name: workspace_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/enterprise/v1/workspaces/{workspace_id}/repositories/{repository_id}:
+    delete:
+      tags:
+      - enterprise
+      summary: Delete repository
+      operationId: delete_enterprise_api_delete_repository
+      security:
+      - apiKeyAuth: []
+      - bearerAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      parameters:
+      - name: workspace_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: repository_id
+        in: path
+        required: true
+        schema:
+          type: integer
+  /api/enterprise/v1/workspaces/{workspace_id}/search:
+    post:
+      tags:
+      - enterprise
+      summary: Corpus search
+      operationId: post_enterprise_api_corpus_search
+      security:
+      - apiKeyAuth: []
+      - bearerAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      parameters:
+      - name: workspace_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/integrations/github/{repository_id}/webhook:
+    post:
+      tags:
+      - webhooks
+      summary: Github webhook
+      operationId: post_enterprise_api_github_webhook
+      security: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      parameters:
+      - name: repository_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/integrations/gitlab/{repository_id}/webhook:
+    post:
+      tags:
+      - webhooks
+      summary: Gitlab webhook
+      operationId: post_enterprise_api_gitlab_webhook
+      security: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      parameters:
+      - name: repository_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/account/delete:
+    post:
+      tags:
+      - account
+      summary: Account delete
+      operationId: post_api_v1_account_delete
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/account/export:
+    get:
+      tags:
+      - account
+      summary: Account export
+      operationId: get_api_v1_account_export
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+  /api/v1/admin/audit:
+    get:
+      tags:
+      - admin
+      summary: Admin audit
+      operationId: get_api_v1_admin_audit
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+  /api/v1/admin/metrics:
+    get:
+      tags:
+      - admin
+      summary: Admin metrics
+      operationId: get_api_v1_admin_metrics
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+  /api/v1/admin/users:
+    get:
+      tags:
+      - admin
+      summary: Admin users
+      operationId: get_api_v1_admin_users
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+  /api/v1/admin/users/{user_id}/plan:
+    post:
+      tags:
+      - admin
+      summary: Admin set plan
+      operationId: post_api_v1_admin_set_plan
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/analysis:
+    post:
+      tags:
+      - analysis
+      summary: Analysis
+      operationId: post_api_v1_api_analysis
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/analysis/{analysis_id}:
+    get:
+      tags:
+      - analysis
+      summary: Analysis detail
+      operationId: get_api_v1_api_analysis_detail
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      parameters:
+      - name: analysis_id
+        in: path
+        required: true
+        schema:
+          type: integer
+  /api/v1/analysis/current:
+    get:
+      tags:
+      - analysis
+      summary: Current analysis
+      operationId: get_api_v1_api_current_analysis
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+  /api/v1/analysis/diff:
+    get:
+      tags:
+      - analysis
+      summary: Analysis diff
+      operationId: get_api_v1_api_analysis_diff
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+  /api/v1/analysis/progress:
+    get:
+      tags:
+      - analysis
+      summary: Analysis progress
+      operationId: get_api_v1_api_analysis_progress
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+  /api/v1/analysis/task/{task_id}:
+    get:
+      tags:
+      - analysis
+      summary: Analysis task
+      operationId: get_api_v1_api_analysis_task
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/v1/analytics:
+    get:
+      tags:
+      - analytics
+      summary: Analytics
+      operationId: get_api_v1_api_analytics
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+  /api/v1/api-keys:
+    get:
+      tags:
+      - api-keys
+      summary: List api keys
+      operationId: get_api_v1_list_api_keys
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+    post:
+      tags:
+      - api-keys
+      summary: Create api key
+      operationId: post_api_v1_create_api_key
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/api-keys/{key_id}:
+    delete:
+      tags:
+      - api-keys
+      summary: Revoke api key
+      operationId: delete_api_v1_revoke_api_key
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      parameters:
+      - name: key_id
+        in: path
+        required: true
+        schema:
+          type: integer
+  /api/v1/auth/2fa/disable:
+    post:
+      tags:
+      - auth
+      summary: 2fa disable
+      operationId: post_api_v1_api_2fa_disable
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/auth/2fa/enable:
+    post:
+      tags:
+      - auth
+      summary: 2fa enable
+      operationId: post_api_v1_api_2fa_enable
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/auth/2fa/login:
+    post:
+      tags:
+      - auth
+      summary: 2fa login
+      operationId: post_api_v1_api_2fa_login
+      security: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/auth/2fa/setup:
+    post:
+      tags:
+      - auth
+      summary: 2fa setup
+      operationId: post_api_v1_api_2fa_setup
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/auth/login:
+    post:
+      tags:
+      - auth
+      summary: Login
+      operationId: post_api_v1_api_login
+      security: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/auth/logout:
+    post:
+      tags:
+      - auth
+      summary: Logout
+      operationId: post_api_v1_api_logout
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/auth/logout-all:
+    post:
+      tags:
+      - auth
+      summary: Logout all
+      operationId: post_api_v1_api_logout_all
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/auth/register:
+    post:
+      tags:
+      - auth
+      summary: Register
+      operationId: post_api_v1_api_register
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/auth/request-password-reset:
+    post:
+      tags:
+      - auth
+      summary: Request password reset
+      operationId: post_api_v1_api_request_password_reset
+      security: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/auth/resend-verification:
+    post:
+      tags:
+      - auth
+      summary: Resend verification
+      operationId: post_api_v1_api_resend_verification
+      security: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/auth/reset-password:
+    post:
+      tags:
+      - auth
+      summary: Reset password
+      operationId: post_api_v1_api_reset_password
+      security: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/auth/signup:
+    post:
+      tags:
+      - auth
+      summary: Signup
+      operationId: post_api_v1_api_signup
+      security: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/auth/verify-email:
+    post:
+      tags:
+      - auth
+      summary: Verify email
+      operationId: post_api_v1_api_verify_email
+      security: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/billing/checkout:
+    post:
+      tags:
+      - billing
+      summary: Billing checkout
+      operationId: post_api_v1_api_billing_checkout
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/billing/plans:
+    get:
+      tags:
+      - billing
+      summary: Billing plans
+      operationId: get_api_v1_api_billing_plans
+      security: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+  /api/v1/billing/portal:
+    post:
+      tags:
+      - billing
+      summary: Billing portal
+      operationId: post_api_v1_api_billing_portal
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/billing/summary:
+    get:
+      tags:
+      - billing
+      summary: Billing summary
+      operationId: get_api_v1_api_billing_summary
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+  /api/v1/billing/webhook:
+    post:
+      tags:
+      - billing
+      summary: Billing webhook
+      operationId: post_api_v1_api_billing_webhook
+      security: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/chat:
+    post:
+      tags:
+      - chat
+      summary: Chat
+      operationId: post_api_v1_api_chat
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/ci/check:
+    post:
+      tags:
+      - ci
+      summary: Ci check
+      operationId: post_api_v1_ci_check
+      security:
+      - apiKeyAuth: []
+      - bearerAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/ci/languages:
+    get:
+      tags:
+      - ci
+      summary: Ci languages
+      operationId: get_api_v1_ci_languages
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+  /api/v1/health:
+    get:
+      tags:
+      - health
+      summary: Health check
+      operationId: get_api_v1_health_check
+      security: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+  /api/v1/health-ai:
+    get:
+      tags:
+      - health-ai
+      summary: Health ai
+      operationId: get_api_v1_health_ai
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+  /api/v1/health/readiness:
+    get:
+      tags:
+      - health
+      summary: Health readiness
+      operationId: get_api_v1_health_readiness
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+  /api/v1/history:
+    get:
+      tags:
+      - history
+      summary: History
+      operationId: get_api_v1_api_history
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+  /api/v1/history/{analysis_id}:
+    get:
+      tags:
+      - history
+      summary: History detail
+      operationId: get_api_v1_api_history_detail
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      parameters:
+      - name: analysis_id
+        in: path
+        required: true
+        schema:
+          type: integer
+    delete:
+      tags:
+      - history
+      summary: Delete analysis
+      operationId: delete_api_v1_api_delete_analysis
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      parameters:
+      - name: analysis_id
+        in: path
+        required: true
+        schema:
+          type: integer
+  /api/v1/history/{analysis_id}/rerun:
+    post:
+      tags:
+      - history
+      summary: Rerun analysis
+      operationId: post_api_v1_api_rerun_analysis
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+      parameters:
+      - name: analysis_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/home:
+    get:
+      tags:
+      - home
+      summary: Home
+      operationId: get_api_v1_api_home
+      security:
+      - cookieAuth: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+  /api/v1/metrics:
+    get:
+      tags:
+      - observability
+      summary: Metrics endpoint
+      operationId: get_api_v1_metrics_endpoint
+      security: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+  /api/v1/session:
+    get:
+      tags:
+      - auth
+      summary: Session
+      operationId: get_api_v1_api_session
+      security: []
+      responses:
+        '200': *id002
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001

@@ -29,6 +29,10 @@ const POLL_INTERVAL_MS = 1000;
 const SLOW_POLL_INTERVAL_MS = 3000;
 const SLOW_POLL_AFTER_ERRORS = 5;
 const MAX_CONSECUTIVE_POLL_ERRORS = 15;
+// Hard wall-clock cap so the loop always terminates even if the backend keeps
+// returning progress with no terminal taskStatus (e.g. the in-memory task map
+// was lost after a restart) — prevents a permanent "Analyzing…" hang.
+const MAX_POLL_DURATION_MS = 10 * 60 * 1000;
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -137,11 +141,15 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }) {
       try {
         await submit();
 
+        const startedAt = Date.now();
         let consecutiveErrors = 0;
         for (;;) {
           await delay(consecutiveErrors > SLOW_POLL_AFTER_ERRORS ? SLOW_POLL_INTERVAL_MS : POLL_INTERVAL_MS);
           if (token.cancelled) {
             throw new ApiError("Analysis superseded by a newer run.", 0, null);
+          }
+          if (Date.now() - startedAt > MAX_POLL_DURATION_MS) {
+            throw new Error("Analysis timed out. Please try again.");
           }
 
           let progress: AnalysisProgressResponse;

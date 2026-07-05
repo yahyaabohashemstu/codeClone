@@ -58,6 +58,19 @@ def sha256_hex(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
+def _audit_hmac_key() -> bytes:
+    """Server-held key for keyed hashing of audit IP / User-Agent values,
+    derived from ENTERPRISE_DATA_KEY (or SECRET_KEY). A keyed HMAC — unlike a
+    bare SHA-256 — is not brute-forceable across the small IPv4 / common-UA
+    space, so the stored values are genuinely pseudonymous."""
+    secret = (os.environ.get("ENTERPRISE_DATA_KEY") or os.environ.get("SECRET_KEY") or "").encode("utf-8")
+    return hashlib.sha256(b"enterprise-audit-hmac-v1:" + secret).digest()
+
+
+def audit_hmac_hex(value: str) -> str:
+    return hmac.new(_audit_hmac_key(), value.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
 def normalize_provider(value: str) -> str:
     provider = (value or "").strip().lower()
     if provider not in {"github", "gitlab", "local"}:
@@ -279,12 +292,31 @@ def extract_brace_blocks(logical_path: str, source: str, language: str) -> list[
     artifacts: list[ArtifactExtraction] = []
     patterns = [
         re.compile(r"^\s*(?:export\s+)?(?:async\s+)?(?:function|class|interface|struct|enum|trait)\s+([A-Za-z_][A-Za-z0-9_]*)"),
-        re.compile(r"^\s*(?:public|private|protected|static|\s)*\s*(?:async\s+)?(?:[A-Za-z_<>\[\],?]+\s+)+([A-Za-z_][A-Za-z0-9_]*)\s*\([^;]*\)\s*\{"),
+        # Linear-time Java/C-like method matcher. The previous pattern used
+        # nested/ambiguous quantifiers — (?:...|\s)*\s* and (?:[...]+\s+)+ —
+        # which catastrophically backtracked (ReDoS): a single crafted line in a
+        # scanned repo froze the worker at 100% CPU. This form gives each
+        # modifier a required trailing space, matches a SINGLE return-type token
+        # (with an optional linear <...> generic and [] array suffix), and has no
+        # nested repetition, so it cannot backtrack super-linearly.
+        re.compile(
+            r"^\s*"
+            r"(?:(?:public|private|protected|static|final|abstract|synchronized|native|default)\s+)*"
+            r"(?:[\w.$]+(?:<[^<>]*>)?(?:\[\s*\])*\s+)"
+            r"([A-Za-z_$][\w$]*)"
+            r"\s*\([^;{}]*\)\s*(?:throws[^{};]*)?\{"
+        ),
         re.compile(r"^\s*(?:const|let|var)\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>\s*\{"),
     ]
     index = 0
     while index < len(lines):
         line = lines[index]
+        # Defense-in-depth: a real declaration line is short. Skip absurdly long
+        # lines so no regex can be pushed toward a worst case by a crafted or
+        # minified source line.
+        if len(line) > 2000:
+            index += 1
+            continue
         symbol_name = None
         symbol_kind = "function"
         for pattern in patterns:
@@ -531,9 +563,28 @@ def normalize_local_repository_path(raw_path: str, require_exists: bool = True) 
     )
 
 
+# Server-side git clone/probe is SSRF-sensitive. By default we only allow the
+# major hosted Git providers, whose DNS is stable and public — this neutralises
+# DNS-rebinding via an attacker-controlled domain (the host must be one of these
+# exact names). Operators may set ENTERPRISE_ALLOWED_GIT_HOSTS to a comma list
+# of additional hosts, or to "*" to permit any public host (e.g. self-hosted
+# GitLab); the public-IP resolution check still applies in that mode.
+_DEFAULT_ALLOWED_GIT_HOSTS = frozenset({
+    "github.com", "www.github.com",
+    "gitlab.com", "www.gitlab.com",
+    "bitbucket.org",
+})
+
+
+def allow_any_public_git_host() -> bool:
+    return (os.environ.get("ENTERPRISE_ALLOWED_GIT_HOSTS") or "").strip() == "*"
+
+
 def configured_allowed_git_hosts() -> set[str]:
     raw_value = (os.environ.get("ENTERPRISE_ALLOWED_GIT_HOSTS") or "").strip()
     if not raw_value:
+        return set(_DEFAULT_ALLOWED_GIT_HOSTS)
+    if raw_value == "*":
         return set()
     return {item.strip().lower() for item in raw_value.split(",") if item.strip()}
 
@@ -570,11 +621,19 @@ def normalize_clone_url(raw_url: str) -> str:
     hostname = (parsed.hostname or "").strip().lower()
     if not hostname:
         raise EnterpriseError(400, "Clone URL must include a hostname.", code="clone_url_missing_host")
-    allowed_hosts = configured_allowed_git_hosts()
-    if allowed_hosts:
-        if hostname not in allowed_hosts:
-            raise EnterpriseError(403, "Clone URL host is not allowlisted.", code="clone_url_host_not_allowed")
+    if allow_any_public_git_host():
+        # Opt-in "*": any public host, but still reject private/loopback/metadata IPs.
+        _clone_host_resolves_publicly(hostname)
     else:
+        allowed_hosts = configured_allowed_git_hosts()
+        if hostname not in allowed_hosts:
+            raise EnterpriseError(
+                403,
+                "Clone URL host is not allowlisted. Set ENTERPRISE_ALLOWED_GIT_HOSTS to permit additional hosts.",
+                code="clone_url_host_not_allowed",
+            )
+        # Even an allowlisted host must resolve to a public IP — guards against a
+        # DNS record for an allowed host being pointed at an internal/metadata IP.
         _clone_host_resolves_publicly(hostname)
     return cleaned
 
@@ -663,8 +722,8 @@ def audit(db_session, actor: dict[str, Any], action: str, entity_type: str, enti
             entity_type=entity_type,
             entity_id=str(entity_id) if entity_id is not None else None,
             request_id=request_request_id(),
-            ip_hash=sha256_hex(ip_value) if ip_value else None,
-            user_agent_hash=sha256_hex(user_agent) if user_agent else None,
+            ip_hash=audit_hmac_hex(ip_value) if ip_value else None,
+            user_agent_hash=audit_hmac_hex(user_agent) if user_agent else None,
             metadata_json=dumps(metadata or {}),
             created_at=utcnow(),
         )

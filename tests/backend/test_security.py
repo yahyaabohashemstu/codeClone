@@ -152,8 +152,9 @@ class TestPasswordIsWeak:
 class TestSetSecurityHeaders:
 
     def test_all_expected_headers_set(self, sec_app):
-        """set_security_headers attaches all required security headers."""
-        with sec_app.test_request_context():
+        """set_security_headers attaches all required security headers (HSTS is
+        emitted only over a secure connection)."""
+        with sec_app.test_request_context(base_url="https://localhost"):
             from flask import make_response
             resp = make_response("OK")
             resp = set_security_headers(resp)
@@ -164,6 +165,14 @@ class TestSetSecurityHeaders:
             assert "camera=()" in resp.headers["Permissions-Policy"]
             assert "max-age=" in resp.headers["Strict-Transport-Security"]
             assert "default-src" in resp.headers["Content-Security-Policy"]
+
+    def test_hsts_not_sent_over_plain_http(self, sec_app):
+        """HSTS must NOT be advertised on a plain-HTTP request — a deliberately
+        supported mode (SESSION_COOKIE_SECURE=0) before TLS is terminated."""
+        with sec_app.test_request_context(base_url="http://localhost"):
+            from flask import make_response
+            resp = set_security_headers(make_response("OK"))
+            assert "Strict-Transport-Security" not in resp.headers
 
     def test_does_not_overwrite_existing_csp(self, sec_app):
         """If a CSP header already exists, set_security_headers preserves it."""

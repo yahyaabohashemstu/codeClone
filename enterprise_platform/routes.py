@@ -430,8 +430,11 @@ def create_repository(workspace_id: int):
                     "item": serialize_repository(repository),
                     "secrets": {
                         "webhookSecret": webhook_secret,
-                        "githubWebhookUrl": f"{request.url_root.rstrip('/')}{GITHUB_WEBHOOK_PREFIX}/{repository.id}/webhook",
-                        "gitlabWebhookUrl": f"{request.url_root.rstrip('/')}{GITLAB_WEBHOOK_PREFIX}/{repository.id}/webhook",
+                        # Prefer the configured public base URL over the
+                        # Host-header-derived request.url_root, so a spoofed Host
+                        # cannot bend the webhook URL handed back to the admin.
+                        "githubWebhookUrl": f"{((current_app.config.get('APP_BASE_URL') or '').strip().rstrip('/')) or request.url_root.rstrip('/')}{GITHUB_WEBHOOK_PREFIX}/{repository.id}/webhook",
+                        "gitlabWebhookUrl": f"{((current_app.config.get('APP_BASE_URL') or '').strip().rstrip('/')) or request.url_root.rstrip('/')}{GITLAB_WEBHOOK_PREFIX}/{repository.id}/webhook",
                     },
                 }
             ),
@@ -968,6 +971,32 @@ def enterprise_graphql():
     return response
 
 
+def _is_duplicate_webhook_delivery(db_session, repository_id, delivery_id, commit_sha, window_seconds=300):
+    """Replay / duplicate-delivery guard for repository webhooks.
+
+    A signed webhook can be replayed verbatim, and each valid delivery would
+    otherwise enqueue another git-clone + full scan (a resource-exhaustion DoS).
+    Treat a delivery as a duplicate when the same provider delivery id — or the
+    same commit for the same repository — was already recorded within the window.
+    """
+    if not delivery_id and not commit_sha:
+        return False
+    cutoff = utcnow() - dt.timedelta(seconds=window_seconds)
+    recent_jobs = db_session.execute(
+        select(ScanJob)
+        .where(ScanJob.repository_id == repository_id, ScanJob.created_at >= cutoff)
+        .order_by(ScanJob.created_at.desc())
+        .limit(50)
+    ).scalars().all()
+    for job in recent_jobs:
+        existing = loads(job.trigger_payload_json, {})
+        if delivery_id and existing.get("deliveryId") == delivery_id:
+            return True
+        if commit_sha and existing.get("commitSha") == commit_sha:
+            return True
+    return False
+
+
 @api_bp.route(f"{GITHUB_WEBHOOK_PREFIX}/<int:repository_id>/webhook", methods=["POST"])
 def github_webhook(repository_id: int):
     payload_bytes = request.get_data(cache=False)
@@ -1006,12 +1035,15 @@ def github_webhook(repository_id: int):
         branch_ref = (payload.get("ref") or "").strip()
         branch = branch_ref.split("/")[-1] if branch_ref else repository.default_branch
         commit_sha = (payload.get("after") or "").strip() or None
+        delivery_id = (request.headers.get("X-GitHub-Delivery") or "").strip() or None
         actor = {"kind": "webhook", "legacy_user_id": repository.created_by_legacy_user_id, "workspace_id": repository.workspace_id, "scopes": ["scan:create", "scan:read"], "is_admin": False}
         workspace = db_session.get(Workspace, repository.workspace_id)
         if not workspace:
             raise EnterpriseError(404, "Workspace not found", code="workspace_not_found")
         repository.last_webhook_at = utcnow()
-        scan_job = create_repository_scan_job(db_session, actor, workspace, repository, "github_webhook", {"branch": branch, "commitSha": commit_sha, "deliveryId": request.headers.get("X-GitHub-Delivery")})
+        if _is_duplicate_webhook_delivery(db_session, repository.id, delivery_id, commit_sha):
+            return jsonify({"success": True, "deduplicated": True}), 200
+        scan_job = create_repository_scan_job(db_session, actor, workspace, repository, "github_webhook", {"branch": branch, "commitSha": commit_sha, "deliveryId": delivery_id})
         audit(db_session, actor, "webhook.github", "scan_job", scan_job.id, workspace.id, {"repositoryId": repository.id, "branch": branch, "commitSha": commit_sha})
         scan_job_id = scan_job.id
     enqueue_scan_job(scan_job_id)
@@ -1041,6 +1073,8 @@ def gitlab_webhook(repository_id: int):
         if not workspace:
             raise EnterpriseError(404, "Workspace not found", code="workspace_not_found")
         repository.last_webhook_at = utcnow()
+        if _is_duplicate_webhook_delivery(db_session, repository.id, None, commit_sha):
+            return jsonify({"success": True, "deduplicated": True}), 200
         scan_job = create_repository_scan_job(db_session, actor, workspace, repository, "gitlab_webhook", {"branch": branch, "commitSha": commit_sha, "event": request.headers.get("X-Gitlab-Event")})
         audit(db_session, actor, "webhook.gitlab", "scan_job", scan_job.id, workspace.id, {"repositoryId": repository.id, "branch": branch, "commitSha": commit_sha})
         scan_job_id = scan_job.id

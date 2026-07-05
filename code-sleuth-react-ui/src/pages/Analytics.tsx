@@ -43,7 +43,7 @@ const PALETTE = [
 ];
 
 function StatCard({ icon: Icon, label, value, sub, color }: {
-  icon: typeof BarChart3;
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: string | number;
   sub?: string;
