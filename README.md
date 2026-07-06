@@ -186,8 +186,8 @@ flowchart LR
 > [!TIP]
 > The UniXcoder step uses a **sliding‑window** with masked pooling (via the attention mask), so files longer than 512 tokens are embedded in full rather than truncated. Unlike the previous GraphCodeBERT encoder — whose non‑clone cosines reached 0.98 and forced a near‑useless 0.985 cutoff — UniXcoder collapses unrelated pairs to a low cosine while clones stay high, so a meaningful ~0.80 boundary exists.
 >
-> [!WARNING]
-> **Calibration honesty.** `evaluation/results/report.md` is now **re‑run with UniXcoder**: at the 0.80 combined threshold it reports **P = 1.0 · R = 0.909 · FPR = 0.0** on the 50 evaluated pairs, with real separation (easy‑negative AI cosine 0.34–0.59 vs clones 0.73–0.98 — GraphCodeBERT had *no* such boundary). Caveats that still stand: the operating point is picked **in‑sample** (the same 52‑pair set — too small for strong generalization claims; a held‑out split is the remaining refinement), and **Type‑4** detection is still only partial (2/5 at 0.80). Treat these as an honest in‑sample measurement of the shipped model, not a validated generalization estimate.
+> [!NOTE]
+> **Calibration — held-out, not in-sample.** `evaluation/results/report.md` is re-run with UniXcoder **and validated on a held-out split**: the zero-false-positive operating threshold is chosen on a deterministic, stratified **train** split and then measured on a **disjoint test** split. Held-out **test** result: **P = 1.0 · R = 0.92 · FPR = 0.0** (pairwise, threshold picked on train = 0.78) and **P = 1.0 · R = 0.85 · FPR = 0.0** (enterprise, 0.91) — an honest generalization estimate, not a training-set fit. UniXcoder gives real separation (easy-negative AI cosine 0.34–0.59 vs clones 0.73–0.98; GraphCodeBERT had *no* such boundary). Remaining honest caveats: 52 pairs is a small corpus, and **Type-4** detection is still only partial (2/5 at 0.80). The regression gate `TestHoldoutEvidence` pins these numbers.
 
 ### Clone types
 
