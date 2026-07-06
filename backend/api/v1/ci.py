@@ -10,12 +10,14 @@ Authentication is via API key (``Authorization: Bearer <key>`` or
 
 from __future__ import annotations
 
+import hashlib
 import hmac
 import logging
 import time
 from typing import Any
 
 from flask import jsonify, request
+from flask_limiter.util import get_remote_address
 
 from backend.api.v1 import v1_bp
 from backend.extensions import limiter
@@ -23,6 +25,30 @@ from backend.engine.clone_detector import SUPPORTED_LANGUAGES, get_detector
 from backend.services.analysis_service import analyze_similarities
 
 logger = logging.getLogger(__name__)
+
+
+def _ci_rate_key() -> str:
+    """Rate-limit key for the CI endpoint.
+
+    This endpoint is authenticated by API key, not by session/IP, so keying its
+    limit on the client IP (the limiter's default) was wrong twice over: one
+    leaked key could bypass the 60/min cap by rotating source IPs, and distinct
+    CI runners sharing one NAT egress IP throttled each other. Key on a stable,
+    NON-secret fingerprint of the presented credential instead, falling back to
+    the IP only for unauthenticated callers.
+    """
+    auth_header = request.headers.get("Authorization", "")
+    token = auth_header[7:].strip() if auth_header.startswith("Bearer ") else ""
+    if not token:
+        token = request.headers.get("X-API-Key", "").strip()
+    if token:
+        # csk_<prefix>.<secret> keys carry a public prefix — use it and never the
+        # secret. Anything else is fingerprinted with a truncated SHA-256 so the
+        # raw token never becomes a limiter storage key.
+        if token.startswith("csk_") and "." in token:
+            return "ci:" + token.split(".", 1)[0]
+        return "ci:" + hashlib.sha256(token.encode("utf-8")).hexdigest()[:32]
+    return "ci-ip:" + (get_remote_address() or "anon")
 
 # ── Constants ───────────────────────────────────────────────────────────────
 
@@ -127,7 +153,7 @@ def _authenticate_user_api_key(token: str):
 
 
 @v1_bp.route("/ci/check", methods=["POST"])
-@limiter.limit("60 per minute")
+@limiter.limit("60 per minute", key_func=_ci_rate_key)
 def ci_check():
     """
     CI/CD similarity check endpoint.

@@ -217,7 +217,17 @@ def api_analysis_task(task_id: str):
 # ---------------------------------------------------------------------------
 # GET /api/v1/analysis/diff
 # ---------------------------------------------------------------------------
+# Upper bound on lines fed to the O(n*m) difflib matcher. Stored sources can be
+# very large (a ZIP upload reaches tens of MB / hundreds of thousands of lines),
+# and SequenceMatcher with autojunk disabled is quadratic — an unbounded diff
+# would pin a Waitress worker thread for seconds. The UI virtualizes the diff and
+# only ever shows a viewport, so truncating to a generous cap changes nothing a
+# user can perceive while removing the CPU-exhaustion vector.
+_MAX_DIFF_LINES = 20000
+
+
 @v1_bp.route("/analysis/diff", methods=["GET"])
+@limiter.limit("30 per minute")
 @login_required
 def api_analysis_diff():
     """Return line-level diff blocks for the current analysis context."""
@@ -240,6 +250,12 @@ def api_analysis_diff():
 
     lines_a = code1.splitlines()
     lines_b = code2.splitlines()
+    truncated = len(lines_a) > _MAX_DIFF_LINES or len(lines_b) > _MAX_DIFF_LINES
+    total_lines_a = len(lines_a)
+    total_lines_b = len(lines_b)
+    if truncated:
+        lines_a = lines_a[:_MAX_DIFF_LINES]
+        lines_b = lines_b[:_MAX_DIFF_LINES]
     matcher = difflib.SequenceMatcher(None, lines_a, lines_b, autojunk=False)
 
     blocks = []
@@ -255,8 +271,9 @@ def api_analysis_diff():
     return jsonify({
         "blocks": blocks,
         "match_ratio": round(matcher.ratio() * 100, 2),
-        "total_lines_a": len(lines_a),
-        "total_lines_b": len(lines_b),
+        "total_lines_a": total_lines_a,
+        "total_lines_b": total_lines_b,
+        "truncated": truncated,
     })
 
 
