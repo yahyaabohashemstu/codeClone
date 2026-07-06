@@ -79,14 +79,15 @@ def _is_locked(user) -> bool:
     return locked_until > _utcnow()
 
 
-def _register_failed_login(user) -> None:
+def _register_failed_login(user, *, commit: bool = True) -> None:
     user.failed_login_count = (user.failed_login_count or 0) + 1
     max_attempts = int(current_app.config.get("LOGIN_MAX_ATTEMPTS", 8))
     if user.failed_login_count >= max_attempts:
         minutes = int(current_app.config.get("LOGIN_LOCKOUT_MINUTES", 15))
         user.locked_until = _utcnow() + datetime.timedelta(minutes=minutes)
         user.failed_login_count = 0
-    db.session.commit()
+    if commit:
+        db.session.commit()
 
 
 def _clear_lockout(user) -> None:
@@ -155,8 +156,14 @@ def api_login():
 
     if not user or not user.check_password(password):
         if user:
-            _register_failed_login(user)
-            record_audit("login.failed", user_id=user.id)
+            # Persist the failed-login counter and the audit row in a SINGLE
+            # commit. Two separate commits here made the valid-username branch
+            # measurably slower than the non-existent-username branch (which
+            # does zero commits), leaking username existence via response
+            # timing despite the dummy-hash KDF equalization below.
+            _register_failed_login(user, commit=False)
+            record_audit("login.failed", user_id=user.id, commit=False)
+            db.session.commit()
         else:
             # Constant-work path: spend the same KDF time as a real password
             # check so response latency does not reveal whether the username
@@ -514,10 +521,13 @@ def api_2fa_login():
     user = db.session.get(User, user_id)
     if not user or not user.totp_enabled:
         return jsonify({"success": False, "message": "Invalid sign-in attempt."}), 400
-    secret = twofa_service.get_secret(user)
-    if not ((secret and twofa_service.verify_totp(secret, code)) or twofa_service.consume_recovery_code(user, code)):
+    # verify_and_consume_totp records the accepted TOTP time-step and refuses any
+    # step already used, so a captured {challenge token, code} pair cannot be
+    # replayed within the code's ~90s validity window to mint extra sessions.
+    # Recovery codes are single-use via the compare-and-swap in consume_recovery_code.
+    if not (twofa_service.verify_and_consume_totp(user, code) or twofa_service.consume_recovery_code(user, code)):
         return jsonify({"success": False, "message": "Invalid authentication code."}), 401
-    db.session.commit()  # persist any consumed recovery code
+    db.session.commit()  # persist the consumed TOTP step / recovery code
     login_user(user)
     return jsonify({"success": True, "user": _serialize_user(user), "csrfToken": get_csrf_token()})
 

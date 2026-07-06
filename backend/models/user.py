@@ -32,6 +32,11 @@ class User(db.Model, UserMixin):  # type: ignore[name-defined]
     totp_secret_encrypted = db.Column(db.Text, nullable=True)
     totp_enabled = db.Column(db.Boolean, default=False, nullable=False)
     recovery_codes_json = db.Column(db.Text, nullable=True)
+    # Highest TOTP time-step already accepted for a login.  A code is valid for a
+    # ~90s window, so without this a captured {challenge token, code} pair could
+    # be replayed within that window to mint extra sessions; login refuses any
+    # step <= this value (anti-replay).
+    last_totp_step = db.Column(db.BigInteger, nullable=True)
 
     # Brute-force lockout.
     failed_login_count = db.Column(db.Integer, default=0, nullable=False)
