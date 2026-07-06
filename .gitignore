@@ -87,3 +87,9 @@ code-sleuth-react-ui/.playwright/
 # Local working materials (raw font downloads + design-spec kit), not runtime code
 fonts/
 new design/
+
+# Local developer tooling binaries (e.g. the Stripe CLI) — never commit binaries
+*.exe
+
+# TypeScript incremental build cache (regenerated on every tsc/build run)
+*.tsbuildinfo
