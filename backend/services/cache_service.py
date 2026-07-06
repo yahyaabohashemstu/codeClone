@@ -45,6 +45,12 @@ logger = logging.getLogger(__name__)
 
 MAX_CACHED_USERS: int = 200
 
+# Total-bytes ceiling for cached contexts. The entry-count cap alone
+# under-bounds memory because a single cached context holds raw code1/code2
+# (each up to tens of MB from a ZIP upload), so 200 large entries could reach
+# tens of GB. This bounds the aggregate instead of just the user count.
+MAX_CACHE_BYTES: int = 512 * 1024 * 1024  # 512 MB
+
 
 def _max_cached_users() -> int:
     """Return the LRU cap, honouring ``MAX_CACHED_USERS`` from the live app
@@ -55,6 +61,34 @@ def _max_cached_users() -> int:
         return max(1, int(current_app.config.get("MAX_CACHED_USERS", MAX_CACHED_USERS)))
     except (RuntimeError, ImportError, TypeError, ValueError):
         return MAX_CACHED_USERS
+
+
+def _max_cache_bytes() -> int:
+    """Return the aggregate byte budget, honouring ``MAX_CACHE_BYTES`` from the
+    live app config when an application context is active."""
+    try:
+        from flask import current_app
+
+        return max(1, int(current_app.config.get("MAX_CACHE_BYTES", MAX_CACHE_BYTES)))
+    except (RuntimeError, ImportError, TypeError, ValueError):
+        return MAX_CACHE_BYTES
+
+
+def _context_bytes(context: dict) -> int:
+    """Approximate the memory footprint of a cached context.
+
+    Dominated by the raw source strings and the base64 chart, which are exactly
+    the fields that make a single entry large; counting them is enough to bound
+    the aggregate without walking the whole nested structure on every write.
+    """
+    try:
+        total = len(context.get("code1") or "") + len(context.get("code2") or "")
+        chart = context.get("chart_url")
+        if isinstance(chart, str):
+            total += len(chart)
+        return total
+    except Exception:
+        return 0
 
 
 # ---------------------------------------------------------------------------
@@ -97,6 +131,9 @@ class CachedAnalysisData(TypedDict):
 
 _user_results: OrderedDict = OrderedDict()
 _user_analysis_contexts: OrderedDict = OrderedDict()
+# Parallel map of approximate bytes per cached context, kept in lockstep with
+# ``_user_analysis_contexts`` so the byte-budget eviction is O(1) per check.
+_context_sizes: dict = {}
 _results_lock = threading.Lock()
 
 
@@ -157,16 +194,27 @@ def cache_analysis_context_for_user(user_id: int | None, context: dict) -> None:
         # Move-to-end (most-recently-used) or insert fresh.
         _user_results.pop(user_id, None)
         _user_analysis_contexts.pop(user_id, None)
+        _context_sizes.pop(user_id, None)
 
         _user_results[user_id] = cached_data
         _user_analysis_contexts[user_id] = context
+        _context_sizes[user_id] = _context_bytes(context)
 
-        # Evict least-recently-used entries when the cap is exceeded.
+        # Evict least-recently-used entries when the entry-count cap is exceeded.
         cap = _max_cached_users()
-        while len(_user_results) > cap:
-            _user_results.popitem(last=False)
         while len(_user_analysis_contexts) > cap:
-            _user_analysis_contexts.popitem(last=False)
+            evicted_id, _ = _user_analysis_contexts.popitem(last=False)
+            _user_results.pop(evicted_id, None)
+            _context_sizes.pop(evicted_id, None)
+
+        # Then evict LRU entries until the aggregate byte budget is satisfied,
+        # always keeping at least the just-inserted entry so a single oversized
+        # context still caches (it is simply the first to be evicted next time).
+        byte_cap = _max_cache_bytes()
+        while len(_user_analysis_contexts) > 1 and sum(_context_sizes.values()) > byte_cap:
+            evicted_id, _ = _user_analysis_contexts.popitem(last=False)
+            _user_results.pop(evicted_id, None)
+            _context_sizes.pop(evicted_id, None)
 
 
 def get_cached_context_for_user(user_id: int | None) -> dict | None:
@@ -211,6 +259,7 @@ def invalidate_cached_analysis_for_user(
         if analysis_id is None:
             _user_results.pop(user_id, None)
             _user_analysis_contexts.pop(user_id, None)
+            _context_sizes.pop(user_id, None)
             return
 
         cached_context = _user_analysis_contexts.get(user_id)
@@ -223,3 +272,4 @@ def invalidate_cached_analysis_for_user(
         if cached_analysis_id == analysis_id or cached_summary.get("id") == analysis_id:
             _user_results.pop(user_id, None)
             _user_analysis_contexts.pop(user_id, None)
+            _context_sizes.pop(user_id, None)
