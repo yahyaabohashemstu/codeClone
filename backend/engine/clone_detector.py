@@ -351,22 +351,24 @@ class CloneDetector:
         match_ratio = fuzz.partial_ratio(a, b) / 100
         return match_ratio > threshold
 
-    def semantic_clone_similarity(self, code1, code2, threshold=0.985, ai_score=None):
-        """Check for semantic clones using AI-based (GraphCodeBERT) similarity.
+    def semantic_clone_similarity(self, code1, code2, threshold=0.80, ai_score=None):
+        """Check for semantic clones using AI-based (UniXcoder) similarity.
 
         When the caller has already computed the AI score it can pass it in
         via *ai_score* to avoid a second forward pass.
 
-        Threshold calibration (evaluation/results/report.md): mean-pooled
-        GraphCodeBERT cosine is high for ANY two code snippets — unrelated
-        pairs in the evaluation dataset scored 0.876-0.982, so the previous
-        0.8 threshold flagged "semantic clone" on 100% of non-clones.  0.985
-        sits above every observed non-clone score (zero false positives on
-        the dataset) while still firing on very-high-similarity clones.  Note
-        the flag is weak evidence for true Type-4 clones (independent
-        implementations of the same behaviour scored 0.717-0.988, overlapping
-        the non-clone range) — a limitation of mean-pooled embeddings, not of
-        the threshold.
+        Threshold calibration: masked-mean-pooled UniXcoder cosine actually
+        *separates* clones from non-clones (unlike the previous mean-over-padding
+        GraphCodeBERT embedding, whose non-clone scores reached 0.98 and forced a
+        near-useless 0.985 cutoff). UniXcoder collapses unrelated pairs toward a
+        low cosine while clones stay high, so a ~0.80 decision boundary is
+        meaningful.
+
+        IMPORTANT: 0.80 is the branch-measured operating point for UniXcoder.
+        This engine keeps the sliding-window/masked-mean pooling, so the exact
+        value must be re-pinned by running ``python evaluation/run_eval.py`` (AI
+        enabled) against a held-out split before quoting accuracy numbers — do
+        not treat 0.80 as a validated figure until that re-run is recorded.
         """
         score = ai_score if ai_score is not None else self.ai_based_similarity(code1, code2)
         return score > threshold
@@ -445,7 +447,7 @@ class CloneDetector:
           - token similarity   (0.25) -- structural fingerprint via AST token types
           - renamed similarity (0.25) -- same as token-with-order; best for Type 2
           - graph similarity   (0.15) -- AST node-type distribution (cosine)
-          - AI similarity      (0.15) -- GraphCodeBERT semantic embedding
+          - AI similarity      (0.15) -- UniXcoder semantic embedding
         """
         text_sim    = _text_sim    if _text_sim    is not None else self.text_similarity(code1, code2)
         token_sim   = _token_sim   if _token_sim   is not None else self.token_similarity(code1, code2)

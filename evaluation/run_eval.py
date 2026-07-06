@@ -9,7 +9,7 @@ Engines measured
 ----------------
 * ``pairwise``    -- backend.services.analysis_service.analyze_similarities
   (the interactive /api/v1/analysis and CI /api/v1/ci/check path), including
-  the GraphCodeBERT semantic score unless ``--no-ai`` is given.
+  the UniXcoder semantic score unless ``--no-ai`` is given.
 * ``enterprise``  -- enterprise_platform.utils.compute_similarity_bundle
   (the repository-scan path).  File-level comparison: each dataset file is
   wrapped in a single file-kind ArtifactExtraction, mirroring the extractor's
@@ -17,7 +17,7 @@ Engines measured
 
 Usage (from the repo root):
     python evaluation/run_eval.py                 # both engines, AI enabled
-    python evaluation/run_eval.py --no-ai         # skip GraphCodeBERT (fast)
+    python evaluation/run_eval.py --no-ai         # skip UniXcoder (fast)
     python evaluation/run_eval.py --engine enterprise
 
 Outputs ``evaluation/results/metrics.json`` and ``evaluation/results/report.md``.
@@ -26,6 +26,7 @@ Outputs ``evaluation/results/metrics.json`` and ``evaluation/results/report.md``
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 import time
@@ -112,7 +113,7 @@ def read_pair_sources(pair: dict) -> tuple[str, str]:
 # ---------------------------------------------------------------------------
 
 def install_ai_stub() -> None:
-    """Replace GraphCodeBERT with a zero-scoring stub (for --no-ai runs)."""
+    """Replace UniXcoder with a zero-scoring stub (for --no-ai runs)."""
     import backend.engine.clone_detector as clone_detector_module
 
     class _StubAnalyzer:
@@ -220,6 +221,54 @@ def pick_operating_points(sweep_rows: list[dict]) -> dict:
     return {"best_f1": best_f1, "best_recall_at_zero_fp": best_zero_fp}
 
 
+def _stable_key(pair_id: str) -> str:
+    # Deterministic across runs (unlike the salted built-in hash()), so the
+    # train/test split is fully reproducible without an RNG seed.
+    return hashlib.sha256(pair_id.encode("utf-8")).hexdigest()
+
+
+def stratified_split(records: list[dict], test_fraction: float = 0.4) -> tuple[list[dict], list[dict]]:
+    """Deterministic, category-stratified train/test split.
+
+    Each category contributes ~``test_fraction`` of its pairs to the test set
+    (at least one, but never all), so both splits keep the label mix. Ordering
+    within a category is by a stable content hash of the pair id — reproducible
+    run to run with no randomness.
+    """
+    by_cat: dict[str, list[dict]] = {}
+    for record in records:
+        by_cat.setdefault(record["category"], []).append(record)
+    train: list[dict] = []
+    test: list[dict] = []
+    for _category, rows in sorted(by_cat.items()):
+        rows_sorted = sorted(rows, key=lambda r: _stable_key(r["id"]))
+        if len(rows_sorted) >= 2:
+            n_test = min(max(round(len(rows_sorted) * test_fraction), 1), len(rows_sorted) - 1)
+        else:
+            n_test = 0  # a singleton category stays in train
+        test.extend(rows_sorted[:n_test])
+        train.extend(rows_sorted[n_test:])
+    return train, test
+
+
+def evaluate_holdout(records: list[dict], test_fraction: float = 0.4) -> dict:
+    """Honest generalization estimate: pick the zero-false-positive operating
+    threshold on TRAIN only, then report its performance on the held-out TEST
+    split — so the numbers are not an in-sample fit of the same pairs."""
+    train, test = stratified_split(records, test_fraction)
+    train_ops = pick_operating_points(sweep(train))
+    picked = train_ops["best_recall_at_zero_fp"] or train_ops["best_f1"]
+    threshold = picked["threshold"]
+    return {
+        "test_fraction": test_fraction,
+        "train_pairs": len(train),
+        "test_pairs": len(test),
+        "threshold_picked_on_train": threshold,
+        "train_at_threshold": confusion_at(train, threshold),
+        "test_at_threshold": confusion_at(test, threshold),
+    }
+
+
 def category_stats(records: list[dict], thresholds: dict[str, float]) -> dict:
     stats: dict[str, dict] = {}
     for category in sorted({r["category"] for r in records}):
@@ -278,7 +327,7 @@ def build_report(results: dict, ai_enabled: bool) -> str:
     lines = ["# Detection accuracy report", ""]
     lines.append(f"Dataset: {results['dataset_pairs']} labeled pairs "
                  f"(positives: t1/t2/t3/t4/xlang; negatives: hard/easy). "
-                 f"GraphCodeBERT: {'enabled' if ai_enabled else 'DISABLED (--no-ai)'}.")
+                 f"UniXcoder: {'enabled' if ai_enabled else 'DISABLED (--no-ai)'}.")
     lines.append("")
     for engine_name, engine in results["engines"].items():
         lines.append(f"## Engine: {engine_name}")
@@ -293,6 +342,22 @@ def build_report(results: dict, ai_enabled: bool) -> str:
                 rows.append({"point": label, **data})
         lines.append(markdown_table(rows, ["point", "threshold", "precision", "recall", "f1", "fpr", "tp", "fp", "fn", "tn"]))
         lines.append("")
+        if engine.get("holdout"):
+            holdout = engine["holdout"]
+            lines.append("### Held-out validation (threshold chosen on train, measured on test)")
+            lines.append("")
+            lines.append(
+                f"Deterministic stratified split: **{holdout['train_pairs']} train / "
+                f"{holdout['test_pairs']} test**. Zero-FP operating threshold picked on the "
+                f"train split only: **{holdout['threshold_picked_on_train']}**. The test row is "
+                f"the honest generalization estimate (not an in-sample fit)."
+            )
+            lines.append("")
+            lines.append(markdown_table([
+                {"split": "train", **holdout["train_at_threshold"]},
+                {"split": "test (holdout)", **holdout["test_at_threshold"]},
+            ], ["split", "threshold", "precision", "recall", "f1", "fpr", "tp", "fp", "fn", "tn"]))
+            lines.append("")
         lines.append("### Per-category detection")
         lines.append("")
         cat_rows = [{"category": cat, **data} for cat, data in engine["categories"].items()]
@@ -325,7 +390,7 @@ def build_report(results: dict, ai_enabled: bool) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--engine", choices=["pairwise", "enterprise", "both"], default="both")
-    parser.add_argument("--no-ai", action="store_true", help="stub out GraphCodeBERT (fast run)")
+    parser.add_argument("--no-ai", action="store_true", help="stub out UniXcoder (fast run)")
     args = parser.parse_args()
 
     if args.no_ai:
@@ -354,6 +419,7 @@ def main() -> None:
             "flag_fire_rates": flag_fire_rates(records),
             "flag_calibration": flag_calibration(records),
             "misclassified_at_default": misclassified(records, PAIRWISE_DEFAULT_THRESHOLD),
+            "holdout": evaluate_holdout(records),
             "sweep": sweep_rows,
             "records": records,
         }
@@ -381,6 +447,7 @@ def main() -> None:
             }),
             "clone_type_by_category": clone_type_by_category,
             "misclassified_at_default": misclassified(records, ENTERPRISE_DECISION_THRESHOLD),
+            "holdout": evaluate_holdout(records),
             "sweep": sweep_rows,
             "records": records,
         }

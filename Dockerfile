@@ -49,9 +49,15 @@ RUN groupadd --gid 1000 appuser && \
 
 WORKDIR /app
 
-# Python dependencies (cached independently of app code).
-COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt
+# Python dependencies (cached independently of app code). The optional
+# integrations (Stripe, Sentry, Prometheus) are baked into the production image
+# so that setting STRIPE_SECRET_KEY / SENTRY_DSN / METRICS_ENABLED actually
+# works — otherwise the readiness probe would report billing ready while every
+# checkout fails at runtime with 'stripe package not installed'.
+COPY requirements.txt requirements-optional.txt ./
+RUN pip install --upgrade pip && \
+    pip install -r requirements.txt && \
+    pip install -r requirements-optional.txt
 
 # Application code.
 COPY wsgi.py ./

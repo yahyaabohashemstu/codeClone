@@ -2,7 +2,7 @@
 
 Pins the headline numbers measured by ``evaluation/run_eval.py`` against the
 labeled dataset in ``evaluation/dataset`` so that engine or threshold changes
-cannot silently degrade accuracy.  GraphCodeBERT is stubbed (score 0.0) to
+cannot silently degrade accuracy.  UniXcoder is stubbed (score 0.0) to
 keep CI fast — the pinned pairwise assertions therefore cover the non-AI
 signals only; run the full harness manually for the AI-inclusive numbers.
 
@@ -19,6 +19,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DATASET_DIR = REPO_ROOT / "evaluation" / "dataset"
+RESULTS_DIR = REPO_ROOT / "evaluation" / "results"
 
 # Calibrated production operating points (see enterprise_platform/models.py).
 ENTERPRISE_DECISION_THRESHOLD = 0.91
@@ -202,3 +203,43 @@ class TestPairwiseAccuracy:
             detector.remove_comments_and_whitespace(plain)
             == detector.remove_comments_and_whitespace(commented)
         )
+
+
+# ---------------------------------------------------------------------------
+# Held-out (train/test-split) generalization evidence — AI-inclusive, recorded
+# ---------------------------------------------------------------------------
+
+class TestHoldoutEvidence:
+    """Pins the recorded held-out generalization from the last AI-enabled
+    ``python evaluation/run_eval.py``: the operating threshold is chosen on a
+    deterministic stratified TRAIN split and measured on a disjoint TEST split.
+    Reads the committed ``metrics.json`` so CI needs no model load, while still
+    guarding that the recalibration evidence exists and clears the bar
+    (precision 1.0, zero false positives, recall >= 0.8 on unseen pairs)."""
+
+    @pytest.fixture(scope="class")
+    def metrics(self):
+        path = RESULTS_DIR / "metrics.json"
+        if not path.exists():
+            pytest.skip("evaluation/results/metrics.json not generated")
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    def _holdout(self, metrics, engine):
+        engines = metrics.get("engines", {})
+        if engine not in engines or "holdout" not in engines[engine]:
+            pytest.skip(f"{engine} holdout not present in metrics.json")
+        return engines[engine]["holdout"]
+
+    def test_pairwise_holdout_generalizes_zero_fp(self, metrics):
+        holdout = self._holdout(metrics, "pairwise")
+        test = holdout["test_at_threshold"]
+        assert holdout["train_pairs"] > holdout["test_pairs"]  # a real split
+        assert holdout["test_pairs"] >= 10
+        assert test["fp"] == 0 and test["precision"] == 1.0, test
+        assert test["recall"] >= 0.8, test
+
+    def test_enterprise_holdout_generalizes_zero_fp(self, metrics):
+        holdout = self._holdout(metrics, "enterprise")
+        test = holdout["test_at_threshold"]
+        assert test["fp"] == 0 and test["precision"] == 1.0, test
+        assert test["recall"] >= 0.8, test

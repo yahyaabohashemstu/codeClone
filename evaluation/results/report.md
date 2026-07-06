@@ -1,6 +1,6 @@
 # Detection accuracy report
 
-Dataset: 52 labeled pairs (positives: t1/t2/t3/t4/xlang; negatives: hard/easy). GraphCodeBERT: enabled.
+Dataset: 52 labeled pairs (positives: t1/t2/t3/t4/xlang; negatives: hard/easy). UniXcoder: enabled.
 
 ## Engine: pairwise
 
@@ -10,20 +10,29 @@ Pairs evaluated: 50
 
 | point | threshold | precision | recall | f1 | fpr | tp | fp | fn | tn |
 |---|---|---|---|---|---|---|---|---|---|
-| production_default_0.8 | 0.8 | 0.9375 | 0.9091 | 0.9231 | 0.1176 | 30 | 2 | 3 | 15 |
-| best_f1 | 0.825 | 0.9677 | 0.9091 | 0.9375 | 0.0588 | 30 | 1 | 3 | 16 |
-| best_recall_at_zero_fp | 0.83 | 1.0 | 0.8788 | 0.9355 | 0.0 | 29 | 0 | 4 | 17 |
+| production_default_0.8 | 0.8 | 1.0 | 0.9091 | 0.9524 | 0.0 | 30 | 0 | 3 | 17 |
+| best_f1 | 0.825 | 1.0 | 0.9091 | 0.9524 | 0.0 | 30 | 0 | 3 | 17 |
+| best_recall_at_zero_fp | 0.78 | 1.0 | 0.9091 | 0.9524 | 0.0 | 30 | 0 | 3 | 17 |
+
+### Held-out validation (threshold chosen on train, measured on test)
+
+Deterministic stratified split: **31 train / 19 test**. Zero-FP operating threshold picked on the train split only: **0.78**. The test row is the honest generalization estimate (not an in-sample fit).
+
+| split | threshold | precision | recall | f1 | fpr | tp | fp | fn | tn |
+|---|---|---|---|---|---|---|---|---|---|
+| train | 0.78 | 1.0 | 0.9048 | 0.95 | 0.0 | 19 | 0 | 2 | 10 |
+| test (holdout) | 0.78 | 1.0 | 0.9167 | 0.9565 | 0.0 | 11 | 0 | 1 | 7 |
 
 ### Per-category detection
 
 | category | pairs | score_min | score_mean | score_max | detected_at_default_0.80 | detected_at_0.70 | detected_at_0.60 |
 |---|---|---|---|---|---|---|---|
-| easy_negative | 10 | 0.7106 | 0.7459 | 0.8097 | 1/10 | 10/10 | 10/10 |
-| hard_negative | 7 | 0.76 | 0.7814 | 0.8267 | 1/7 | 7/7 | 7/7 |
-| t1 | 11 | 0.9381 | 0.9571 | 0.965 | 11/11 | 11/11 | 11/11 |
-| t2 | 11 | 0.9463 | 0.9587 | 0.9746 | 11/11 | 11/11 | 11/11 |
-| t3 | 6 | 0.8387 | 0.8896 | 0.9325 | 6/6 | 6/6 | 6/6 |
-| t4 | 5 | 0.6797 | 0.7765 | 0.8624 | 2/5 | 4/5 | 5/5 |
+| easy_negative | 10 | 0.6266 | 0.6762 | 0.7323 | 0/10 | 2/10 | 10/10 |
+| hard_negative | 7 | 0.7025 | 0.736 | 0.7783 | 0/7 | 7/7 | 7/7 |
+| t1 | 11 | 0.9108 | 0.9522 | 0.9606 | 11/11 | 11/11 | 11/11 |
+| t2 | 11 | 0.9208 | 0.9389 | 0.9591 | 11/11 | 11/11 | 11/11 |
+| t3 | 6 | 0.8278 | 0.8674 | 0.9156 | 6/6 | 6/6 | 6/6 |
+| t4 | 5 | 0.6947 | 0.7698 | 0.8504 | 2/5 | 3/5 | 5/5 |
 
 ### Clone-flag fire rates (share of pairs where the flag is true)
 
@@ -39,13 +48,13 @@ Pairs evaluated: 50
 | function_reordered_clone_result | 0.818 | 0.0 |
 | gapped_clone_result | 0.667 | 0.0 |
 | intertwined_clone_result | 0.576 | 0.0 |
-| semantic_clone_result | 0.485 | 0.0 |
+| semantic_clone_result | 0.758 | 0.0 |
 
 ### Misclassifications at production default (0.8)
 
-False negatives (3): [{'id': 't4_matrix_ops_python', 'category': 't4', 'score': 0.6797}, {'id': 't4_binary_search_python', 'category': 't4', 'score': 0.7369}, {'id': 't4_group_by_javascript', 'category': 't4', 'score': 0.7756}]
+False negatives (3): [{'id': 't4_binary_search_python', 'category': 't4', 'score': 0.6947}, {'id': 't4_matrix_ops_python', 'category': 't4', 'score': 0.6989}, {'id': 't4_group_by_javascript', 'category': 't4', 'score': 0.774}]
 
-False positives (2): [{'id': 'hard_lru_cache_python', 'category': 'hard_negative', 'score': 0.8267}, {'id': 'easy_matrix_ops_vs_task_scheduler', 'category': 'easy_negative', 'score': 0.8097}]
+False positives (0): []
 
 ## Engine: enterprise
 
@@ -59,6 +68,15 @@ Pairs evaluated: 52
 | decision_threshold_0.91 | 0.91 | 1.0 | 0.8571 | 0.9231 | 0.0 | 30 | 0 | 5 | 17 |
 | best_f1 | 0.91 | 1.0 | 0.8571 | 0.9231 | 0.0 | 30 | 0 | 5 | 17 |
 | best_recall_at_zero_fp | 0.91 | 1.0 | 0.8571 | 0.9231 | 0.0 | 30 | 0 | 5 | 17 |
+
+### Held-out validation (threshold chosen on train, measured on test)
+
+Deterministic stratified split: **32 train / 20 test**. Zero-FP operating threshold picked on the train split only: **0.91**. The test row is the honest generalization estimate (not an in-sample fit).
+
+| split | threshold | precision | recall | f1 | fpr | tp | fp | fn | tn |
+|---|---|---|---|---|---|---|---|---|---|
+| train | 0.91 | 1.0 | 0.8636 | 0.9268 | 0.0 | 19 | 0 | 3 | 10 |
+| test (holdout) | 0.91 | 1.0 | 0.8462 | 0.9167 | 0.0 | 11 | 0 | 2 | 7 |
 
 ### Per-category detection
 

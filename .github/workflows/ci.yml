@@ -35,14 +35,16 @@ jobs:
           restore-keys: |
             pip-${{ runner.os }}-py3.11-
 
-      # The CI tests exercise the real GraphCodeBERT model; cache the
-      # HuggingFace download (~500 MB) so it is not re-fetched every run
-      # (the pip cache above does not cover model files).
+      # The CI tests exercise the real UniXcoder model; cache the HuggingFace
+      # download (~500 MB) so it is not re-fetched every run (the pip cache
+      # above does not cover model files).
       - name: Cache HuggingFace models
         uses: actions/cache@v4
         with:
           path: ~/.cache/huggingface
-          key: hf-models-graphcodebert-base-v1
+          key: hf-models-unixcoder-base-v1
+          restore-keys: |
+            hf-models-
 
       - name: Install dependencies
         run: |
@@ -174,7 +176,29 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build backend image
+      # The root Dockerfile is the ACTUAL production/deploy artifact (single
+      # container, same-origin). Build it here so a break in the deployed image
+      # surfaces in CI, not at release time.
+      - name: Build production single-container image (root Dockerfile)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: false
+          tags: codeclone:ci-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Validate the deploy compose topologies so a malformed service/reference
+      # is caught in CI rather than on the Coolify host at deploy time.
+      - name: Validate deploy compose files
+        run: |
+          export APP_IMAGE=ghcr.io/example/codeclone SECRET_KEY=x ENTERPRISE_DATA_KEY=x \
+                 DATABASE_URL=sqlite:///x REDIS_URL=redis://x POSTGRES_PASSWORD=x
+          docker compose -f docker-compose.coolify.yml config -q
+          docker compose -f docker/docker-compose.prod.yml config -q
+
+      - name: Build backend image (multi-container prod stack)
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -184,7 +208,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Build frontend image
+      - name: Build frontend image (multi-container prod stack)
         uses: docker/build-push-action@v6
         with:
           context: .

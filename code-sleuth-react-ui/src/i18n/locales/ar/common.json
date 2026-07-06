@@ -70,7 +70,24 @@
     "error": "حدث خطأ",
     "empty": "لا توجد بيانات متاحة",
     "success": "تمت العملية بنجاح",
-    "analyzing": "جارٍ التحليل..."
+    "analyzing": "جارٍ التحليل...",
+    "title": "حالة النظام",
+    "operational": "جميع الأنظمة تعمل بشكل طبيعي",
+    "degraded": "متدهورة — بعض الفحوصات تفشل",
+    "checking": "جارٍ الفحص…",
+    "ok": "سليم",
+    "unreachable": "تعذّر الوصول إلى الخدمة.",
+    "home": "الرئيسية",
+    "labels": {
+      "database": "قاعدة البيانات",
+      "billingConfigured": "الفوترة (Stripe)",
+      "emailProvider": "تسليم البريد الإلكتروني",
+      "sentryConfigured": "تتبّع الأخطاء",
+      "rateLimitBackend": "تحديد معدّل الطلبات",
+      "enterpriseKeyConfigured": "تشفير المؤسسة",
+      "selfRegistration": "التسجيل الذاتي",
+      "emailVerificationRequired": "تأكيد البريد الإلكتروني"
+    }
   },
   "errors": {
     "generic": "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
@@ -288,6 +305,9 @@
     "secretKey": "مفتاح السرّ",
     "authCode": "رمز من 6 أرقام",
     "confirmEnable": "تأكيد وتفعيل",
+    "manualEntry": "تعذّر المسح؟ أدخل مفتاح السرّ هذا يدويًا بدلًا من ذلك:",
+    "copySecret": "نسخ مفتاح السرّ",
+    "copyToken": "نسخ مفتاح API",
     "recoveryTitle": "احفظ رموز الاسترداد",
     "recoveryIntro": "خزّنها في مكان آمن. كل رمز يُستخدم مرة واحدة إن فقدت تطبيق المصادقة. تُعرض الآن فقط.",
     "done": "تم",

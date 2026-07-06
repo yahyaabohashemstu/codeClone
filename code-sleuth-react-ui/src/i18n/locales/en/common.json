@@ -70,7 +70,24 @@
     "error": "An error occurred",
     "empty": "No data available",
     "success": "Operation completed successfully",
-    "analyzing": "Analyzing..."
+    "analyzing": "Analyzing...",
+    "title": "System status",
+    "operational": "All systems operational",
+    "degraded": "Degraded — some checks are failing",
+    "checking": "Checking…",
+    "ok": "OK",
+    "unreachable": "The service could not be reached.",
+    "home": "Home",
+    "labels": {
+      "database": "Database",
+      "billingConfigured": "Billing (Stripe)",
+      "emailProvider": "Email delivery",
+      "sentryConfigured": "Error tracking",
+      "rateLimitBackend": "Rate limiting",
+      "enterpriseKeyConfigured": "Enterprise encryption",
+      "selfRegistration": "Self-registration",
+      "emailVerificationRequired": "Email verification"
+    }
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",
@@ -288,6 +305,9 @@
     "secretKey": "Secret key",
     "authCode": "6-digit code",
     "confirmEnable": "Confirm & enable",
+    "manualEntry": "Can't scan? Enter this secret key manually instead:",
+    "copySecret": "Copy secret key",
+    "copyToken": "Copy API key",
     "recoveryTitle": "Save your recovery codes",
     "recoveryIntro": "Store these somewhere safe. Each can be used once if you lose your authenticator. They are shown only now.",
     "done": "Done",

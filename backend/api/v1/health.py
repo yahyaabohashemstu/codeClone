@@ -48,9 +48,12 @@ def health_readiness():
         db_ok = False
 
     redis_url = cfg.get("RATELIMIT_STORAGE_URI", "memory://")
+    # billingConfigured must reflect what will actually WORK: the key being set
+    # is not enough if the image ships without the optional 'stripe' package.
+    from backend.services.stripe_service import billing_operational
     checks = {
         "database": db_ok,
-        "billingConfigured": bool(cfg.get("STRIPE_SECRET_KEY")),
+        "billingConfigured": billing_operational(),
         "emailProvider": cfg.get("EMAIL_PROVIDER", "console"),
         "sentryConfigured": bool(cfg.get("SENTRY_DSN")),
         "rateLimitBackend": "redis" if str(redis_url).startswith("redis") else "memory",
