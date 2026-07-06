@@ -14,6 +14,7 @@ import secrets
 
 from flask import jsonify
 from flask_login import current_user, login_required
+from sqlalchemy import func, select
 
 from backend.api.v1 import v1_bp
 from backend.extensions import db, limiter
@@ -35,15 +36,31 @@ from backend.tasks.background import cleanup_stale_tasks, submit_analysis_task
 @v1_bp.route("/history", methods=["GET"])
 @login_required
 def api_history():
-    analyses = (
-        Analysis.query
-        .filter_by(user_id=current_user.id)
+    # Project only the columns the summary needs. The full code1/code2/metrics/
+    # analysis_text/snapshot_json Text blobs are never loaded — the list view
+    # only needs a one-line source label (derive_source_label reads the first
+    # line, well within 400 chars). This keeps the endpoint's memory/IO bounded
+    # even for a user with thousands of large analyses, and the returned Row
+    # objects expose .id/.operation/.result/.language/.similarity/.date_created/
+    # .code1/.code2 exactly as serialize_history_summary and build_history_stats
+    # expect, so the response shape is unchanged.
+    rows = db.session.execute(
+        select(
+            Analysis.id,
+            Analysis.operation,
+            Analysis.result,
+            Analysis.language,
+            Analysis.similarity,
+            Analysis.date_created,
+            func.substr(Analysis.code1, 1, 400).label("code1"),
+            func.substr(Analysis.code2, 1, 400).label("code2"),
+        )
+        .where(Analysis.user_id == current_user.id)
         .order_by(Analysis.date_created.desc())
-        .all()
-    )
+    ).all()
     return jsonify({
-        "items": [serialize_history_summary(analysis) for analysis in analyses],
-        "stats": build_history_stats(analyses),
+        "items": [serialize_history_summary(row) for row in rows],
+        "stats": build_history_stats(rows),
     })
 
 

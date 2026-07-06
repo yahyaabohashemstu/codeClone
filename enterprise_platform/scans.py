@@ -9,11 +9,20 @@ import tempfile
 from pathlib import Path
 
 from flask import current_app
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 
 from enterprise_platform.models import *
 from enterprise_platform.utils import *
 from enterprise_platform.services import *
+
+# Cap on how many scans may be queued/claimed/running for a single repository at
+# once. The scan-trigger endpoints (manual REST + GraphQL createScan) have no
+# rate limit and each enqueued job does a full git clone on a bounded thread
+# pool, so without this an authenticated reviewer (or a leaked write-scoped API
+# key) could enqueue unbounded clones and exhaust disk/CPU. Configurable.
+_MAX_ACTIVE_SCANS_PER_REPO = max(
+    1, int(os.environ.get("ENTERPRISE_MAX_ACTIVE_SCANS_PER_REPO", "5") or "5")
+)
 
 
 def scan_failure_message(exc: Exception) -> str:
@@ -355,6 +364,22 @@ def enqueue_scan_job(scan_job_id: int) -> None:
 
 
 def create_repository_scan_job(db_session, actor: dict[str, Any], workspace: Workspace, repository: RepositoryConnection, trigger_type: str, trigger_payload: dict[str, Any]) -> ScanJob:
+    # Reject new scans when this repository already has too many in flight. This
+    # bounds the executor queue and the number of concurrent git clones a single
+    # actor can provoke through the (otherwise unthrottled) trigger endpoints.
+    active_scans = int(db_session.execute(
+        select(func.count(ScanJob.id)).where(
+            ScanJob.repository_id == repository.id,
+            ScanJob.status.in_(("queued", "claimed", "running")),
+        )
+    ).scalar_one())
+    if active_scans >= _MAX_ACTIVE_SCANS_PER_REPO:
+        raise EnterpriseError(
+            429,
+            "Too many scans are already queued or running for this repository. "
+            "Wait for them to finish before triggering another.",
+            code="scan_rate_limited",
+        )
     scan_job = ScanJob(
         workspace_id=workspace.id,
         repository_id=repository.id,

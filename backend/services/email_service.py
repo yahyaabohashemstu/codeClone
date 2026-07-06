@@ -40,10 +40,24 @@ def send_email(to_address: str, subject: str, body: str, html_body: str | None =
         return False
 
     if provider == "console":
-        logger.info(
-            "[email:console] To=%s From=%s Subject=%s\n%s",
-            to_address, sender, subject, body,
-        )
+        # SECURITY: the message body carries live, single-use bearer tokens
+        # (password-reset and email-verification links). Writing it to the
+        # application log would route account-takeover credentials to log
+        # aggregators readable by a far broader, lower-trust audience than the
+        # recipient's mailbox. Log only non-secret envelope metadata; include
+        # the body ONLY under an interactive debug run (never in production —
+        # ProductionConfig also refuses to boot with EMAIL_PROVIDER=console).
+        if current_app.debug:
+            logger.info(
+                "[email:console] To=%s From=%s Subject=%s\n%s",
+                to_address, sender, subject, body,
+            )
+        else:
+            logger.info(
+                "[email:console] To=%s From=%s Subject=%s "
+                "(body suppressed — set EMAIL_PROVIDER=smtp to deliver, or run in debug to log it)",
+                to_address, sender, subject,
+            )
         return True
 
     if provider == "smtp":

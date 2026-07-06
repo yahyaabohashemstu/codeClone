@@ -1,0 +1,130 @@
+# =============================================================================
+# CodeClone — Coolify (Traefik) production stack, single-container topology.
+#
+# WHY THIS FILE (vs docker/docker-compose.prod.yml):
+#   * Single container: the root Dockerfile builds the React SPA and serves it
+#     together with /api from ONE Waitress process on :5000. The app is
+#     same-origin by construction (no CORS, CSP connect-src 'self', SameSite
+#     cookies) — so there is NO separate frontend/Nginx service and NO
+#     VITE_API_BASE_URL. Coolify's Traefik terminates TLS and routes to :5000.
+#   * Postgres + Redis are Coolify-managed resources (auto-backup). This file
+#     contains ONLY app services and injects DATABASE_URL / REDIS_URL.
+#   * Images are built + pushed to GHCR by GitHub Actions
+#     (.github/workflows/production-deploy.yml). Coolify PULLS them — the heavy
+#     torch/transformers build never runs on the Hetzner box.
+#
+# COOLIFY SETUP (see docs/DEPLOYMENT.md → "Deploying on Coolify"):
+#   1. Create managed PostgreSQL + Redis resources; note their internal URLs.
+#   2. New Application → Docker Compose → this file.
+#   3. If the GHCR package is private, add GHCR registry credentials in Coolify;
+#      otherwise make the package public.
+#   4. Set the environment variables below in Coolify (the ${VAR:?...} ones are
+#      REQUIRED — the deploy fails fast if they are missing).
+#   5. Attach your domain to the `app` service on port 5000.
+#
+# Migrations run automatically via the one-shot `migrate` service before `app`
+# and `worker` start. The current migration only ADDS a nullable column, so it
+# is safe to apply while the previous release is still serving (zero-downtime).
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # One-shot schema migration. Runs `alembic upgrade head`, then exits 0.
+  # env.py reads DATABASE_URL directly and never builds the Flask app, so this
+  # needs ONLY the database URL (no SECRET_KEY / email config).
+  # ---------------------------------------------------------------------------
+  migrate:
+    image: ${APP_IMAGE:-ghcr.io/yahyaabohashemstu/codeclone}:${IMAGE_TAG:-latest}
+    pull_policy: always
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL (Coolify-managed Postgres) in Coolify}
+    restart: "no"
+
+  # ---------------------------------------------------------------------------
+  # Web app: Waitress serves the built SPA + /api on :5000 (default CMD).
+  # Traefik (Coolify) fronts this = exactly one proxy hop.
+  # ---------------------------------------------------------------------------
+  app:
+    image: ${APP_IMAGE:-ghcr.io/yahyaabohashemstu/codeclone}:${IMAGE_TAG:-latest}
+    pull_policy: always
+    environment:
+      FLASK_ENV: production
+      BIND_HOST: "0.0.0.0"
+      PORT: "5000"
+      # Concurrency for light requests; the ML pipeline runs on the background
+      # pool below. Tune WAITRESS_THREADS up on bigger instances.
+      WAITRESS_THREADS: ${WAITRESS_THREADS:-16}
+      BG_ANALYSIS_WORKERS: ${BG_ANALYSIS_WORKERS:-3}
+      # --- Required secrets (deploy fails fast if unset) ---
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in Coolify}
+      ENTERPRISE_DATA_KEY: ${ENTERPRISE_DATA_KEY:?Set ENTERPRISE_DATA_KEY in Coolify (encrypts enterprise data at rest)}
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in Coolify}
+      REDIS_URL: ${REDIS_URL:?Set REDIS_URL (Coolify-managed Redis) in Coolify}
+      # Exactly one proxy hop (Traefik) in front → trust one hop for correct
+      # per-client rate limiting and https scheme detection.
+      TRUST_PROXY_HEADERS: "1"
+      SESSION_COOKIE_SECURE: "1"
+      # Production email MUST NOT be 'console' (it would log live reset tokens);
+      # ProductionConfig refuses to boot with console. Use smtp, or disabled.
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-disabled}
+      EMAIL_FROM: ${EMAIL_FROM:-no-reply@codeclone.local}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      # Public HTTPS base URL, used to build email links (e.g. https://app.example.com).
+      APP_BASE_URL: ${APP_BASE_URL:-}
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      CI_API_KEY: ${CI_API_KEY:-}
+      # Hand enterprise scans to the dedicated worker (below) instead of running
+      # CPU-heavy git clones + scans inside the web process.
+      ENTERPRISE_USE_WORKER: "1"
+      # Memory-safety tunables (see .env.example).
+      MAX_CACHE_BYTES: ${MAX_CACHE_BYTES:-536870912}
+      ENTERPRISE_MAX_CACHED_WORKSPACE_INDEXES: ${ENTERPRISE_MAX_CACHED_WORKSPACE_INDEXES:-32}
+    volumes:
+      # Persist generated key material / bootstrap admin credentials across
+      # redeploys. Mount a Coolify persistent volume here.
+      - app-instance:/app/instance
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:5000/api/v1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Enterprise scan worker: durable git-clone + scan processing off the web tier.
+  # Same image, different command. mem_limit shields the host from a pathological
+  # AST/scan blowing up resident memory.
+  # ---------------------------------------------------------------------------
+  worker:
+    image: ${APP_IMAGE:-ghcr.io/yahyaabohashemstu/codeclone}:${IMAGE_TAG:-latest}
+    pull_policy: always
+    command: ["python", "enterprise_worker.py"]
+    environment:
+      FLASK_ENV: production
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in Coolify}
+      ENTERPRISE_DATA_KEY: ${ENTERPRISE_DATA_KEY:?Set ENTERPRISE_DATA_KEY in Coolify}
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in Coolify}
+      REDIS_URL: ${REDIS_URL:?Set REDIS_URL in Coolify}
+      # Keep the boot-time email guard satisfied on the worker too.
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-disabled}
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+      ENTERPRISE_ALLOWED_GIT_HOSTS: ${ENTERPRISE_ALLOWED_GIT_HOSTS:-}
+      ENTERPRISE_MAX_ACTIVE_SCANS_PER_REPO: ${ENTERPRISE_MAX_ACTIVE_SCANS_PER_REPO:-5}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    mem_limit: ${WORKER_MEM_LIMIT:-4g}
+    restart: unless-stopped
+
+volumes:
+  app-instance:

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { GitCompare, Loader2 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
@@ -106,6 +106,34 @@ export function DiffViewer({
       .finally(() => setLoading(false));
   }, [analysisId]);
 
+  // Build the flat per-side row arrays ONCE per loaded diff. These were
+  // previously rebuilt in the render body on every scroll frame (setScrollTop
+  // re-renders), so an O(total_lines) allocation ran on each wheel tick and
+  // partially defeated the row virtualization on large diffs. Memoizing keyed
+  // on `data` leaves scrolling to only recompute the cheap start/end indices.
+  const { rowsA, rowsB, total } = useMemo(() => {
+    const a: DiffRow[] = [];
+    const b: DiffRow[] = [];
+    if (data) {
+      for (const block of data.blocks) {
+        const maxLen = Math.max(block.lines_a.length, block.lines_b.length);
+        for (let i = 0; i < maxLen; i++) {
+          a.push({
+            line: block.lines_a[i] ?? "",
+            lineNum: i < block.lines_a.length ? block.start_a + i + 1 : null,
+            type: block.type,
+          });
+          b.push({
+            line: block.lines_b[i] ?? "",
+            lineNum: i < block.lines_b.length ? block.start_b + i + 1 : null,
+            type: block.type,
+          });
+        }
+      }
+    }
+    return { rowsA: a, rowsB: b, total: a.length };
+  }, [data]);
+
   if (loading) {
     return (
       <div className="card-premium flex min-h-[320px] items-center justify-center gap-3 text-sm text-muted-foreground">
@@ -124,28 +152,6 @@ export function DiffViewer({
   }
 
   const maxLines = Math.max(data.total_lines_a, data.total_lines_b);
-
-  // Build flat row lists for each side
-  const rowsA: { line: string; lineNum: number | null; type: DiffBlock["type"] }[] = [];
-  const rowsB: { line: string; lineNum: number | null; type: DiffBlock["type"] }[] = [];
-
-  for (const block of data.blocks) {
-    const maxLen = Math.max(block.lines_a.length, block.lines_b.length);
-    for (let i = 0; i < maxLen; i++) {
-      rowsA.push({
-        line: block.lines_a[i] ?? "",
-        lineNum: i < block.lines_a.length ? block.start_a + i + 1 : null,
-        type: block.type,
-      });
-      rowsB.push({
-        line: block.lines_b[i] ?? "",
-        lineNum: i < block.lines_b.length ? block.start_b + i + 1 : null,
-        type: block.type,
-      });
-    }
-  }
-
-  const total = rowsA.length;
   const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
   const endIndex = Math.min(total, Math.ceil((scrollTop + VIEWPORT_HEIGHT) / ROW_HEIGHT) + OVERSCAN);
 

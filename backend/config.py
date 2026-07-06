@@ -187,6 +187,21 @@ class ProductionConfig(BaseConfig):
             )
             self.SESSION_COOKIE_SECURE: bool = False  # type: ignore[assignment]
 
+        # The 'console' email provider writes the full message body — which
+        # includes live password-reset and email-verification links (single-use
+        # bearer tokens) — to the application log.  In production those logs are
+        # typically shipped to an aggregator readable by a broader, lower-trust
+        # audience than the user's mailbox, so a leaked link is an account
+        # takeover.  Refuse to boot with console mail in production: require a
+        # real transport ('smtp') or an explicit opt-out ('disabled').
+        if os.environ.get("EMAIL_PROVIDER", "console").lower() == "console":
+            raise RuntimeError(
+                "EMAIL_PROVIDER=console is not allowed in production: it logs "
+                "password-reset and verification links (live bearer tokens). "
+                "Set EMAIL_PROVIDER=smtp to deliver real mail, or 'disabled' to "
+                "turn off outbound email."
+            )
+
 
 class TestingConfig(BaseConfig):
     """In-memory SQLite for fast test runs."""

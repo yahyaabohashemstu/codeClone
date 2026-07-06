@@ -558,7 +558,16 @@ class EnterpriseStorage:
         self._v2_key_cache: "OrderedDict[str, Fernet]" = OrderedDict()
         self._v2_cache_lock = threading.Lock()
         self._app = None
-        self._index_cache: dict[int, WorkspaceVectorIndex] = {}
+        # LRU-bounded per-workspace vector index cache. A plain unbounded dict
+        # retained every tenant's dense embedding matrix (num_artifacts x 384
+        # float32 + parallel id lists) in the shared worker process forever, so
+        # resident memory grew with the number of workspaces ever touched — a
+        # multi-tenant memory cliff. Cap the number of co-resident indexes;
+        # evicting one only costs a rebuild from the DB on next access.
+        self._index_cache: "OrderedDict[int, WorkspaceVectorIndex]" = OrderedDict()
+        self._max_cached_indexes = max(
+            1, int(os.environ.get("ENTERPRISE_MAX_CACHED_WORKSPACE_INDEXES", "16") or "16")
+        )
         self._index_lock = threading.Lock()
 
     def configure(self, app) -> None:
@@ -755,6 +764,7 @@ class EnterpriseStorage:
         with self._index_lock:
             cached = self._index_cache.get(workspace_id)
             if cached and cached.version_marker == marker:
+                self._index_cache.move_to_end(workspace_id)  # mark most-recently-used
                 return cached
         rows = db_session.execute(
             select(
@@ -781,6 +791,10 @@ class EnterpriseStorage:
         index = WorkspaceVectorIndex(artifact_ids, repository_ids, snapshot_ids, language_families, matrix, marker)
         with self._index_lock:
             self._index_cache[workspace_id] = index
+            self._index_cache.move_to_end(workspace_id)  # most-recently-used
+            # Evict least-recently-used workspace indexes beyond the cap.
+            while len(self._index_cache) > self._max_cached_indexes:
+                self._index_cache.popitem(last=False)
         return index
 
 

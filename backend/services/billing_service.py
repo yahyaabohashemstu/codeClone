@@ -30,7 +30,15 @@ def get_or_create_subscription(user_id: int) -> Subscription:
     if sub is None:
         sub = Subscription(user_id=user_id, plan_code=DEFAULT_PLAN_CODE, status="active")
         db.session.add(sub)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except IntegrityError:
+            # A concurrent first-time request created the row first; the unique
+            # Subscription.user_id constraint fired. Without this guard the
+            # second request raised an uncaught IntegrityError (HTTP 500) on a
+            # user's very first billing/analysis action. Reuse the winner's row.
+            db.session.rollback()
+            sub = Subscription.query.filter_by(user_id=user_id).first()
     return sub
 
 
