@@ -27,6 +27,27 @@ def is_configured() -> bool:
     return bool(current_app.config.get("STRIPE_SECRET_KEY"))
 
 
+def package_available() -> bool:
+    """True when the optional ``stripe`` package can actually be imported."""
+    try:
+        import stripe  # noqa: F401, PLC0415 — probe only
+        return True
+    except ImportError:
+        return False
+
+
+def billing_operational() -> bool:
+    """True only when Stripe is configured AND its package is importable.
+
+    ``is_configured()`` alone (STRIPE_SECRET_KEY set) is a *readiness lie* on an
+    image built without the optional ``stripe`` dependency: the probe would
+    report billing ready while every checkout/webhook call raises
+    ``StripeNotConfigured('stripe package not installed')`` at runtime. The
+    readiness endpoint uses this so its signal reflects what will actually work.
+    """
+    return is_configured() and package_available()
+
+
 def _client():
     if not is_configured():
         raise StripeNotConfigured("Stripe is not configured (STRIPE_SECRET_KEY unset).")
