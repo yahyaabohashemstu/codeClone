@@ -105,8 +105,16 @@ type FlowGraph = {
     nodeCount: number;
     edgeCount: number;
     rootCount: number;
+    truncated: boolean;
+    totalNodeCount: number;
   };
 };
+
+// Very large ASTs (thousands of nodes) freeze the tab when every node/edge is
+// laid out and mounted. Mirroring DiffViewer's line cap, render only the first
+// MAX_GRAPH_NODES nodes (and edges whose endpoints both survive) and surface a
+// notice so the truncation is visible rather than silent.
+const MAX_GRAPH_NODES = 600;
 
 interface AstGraphPanelProps {
   title: string;
@@ -423,13 +431,13 @@ function GraphExplorer({
             {t("results.astGraph.fullScreen")}
           </Button>
         )}
-        <Button variant="outline" size="icon" className="h-8 w-8 border-border/60" onClick={zoomOut}>
+        <Button variant="outline" size="icon" className="h-8 w-8 border-border/60" onClick={zoomOut} aria-label={t("results.astGraph.zoomOut")} title={t("results.astGraph.zoomOut")}>
           <ZoomOut className="h-3.5 w-3.5" />
         </Button>
-        <Button variant="outline" size="sm" className="h-8 border-border/60 px-3 text-xs" onClick={fitGraph}>
+        <Button variant="outline" size="sm" className="h-8 border-border/60 px-3 text-xs" onClick={fitGraph} aria-label={t("results.astGraph.fitView")} title={t("results.astGraph.fitView")}>
           {t("results.astGraph.fitView")}
         </Button>
-        <Button variant="outline" size="icon" className="h-8 w-8 border-border/60" onClick={zoomIn}>
+        <Button variant="outline" size="icon" className="h-8 w-8 border-border/60" onClick={zoomIn} aria-label={t("results.astGraph.zoomIn")} title={t("results.astGraph.zoomIn")}>
           <ZoomIn className="h-3.5 w-3.5" />
         </Button>
       </div>
@@ -472,6 +480,16 @@ function GraphExplorer({
 function buildFlowGraph(elements: unknown, color: GraphTone, t: (key: string, opts?: Record<string, unknown>) => string): FlowGraph {
   const normalized = normalizeElements(elements);
 
+  const totalNodeCount = normalized.nodes.length;
+  const truncated = totalNodeCount > MAX_GRAPH_NODES;
+  const cappedNodes = truncated ? normalized.nodes.slice(0, MAX_GRAPH_NODES) : normalized.nodes;
+
+  // When truncating, keep only edges whose both endpoints survived the cap so
+  // no edge dangles to a dropped node.
+  const survivingNodeIds = truncated
+    ? new Set(cappedNodes.map((node, index) => String(node.data?.id ?? `node-${index}`)))
+    : null;
+
   const parsedEdges = normalized.edges
     .map((edge, index) => {
       const source = edge.data?.source;
@@ -486,7 +504,8 @@ function buildFlowGraph(elements: unknown, color: GraphTone, t: (key: string, op
         target: String(target),
       };
     })
-    .filter((edge): edge is { id: string; source: string; target: string } => Boolean(edge));
+    .filter((edge): edge is { id: string; source: string; target: string } => Boolean(edge))
+    .filter((edge) => !survivingNodeIds || (survivingNodeIds.has(edge.source) && survivingNodeIds.has(edge.target)));
 
   const incomingCount = new Map<string, number>();
   const outgoingCount = new Map<string, number>();
@@ -508,7 +527,7 @@ function buildFlowGraph(elements: unknown, color: GraphTone, t: (key: string, op
     incomingEdgeIdsByNode.set(edge.target, incomingEdgeIds);
   }
 
-  const baseNodes = normalized.nodes.map((node, index) => {
+  const baseNodes = cappedNodes.map((node, index) => {
     const id = String(node.data?.id ?? `node-${index}`);
     const label = formatNodeLabel(node, index);
     const range = formatLineRange(node.data?.start, node.data?.end, t);
@@ -632,6 +651,8 @@ function buildFlowGraph(elements: unknown, color: GraphTone, t: (key: string, op
       nodeCount: nodes.length,
       edgeCount: edges.length,
       rootCount: baseNodes.filter((node) => node.isRoot).length,
+      truncated,
+      totalNodeCount,
     },
   };
 }
@@ -740,6 +761,14 @@ export function AstGraphPanel({ title, color, elements }: AstGraphPanelProps) {
                 <span className="badge-info">{flowGraph.summary.rootCount} {t("results.astGraph.rootSignals")}</span>
               </div>
             )}
+            {flowGraph.summary.truncated && (
+              <p className="mt-2 text-xs leading-relaxed text-warning">
+                {t("results.astGraph.truncatedNotice", {
+                  shown: flowGraph.summary.nodeCount,
+                  total: flowGraph.summary.totalNodeCount,
+                })}
+              </p>
+            )}
           </div>
         </div>
 
@@ -782,6 +811,14 @@ export function AstGraphPanel({ title, color, elements }: AstGraphPanelProps) {
               <span className="badge-info">{flowGraph.summary.edgeCount} {t("results.astGraph.edges")}</span>
               <span className="badge-info">{flowGraph.summary.rootCount} {t("results.astGraph.rootSignals")}</span>
             </div>
+            {flowGraph.summary.truncated && (
+              <p className="mt-2 text-xs leading-relaxed text-warning">
+                {t("results.astGraph.truncatedNotice", {
+                  shown: flowGraph.summary.nodeCount,
+                  total: flowGraph.summary.totalNodeCount,
+                })}
+              </p>
+            )}
           </DialogHeader>
 
           <GraphExplorer

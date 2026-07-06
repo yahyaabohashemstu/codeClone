@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { QRCodeSVG } from "qrcode.react";
 import { Copy, KeyRound, Loader2, LogOut, Plus, ShieldCheck, ShieldAlert, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,7 @@ const Settings = () => {
 
   const [stage, setStage] = useState<Stage>("idle");
   const [secret, setSecret] = useState("");
+  const [otpauthUri, setOtpauthUri] = useState("");
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
@@ -49,8 +51,9 @@ const Settings = () => {
   const beginEnroll = async () => {
     setBusy(true);
     try {
-      const { secret: s } = await setup2fa();
+      const { secret: s, otpauthUri: uri } = await setup2fa();
       setSecret(s);
+      setOtpauthUri(uri);
       setCode("");
       setStage("enrolling");
     } catch {
@@ -178,9 +181,15 @@ const Settings = () => {
         {stage === "enrolling" && (
           <div className="mt-4 space-y-3">
             <p className="t-sm">{t("settings.scanOrEnter")}</p>
+            {otpauthUri && (
+              <div className="flex justify-center rounded-lg border border-border bg-white p-4">
+                <QRCodeSVG value={otpauthUri} size={168} level="M" includeMargin={false} />
+              </div>
+            )}
+            <p className="t-sm">{t("settings.manualEntry")}</p>
             <div className="flex items-center gap-2">
               <Input readOnly value={secret} dir="ltr" className="font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
-              <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => copy(secret)}>
+              <Button type="button" variant="outline" size="sm" className="gap-1.5" aria-label={t("settings.copySecret")} title={t("settings.copySecret")} onClick={() => copy(secret)}>
                 <Copy className="h-3.5 w-3.5" />
               </Button>
             </div>
@@ -256,7 +265,7 @@ const Settings = () => {
             <div className="mb-1 text-xs text-warning">{t("settings.apiKeys.tokenOnce")}</div>
             <div className="flex items-center gap-2">
               <Input readOnly value={freshToken} dir="ltr" className="font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
-              <Button type="button" variant="outline" size="sm" onClick={() => copy(freshToken)}><Copy className="h-3.5 w-3.5" /></Button>
+              <Button type="button" variant="outline" size="sm" aria-label={t("settings.copyToken")} title={t("settings.copyToken")} onClick={() => copy(freshToken)}><Copy className="h-3.5 w-3.5" /></Button>
             </div>
           </div>
         )}

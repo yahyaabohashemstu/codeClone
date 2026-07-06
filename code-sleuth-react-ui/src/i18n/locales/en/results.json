@@ -184,6 +184,7 @@
     "overviewDescription": "Inspect both source inputs directly inside the overview before moving through similarity signals, clone evidence, and the AI narrative.",
     "graph1": "Code 1 Graph",
     "graph2": "Code 2 Graph",
+    "panelError": "This panel could not be displayed. The rest of the results are unaffected.",
     "invalidId": "Invalid analysis identifier.",
     "noSavedOrActive": "No saved or active analysis is available yet.",
     "unableToLoad": "Unable to load the analysis result.",
@@ -301,7 +302,10 @@
       "fullScreen": "Full Screen",
       "fitView": "Fit View",
       "lineLabel": "Line {{line}}",
-      "linesLabel": "Lines {{start}}-{{end}}"
+      "linesLabel": "Lines {{start}}-{{end}}",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "truncatedNotice": "Graph truncated — showing {{shown}} of {{total}} nodes."
     },
 
     "diff": {

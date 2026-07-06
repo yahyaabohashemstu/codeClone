@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { AnalysisChatPanel } from "@/components/results/AnalysisChatPanel";
 import { AnalysisReport } from "@/components/results/AnalysisReport";
 import { AstGraphPanel } from "@/components/results/AstGraphPanel";
@@ -965,6 +966,16 @@ function QualityPanel({ result }: { result: AnalysisResult }) {
   );
 }
 
+function PanelErrorFallback() {
+  const { t } = useTranslation("results");
+  return (
+    <div className="card-premium p-8 text-center" role="alert">
+      <AlertTriangle className="mx-auto mb-3 h-6 w-6 text-destructive" />
+      <p className="text-sm font-medium text-foreground">{t("results.panelError")}</p>
+    </div>
+  );
+}
+
 const Results = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -1358,28 +1369,40 @@ const Results = () => {
             />
             <div className="grid gap-5 xl:grid-cols-2">
               <SimilarityBars items={result.similarity_items} />
-              <SimilarityRadar items={result.similarity_items} />
+              <ErrorBoundary fallback={<PanelErrorFallback />}>
+                <SimilarityRadar items={result.similarity_items} />
+              </ErrorBoundary>
             </div>
             <CloneDetection items={result.clone_items} />
           </div>
         )}
 
         {activeTab === "diff" && (
-          <DiffViewer
-            analysisId={result.saved_analysis_id}
-            labelA={result.source_labels.code1}
-            labelB={result.source_labels.code2}
-          />
+          <ErrorBoundary fallback={<PanelErrorFallback />}>
+            <DiffViewer
+              analysisId={result.saved_analysis_id}
+              labelA={result.source_labels.code1}
+              labelB={result.source_labels.code2}
+            />
+          </ErrorBoundary>
         )}
 
         {activeTab === "graphs" && (
           <div className="grid gap-5 xl:grid-cols-2">
-            <AstGraphPanel title={t("results.graph1")} color="primary" elements={result.graph_json1} />
-            <AstGraphPanel title={t("results.graph2")} color="accent" elements={result.graph_json2} />
+            <ErrorBoundary fallback={<PanelErrorFallback />}>
+              <AstGraphPanel title={t("results.graph1")} color="primary" elements={result.graph_json1} />
+            </ErrorBoundary>
+            <ErrorBoundary fallback={<PanelErrorFallback />}>
+              <AstGraphPanel title={t("results.graph2")} color="accent" elements={result.graph_json2} />
+            </ErrorBoundary>
           </div>
         )}
 
-        {activeTab === "metrics" && <MetricsComparison metricsA={result.metrics1} metricsB={result.metrics2} />}
+        {activeTab === "metrics" && (
+          <ErrorBoundary fallback={<PanelErrorFallback />}>
+            <MetricsComparison metricsA={result.metrics1} metricsB={result.metrics2} />
+          </ErrorBoundary>
+        )}
 
         {activeTab === "quality" && <QualityPanel result={result} />}
 
