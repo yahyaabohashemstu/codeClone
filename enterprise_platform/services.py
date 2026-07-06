@@ -572,29 +572,82 @@ def pair_key(a_id: int, b_id: int) -> tuple[int, int]:
 
 
 
-def build_workspace_analytics(db_session, workspace_id: int) -> dict[str, Any]:
-    artifacts = db_session.execute(select(CodeArtifact).where(CodeArtifact.workspace_id == workspace_id)).scalars().all()
-    matches = db_session.execute(select(SimilarityMatch).where(SimilarityMatch.workspace_id == workspace_id)).scalars().all()
-    repositories = db_session.execute(select(RepositoryConnection).where(RepositoryConnection.workspace_id == workspace_id)).scalars().all()
-    artifacts_by_id = {artifact.id: artifact for artifact in artifacts}
+# Upper bound on similarity matches materialized for the cluster graph / repo
+# heatmap. A large workspace accumulates tens of thousands of matches across
+# repeated scans; loading them all (plus every artifact) on each analytics
+# request was a full-table load + O(n) graph build. The exact totals below come
+# from SQL aggregates, so only the visualization is bounded — to the strongest
+# (highest-similarity) matches, which are the ones worth surfacing.
+_ANALYTICS_MAX_GRAPH_MATCHES = 2000
 
-    similarity_spread = {"0-25": 0, "25-50": 0, "50-75": 0, "75-100": 0}
-    for match in matches:
-        score = match.similarity_score * 100
-        if score < 25:
-            similarity_spread["0-25"] += 1
-        elif score < 50:
-            similarity_spread["25-50"] += 1
-        elif score < 75:
-            similarity_spread["50-75"] += 1
-        else:
-            similarity_spread["75-100"] += 1
+
+def build_workspace_analytics(db_session, workspace_id: int) -> dict[str, Any]:
+    # Exact counts via SQL aggregates (no row materialization).
+    artifacts_count = int(db_session.execute(
+        select(func.count(CodeArtifact.id)).where(CodeArtifact.workspace_id == workspace_id)
+    ).scalar_one())
+    matches_count = int(db_session.execute(
+        select(func.count(SimilarityMatch.id)).where(SimilarityMatch.workspace_id == workspace_id)
+    ).scalar_one())
+
+    repositories = db_session.execute(
+        select(RepositoryConnection).where(RepositoryConnection.workspace_id == workspace_id)
+    ).scalars().all()
+    repo_name_by_id = {repo.id: repo.name for repo in repositories}
+
+    # Exact similarity spread via bounded count queries (dialect-portable — no
+    # DB-specific CASE/cast). similarity_score is in [0, 1]; buckets match the
+    # previous score*100 boundaries.
+    def _bucket_count(low: float, high: float | None) -> int:
+        query = select(func.count(SimilarityMatch.id)).where(
+            SimilarityMatch.workspace_id == workspace_id,
+            SimilarityMatch.similarity_score >= low,
+        )
+        if high is not None:
+            query = query.where(SimilarityMatch.similarity_score < high)
+        return int(db_session.execute(query).scalar_one())
+
+    similarity_spread = {
+        "0-25": _bucket_count(0.0, 0.25),
+        "25-50": _bucket_count(0.25, 0.50),
+        "50-75": _bucket_count(0.50, 0.75),
+        "75-100": _bucket_count(0.75, None),
+    }
+
+    # Exact clone-type distribution via GROUP BY.
+    clone_type_rows = db_session.execute(
+        select(SimilarityMatch.clone_type, func.count(SimilarityMatch.id))
+        .where(SimilarityMatch.workspace_id == workspace_id)
+        .group_by(SimilarityMatch.clone_type)
+    ).all()
+    clone_type_counts = Counter({clone_type: int(count) for clone_type, count in clone_type_rows})
+
+    # Cluster graph + repo heatmap over the strongest bounded set of matches only.
+    top_matches = db_session.execute(
+        select(
+            SimilarityMatch.artifact_a_id,
+            SimilarityMatch.artifact_b_id,
+            SimilarityMatch.similarity_score,
+        )
+        .where(SimilarityMatch.workspace_id == workspace_id)
+        .order_by(SimilarityMatch.similarity_score.desc())
+        .limit(_ANALYTICS_MAX_GRAPH_MATCHES)
+    ).all()
+
+    referenced_ids = {row.artifact_a_id for row in top_matches} | {row.artifact_b_id for row in top_matches}
+    artifacts_by_id: dict[int, Any] = {}
+    if referenced_ids:
+        artifact_rows = db_session.execute(
+            select(CodeArtifact.id, CodeArtifact.repository_id, CodeArtifact.logical_path)
+            .where(CodeArtifact.id.in_(referenced_ids))
+        ).all()
+        artifacts_by_id = {row.id: row for row in artifact_rows}
 
     graph = nx.Graph()
-    for artifact in artifacts:
-        graph.add_node(artifact.id, repository_id=artifact.repository_id, path=artifact.logical_path)
-    for match in matches:
-        graph.add_edge(match.artifact_a_id, match.artifact_b_id, weight=match.similarity_score)
+    for artifact_id, artifact in artifacts_by_id.items():
+        graph.add_node(artifact_id, repository_id=artifact.repository_id, path=artifact.logical_path)
+    for row in top_matches:
+        graph.add_edge(row.artifact_a_id, row.artifact_b_id, weight=row.similarity_score)
     clusters = []
     for cluster_nodes in nx.connected_components(graph):
         if len(cluster_nodes) < 2:
@@ -613,16 +666,15 @@ def build_workspace_analytics(db_session, workspace_id: int) -> dict[str, Any]:
         )
 
     repository_heatmap: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
-    repo_name_by_id = {repo.id: repo.name for repo in repositories}
-    for match in matches:
-        artifact_a = artifacts_by_id.get(match.artifact_a_id)
-        artifact_b = artifacts_by_id.get(match.artifact_b_id)
+    for row in top_matches:
+        artifact_a = artifacts_by_id.get(row.artifact_a_id)
+        artifact_b = artifacts_by_id.get(row.artifact_b_id)
         if not artifact_a or not artifact_b:
             continue
         repo_a = repo_name_by_id.get(artifact_a.repository_id, f"repo-{artifact_a.repository_id}")
         repo_b = repo_name_by_id.get(artifact_b.repository_id, f"repo-{artifact_b.repository_id}")
-        repository_heatmap[repo_a][repo_b].append(match.similarity_score)
-        repository_heatmap[repo_b][repo_a].append(match.similarity_score)
+        repository_heatmap[repo_a][repo_b].append(row.similarity_score)
+        repository_heatmap[repo_b][repo_a].append(row.similarity_score)
 
     heatmap_matrix = []
     repository_names = sorted(repo_name_by_id.values())
@@ -633,10 +685,9 @@ def build_workspace_analytics(db_session, workspace_id: int) -> dict[str, Any]:
             heatmap_row.append(round((sum(scores) / len(scores)) * 100, 2) if scores else 0.0)
         heatmap_matrix.append({"repository": row_repo, "scores": heatmap_row})
 
-    clone_type_counts = Counter(match.clone_type for match in matches)
     return {
-        "artifacts": len(artifacts),
-        "matches": len(matches),
+        "artifacts": artifacts_count,
+        "matches": matches_count,
         "repositories": len(repositories),
         "clusters": clusters,
         "heatmap": {"repositories": repository_names, "matrix": heatmap_matrix},
@@ -649,10 +700,23 @@ def recalibrate_thresholds(db_session, workspace_id: int) -> None:
     feedback_rows = db_session.execute(
         select(FeedbackEvent, ReviewCase, SimilarityMatch).join(ReviewCase, ReviewCase.id == FeedbackEvent.case_id).join(SimilarityMatch, SimilarityMatch.id == ReviewCase.match_id).where(FeedbackEvent.workspace_id == workspace_id)
     ).all()
+    # Batch-load the language_family for every referenced artifact in ONE query
+    # instead of a per-feedback-row db_session.get (an N+1 on this synchronous
+    # POST /cases/<id>/feedback path that grew with the workspace's feedback
+    # history). Only language_family is needed, so full artifacts are not loaded.
+    artifact_a_ids = {sm.artifact_a_id for _, _, sm in feedback_rows}
+    language_family_by_artifact: dict[int, str] = {}
+    if artifact_a_ids:
+        for artifact_id, language_family in db_session.execute(
+            select(CodeArtifact.id, CodeArtifact.language_family).where(
+                CodeArtifact.id.in_(artifact_a_ids)
+            )
+        ).all():
+            language_family_by_artifact[artifact_id] = language_family
+
     grouped: dict[tuple[str, str], list[tuple[str, float]]] = defaultdict(list)
     for feedback, review_case, similarity_match in feedback_rows:
-        artifact_a = db_session.get(CodeArtifact, similarity_match.artifact_a_id)
-        language_family = artifact_a.language_family if artifact_a else "generic"
+        language_family = language_family_by_artifact.get(similarity_match.artifact_a_id) or "generic"
         grouped[(language_family, review_case.clone_type)].append((feedback.label, similarity_match.similarity_score))
     for (language_family, clone_type), values in grouped.items():
         confirmed = [score for label, score in values if label in {"confirmed_clone", "confirmed_plagiarism"}]
