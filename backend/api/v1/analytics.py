@@ -28,14 +28,16 @@ from backend.services.analysis_service import serialize_history_summary
 @login_required
 def api_analytics():
     """Return aggregated analytics for the authenticated user."""
-    # Lightweight projection: aggregate over only the columns we need, so the
-    # large code1/code2 source columns are never loaded just to build stats.
+    # Lightweight projection: the date/language/similarity columns are tiny
+    # scalars, so scanning them for the full history is cheap. The large
+    # snapshot_json blob is loaded SEPARATELY and only for the most recent
+    # CLONE_SCAN_LIMIT analyses (below), so an all-time blob scan can never
+    # happen regardless of how much history a user accumulates.
     rows = db.session.execute(
         select(
             Analysis.date_created,
             Analysis.language,
             Analysis.similarity,
-            Analysis.snapshot_json,
         ).where(Analysis.user_id == current_user.id)
     ).all()
 
@@ -83,9 +85,20 @@ def api_analytics():
             buckets["75-100"] += 1
     similarity_dist = [{"range": k, "count": v} for k, v in buckets.items()]
 
-    # Clone type frequency -- parse from snapshot_json
+    # Clone type frequency -- parse from snapshot_json for the most recent
+    # analyses only. snapshot_json embeds code1, code2, both AST graphs and
+    # metrics (the heaviest per-row data), so scanning it for all-time history
+    # was an unbounded blob load; capping to the recent window keeps memory
+    # bounded while remaining representative.
+    CLONE_SCAN_LIMIT = 1000
+    clone_rows = db.session.execute(
+        select(Analysis.snapshot_json)
+        .where(Analysis.user_id == current_user.id)
+        .order_by(Analysis.date_created.desc())
+        .limit(CLONE_SCAN_LIMIT)
+    ).all()
     clone_freq: dict[str, int] = {}
-    for row in rows:
+    for row in clone_rows:
         if not row.snapshot_json:
             continue
         try:

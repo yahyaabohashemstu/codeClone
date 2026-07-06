@@ -64,7 +64,18 @@ def admin_users():
     query = User.query.order_by(User.id.desc())
     total = query.count()
     users = query.offset((page - 1) * per_page).limit(per_page).all()
-    subs = {s.user_id: s.plan_code for s in Subscription.query.all()}
+    # Fetch only the subscriptions for the users on THIS page. Loading the whole
+    # subscription table (one row per platform user) to annotate <=100 rows was
+    # an O(total_users) fetch on every admin page load.
+    page_user_ids = [u.id for u in users]
+    subs = (
+        {
+            s.user_id: s.plan_code
+            for s in Subscription.query.filter(Subscription.user_id.in_(page_user_ids)).all()
+        }
+        if page_user_ids
+        else {}
+    )
     items = [{
         "id": u.id, "username": u.username, "email": u.email,
         "emailVerified": bool(u.email_verified), "twofaEnabled": bool(u.totp_enabled),
