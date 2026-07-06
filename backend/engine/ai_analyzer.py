@@ -1,8 +1,15 @@
 """
-Flask-independent AI-powered code similarity analyzer using GraphCodeBERT.
+Flask-independent AI-powered code similarity analyzer using UniXcoder.
 
-Provides embedding-based similarity analysis via Microsoft's GraphCodeBERT model.
-All dependencies (transformers, torch, numpy) are optional and handled gracefully.
+Provides embedding-based similarity analysis via Microsoft's UniXcoder model
+(``microsoft/unixcoder-base``, Apache-2.0), a code-representation model that
+separates clones from non-clones far better than the previous GraphCodeBERT
+encoder. UniXcoder is native RoBERTa, so it loads without ``trust_remote_code``.
+
+This module keeps the engine's masked-mean pooling, sliding-window full-file
+coverage, GPU support, and single-inference lock (thread safety) — only the
+underlying encoder changed. All dependencies (transformers, torch, numpy) are
+optional and handled gracefully.
 """
 
 import logging
@@ -31,9 +38,9 @@ except ImportError:
         "transformers is not installed; AIAnalyzer will not be available."
     )
 
-_GRAPHCODEBERT_MODEL = "microsoft/graphcodebert-base"
+_MODEL_NAME = "microsoft/unixcoder-base"
 
-# GraphCodeBERT's positional embeddings cap the sequence at 512 tokens. We
+# UniXcoder's positional embeddings cap the sequence at 512 tokens. We
 # reserve two slots for the [CLS]/[SEP] special tokens and slide a window with
 # 25% overlap across long inputs, then pool the per-window embeddings — so the
 # whole file contributes rather than only its first ~512 tokens.
@@ -74,7 +81,7 @@ def _make_windows(token_ids, content_len, overlap, max_windows):
 
 
 class AIAnalyzer:
-    """Embedding-based code similarity analyzer using GraphCodeBERT.
+    """Embedding-based code similarity analyzer using UniXcoder.
 
     Loads the ``microsoft/graphcodebert-base`` tokenizer and model on first
     instantiation.  Consumers should prefer the :func:`get_ai_analyzer`
@@ -98,10 +105,10 @@ class AIAnalyzer:
                 "Install it with: pip install numpy"
             )
 
-        logger.info("Loading GraphCodeBERT model '%s' ...", _GRAPHCODEBERT_MODEL)
-        self.tokenizer = AutoTokenizer.from_pretrained(_GRAPHCODEBERT_MODEL)
+        logger.info("Loading UniXcoder model '%s' ...", _MODEL_NAME)
+        self.tokenizer = AutoTokenizer.from_pretrained(_MODEL_NAME)
         self.model = AutoModel.from_pretrained(
-            _GRAPHCODEBERT_MODEL, add_pooling_layer=False
+            _MODEL_NAME, add_pooling_layer=False
         )
         # Use a GPU when one is present; otherwise stay on CPU. eval() disables
         # dropout for deterministic embeddings.
@@ -112,7 +119,7 @@ class AIAnalyzer:
         # multiple threads (background pool + CI request threads). Serialize
         # inference on this shared model.
         self._infer_lock = threading.Lock()
-        logger.info("GraphCodeBERT model loaded successfully (device=%s).", self.device)
+        logger.info("UniXcoder model loaded successfully (device=%s).", self.device)
 
     def _masked_mean(self, hidden, attention):
         """Mean-pool *hidden* over real (non-padding) positions using the mask.

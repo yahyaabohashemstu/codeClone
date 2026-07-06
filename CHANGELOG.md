@@ -7,6 +7,39 @@ and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2
 
 ---
 
+## [Unreleased]
+
+### Changed — ML core
+
+- **Semantic encoder upgraded GraphCodeBERT → UniXcoder** (`microsoft/unixcoder-base`,
+  Apache‑2.0). The swap is a *surgical port* onto the existing engine: the
+  sliding‑window full‑file coverage, masked‑mean pooling, GPU support, and the
+  single‑inference thread lock are all preserved (a raw merge of the model branch
+  would have regressed those). UniXcoder gives a real clone/non‑clone decision
+  boundary (smoke: renamed‑clone ≈ 0.60 vs unrelated ≈ 0.20, versus GraphCodeBERT
+  where non‑clones reached 0.77–0.98). The semantic‑clone threshold default moves
+  0.985 → 0.80.
+
+> **Honesty caveat (not yet closed):** `evaluation/results/*` still reflects
+> GraphCodeBERT and must be re‑run with UniXcoder on a **held‑out split** before
+> the 0.80 threshold and any accuracy numbers are treated as validated. Type‑4 /
+> cross‑language detection remains advisory until that measurement exists.
+
+### Fixed — deployment integrity
+
+- `billingConfigured` readiness now reports true only when Stripe is configured
+  **and** the `stripe` package is importable (was a lie on an image built without
+  the optional dependency). Added `stripe_service.billing_operational()`.
+- The production images (root `Dockerfile` and `docker/Dockerfile.backend`) now
+  **bake `requirements-optional.txt`** (Stripe, Sentry, Prometheus) so setting the
+  corresponding env vars actually works at runtime.
+- `ci.yml` now builds the **root deployment `Dockerfile`** (the artifact that
+  actually ships) and **validates** `docker-compose.coolify.yml` /
+  `docker-compose.prod.yml` via `docker compose config`; HF model cache key
+  updated to UniXcoder with a `restore-keys` fallback.
+
+---
+
 ## [1.0.0-hardened] — 2026-07-06
 
 Release-hardening pass driven by an adversarial, multi-dimension audit (security,

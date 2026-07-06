@@ -28,7 +28,7 @@
 
 ## Overview
 
-**CodeClone** is a full‑stack platform that answers one question with rigor: *how similar are these two pieces of code, and why?* It combines a language‑agnostic **AST engine** (tree‑sitter), a **GraphCodeBERT** semantic embedding, and an optional **Mistral LLM** narrative into a single calibrated verdict — wrapped in a production SaaS with accounts, quotas, billing, a CI/CD gate, and a multi‑tenant enterprise mode for team code review.
+**CodeClone** is a full‑stack platform that answers one question with rigor: *how similar are these two pieces of code, and why?* It combines a language‑agnostic **AST engine** (tree‑sitter), a **UniXcoder** semantic embedding, and an optional **Mistral LLM** narrative into a single calibrated verdict — wrapped in a production SaaS with accounts, quotas, billing, a CI/CD gate, and a multi‑tenant enterprise mode for team code review.
 
 > [!NOTE]
 > **Honest scope.** Thresholds are calibrated against a labeled dataset (`evaluation/`), not hand‑picked. The engine is **strong** on Type‑1 (identical), Type‑2 (renamed), and Type‑3 (near‑miss) clones. Type‑4 (behaviourally‑equivalent but structurally different) and **cross‑language** clones are **advisory‑only** — their scores overlap unrelated code with current embeddings. Run `python evaluation/run_eval.py` to reproduce the numbers.
@@ -62,7 +62,7 @@
 | | Capability | Detail |
 |:--:|---|---|
 | 🌐 | **Multi‑language detection** | **15 languages** via tree‑sitter — Python, JavaScript, TypeScript, Java, C, Go, Rust, Ruby, PHP, Kotlin, Scala, Elixir, Haskell, Perl, R |
-| 🧠 | **Hybrid scoring** | Weighted blend of text, token, AST‑structure, renamed‑structure, and **GraphCodeBERT** semantic signals |
+| 🧠 | **Hybrid scoring** | Weighted blend of text, token, AST‑structure, renamed‑structure, and **UniXcoder** semantic signals |
 | 🤖 | **AI narratives** | Mistral LLM produces a human‑readable review + a structured risk report (verdict, findings, refactor hints) |
 | 🏷️ | **11 clone‑type flags** | Near‑miss, parameterized, function, structural, reordered, gapped, intertwined, semantic… each with a calibrated threshold |
 | 👤 | **Accounts & quotas** | Self‑service signup, email verification, password reset, per‑plan monthly quotas (Free / Pro / Team) |
@@ -112,7 +112,7 @@ flowchart TB
     end
 
     subgraph ml["AI / ML"]
-        BERT["GraphCodeBERT<br/>(local, torch)"]
+        BERT["UniXcoder<br/>(local, torch)"]
         MI["Mistral LLM<br/>(API)"]
     end
 
@@ -156,7 +156,7 @@ flowchart LR
     P --> TK["Token<br/>similarity"]
     P --> RN["Renamed<br/>(Type-2)"]
     P --> G["AST graph<br/>node-type cosine"]
-    P --> AIe["GraphCodeBERT<br/>sliding-window embed"]
+    P --> AIe["UniXcoder<br/>sliding-window embed"]
 
     T --> C
     TK --> C
@@ -181,10 +181,13 @@ flowchart LR
 | Token similarity | **0.25** | AST token‑type fingerprint |
 | Renamed similarity | **0.25** | Ordered token‑types — best for **Type‑2** (renamed) |
 | Graph similarity | **0.15** | Cosine over AST **node‑type frequency** distributions |
-| AI (GraphCodeBERT) | **0.15** | Mean‑pooled semantic embedding (chunked over the whole file) |
+| AI (UniXcoder) | **0.15** | Mean‑pooled semantic embedding (chunked over the whole file) |
 
 > [!TIP]
-> The GraphCodeBERT step uses a **sliding‑window** with masked pooling, so files longer than 512 tokens are embedded in full rather than truncated. Thresholds live as calibrated constants (see `evaluation/results/report.md`) tuned to keep the false‑positive rate at ~0 on the labeled set.
+> The UniXcoder step uses a **sliding‑window** with masked pooling (via the attention mask), so files longer than 512 tokens are embedded in full rather than truncated. Unlike the previous GraphCodeBERT encoder — whose non‑clone cosines reached 0.98 and forced a near‑useless 0.985 cutoff — UniXcoder collapses unrelated pairs to a low cosine while clones stay high, so a meaningful ~0.80 boundary exists.
+>
+> [!WARNING]
+> **Calibration honesty.** The numbers in `evaluation/results/report.md` were produced with the *previous* GraphCodeBERT encoder and are **not yet re‑run for UniXcoder**; the 0.80 semantic threshold is a provisional operating point pending a fresh `python evaluation/run_eval.py`. The labeled set is only 52 pairs and thresholds are picked **in‑sample**, so quoted precision/recall/FPR are training‑set fits, not generalization estimates. Do not cite them as validated accuracy until the UniXcoder re‑run (on a held‑out split) is recorded.
 
 ### Clone types
 
@@ -250,7 +253,7 @@ sequenceDiagram
 - Flask 3.1 · SQLAlchemy 2 · Flask‑Login
 - Waitress WSGI · Flask‑Limiter
 - tree‑sitter · RapidFuzz · NetworkX · radon
-- PyTorch · Transformers (GraphCodeBERT)
+- PyTorch · Transformers (UniXcoder)
 - Mistral AI · pyotp · cryptography
 - SQLite / PostgreSQL · Redis · Alembic
 
@@ -271,7 +274,7 @@ sequenceDiagram
 
 ## Quick start
 
-> **Prerequisites:** Python 3.11+ · Node.js 20+ · ~2 GB RAM (GraphCodeBERT loads into memory).
+> **Prerequisites:** Python 3.11+ · Node.js 20+ · ~2 GB RAM (UniXcoder loads into memory).
 
 <details open>
 <summary><b>Option A — single server (recommended)</b></summary>
@@ -561,4 +564,4 @@ CodeClone/
 
 **All rights reserved.** © CodeClone. See the repository owner for usage terms.
 
-<div align="center"><br/><sub>Built with tree‑sitter, GraphCodeBERT, Flask, and React.</sub></div>
+<div align="center"><br/><sub>Built with tree‑sitter, UniXcoder, Flask, and React.</sub></div>
