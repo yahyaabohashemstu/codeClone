@@ -1,28 +1,26 @@
 name: Production Deploy
 
-# Continuous deployment for tagged releases. Push a semver tag (e.g. v1.0.0) or
-# run manually. Branch/PR testing is handled by ci.yml; this pipeline promotes a
-# verified build to production.
+# Continuous delivery for CodeClone, single-container topology:
+#   test (GitHub) → build ONE image (root Dockerfile) → push to GHCR →
+#   trigger Coolify, which pulls the image and deploys behind Traefik.
 #
-# The `deploy` job runs in the protected `production` GitHub Environment, so it
-# only executes once its required reviewers/secrets are configured — a tag push
-# never deploys silently. Required secrets (configure under the `production`
-# environment):
-#   DATABASE_URL          SQLAlchemy URL of the production database (for migrations)
-#   COOLIFY_WEBHOOK_URL   Deploy webhook for the production host (Coolify/PaaS)
-#   COOLIFY_TOKEN         Bearer token for the deploy webhook
-# GHCR push uses the built-in GITHUB_TOKEN (no extra secret needed).
+# The heavy torch/transformers build runs on GitHub's runners, never on the
+# Hetzner host. Database migrations run on the Hetzner side via the one-shot
+# `migrate` service in docker-compose.coolify.yml (the CI runner cannot reach a
+# Coolify-internal database), so there is deliberately no alembic step here.
+#
+# Required (configure under the `production` GitHub Environment):
+#   COOLIFY_WEBHOOK_URL   Coolify deploy webhook for the application
+#   COOLIFY_TOKEN         Bearer token for that webhook
+# GHCR push uses the built-in GITHUB_TOKEN.
 
 on:
   push:
+    branches:
+      - "release/**"
     tags:
       - "v*.*.*"
   workflow_dispatch:
-    inputs:
-      ref:
-        description: "Git ref (tag/branch/SHA) to deploy"
-        required: false
-        default: ""
 
 concurrency:
   group: production-deploy
@@ -34,7 +32,7 @@ permissions:
 
 jobs:
   # ===========================================================================
-  # 1. Quality gate — backend tests + frontend build must pass before shipping
+  # 1. Quality gate — the image is not built unless tests pass
   # ===========================================================================
   test:
     name: Lint & Test
@@ -67,7 +65,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
 
-      - name: Run backend test suite
+      - name: Backend test suite (AST · SSRF · tenancy · auth)
         env:
           FLASK_ENV: testing
         run: pytest tests/ -q
@@ -76,14 +74,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-
-      - name: Cache npm download cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: npm-${{ runner.os }}-node20-${{ hashFiles('code-sleuth-react-ui/package-lock.json') }}
-          restore-keys: |
-            npm-${{ runner.os }}-node20-
+          cache: "npm"
+          cache-dependency-path: code-sleuth-react-ui/package-lock.json
 
       - name: Install frontend dependencies
         working-directory: code-sleuth-react-ui
@@ -97,31 +89,34 @@ jobs:
         working-directory: code-sleuth-react-ui
         run: npm run test
 
-      - name: Build frontend bundle
-        working-directory: code-sleuth-react-ui
-        run: npm run build
-
   # ===========================================================================
-  # 2. Containerize — build backend + frontend images and push to GHCR
+  # 2. Build the single-container image (root Dockerfile) and push to GHCR
   # ===========================================================================
   build-and-push:
-    name: Build & Push Images
+    name: Build & Push Image
     runs-on: ubuntu-latest
     needs: test
     outputs:
-      image_tag: ${{ steps.meta.outputs.image_tag }}
+      image_ref: ${{ steps.meta.outputs.image_ref }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Compute lowercase image base + tag
+      - name: Compute lowercase image tags
         id: meta
         run: |
-          echo "image_base=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
-          # Use the git tag when present, else the short SHA.
-          TAG="${GITHUB_REF_NAME}"
-          if [ "${GITHUB_REF_TYPE}" != "tag" ]; then TAG="sha-${GITHUB_SHA::12}"; fi
-          echo "image_tag=${TAG}" >> "$GITHUB_OUTPUT"
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
+          SHA_TAG="sha-${GITHUB_SHA::12}"
+          TAGS="${IMAGE}:latest"$'\n'"${IMAGE}:${SHA_TAG}"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            TAGS="${TAGS}"$'\n'"${IMAGE}:${GITHUB_REF_NAME}"
+          fi
+          {
+            echo "tags<<EOF"
+            echo "${TAGS}"
+            echo "EOF"
+            echo "image_ref=${IMAGE}:${SHA_TAG}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -133,80 +128,43 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & push backend image
+      - name: Build & push single-container image
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: docker/Dockerfile.backend
+          file: Dockerfile
           push: true
-          tags: |
-            ${{ steps.meta.outputs.image_base }}/backend:${{ steps.meta.outputs.image_tag }}
-            ${{ steps.meta.outputs.image_base }}/backend:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build & push frontend image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: docker/Dockerfile.frontend
-          push: true
-          tags: |
-            ${{ steps.meta.outputs.image_base }}/frontend:${{ steps.meta.outputs.image_tag }}
-            ${{ steps.meta.outputs.image_base }}/frontend:latest
+          tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
   # ===========================================================================
-  # 3. Migrate & deploy — runs only in the protected `production` environment
+  # 3. Deploy — tell Coolify to pull the new image and roll it out via Traefik.
+  #    Migrations run on the Hetzner side (compose `migrate` service).
   # ===========================================================================
   deploy:
-    name: Migrate & Deploy
+    name: Trigger Coolify Deploy
     runs-on: ubuntu-latest
     needs: build-and-push
     environment:
       name: production
       url: ${{ vars.PRODUCTION_URL }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install migration dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Apply database migrations (alembic upgrade head)
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: |
-          if [ -z "$DATABASE_URL" ]; then
-            echo "::error::DATABASE_URL secret is not configured for the production environment."
-            exit 1
-          fi
-          alembic upgrade head
-
-      - name: Trigger production deployment
+      - name: Trigger Coolify webhook
         env:
           COOLIFY_WEBHOOK_URL: ${{ secrets.COOLIFY_WEBHOOK_URL }}
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
         run: |
           if [ -z "$COOLIFY_WEBHOOK_URL" ] || [ -z "$COOLIFY_TOKEN" ]; then
-            echo "::error::COOLIFY_WEBHOOK_URL / COOLIFY_TOKEN secrets are not configured."
-            echo "Configure them (or replace this step with your host's deploy mechanism) to enable automatic rollout."
+            echo "::error::COOLIFY_WEBHOOK_URL / COOLIFY_TOKEN are not configured in the production environment."
             exit 1
           fi
           curl --fail --show-error --silent -X POST \
             -H "Authorization: Bearer ${COOLIFY_TOKEN}" \
             "${COOLIFY_WEBHOOK_URL}"
 
-      - name: Deployment summary
+      - name: Summary
         run: |
-          echo "### Production deploy dispatched :rocket:" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Image tag: \`${{ needs.build-and-push.outputs.image_tag }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Migrations: applied via alembic upgrade head" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Deployed to production :rocket:" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Image: \`${{ needs.build-and-push.outputs.image_ref }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Migrations: applied on the host by the compose \`migrate\` service" >> "$GITHUB_STEP_SUMMARY"
