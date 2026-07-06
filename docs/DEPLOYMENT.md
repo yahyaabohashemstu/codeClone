@@ -222,6 +222,78 @@ Readiness will report `sentryConfigured: true`.
 
 ---
 
+## 6. Deploying on Coolify (managed DB + GitHub CI/CD)
+
+This is the recommended production path: **GitHub tests, builds, and pushes one
+image; Coolify pulls it and deploys behind its built-in Traefik** (automatic TLS,
+health-gated rollout). The heavy `torch`/`transformers` build never runs on your
+Hetzner box, and the database is a Coolify-managed resource with automatic
+backups.
+
+**Pieces:**
+- [`Dockerfile`](../Dockerfile) — single container: builds the SPA and serves it
+  + `/api` from one Waitress process on `:5000` (same-origin, no CORS).
+- [`docker-compose.coolify.yml`](../docker-compose.coolify.yml) — app services
+  only (`migrate` one-shot, `app`, `worker`); pulls the GHCR image; injects
+  `DATABASE_URL` / `REDIS_URL`.
+- [`.github/workflows/production-deploy.yml`](../.github/workflows/production-deploy.yml)
+  — test → build → push to GHCR → trigger the Coolify webhook.
+
+**Steps:**
+
+1. **Managed resources.** In Coolify create a **PostgreSQL** and a **Redis**
+   resource. Copy their internal connection URLs
+   (`postgresql://user:pass@host:5432/db`, `redis://host:6379/0`).
+
+2. **Registry access.** The image is pushed to
+   `ghcr.io/<owner>/<repo>` (lowercased). Either make that GHCR package
+   **public**, or add GHCR credentials under Coolify → Registries.
+
+3. **Create the application.** New Resource → **Docker Compose** → your Git repo
+   and the `release/**` branch → compose file `docker-compose.coolify.yml`.
+   Attach your **domain to the `app` service on port 5000** (Coolify wires
+   Traefik + Let's Encrypt automatically). Add a **persistent volume** for
+   `app-instance` (`/app/instance`).
+
+4. **Environment variables** (Coolify → the app's Environment tab). Required:
+
+   ```ini
+   SECRET_KEY=<from step 0>
+   ENTERPRISE_DATA_KEY=<from step 0>
+   DATABASE_URL=<managed Postgres URL from step 1>
+   REDIS_URL=<managed Redis URL from step 1>
+   APP_BASE_URL=https://app.yourdomain.com
+   EMAIL_PROVIDER=smtp        # or 'disabled'. NEVER 'console' — the app refuses
+   EMAIL_FROM=no-reply@yourdomain.com
+   SMTP_HOST=...              # + SMTP_PORT / SMTP_USERNAME / SMTP_PASSWORD
+   # Optional: MISTRAL_API_KEY, STRIPE_SECRET_KEY/…, APP_IMAGE (override registry),
+   # IMAGE_TAG (pin a specific sha-… tag instead of latest for a controlled rollback)
+   ```
+
+5. **Wire the deploy trigger.** Copy the app's **Deploy Webhook** from Coolify.
+   In GitHub → Settings → Environments → **`production`**, add secrets
+   `COOLIFY_WEBHOOK_URL` and `COOLIFY_TOKEN`.
+
+6. **Ship it.** Push to `release/**` (or tag `vX.Y.Z`). GitHub runs the suite,
+   builds the image, pushes `:latest` + `:sha-…` to GHCR, then pings Coolify.
+   Coolify pulls the image, the `migrate` service runs `alembic upgrade head`,
+   and `app` + `worker` roll out behind Traefik once healthy.
+
+**Notes for this topology:**
+- Traefik is exactly **one** proxy hop, so `TRUST_PROXY_HEADERS=1` (set in the
+  compose) is correct — per-client rate limiting and the `https` scheme resolve
+  properly. Do **not** raise it.
+- **Migrations run on the host**, not in CI (a GitHub runner can't reach the
+  Coolify-internal DB). The current migration only *adds* a nullable column, so
+  it applies safely while the previous release is still serving.
+- **Rollback:** set `IMAGE_TAG` to a previous `sha-…` tag in Coolify and redeploy.
+- **Scale out:** add replicas of the `app` service — task/progress state is
+  already shared via `REDIS_URL`. Keep it **one Waitress process per container**
+  (do not switch to multi-process Gunicorn: each process would reload the ~500 MB
+  model and fragment the in-process caches).
+
+---
+
 ## Notes & limits
 
 - **Scale:** the default is a single app process (Waitress) with in-process
