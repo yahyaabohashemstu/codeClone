@@ -438,7 +438,7 @@ erDiagram
 
 ## API
 
-The full surface is documented in **[`docs/openapi.yaml`](docs/openapi.yaml)** (68 paths) — regenerate it from the live route table with `python tools/generate_openapi.py`.
+**[`docs/API.md`](docs/API.md)** is the developer guide for the **public API** (API keys + the CI/CD similarity endpoint) with auth, limits, error codes, and copy‑paste examples (cURL / GitHub Actions / Python / Node). The full machine‑readable surface is in **[`docs/openapi.yaml`](docs/openapi.yaml)** (68 paths) — regenerate it from the live route table with `python tools/generate_openapi.py`.
 
 | Group | Base | Examples |
 |---|---|---|
