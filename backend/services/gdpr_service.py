@@ -26,7 +26,7 @@ import secrets
 from sqlalchemy import update
 
 from backend.extensions import db
-from backend.models import ApiUsageRecord, AuditLog, Subscription, UsageRecord, User
+from backend.models import ApiSubscription, ApiUsageRecord, AuditLog, Subscription, UsageRecord, User
 
 logger = logging.getLogger(__name__)
 
@@ -109,4 +109,19 @@ def reassign_core_user_to_tombstone(uid: int, tombstone_id: int) -> None:
             sub.user_id = tombstone_id
             sub.stripe_customer_id = None
             sub.stripe_subscription_id = None
+    db.session.flush()
+
+    # 3b. API subscription — same current-state treatment (reassign + scrub
+    #     Stripe PII, or drop if the tombstone already carries one).
+    api_sub = ApiSubscription.query.filter_by(user_id=uid).first()
+    if api_sub is not None:
+        tombstone_has_api_sub = (
+            ApiSubscription.query.filter_by(user_id=tombstone_id).first() is not None
+        )
+        if tombstone_has_api_sub:
+            db.session.delete(api_sub)
+        else:
+            api_sub.user_id = tombstone_id
+            api_sub.stripe_customer_id = None
+            api_sub.stripe_subscription_id = None
     db.session.flush()

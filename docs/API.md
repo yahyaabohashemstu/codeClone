@@ -262,38 +262,57 @@ Every error response has this shape:
 
 ---
 
-## 5b. Usage-based billing
+## 5b. Usage-based billing (a SEPARATE API plan)
 
-The public API is **metered**: every code pair analyzed via `POST /api/v1/ci/check`
-counts toward your plan's monthly allowance, and usage beyond it is billed as
-overage. (Interactive web-UI analyses are billed separately under your plan quota
-and are **not** counted here.)
+The public API has its **own subscription plan**, billed **separately** from the
+base web-app plan (Free/Pro/Team). Your web-app plan does **not** grant any API
+allowance, and vice-versa. Every code pair analyzed via `POST /api/v1/ci/check`
+counts against your **API** plan for the month.
 
-| Plan | Included API pairs / month |
+| API plan | Included pairs / month | Price | Overage |
+|---|---|---|---|
+| **API Free** | 200 | $0 | — (hard-capped) |
+| **API Starter** | 10,000 | $29 / mo | $2.00 / 1,000 |
+| **API Growth** | 100,000 | $99 / mo | $1.50 / 1,000 |
+| **API Scale** | 1,000,000 | $399 / mo | $1.00 / 1,000 |
+
+- **API Free is hard-capped.** Once you reach 200 pairs in a month, `/ci/check`
+  returns **`402 Payment Required`** with code `api_quota_exceeded` until you
+  subscribe to a paid API plan. The cap is enforced atomically (no race lets you
+  slip past it).
+- **Paid tiers meter overage**: usage beyond the included allowance is billed at
+  the tier's per-1,000 rate. A canceled paid subscription drops back to the
+  hard-capped free tier.
+- Only per-user `csk_` keys are billed here; enterprise (`epk_`) and static CI
+  tokens are not.
+
+Manage your API plan in the app under **API Keys → Usage & Billing**, or via the
+API:
+
+| Endpoint | Purpose |
 |---|---|
-| Free | 200 |
-| Pro | 20,000 |
-| Team | 200,000 |
-
-Overage is **$2.00 per 1,000 pairs** beyond the included allowance (operator-configurable
-via `API_OVERAGE_CENTS_PER_1000_PAIRS`). Only per-user `csk_` keys are metered —
-enterprise and static CI tokens are not.
-
-Track current-period usage and the estimated cost in the app under **API Keys →
-Usage & Billing**, or programmatically:
+| `GET /api/v1/api-keys/usage` | Current-period usage + estimated cost |
+| `GET /api/v1/api-keys/plans` | The API pricing ladder + your current API plan |
+| `POST /api/v1/api-keys/checkout` | Start Stripe Checkout for a paid API plan |
+| `POST /api/v1/api-keys/portal` | Open the Stripe billing portal (manage/cancel) |
 
 ### `GET /api/v1/api-keys/usage` (session auth)
 
 ```json
 {
   "success": true,
-  "plan": "pro", "planName": "Pro", "period": "2026-07",
-  "calls": 128, "pairs": 24500,
-  "includedPairs": 20000, "remainingIncluded": 0,
-  "overagePairs": 4500, "ratePer1000Cents": 200,
-  "estimatedCostCents": 900, "lastCallAt": "2026-07-08T13:00:00+00:00"
+  "apiPlan": "api_starter", "apiPlanName": "API Starter", "status": "active",
+  "period": "2026-07", "calls": 128, "pairs": 24500,
+  "includedPairs": 10000, "remainingIncluded": 0, "overagePairs": 14500,
+  "allowsOverage": true, "hardCapped": false, "atLimit": false,
+  "ratePer1000Cents": 200, "monthlyPriceCents": 2900,
+  "estimatedCostCents": 2900, "lastCallAt": "2026-07-08T13:00:00+00:00"
 }
 ```
+
+> When `/ci/check` is refused for quota, the response is `402` with
+> `{"code": "api_quota_exceeded", "usage": { "apiPlan", "pairs", "includedPairs",
+> "remainingIncluded" }}`.
 
 ---
 

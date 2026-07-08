@@ -25,25 +25,54 @@ class Plan:
     monthly_analysis_quota: int  # -1 means unlimited
     price_cents: int
     stripe_price_env: str  # env var name holding the Stripe price id
-    api_pairs_included: int = 0  # metered public API: code pairs included / month
 
 
 # Ordered from smallest to largest.  ``monthly_analysis_quota = -1`` = unlimited.
-# ``api_pairs_included`` is the monthly allowance for the public /ci/check API
-# before usage-based overage applies.
+# NOTE: the base plan governs the INTERACTIVE (web-UI) analysis quota only. The
+# public API is billed under a SEPARATE plan — see ``ApiPlan`` / ``API_PLANS``.
 PLANS: dict[str, Plan] = {
-    "free": Plan("free", "Free", 50, 0, "STRIPE_PRICE_FREE", api_pairs_included=200),
-    "pro": Plan("pro", "Pro", 1000, 1900, "STRIPE_PRICE_PRO", api_pairs_included=20_000),
-    "team": Plan("team", "Team", -1, 9900, "STRIPE_PRICE_TEAM", api_pairs_included=200_000),
+    "free": Plan("free", "Free", 50, 0, "STRIPE_PRICE_FREE"),
+    "pro": Plan("pro", "Pro", 1000, 1900, "STRIPE_PRICE_PRO"),
+    "team": Plan("team", "Team", -1, 9900, "STRIPE_PRICE_TEAM"),
 }
 
 DEFAULT_PLAN_CODE = "free"
 
-# Metered API overage: cents charged per 1,000 code pairs analyzed via the public
-# API beyond the plan's included allowance. Overridable via the app config key
-# ``API_OVERAGE_CENTS_PER_1000_PAIRS``. A "pair" is one code_a/code_b comparison
-# submitted to ``POST /api/v1/ci/check``.
-DEFAULT_API_OVERAGE_CENTS_PER_1000_PAIRS = 200  # $2.00 per 1,000 pairs
+
+@dataclass(frozen=True)
+class ApiPlan:
+    """A SEPARATE subscription plan for the public API, independent of the base
+    web-app plan.
+
+    ``overage_cents_per_1000 == 0`` means the tier is **hard-capped** at
+    ``monthly_pairs_included`` (requests beyond it are refused until the user
+    upgrades). A positive value means overage beyond the allowance is **metered
+    and billed** at that rate.
+    """
+
+    code: str
+    name: str
+    monthly_pairs_included: int
+    price_cents: int               # monthly subscription price for this API tier
+    overage_cents_per_1000: int    # 0 => hard cap; >0 => metered overage
+    stripe_price_env: str
+
+    @property
+    def allows_overage(self) -> bool:
+        return self.overage_cents_per_1000 > 0
+
+
+# The public API's own pricing ladder — NOT tied to the base free/pro/team plan.
+# api_free is a hard-capped trial tier; paid tiers include an allowance and then
+# meter overage at a decreasing per-1,000 rate.
+API_PLANS: dict[str, ApiPlan] = {
+    "api_free":    ApiPlan("api_free",    "API Free",    200,        0,     0,   "STRIPE_PRICE_API_FREE"),
+    "api_starter": ApiPlan("api_starter", "API Starter", 10_000,     2900,  200, "STRIPE_PRICE_API_STARTER"),
+    "api_growth":  ApiPlan("api_growth",  "API Growth",  100_000,    9900,  150, "STRIPE_PRICE_API_GROWTH"),
+    "api_scale":   ApiPlan("api_scale",   "API Scale",   1_000_000,  39900, 100, "STRIPE_PRICE_API_SCALE"),
+}
+
+DEFAULT_API_PLAN_CODE = "api_free"
 
 
 class Subscription(db.Model):  # type: ignore[name-defined]
@@ -110,3 +139,26 @@ class ApiUsageRecord(db.Model):  # type: ignore[name-defined]
 
     def __repr__(self) -> str:
         return f"<ApiUsageRecord user={self.user_id} {self.period} calls={self.calls} pairs={self.pairs}>"
+
+
+class ApiSubscription(db.Model):  # type: ignore[name-defined]
+    """A user's SEPARATE subscription for the public API, fully decoupled from the
+    base ``Subscription``. A user may be on the free web plan yet a paid API plan
+    (or vice versa). New table, so ``db.create_all`` / Alembic provisions it.
+    """
+
+    __tablename__ = "api_subscription"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), unique=True, nullable=False, index=True)
+    api_plan_code = db.Column(db.String(32), nullable=False, default=DEFAULT_API_PLAN_CODE)
+    # active | past_due | canceled
+    status = db.Column(db.String(32), nullable=False, default="active")
+    stripe_customer_id = db.Column(db.String(255), nullable=True, index=True)
+    stripe_subscription_id = db.Column(db.String(255), nullable=True, index=True)
+    current_period_end = db.Column(db.DateTime(timezone=True), nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    updated_at = db.Column(db.DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    def __repr__(self) -> str:
+        return f"<ApiSubscription user={self.user_id} plan={self.api_plan_code} status={self.status}>"

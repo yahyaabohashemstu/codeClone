@@ -300,6 +300,30 @@ def ci_check():
             "code_b": code_b,
         })
 
+    # ── Usage-based billing (the API's own plan) ────────────────────────
+    # For per-user (csk_) keys, reserve the pairs against the caller's API plan
+    # BEFORE running the compute-heavy analysis. Hard-capped tiers (api_free /
+    # lapsed) are refused atomically here; paid tiers are metered for overage.
+    # Enterprise (epk_) and static CI tokens are not billed through this path.
+    if actor.get("kind") == "user_api_key" and actor.get("legacy_user_id"):
+        from backend.services.api_billing_service import api_reserve_usage
+        reservation = api_reserve_usage(actor["legacy_user_id"], len(validated_pairs))
+        if not reservation.get("allowed"):
+            return jsonify({
+                "success": False,
+                "error": (
+                    f"API quota exceeded for your current plan ({reservation.get('apiPlanName')}). "
+                    "Upgrade your API plan to continue."
+                ),
+                "code": "api_quota_exceeded",
+                "usage": {
+                    "apiPlan": reservation.get("apiPlan"),
+                    "pairs": reservation.get("pairs"),
+                    "includedPairs": reservation.get("includedPairs"),
+                    "remainingIncluded": reservation.get("remainingIncluded"),
+                },
+            }), 402
+
     # ── Run analysis ────────────────────────────────────────────────────
     start_time = time.monotonic()
     detector = get_detector(language)
@@ -358,15 +382,6 @@ def ci_check():
 
     elapsed_ms = round((time.monotonic() - start_time) * 1000)
     verdict = "fail" if violations > 0 else "pass"
-
-    # Meter usage-based billing for per-user API keys. Enterprise/static tokens
-    # are not billed here. Metering must never break the API response.
-    if actor.get("kind") == "user_api_key" and actor.get("legacy_user_id"):
-        try:
-            from backend.services.billing_service import record_api_usage
-            record_api_usage(actor["legacy_user_id"], len(validated_pairs))
-        except Exception:
-            logger.warning("API usage metering failed", exc_info=True)
 
     response = {
         "success": True,

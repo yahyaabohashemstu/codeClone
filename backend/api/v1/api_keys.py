@@ -12,7 +12,7 @@ or 'X-API-Key'. See backend/api/v1/ci.py.
 
 from __future__ import annotations
 
-from flask import jsonify, request
+from flask import current_app, jsonify, request
 from flask_login import current_user, login_required
 
 from backend.api.v1 import v1_bp
@@ -31,10 +31,70 @@ def list_api_keys():
 @v1_bp.route("/api-keys/usage", methods=["GET"])
 @login_required
 def api_key_usage():
-    """Current-period metered public-API usage + estimated overage cost."""
-    from backend.services.billing_service import api_usage_summary
+    """Current-period API usage, plan, and estimated overage cost."""
+    from backend.services.api_billing_service import api_usage_summary
 
     return jsonify({"success": True, **api_usage_summary(current_user.id)})
+
+
+@v1_bp.route("/api-keys/plans", methods=["GET"])
+@login_required
+def api_key_plans():
+    """The API's own pricing ladder + the caller's current API subscription."""
+    from backend.services import stripe_service
+    from backend.services.api_billing_service import api_usage_summary, public_api_plans
+
+    return jsonify({
+        "success": True,
+        "plans": public_api_plans(),
+        "current": api_usage_summary(current_user.id),
+        "billingEnabled": stripe_service.is_configured(),
+    })
+
+
+@v1_bp.route("/api-keys/checkout", methods=["POST"])
+@limiter.limit("10 per minute")
+@login_required
+def api_key_checkout():
+    """Start a Stripe Checkout for a paid API plan (separate from the base plan)."""
+    from backend.models.billing import API_PLANS
+    from backend.services import stripe_service
+    from backend.services.stripe_service import StripeNotConfigured
+
+    payload = request.get_json(silent=True) or {}
+    plan_code = (payload.get("plan") or "").strip().lower()
+    if plan_code not in API_PLANS or plan_code == "api_free":
+        return jsonify({"success": False, "message": "Choose a valid paid API plan."}), 400
+
+    success_url = _base_url("/api-keys?status=success")
+    cancel_url = _base_url("/api-keys?status=cancel")
+    try:
+        url = stripe_service.create_api_checkout_session(current_user, plan_code, success_url, cancel_url)
+    except StripeNotConfigured as exc:
+        return jsonify({"success": False, "message": str(exc), "code": "billing_not_configured"}), 503
+    return jsonify({"success": True, "checkoutUrl": url})
+
+
+@v1_bp.route("/api-keys/portal", methods=["POST"])
+@limiter.limit("10 per minute")
+@login_required
+def api_key_portal():
+    """Open the Stripe billing portal for the caller's API subscription."""
+    from backend.services import stripe_service
+    from backend.services.api_billing_service import get_or_create_api_subscription
+    from backend.services.stripe_service import StripeNotConfigured
+
+    sub = get_or_create_api_subscription(current_user.id)
+    try:
+        url = stripe_service.create_billing_portal_session(sub.stripe_customer_id or "", _base_url("/api-keys"))
+    except StripeNotConfigured as exc:
+        return jsonify({"success": False, "message": str(exc), "code": "billing_not_configured"}), 503
+    return jsonify({"success": True, "portalUrl": url})
+
+
+def _base_url(path: str) -> str:
+    base = (current_app.config.get("APP_BASE_URL") or "").rstrip("/")
+    return f"{base}{path}" if base else path
 
 
 @v1_bp.route("/api-keys", methods=["POST"])

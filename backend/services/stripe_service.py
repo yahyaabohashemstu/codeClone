@@ -87,6 +87,36 @@ def create_checkout_session(user, plan_code: str, success_url: str, cancel_url: 
     return session.url
 
 
+def price_id_for_api_plan(api_plan_code: str) -> str | None:
+    from backend.models.billing import API_PLANS
+
+    plan = API_PLANS.get(api_plan_code)
+    if not plan:
+        return None
+    return current_app.config.get(plan.stripe_price_env) or None
+
+
+def create_api_checkout_session(user, api_plan_code: str, success_url: str, cancel_url: str) -> str:
+    """Return a Stripe Checkout URL for a paid API plan (a SEPARATE subscription
+    from the base web-app plan). Raises StripeNotConfigured."""
+    stripe = _client()
+    price_id = price_id_for_api_plan(api_plan_code)
+    if not price_id:
+        raise StripeNotConfigured(f"No Stripe price id configured for API plan '{api_plan_code}'.")
+
+    session = stripe.checkout.Session.create(
+        mode="subscription",
+        line_items=[{"price": price_id, "quantity": 1}],
+        success_url=success_url,
+        cancel_url=cancel_url,
+        client_reference_id=str(user.id),
+        customer_email=getattr(user, "email", None) or None,
+        # kind="api" routes the webhook to the API subscription, not the base plan.
+        metadata={"user_id": str(user.id), "kind": "api", "plan_code": api_plan_code},
+    )
+    return session.url
+
+
 def create_billing_portal_session(customer_id: str, return_url: str) -> str:
     """Return a Stripe Billing Portal URL so a customer can manage/cancel.
 
@@ -114,7 +144,13 @@ def verify_and_parse_webhook(payload: bytes, signature_header: str):
 
 
 def apply_webhook_event(event) -> bool:
-    """Translate a Stripe event into a subscription change. Returns True if handled."""
+    """Translate a Stripe event into a subscription change. Returns True if handled.
+
+    Events are routed to the correct product: the API plan (``kind == "api"`` in
+    the checkout metadata, or a Stripe subscription id living on ``ApiSubscription``)
+    versus the base web-app plan.
+    """
+    from backend.services.api_billing_service import set_api_plan
     from backend.services.billing_service import set_plan
 
     event_type = event.get("type") if isinstance(event, dict) else getattr(event, "type", None)
@@ -125,7 +161,8 @@ def apply_webhook_event(event) -> bool:
         user_id = _safe_int(metadata.get("user_id") or data_object.get("client_reference_id"))
         plan_code = metadata.get("plan_code")
         if user_id and plan_code:
-            set_plan(
+            setter = set_api_plan if metadata.get("kind") == "api" else set_plan
+            setter(
                 user_id, plan_code, status="active",
                 stripe_customer_id=data_object.get("customer"),
                 stripe_subscription_id=data_object.get("subscription"),
@@ -133,30 +170,54 @@ def apply_webhook_event(event) -> bool:
             return True
 
     elif event_type in ("customer.subscription.updated", "customer.subscription.deleted"):
-        metadata = data_object.get("metadata") or {}
         # Subscription objects do NOT carry the Checkout Session's metadata, so
-        # metadata.user_id is empty in practice. Resolve the account by the
-        # stripe subscription/customer id we stored at checkout, otherwise
-        # portal cancellations and downgrades are silently ignored and the user
-        # keeps their paid entitlement while Stripe stops billing them.
-        sub_row = _find_subscription_row(
+        # resolve the account by the stripe subscription/customer id stored at
+        # checkout — otherwise portal cancellations/downgrades are silently
+        # ignored and the user keeps a paid entitlement Stripe stops billing.
+        subscription_id = data_object.get("id")
+        customer_id = data_object.get("customer")
+        canceled = event_type == "customer.subscription.deleted" or data_object.get("status") == "canceled"
+        status = "canceled" if canceled else data_object.get("status", "active")
+
+        # A Stripe subscription id lives on exactly one of the two tables. Check
+        # the API subscription first, then the base subscription.
+        metadata = data_object.get("metadata") or {}
+        api_row = _find_api_subscription_row(subscription_id=subscription_id, customer_id=customer_id)
+        if api_row:
+            target = "api_free" if canceled else api_row.api_plan_code
+            set_api_plan(api_row.user_id, target, status=status)
+            return True
+
+        # Base subscription: resolve by stripe ids, falling back to the metadata
+        # user id (subscription objects don't carry checkout metadata in practice,
+        # but keep the path for completeness / callers that supply it).
+        base_row = _find_subscription_row(
             user_id=_safe_int(metadata.get("user_id")),
-            subscription_id=data_object.get("id"),
-            customer_id=data_object.get("customer"),
+            subscription_id=subscription_id,
+            customer_id=customer_id,
         )
-        if sub_row:
-            canceled = event_type == "customer.subscription.deleted" or data_object.get("status") == "canceled"
-            if canceled:
-                target_plan, status = "free", "canceled"
-            else:
-                # A status-only change (e.g. past_due -> active) must not
-                # relabel the plan; preserve the plan recorded at checkout.
-                target_plan = metadata.get("plan_code") or sub_row.plan_code
-                status = data_object.get("status", "active")
-            set_plan(sub_row.user_id, target_plan, status=status)
+        if base_row:
+            target = "free" if canceled else base_row.plan_code
+            set_plan(base_row.user_id, target, status=status)
             return True
 
     return False
+
+
+def _find_api_subscription_row(subscription_id=None, customer_id=None):
+    """Locate the local ApiSubscription row for a Stripe event (by subscription
+    id first — unique per subscription — then customer id)."""
+    from backend.models.billing import ApiSubscription
+
+    if subscription_id:
+        row = ApiSubscription.query.filter_by(stripe_subscription_id=subscription_id).first()
+        if row:
+            return row
+    if customer_id:
+        row = ApiSubscription.query.filter_by(stripe_customer_id=customer_id).first()
+        if row:
+            return row
+    return None
 
 
 def _find_subscription_row(user_id=None, subscription_id=None, customer_id=None):

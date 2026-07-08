@@ -13,15 +13,7 @@ from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 
 from backend.extensions import db
-from backend.models.billing import (
-    DEFAULT_API_OVERAGE_CENTS_PER_1000_PAIRS,
-    DEFAULT_PLAN_CODE,
-    PLANS,
-    ApiUsageRecord,
-    Plan,
-    Subscription,
-    UsageRecord,
-)
+from backend.models.billing import DEFAULT_PLAN_CODE, PLANS, Plan, Subscription, UsageRecord
 
 
 def current_period(now: datetime.datetime | None = None) -> str:
@@ -213,83 +205,6 @@ def set_plan(user_id: int, plan_code: str, *, status: str = "active",
     return sub
 
 
-# ---------------------------------------------------------------------------
-# Metered public-API usage (usage-based billing)
-# ---------------------------------------------------------------------------
-
-def _get_or_create_api_usage(user_id: int, period: str) -> ApiUsageRecord:
-    record = ApiUsageRecord.query.filter_by(user_id=user_id, period=period).first()
-    if record is None:
-        record = ApiUsageRecord(user_id=user_id, period=period, calls=0, pairs=0)
-        db.session.add(record)
-        try:
-            db.session.commit()
-        except IntegrityError:
-            # Concurrent request created the same (user_id, period) row first;
-            # the uq_api_usage_user_period constraint fired. Reuse the winner.
-            db.session.rollback()
-            record = ApiUsageRecord.query.filter_by(user_id=user_id, period=period).first()
-    return record
-
-
-def record_api_usage(user_id: int, pairs: int, calls: int = 1) -> None:
-    """Meter one public-API request for usage-based billing.
-
-    Increments the current period's request count by ``calls`` and its billable
-    ``pairs`` count. Atomic and concurrency-safe; the caller must guard against
-    exceptions so metering can never break the API response path.
-    """
-    period = current_period()
-    _get_or_create_api_usage(user_id, period)
-    db.session.execute(
-        update(ApiUsageRecord)
-        .where(ApiUsageRecord.user_id == user_id, ApiUsageRecord.period == period)
-        .values(
-            calls=ApiUsageRecord.calls + int(calls),
-            pairs=ApiUsageRecord.pairs + int(pairs),
-            last_call_at=datetime.datetime.now(datetime.timezone.utc),
-        )
-    )
-    db.session.commit()
-
-
-def api_overage_rate_cents() -> int:
-    """Cents per 1,000 overage pairs (app-config overridable)."""
-    try:
-        from flask import current_app
-        return int(current_app.config.get(
-            "API_OVERAGE_CENTS_PER_1000_PAIRS", DEFAULT_API_OVERAGE_CENTS_PER_1000_PAIRS))
-    except Exception:
-        return DEFAULT_API_OVERAGE_CENTS_PER_1000_PAIRS
-
-
-def api_usage_summary(user_id: int) -> dict:
-    """Current-period metered API usage + estimated overage cost for a user."""
-    sub = get_or_create_subscription(user_id)
-    plan = get_plan(sub.plan_code)
-    period = current_period()
-    record = ApiUsageRecord.query.filter_by(user_id=user_id, period=period).first()
-    calls = record.calls if record else 0
-    pairs = record.pairs if record else 0
-    included = plan.api_pairs_included
-    overage_pairs = max(0, pairs - included)
-    rate = api_overage_rate_cents()
-    estimated_cost_cents = round(overage_pairs * rate / 1000)
-    return {
-        "plan": plan.code,
-        "planName": plan.name,
-        "period": period,
-        "calls": calls,
-        "pairs": pairs,
-        "includedPairs": included,
-        "remainingIncluded": max(0, included - pairs),
-        "overagePairs": overage_pairs,
-        "ratePer1000Cents": rate,
-        "estimatedCostCents": estimated_cost_cents,
-        "lastCallAt": record.last_call_at.isoformat() if record and record.last_call_at else None,
-    }
-
-
 def public_plans() -> list[dict]:
     return [
         {
@@ -298,7 +213,6 @@ def public_plans() -> list[dict]:
             "monthlyAnalysisQuota": p.monthly_analysis_quota,
             "unlimited": p.monthly_analysis_quota < 0,
             "priceCents": p.price_cents,
-            "apiPairsIncluded": p.api_pairs_included,
         }
         for p in PLANS.values()
     ]

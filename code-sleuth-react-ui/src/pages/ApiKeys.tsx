@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -9,6 +8,7 @@ import {
   Copy,
   CreditCard,
   KeyRound,
+  Loader2,
   Plus,
   Terminal,
   Trash2,
@@ -19,10 +19,13 @@ import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/context/LanguageContext";
 import {
   createApiKey,
-  getApiUsage,
+  getApiPlans,
   listApiKeys,
+  openApiPortal,
   revokeApiKey,
+  startApiCheckout,
   type ApiKeyRow,
+  type ApiPlanInfo,
   type ApiUsage,
 } from "@/lib/adminApi";
 import { cn } from "@/lib/utils";
@@ -237,20 +240,93 @@ function KeysTab() {
 
 // ── Usage tab ───────────────────────────────────────────────────────────────
 
+function PlanCard({
+  plan,
+  isCurrent,
+  busy,
+  onSubscribe,
+}: {
+  plan: ApiPlanInfo;
+  isCurrent: boolean;
+  busy: string | null;
+  onSubscribe: (code: string) => void;
+}) {
+  const { t } = useTranslation("apiKeys");
+  const price = plan.priceCents === 0 ? t("apiKeys.usage.freePrice") : money(plan.priceCents);
+  return (
+    <div className={cn("flex flex-col gap-2 rounded-xl border p-4", isCurrent ? "border-primary bg-primary/5" : "border-border bg-card")}>
+      <div className="flex items-center justify-between">
+        <span className="font-semibold text-foreground">{plan.name}</span>
+        {isCurrent && (
+          <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
+            {t("apiKeys.usage.current")}
+          </span>
+        )}
+      </div>
+      <div className="text-2xl font-bold text-foreground">
+        {price}
+        {plan.priceCents > 0 && <span className="text-sm font-normal text-muted-foreground">{t("apiKeys.usage.perMonth")}</span>}
+      </div>
+      <div className="text-xs text-muted-foreground">{t("apiKeys.usage.includedPer", { n: plan.monthlyPairsIncluded.toLocaleString() })}</div>
+      <div className="text-xs text-muted-foreground">
+        {plan.allowsOverage ? t("apiKeys.usage.overageThen", { rate: money(plan.overageCentsPer1000) }) : t("apiKeys.usage.hardCapNote")}
+      </div>
+      {!isCurrent && plan.code !== "api_free" && (
+        <Button size="sm" className="mt-auto gap-1.5" disabled={busy === plan.code} onClick={() => onSubscribe(plan.code)}>
+          {busy === plan.code && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          {t("apiKeys.usage.subscribe")}
+        </Button>
+      )}
+    </div>
+  );
+}
+
 function UsageTab() {
   const { t } = useTranslation("apiKeys");
-  const [usage, setUsage] = useState<ApiUsage | null>(null);
+  const [data, setData] = useState<{ plans: ApiPlanInfo[]; current: ApiUsage; billingEnabled: boolean } | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
 
   useEffect(() => {
-    getApiUsage().then(setUsage).catch(() => undefined);
+    getApiPlans().then(setData).catch(() => undefined);
   }, []);
 
-  if (!usage) {
+  const subscribe = async (plan: string) => {
+    setBusy(plan);
+    try {
+      const res = await startApiCheckout(plan);
+      if (res.checkoutUrl) {
+        window.location.href = res.checkoutUrl;
+        return;
+      }
+    } catch {
+      toast.error(data?.billingEnabled ? t("apiKeys.usage.checkoutFailed") : t("apiKeys.usage.billingUnavailable"));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const manage = async () => {
+    setBusy("portal");
+    try {
+      const res = await openApiPortal();
+      if (res.portalUrl) {
+        window.location.href = res.portalUrl;
+        return;
+      }
+    } catch {
+      toast.error(t("apiKeys.usage.billingUnavailable"));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  if (!data) {
     return <p className="text-sm text-muted-foreground">{t("apiKeys.usage.noUsage")}</p>;
   }
 
-  const pct = usage.includedPairs > 0 ? Math.min(100, (usage.pairs / usage.includedPairs) * 100) : 0;
-  const rate = money(usage.ratePer1000Cents);
+  const u = data.current;
+  const pct = u.includedPairs > 0 ? Math.min(100, (u.pairs / u.includedPairs) * 100) : 0;
+  const rate = money(u.ratePer1000Cents);
 
   return (
     <div className="space-y-6">
@@ -261,42 +337,63 @@ function UsageTab() {
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t("apiKeys.usage.description")}</p>
           </div>
           <div className="text-end text-xs text-muted-foreground">
-            <div>{t("apiKeys.usage.period")}: <span className="font-mono">{usage.period}</span></div>
-            <div>{t("apiKeys.usage.plan")}: <span className="font-semibold text-foreground">{usage.planName}</span></div>
+            <div>{t("apiKeys.usage.period")}: <span className="font-mono">{u.period}</span></div>
+            <div>{t("apiKeys.usage.plan")}: <span className="font-semibold text-foreground">{u.apiPlanName}</span></div>
           </div>
         </div>
       </div>
 
+      {u.atLimit && (
+        <div className="flex items-center gap-2 rounded-xl border-2 border-amber-500/40 bg-amber-500/5 p-4 text-sm font-medium text-amber-700 dark:text-amber-400">
+          <TriangleAlert className="h-4 w-4 shrink-0" />
+          {t("apiKeys.usage.atLimitWarning")}
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat icon={Activity} label={t("apiKeys.usage.calls")} value={usage.calls.toLocaleString()} sub={t("apiKeys.usage.callsDesc")} />
-        <Stat icon={Terminal} label={t("apiKeys.usage.pairs")} value={usage.pairs.toLocaleString()} sub={t("apiKeys.usage.pairsDesc")} accent="text-primary" />
-        <Stat icon={KeyRound} label={t("apiKeys.usage.overage")} value={usage.overagePairs.toLocaleString()} sub={t("apiKeys.usage.overageDesc")} accent={usage.overagePairs > 0 ? "text-amber-600" : "text-foreground"} />
-        <Stat icon={CreditCard} label={t("apiKeys.usage.estCost")} value={money(usage.estimatedCostCents)} sub={t("apiKeys.usage.estCostDesc", { rate })} accent={usage.estimatedCostCents > 0 ? "text-amber-600" : "text-emerald-600"} />
+        <Stat icon={Activity} label={t("apiKeys.usage.calls")} value={u.calls.toLocaleString()} sub={t("apiKeys.usage.callsDesc")} />
+        <Stat icon={Terminal} label={t("apiKeys.usage.pairs")} value={u.pairs.toLocaleString()} sub={t("apiKeys.usage.pairsDesc")} accent="text-primary" />
+        <Stat icon={KeyRound} label={t("apiKeys.usage.overage")} value={u.overagePairs.toLocaleString()} sub={t("apiKeys.usage.overageDesc")} accent={u.overagePairs > 0 ? "text-amber-600" : "text-foreground"} />
+        <Stat icon={CreditCard} label={t("apiKeys.usage.estCost")} value={money(u.estimatedCostCents)} sub={t("apiKeys.usage.estCostDesc", { rate })} accent={u.estimatedCostCents > 0 ? "text-amber-600" : "text-emerald-600"} />
       </div>
 
       <div className="rounded-xl border border-border bg-card p-5">
         <div className="mb-1 flex items-center justify-between text-sm">
           <span className="font-medium text-foreground">{t("apiKeys.usage.included")}</span>
           <span className="tabular-nums text-muted-foreground">
-            {usage.pairs.toLocaleString()} / {usage.includedPairs.toLocaleString()}
+            {u.pairs.toLocaleString()} / {u.includedPairs.toLocaleString()}
           </span>
         </div>
         <div className="h-2.5 overflow-hidden rounded-full bg-muted">
           <div
-            className={cn("h-full rounded-full transition-all", usage.overagePairs > 0 ? "bg-amber-500" : "bg-primary")}
+            className={cn("h-full rounded-full transition-all", u.overagePairs > 0 || u.atLimit ? "bg-amber-500" : "bg-primary")}
             style={{ width: `${pct}%` }}
           />
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
-          {t("apiKeys.usage.remaining", { n: usage.remainingIncluded.toLocaleString() })} · {t("apiKeys.usage.includedDesc")}
+          {t("apiKeys.usage.remaining", { n: u.remainingIncluded.toLocaleString() })} · {t("apiKeys.usage.includedDesc")}
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-border bg-card/50 p-4">
-        <p className="text-xs text-muted-foreground">{t("apiKeys.usage.estimateNote")}</p>
-        <Button asChild variant="outline" size="sm">
-          <Link to="/billing">{t("apiKeys.usage.upgrade")}</Link>
-        </Button>
+      <div>
+        <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">{t("apiKeys.usage.plansTitle")}</h3>
+            <p className="text-xs text-muted-foreground">{t("apiKeys.usage.plansDesc")}</p>
+          </div>
+          {u.apiPlan !== "api_free" && (
+            <Button variant="outline" size="sm" className="gap-1.5" disabled={busy === "portal"} onClick={() => void manage()}>
+              {busy === "portal" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {t("apiKeys.usage.manage")}
+            </Button>
+          )}
+        </div>
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {data.plans.map((p) => (
+            <PlanCard key={p.code} plan={p} isCurrent={p.code === u.apiPlan} busy={busy} onSubscribe={(c) => void subscribe(c)} />
+          ))}
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">{t("apiKeys.usage.estimateNote")}</p>
       </div>
     </div>
   );
@@ -430,6 +527,7 @@ X-API-Key: csk_xxxxxxxx.YOUR_SECRET`} copyLabel={copy} />
           head={["code", "Status", "Cause"]}
           rows={[
             ["authentication_required", "401", "Missing/invalid API key"],
+            ["api_quota_exceeded", "402", "API plan allowance exceeded — upgrade"],
             ["insufficient_scope", "403", "Key lacks the ci:check scope"],
             ["invalid_threshold", "400", "threshold not in 0–100"],
             ["unsupported_language", "400", "language not supported"],

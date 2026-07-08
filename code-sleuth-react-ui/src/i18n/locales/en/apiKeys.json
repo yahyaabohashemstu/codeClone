@@ -50,7 +50,21 @@
       "plan": "Plan",
       "lastCall": "Last API call",
       "noUsage": "No API usage yet this period. Once you call the API with a key, usage appears here.",
-      "upgrade": "Upgrade plan"
+      "statusLabel": "Status",
+      "atLimitWarning": "You've reached your API plan limit. Subscribe to a paid API plan to keep using the API.",
+      "billingUnavailable": "Online checkout isn't set up on this instance yet. Contact the operator to enable a paid API plan.",
+      "checkoutFailed": "Could not start checkout.",
+      "plansTitle": "API plans",
+      "plansDesc": "The API has its own plans, billed separately from your web-app subscription.",
+      "current": "Current",
+      "subscribe": "Subscribe",
+      "upgrade": "Upgrade",
+      "manage": "Manage subscription",
+      "perMonth": "/mo",
+      "freePrice": "Free",
+      "includedPer": "{{n}} pairs / month",
+      "overageThen": "then {{rate}} / 1,000",
+      "hardCapNote": "Hard-capped — no overage"
     },
     "docs": {
       "heading": "API documentation",
