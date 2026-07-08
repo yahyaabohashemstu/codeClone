@@ -457,9 +457,18 @@ class CloneDetector:
         return (0.20 * text_sim + 0.25 * token_sim + 0.25 * renamed_sim
                 + 0.15 * graph_sim + 0.15 * ai_score)
 
+    # Radon parses Python via ``ast.parse`` and raises SyntaxError (and assorted
+    # parse errors) on any input that is not valid Python — a user's syntax
+    # error, non-Python source mislabeled as Python, or a corrupt/legacy saved
+    # record. These metrics are optional Python-only enrichments, so a failure
+    # must degrade to a neutral default, never crash the whole analysis request.
+
     def calculate_raw_metrics(self, code):
-        """Calculate raw metrics of code."""
-        raw_metrics = analyze(code)
+        """Calculate raw metrics of code (zeroed when the code is not parseable)."""
+        try:
+            raw_metrics = analyze(code)
+        except Exception:
+            return {'loc': 0, 'lloc': 0, 'sloc': 0, 'comments': 0, 'multi': 0, 'blank': 0}
         return {
             'loc': raw_metrics.loc,
             'lloc': raw_metrics.lloc,
@@ -470,22 +479,31 @@ class CloneDetector:
         }
 
     def calculate_halstead_metrics(self, code):
-        """Calculate Halstead metrics."""
-        halstead_metrics = h_visit(code)
+        """Calculate Halstead metrics (empty when the code is not parseable)."""
+        try:
+            halstead_metrics = h_visit(code)
+        except Exception:
+            return {}
         if halstead_metrics:
             return halstead_metrics[0]._asdict()
         return {}
 
     def calculate_cyclomatic_complexity(self, code):
-        """Calculate cyclomatic complexity."""
-        complexity = cc_visit(code)
+        """Calculate cyclomatic complexity (0 when the code is not parseable)."""
+        try:
+            complexity = cc_visit(code)
+        except Exception:
+            return 0
         if complexity:
             return sum([block.complexity for block in complexity]) / len(complexity)
         return 0
 
     def calculate_maintainability_index(self, code):
-        """Calculate maintainability index."""
-        return mi_visit(code, True)
+        """Calculate maintainability index (0 when the code is not parseable)."""
+        try:
+            return mi_visit(code, True)
+        except Exception:
+            return 0
 
     def _universal_metrics(self, code):
         """Extract language-agnostic metrics from source code using tree-sitter."""

@@ -3,3 +3,7 @@
 *.yml text eol=lf
 *.yaml text eol=lf
 .gitattributes text eol=lf
+
+# Windows batch files MUST be CRLF: cmd.exe fails to locate goto labels and
+# mis-parses scripts saved with LF endings (the window closes instantly).
+*.bat text eol=crlf

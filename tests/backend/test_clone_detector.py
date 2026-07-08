@@ -492,3 +492,38 @@ class TestCloneTypeDetectors:
         assert py_detector.intertwined_clone_similarity(
             PYTHON_SNIPPET_A, PYTHON_SNIPPET_B
         ) is True
+
+
+# ---------------------------------------------------------------------------
+# Robustness: optional Python metrics must never crash on unparseable input
+# ---------------------------------------------------------------------------
+
+class TestMetricsRobustness:
+    """``get_metrics`` enriches Python results with radon metrics (Halstead,
+    cyclomatic, maintainability). Radon calls ``ast.parse`` and raises
+    ``SyntaxError`` on anything that is not valid Python — a user's syntax
+    error, non-Python source mislabeled ``python``, or a corrupt/legacy saved
+    record. None of these may crash the analysis; the metrics degrade to neutral
+    defaults instead.
+
+    Regression for the 500 raised when restoring a saved analysis whose stored
+    code was an undecryptable legacy ciphertext (``fenc1:...``).
+    """
+
+    UNPARSEABLE = "fenc1:gAAAAAB 1notpython $$$"
+
+    def test_get_metrics_survives_unparseable_python(self, py_detector):
+        metrics = py_detector.get_metrics(self.UNPARSEABLE, "python")
+        assert metrics["halstead"] == {}
+        assert metrics["cyclomatic_complexity"] == 0
+        assert metrics["maintainability_index"] == 0
+        assert metrics["universal"] is not None  # line-based metrics still work
+
+    def test_radon_helpers_degrade_to_neutral_defaults(self, py_detector):
+        assert py_detector.calculate_halstead_metrics(self.UNPARSEABLE) == {}
+        assert py_detector.calculate_cyclomatic_complexity(self.UNPARSEABLE) == 0
+        assert py_detector.calculate_maintainability_index(self.UNPARSEABLE) == 0
+
+    def test_valid_python_still_produces_metrics(self, py_detector):
+        metrics = py_detector.get_metrics(PYTHON_SNIPPET_C, "python")
+        assert metrics["halstead"]  # non-empty for genuine Python
