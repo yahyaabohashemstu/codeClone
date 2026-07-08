@@ -50,6 +50,7 @@
     "analyzing": "Analyzing...",
     "clearAll": "Clear All",
     "analysisCouldNotBeCompleted": "Analysis could not be completed.",
-    "analysisFailed": "Analysis failed."
+    "analysisFailed": "Analysis failed.",
+    "eyebrow": "Pairwise analysis"
   }
 }

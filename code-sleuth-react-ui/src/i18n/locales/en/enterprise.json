@@ -22,7 +22,8 @@
       "descPlaceholder": "Optional description...",
       "created": "Created",
       "createdDesc": "Workspace \"{{name}}\" is ready.",
-      "creationFailed": "Creation failed"
+      "creationFailed": "Creation failed",
+      "eyebrow": "Enterprise admin"
     },
     "workspaceDetail": {
       "back": "Workspaces",
@@ -65,7 +66,7 @@
       "scanCompleted": "Scan completed",
       "scanFailed": "Scan failed",
       "secretsTitle": "Webhook credentials",
-      "secretsIntro": "Save these now — the webhook secret is shown only once and cannot be retrieved later.",
+      "secretsIntro": "Save these now \u2014 the webhook secret is shown only once and cannot be retrieved later.",
       "secretsWebhookLabel": "Webhook secret",
       "secretsGithubLabel": "GitHub webhook URL",
       "secretsGitlabLabel": "GitLab webhook URL",
@@ -73,7 +74,21 @@
       "secretsDone": "Done",
       "copy": "Copy",
       "copied": "Copied to clipboard",
-      "copyFailed": "Copy failed"
+      "copyFailed": "Copy failed",
+      "active": "Active",
+      "thresholdLabel": "threshold",
+      "statRepos": "Repositories",
+      "statCases": "Cases",
+      "statFlagged": "Flagged \u2265 threshold",
+      "statReviewed": "Reviewed",
+      "searchCases": "Filter by path, student, or case ID\u2026",
+      "showing": "Showing",
+      "colPair": "Pair",
+      "colCase": "Case",
+      "colScore": "Score",
+      "colType": "Clone type",
+      "colStatus": "Status",
+      "userHash": "User #"
     },
     "cases": {
       "title": "Review Cases",
@@ -86,7 +101,14 @@
       "workspace": "Workspace",
       "viewCase": "View Case",
       "noCases": "No cases match the current filter.",
-      "errorMsg": "Failed to load cases"
+      "errorMsg": "Failed to load cases",
+      "eyebrow": "Review queue",
+      "showing": "Showing",
+      "colCase": "Case",
+      "colPaths": "Artifacts",
+      "colScore": "Score",
+      "colType": "Clone type",
+      "colStatus": "Status"
     },
     "caseDetail": {
       "back": "Back",

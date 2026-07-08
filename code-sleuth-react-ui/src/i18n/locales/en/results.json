@@ -179,7 +179,6 @@
     "rerun": "Re-run",
     "saved": "Saved",
     "autoSaveUnavailable": "Auto-save unavailable",
-    "similarity": "Similarity",
     "summaryDescription": "This result combines text, token, graph, clone-pattern, and AI similarity signals into a single review surface so you can inspect structure and narrative evidence together.",
     "overviewDescription": "Inspect both source inputs directly inside the overview before moving through similarity signals, clone evidence, and the AI narrative.",
     "graph1": "Code 1 Graph",
@@ -257,7 +256,6 @@
         "default": "{{source}} needs light review"
       }
     },
-
     "chat": {
       "intro": "I am grounded in the current analysis context for {{contextLabel}}. Ask about similarity metrics, graphs, clone types, maintainability, or risks.",
       "justNow": "just now",
@@ -271,13 +269,11 @@
       "suggestion4": "What should be reviewed first?",
       "placeholder": "Ask about the current comparison\u2026"
     },
-
     "analysisReport": {
       "title": "Inter-Code Analysis Report",
       "description": "AI-generated explanation of similarity, structure, maintainability, and risks.",
       "empty": "<p>No AI report is available for this analysis.</p>"
     },
-
     "astGraph": {
       "compactDescription": "Compact AST tree with labeled nodes for direct structural reading.",
       "nodes": "nodes",
@@ -305,9 +301,8 @@
       "linesLabel": "Lines {{start}}-{{end}}",
       "zoomIn": "Zoom in",
       "zoomOut": "Zoom out",
-      "truncatedNotice": "Graph truncated — showing {{shown}} of {{total}} nodes."
+      "truncatedNotice": "Graph truncated \u2014 showing {{shown}} of {{total}} nodes."
     },
-
     "diff": {
       "title": "Line-by-Line Diff",
       "description": "Direct side-by-side comparison showing exactly which lines match, differ, or were added.",
@@ -322,7 +317,6 @@
       "failedToLoad": "Failed to load diff.",
       "showingLines": "Showing {{count}} lines \u2014 scroll to see all differences."
     },
-
     "metrics": {
       "title": "Metrics Comparison",
       "description": "Side-by-side structural and maintainability metrics for both code sources.",
@@ -332,7 +326,6 @@
       "boolTrue": "True",
       "boolFalse": "False"
     },
-
     "pdfExport": {
       "title": "Export PDF Report",
       "subtitle": "Choose which sections to include in the formatted report",
@@ -362,12 +355,10 @@
       "sourceCodeLabel": "Source Code Listing",
       "sourceCodeDesc": "Full code for both sources (may add pages)"
     },
-
     "radar": {
       "title": "Similarity Radar",
       "description": "All similarity dimensions at a glance \u2014 each axis is an independent measurement."
     },
-
     "structured": {
       "verdict": "Verdict",
       "summary": "Summary",
@@ -384,6 +375,8 @@
       "sevMedium": "Medium",
       "sevLow": "Low",
       "sevInfo": "Info"
-    }
+    },
+    "match": "match",
+    "askAnalyst": "Ask analyst"
   }
 }

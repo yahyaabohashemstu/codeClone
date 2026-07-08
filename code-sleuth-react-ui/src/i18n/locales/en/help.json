@@ -15,7 +15,7 @@
       },
       "chat": {
         "title": "Live Chat",
-        "description": "Real-time support from our technical team — typically responds within minutes.",
+        "description": "Real-time support from our technical team \u2014 typically responds within minutes.",
         "action": "Start Chat"
       }
     },
@@ -54,6 +54,7 @@
           "answer": "All code is encrypted in transit and at rest. We never share your code with third parties. Enterprise customers can request on-premises deployment for complete data sovereignty."
         }
       ]
-    }
+    },
+    "eyebrow": "Support & docs"
   }
 }
