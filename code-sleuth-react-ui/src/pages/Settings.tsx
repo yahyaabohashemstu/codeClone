@@ -1,13 +1,12 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { QRCodeSVG } from "qrcode.react";
-import { Copy, KeyRound, Loader2, LogOut, Plus, ShieldCheck, ShieldAlert, Trash2 } from "lucide-react";
+import { Copy, KeyRound, Loader2, LogOut, ShieldCheck, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
-import { createApiKey, listApiKeys, revokeApiKey, type ApiKeyRow } from "@/lib/adminApi";
 import { deleteAccount, exportAccountData } from "@/lib/accountApi";
 import { Download, Trash } from "lucide-react";
 
@@ -26,18 +25,9 @@ const Settings = () => {
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
 
-  const [keys, setKeys] = useState<ApiKeyRow[]>([]);
-  const [newKeyName, setNewKeyName] = useState("");
-  const [freshToken, setFreshToken] = useState("");
-  const [creatingKey, setCreatingKey] = useState(false);
-
   const [deletePassword, setDeletePassword] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
-
-  useEffect(() => {
-    listApiKeys().then(setKeys).catch(() => undefined);
-  }, []);
 
   const twofaOn = Boolean(user?.twofa_enabled);
 
@@ -98,29 +88,6 @@ const Settings = () => {
       navigate("/login", { replace: true });
     } finally {
       setBusy(false);
-    }
-  };
-
-  const handleCreateKey = async () => {
-    setCreatingKey(true);
-    try {
-      const { token, item } = await createApiKey(newKeyName.trim());
-      setKeys((prev) => [item, ...prev]);
-      setFreshToken(token);
-      setNewKeyName("");
-    } catch {
-      toast.error("Failed");
-    } finally {
-      setCreatingKey(false);
-    }
-  };
-
-  const handleRevokeKey = async (id: number) => {
-    try {
-      await revokeApiKey(id);
-      setKeys((prev) => prev.map((k) => (k.id === id ? { ...k, revoked: true } : k)));
-    } catch {
-      toast.error("Failed");
     }
   };
 
@@ -252,47 +219,19 @@ const Settings = () => {
         </div>
       </section>
 
-      {/* API keys */}
+      {/* API keys — managed on the dedicated page */}
       <section className="rounded-2xl border border-border bg-card p-6" style={{ boxShadow: "var(--card-shadow-rest)" }}>
-        <div className="flex items-center gap-2">
-          <KeyRound className="h-5 w-5 text-primary" />
-          <div className="font-semibold text-foreground">{t("settings.apiKeys.title")}</div>
-        </div>
-        <p className="mt-1 t-sm">{t("settings.apiKeys.intro")}</p>
-
-        {freshToken && (
-          <div className="mt-3 rounded-lg border p-3" style={{ borderColor: "hsl(var(--warning) / 0.3)", background: "hsl(var(--warning) / 0.08)" }}>
-            <div className="mb-1 text-xs text-warning">{t("settings.apiKeys.tokenOnce")}</div>
-            <div className="flex items-center gap-2">
-              <Input readOnly value={freshToken} dir="ltr" className="font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
-              <Button type="button" variant="outline" size="sm" aria-label={t("settings.copyToken")} title={t("settings.copyToken")} onClick={() => copy(freshToken)}><Copy className="h-3.5 w-3.5" /></Button>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <KeyRound className="h-5 w-5 text-primary" />
+            <div>
+              <div className="font-semibold text-foreground">{t("settings.apiKeys.title")}</div>
+              <p className="mt-1 t-sm">{t("settings.apiKeys.intro")}</p>
             </div>
           </div>
-        )}
-
-        <div className="mt-4 flex gap-2">
-          <Input value={newKeyName} placeholder={t("settings.apiKeys.nameHint")} onChange={(e) => setNewKeyName(e.target.value)} className="h-9" />
-          <Button onClick={handleCreateKey} disabled={creatingKey} className="gap-1.5 text-white shrink-0" style={{ background: "var(--gradient-brand)" }}>
-            {creatingKey ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}{t("settings.apiKeys.create")}
+          <Button variant="outline" className="gap-2 shrink-0" onClick={() => navigate("/api-keys")}>
+            <KeyRound className="h-4 w-4" />{t("nav.apiKeys")}
           </Button>
-        </div>
-
-        <div className="mt-4 space-y-2">
-          {keys.length === 0 && <p className="t-sm">{t("settings.apiKeys.noKeys")}</p>}
-          {keys.map((k) => (
-            <div key={k.id} className="flex items-center justify-between rounded-lg border border-border/60 px-3 py-2 text-sm">
-              <div className="min-w-0">
-                <span className="font-mono">{k.prefix}…</span>
-                {k.name && <span className="ms-2 text-muted-foreground">{k.name}</span>}
-                {k.revoked && <span className="ms-2 text-xs text-destructive">{t("settings.apiKeys.revoked")}</span>}
-              </div>
-              {!k.revoked && (
-                <Button variant="ghost" size="sm" className="gap-1 text-destructive" onClick={() => handleRevokeKey(k.id)}>
-                  <Trash2 className="h-3.5 w-3.5" />{t("settings.apiKeys.revoke")}
-                </Button>
-              )}
-            </div>
-          ))}
         </div>
       </section>
 

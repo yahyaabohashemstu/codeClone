@@ -34,6 +34,26 @@ export async function revokeApiKey(id: number): Promise<void> {
   await apiFetch(`/api/v1/api-keys/${id}`, { method: "DELETE" });
 }
 
+/** Current-period metered public-API usage + estimated overage cost. */
+export interface ApiUsage {
+  plan: string;
+  planName: string;
+  period: string;
+  calls: number;
+  pairs: number;
+  includedPairs: number;
+  remainingIncluded: number;
+  overagePairs: number;
+  ratePer1000Cents: number;
+  estimatedCostCents: number;
+  lastCallAt: string | null;
+}
+
+/** Fetch the caller's current-period API usage and estimated cost. */
+export async function getApiUsage(): Promise<ApiUsage> {
+  return apiFetch<ApiUsage>("/api/v1/api-keys/usage");
+}
+
 // ── Platform admin ─────────────────────────────────────────────────────────
 
 export interface AdminMetrics {

@@ -9,6 +9,7 @@ import enAnalysis from "./locales/en/analysis.json";
 import enResults from "./locales/en/results.json";
 import enHelp from "./locales/en/help.json";
 import enEnterprise from "./locales/en/enterprise.json";
+import enApiKeys from "./locales/en/apiKeys.json";
 
 // Arabic namespaces
 import arCommon from "./locales/ar/common.json";
@@ -17,6 +18,7 @@ import arAnalysis from "./locales/ar/analysis.json";
 import arResults from "./locales/ar/results.json";
 import arHelp from "./locales/ar/help.json";
 import arEnterprise from "./locales/ar/enterprise.json";
+import arApiKeys from "./locales/ar/apiKeys.json";
 
 export const defaultNS = "common";
 export const namespaces = [
@@ -26,6 +28,7 @@ export const namespaces = [
   "results",
   "help",
   "enterprise",
+  "apiKeys",
 ] as const;
 
 export type AppNamespace = (typeof namespaces)[number];
@@ -38,6 +41,7 @@ const resources = {
     results: enResults,
     help: enHelp,
     enterprise: enEnterprise,
+    apiKeys: enApiKeys,
   },
   ar: {
     common: arCommon,
@@ -46,6 +50,7 @@ const resources = {
     results: arResults,
     help: arHelp,
     enterprise: arEnterprise,
+    apiKeys: arApiKeys,
   },
 } as const;
 

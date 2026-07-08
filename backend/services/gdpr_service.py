@@ -26,7 +26,7 @@ import secrets
 from sqlalchemy import update
 
 from backend.extensions import db
-from backend.models import AuditLog, Subscription, UsageRecord, User
+from backend.models import ApiUsageRecord, AuditLog, Subscription, UsageRecord, User
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +77,20 @@ def reassign_core_user_to_tombstone(uid: int, tombstone_id: int) -> None:
         ).first()
         if existing is not None:
             existing.analyses_count += rec.analyses_count
+            db.session.delete(rec)
+        else:
+            rec.user_id = tombstone_id
+    db.session.flush()
+
+    # 2b. Metered API usage — same MERGE, so the API's usage-based revenue
+    #     aggregate survives erasure (uq_api_usage_user_period).
+    for rec in ApiUsageRecord.query.filter_by(user_id=uid).all():
+        existing = ApiUsageRecord.query.filter_by(
+            user_id=tombstone_id, period=rec.period
+        ).first()
+        if existing is not None:
+            existing.calls += rec.calls
+            existing.pairs += rec.pairs
             db.session.delete(rec)
         else:
             rec.user_id = tombstone_id

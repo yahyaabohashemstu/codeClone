@@ -13,6 +13,7 @@
     "expand": "Expand",
     "enterprise": "Enterprise",
     "billing": "Billing",
+    "apiKeys": "API Keys",
     "settings": "Settings",
     "admin": "Admin"
   },

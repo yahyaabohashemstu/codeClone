@@ -9,6 +9,7 @@ import {
   HelpCircle,
   History,
   Home,
+  KeyRound,
   LogIn,
   LogOut,
   MessageSquare,
@@ -43,6 +44,7 @@ const navItems: NavItem[] = [
   { labelKey: "nav.analytics", icon: LineChart, path: "/analytics" },
   { labelKey: "nav.chat", icon: MessageSquare, path: "/chat" },
   { labelKey: "nav.billing", icon: CreditCard, path: "/billing" },
+  { labelKey: "nav.apiKeys", icon: KeyRound, path: "/api-keys" },
   { labelKey: "nav.settings", icon: Settings, path: "/settings" },
   { labelKey: "nav.help", icon: HelpCircle, path: "/help" },
 ];

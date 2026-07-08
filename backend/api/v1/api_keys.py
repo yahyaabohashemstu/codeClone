@@ -28,6 +28,15 @@ def list_api_keys():
     return jsonify({"success": True, "items": [k.to_dict() for k in keys]})
 
 
+@v1_bp.route("/api-keys/usage", methods=["GET"])
+@login_required
+def api_key_usage():
+    """Current-period metered public-API usage + estimated overage cost."""
+    from backend.services.billing_service import api_usage_summary
+
+    return jsonify({"success": True, **api_usage_summary(current_user.id)})
+
+
 @v1_bp.route("/api-keys", methods=["POST"])
 @limiter.limit("10 per minute")
 @login_required

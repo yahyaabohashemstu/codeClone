@@ -262,6 +262,41 @@ Every error response has this shape:
 
 ---
 
+## 5b. Usage-based billing
+
+The public API is **metered**: every code pair analyzed via `POST /api/v1/ci/check`
+counts toward your plan's monthly allowance, and usage beyond it is billed as
+overage. (Interactive web-UI analyses are billed separately under your plan quota
+and are **not** counted here.)
+
+| Plan | Included API pairs / month |
+|---|---|
+| Free | 200 |
+| Pro | 20,000 |
+| Team | 200,000 |
+
+Overage is **$2.00 per 1,000 pairs** beyond the included allowance (operator-configurable
+via `API_OVERAGE_CENTS_PER_1000_PAIRS`). Only per-user `csk_` keys are metered —
+enterprise and static CI tokens are not.
+
+Track current-period usage and the estimated cost in the app under **API Keys →
+Usage & Billing**, or programmatically:
+
+### `GET /api/v1/api-keys/usage` (session auth)
+
+```json
+{
+  "success": true,
+  "plan": "pro", "planName": "Pro", "period": "2026-07",
+  "calls": 128, "pairs": 24500,
+  "includedPairs": 20000, "remainingIncluded": 0,
+  "overagePairs": 4500, "ratePer1000Cents": 200,
+  "estimatedCostCents": 900, "lastCallAt": "2026-07-08T13:00:00+00:00"
+}
+```
+
+---
+
 ## 6. Examples
 
 ### cURL

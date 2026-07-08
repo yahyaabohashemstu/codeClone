@@ -359,6 +359,15 @@ def ci_check():
     elapsed_ms = round((time.monotonic() - start_time) * 1000)
     verdict = "fail" if violations > 0 else "pass"
 
+    # Meter usage-based billing for per-user API keys. Enterprise/static tokens
+    # are not billed here. Metering must never break the API response.
+    if actor.get("kind") == "user_api_key" and actor.get("legacy_user_id"):
+        try:
+            from backend.services.billing_service import record_api_usage
+            record_api_usage(actor["legacy_user_id"], len(validated_pairs))
+        except Exception:
+            logger.warning("API usage metering failed", exc_info=True)
+
     response = {
         "success": True,
         "verdict": verdict,

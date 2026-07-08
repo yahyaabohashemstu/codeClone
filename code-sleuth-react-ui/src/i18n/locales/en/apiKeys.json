@@ -1,0 +1,60 @@
+{
+  "apiKeys": {
+    "eyebrow": "Developers",
+    "title": "API Keys",
+    "subtitle": "Create keys, track usage-based billing, and read the full API reference.",
+    "tabs": {
+      "keys": "Keys",
+      "usage": "Usage & Billing",
+      "docs": "Documentation"
+    },
+    "keys": {
+      "heading": "Your API keys",
+      "description": "Keys authenticate the public API. Treat them like passwords — a key is shown once and stored only as a salted hash.",
+      "createTitle": "Create a new key",
+      "namePlaceholder": "Key name (e.g. github-actions)",
+      "generate": "Generate key",
+      "generating": "Generating…",
+      "limitReached": "You have reached the maximum of 20 active keys. Revoke one to create another.",
+      "tokenTitle": "Copy your new key now",
+      "tokenWarning": "This is the only time the full key is shown. Store it securely — it cannot be retrieved again.",
+      "copy": "Copy",
+      "copied": "Copied",
+      "done": "Done",
+      "none": "You have no API keys yet. Create one above to get started.",
+      "prefix": "Prefix",
+      "unnamed": "Unnamed key",
+      "created": "Created",
+      "lastUsed": "Last used",
+      "never": "Never",
+      "active": "Active",
+      "revoked": "Revoked",
+      "revoke": "Revoke"
+    },
+    "usage": {
+      "heading": "Usage-based billing",
+      "description": "The public API is metered per code pair analyzed. Each plan includes a monthly allowance; usage beyond it is billed as overage.",
+      "period": "Billing period",
+      "calls": "API requests",
+      "callsDesc": "Calls to /ci/check this period",
+      "pairs": "Pairs analyzed",
+      "pairsDesc": "Billable code comparisons",
+      "included": "Included",
+      "includedDesc": "Pairs included in your plan",
+      "remaining": "{{n}} included pairs remaining",
+      "overage": "Overage pairs",
+      "overageDesc": "Beyond your plan allowance",
+      "estCost": "Estimated overage",
+      "estCostDesc": "This period, at {{rate}} / 1,000 pairs",
+      "estimateNote": "Estimate only. Actual invoicing runs through your billing provider once configured.",
+      "plan": "Plan",
+      "lastCall": "Last API call",
+      "noUsage": "No API usage yet this period. Once you call the API with a key, usage appears here.",
+      "upgrade": "Upgrade plan"
+    },
+    "docs": {
+      "heading": "API documentation",
+      "intro": "Everything you need to call the CodeClone public API from a script, CI pipeline, or service."
+    }
+  }
+}
