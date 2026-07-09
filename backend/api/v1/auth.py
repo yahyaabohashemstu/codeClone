@@ -2,10 +2,14 @@
 Authentication routes for API v1.
 
 Endpoints:
-    POST /api/v1/auth/login
-    POST /api/v1/auth/register
+    POST /api/v1/auth/login                 (accepts a username OR an email)
+    POST /api/v1/auth/signup                (public self-service registration)
+    POST /api/v1/auth/register              (admin-only; creates a user)
+    POST /api/v1/auth/verify-email          (confirm an email token)
+    POST /api/v1/auth/resend-verification   (re-send the verification link)
+    POST /api/v1/auth/request-password-reset
+    POST /api/v1/auth/reset-password
     POST /api/v1/auth/logout
-    GET  /api/v1/session
 """
 
 from __future__ import annotations
@@ -138,13 +142,22 @@ def _send_verification_email(user) -> None:
 @limiter.limit("10 per minute")
 def api_login():
     payload = request.get_json(silent=True) or request.form
-    username = (payload.get("username") or "").strip()
+    # Accept either a username or an email address as the identifier so a user
+    # who has forgotten their username can still sign in with their email.  The
+    # frontend still sends the value under the "username" key for compatibility.
+    identifier = (payload.get("username") or payload.get("identifier") or "").strip()
     password = payload.get("password") or ""
 
-    if not username or not password:
-        return jsonify({"success": False, "message": "Username and password are required."}), 400
+    if not identifier or not password:
+        return jsonify({"success": False, "message": "Username or email and password are required."}), 400
 
-    user = User.query.filter_by(username=username).first()
+    user = User.query.filter_by(username=identifier).first()
+    if user is None and "@" in identifier:
+        # Fall back to an email lookup. Signup stores emails lower-cased and the
+        # column is unique, so this resolves to at most one account. The
+        # dummy-hash timing path below still fires when nothing matches, so this
+        # does not open a new username-enumeration channel.
+        user = User.query.filter_by(email=identifier.lower()).first()
 
     # Account lockout: refuse early (uniform message) while locked.
     if user and _is_locked(user):

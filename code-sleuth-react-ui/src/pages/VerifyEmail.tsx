@@ -3,16 +3,20 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
 
 type Status = "verifying" | "ok" | "error";
+type ResendState = "idle" | "sending" | "sent";
 
 const VerifyEmail = () => {
-  const { verifyEmail } = useAuth();
+  const { verifyEmail, resendVerification } = useAuth();
   const { t } = useTranslation("auth");
   const [params] = useSearchParams();
   const token = params.get("token") || "";
   const [status, setStatus] = useState<Status>("verifying");
+  const [resendEmail, setResendEmail] = useState("");
+  const [resendState, setResendState] = useState<ResendState>("idle");
   const ran = useRef(false);
 
   useEffect(() => {
@@ -26,6 +30,18 @@ const VerifyEmail = () => {
       .then(() => setStatus("ok"))
       .catch(() => setStatus("error"));
   }, [token, verifyEmail]);
+
+  const handleResend = async () => {
+    if (!resendEmail.trim()) return;
+    setResendState("sending");
+    try {
+      await resendVerification(resendEmail.trim());
+    } finally {
+      // The endpoint is deliberately uniform (never reveals whether the address
+      // exists), so we always land on the same confirmation.
+      setResendState("sent");
+    }
+  };
 
   const title =
     status === "verifying" ? t("auth.verifyingTitle")
@@ -48,6 +64,50 @@ const VerifyEmail = () => {
       </div>
       <h1 className="t-h3">{title}</h1>
       {description && <p className="mt-2 t-body">{description}</p>}
+
+      {status === "error" && (
+        <div className="mt-6 text-start">
+          {resendState === "sent" ? (
+            <div
+              className="flex items-start gap-2 rounded-md border px-4 py-3 text-sm"
+              style={{
+                borderColor: "hsl(var(--success) / 0.3)",
+                background: "hsl(var(--success) / 0.08)",
+                color: "hsl(var(--success))",
+              }}
+              role="status"
+            >
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{t("auth.resendSent")}</span>
+            </div>
+          ) : (
+            <>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
+                {t("auth.resendPrompt")}
+              </label>
+              <Input
+                type="email"
+                dir="ltr"
+                placeholder={t("auth.emailPlaceholder")}
+                value={resendEmail}
+                autoComplete="email"
+                onChange={(e) => setResendEmail(e.target.value)}
+                className="h-10"
+              />
+              <Button
+                type="button"
+                onClick={() => void handleResend()}
+                disabled={resendState === "sending" || !resendEmail.trim()}
+                variant="outline"
+                className="mt-3 h-10 w-full"
+              >
+                {resendState === "sending" ? t("auth.resending") : t("auth.resendVerification")}
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+
       {status !== "verifying" && (
         <Button
           asChild

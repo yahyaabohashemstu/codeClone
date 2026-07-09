@@ -13,7 +13,7 @@ type Mode = "signin" | "signup" | "forgot" | "twofa";
 const Auth = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, signup, requestPasswordReset, complete2faLogin } = useAuth();
+  const { login, signup, requestPasswordReset, complete2faLogin, resendVerification } = useAuth();
   const { isRTL, localizeRuntimeMessage } = useLanguage();
   const { t } = useTranslation("auth");
   const [mode, setMode] = useState<Mode>("signin");
@@ -26,6 +26,9 @@ const Auth = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  // After a signup that requires verification, remember the address so the user
+  // can trigger a resend if the first email never arrives.
+  const [pendingVerifyEmail, setPendingVerifyEmail] = useState("");
 
   const rawFrom = (location.state as { from?: string })?.from;
   const redirectTarget =
@@ -35,6 +38,21 @@ const Auth = () => {
     setMode(next);
     setError("");
     setNotice("");
+    setPendingVerifyEmail("");
+  };
+
+  const handleResendVerification = async () => {
+    if (!pendingVerifyEmail) return;
+    setError("");
+    setIsSubmitting(true);
+    try {
+      await resendVerification(pendingVerifyEmail);
+      setNotice(t("auth.resendSent"));
+    } catch (e) {
+      setError(asMessage(e));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const asMessage = (e: unknown) =>
@@ -72,6 +90,7 @@ const Auth = () => {
         const { verificationRequired } = await signup(username.trim(), email.trim(), password);
         if (verificationRequired) {
           setNotice(t("auth.verifyNoticeDescription"));
+          setPendingVerifyEmail(email.trim());
         } else {
           navigate(redirectTarget, { replace: true });
         }
@@ -228,6 +247,16 @@ const Auth = () => {
             <span>{notice}</span>
           </div>
         )}
+        {pendingVerifyEmail && mode === "signup" && (
+          <button
+            type="button"
+            onClick={() => void handleResendVerification()}
+            disabled={isSubmitting}
+            className="mb-4 text-sm text-primary hover:underline disabled:opacity-50"
+          >
+            {isSubmitting ? t("auth.resending") : t("auth.resendVerification")}
+          </button>
+        )}
 
         <form className="space-y-4" onSubmit={(e) => void handleSubmit(e)}>
           {mode === "twofa" && (
@@ -251,7 +280,7 @@ const Auth = () => {
           {(mode === "signin" || mode === "signup") && (
             <div>
               <label className="mb-1.5 block text-sm font-medium text-foreground">
-                {t("auth.username")}
+                {mode === "signin" ? t("auth.identifier") : t("auth.username")}
               </label>
               <div className="relative">
                 <UserRound
@@ -262,7 +291,7 @@ const Auth = () => {
                 />
                 <Input
                   type="text"
-                  placeholder={t("auth.usernamePlaceholder")}
+                  placeholder={mode === "signin" ? t("auth.identifierPlaceholder") : t("auth.usernamePlaceholder")}
                   value={username}
                   autoComplete="username"
                   onChange={(e) => setUsername(e.target.value)}

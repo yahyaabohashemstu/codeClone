@@ -20,6 +20,7 @@ interface AuthContextValue {
   requestPasswordReset: (email: string) => Promise<void>;
   resetPassword: (token: string, password: string) => Promise<void>;
   verifyEmail: (token: string) => Promise<void>;
+  resendVerification: (email: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -196,6 +197,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const resendVerification = useCallback(async (email: string) => {
+    await apiFetch<{ success: boolean }>("/api/v1/auth/resend-verification", {
+      method: "POST",
+      body: JSON.stringify({ email: email.trim() }),
+    });
+  }, []);
+
   const logout = useCallback(async () => {
     await apiFetch<{ success: boolean }>("/api/v1/auth/logout", { method: "POST" });
     const nextSession = await refreshSession();
@@ -220,8 +228,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     requestPasswordReset,
     resetPassword,
     verifyEmail,
+    resendVerification,
     logout,
-  }), [isLoading, session, refreshSession, login, complete2faLogin, setup2fa, enable2fa, disable2fa, logoutAll, register, signup, requestPasswordReset, resetPassword, verifyEmail, logout]);
+  }), [isLoading, session, refreshSession, login, complete2faLogin, setup2fa, enable2fa, disable2fa, logoutAll, register, signup, requestPasswordReset, resetPassword, verifyEmail, resendVerification, logout]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
