@@ -11,6 +11,19 @@ import os
 from datetime import timedelta
 
 
+def _normalize_db_url(url: str) -> str:
+    """Normalize the legacy ``postgres://`` scheme to ``postgresql://``.
+
+    SQLAlchemy 2.0 removed the ``postgres://`` dialect alias, but managed hosts
+    (Coolify, Heroku, Render, …) still hand out connection strings with it — the
+    engine then dies at startup with ``NoSuchModuleError: postgres``. Rewrite the
+    scheme so the app boots regardless of which form the operator pasted.
+    """
+    if url and url.startswith("postgres://"):
+        return "postgresql://" + url[len("postgres://") :]
+    return url
+
+
 class BaseConfig:
     """Shared defaults across all environments."""
 
@@ -31,10 +44,10 @@ class BaseConfig:
     TRUST_PROXY_HEADERS: int = int(os.environ.get("TRUST_PROXY_HEADERS", "0") or "0")
 
     # --- Database ------------------------------------------------------------
-    SQLALCHEMY_DATABASE_URI: str = os.environ.get(
+    SQLALCHEMY_DATABASE_URI: str = _normalize_db_url(os.environ.get(
         "DATABASE_URL",
         f"sqlite:///{os.path.join(INSTANCE_DIR, 'clonedetector.db')}",
-    )
+    ))
     SQLALCHEMY_TRACK_MODIFICATIONS: bool = False
 
     # Engine options are computed at instantiation time so the correct
