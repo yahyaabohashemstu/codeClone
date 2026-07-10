@@ -459,6 +459,16 @@
     "confirmDelete": "Permanently delete this user and all their data? This cannot be undone.",
     "confirmSuspend": "Suspend this account? The user is signed out and blocked from signing in.",
     "actionDone": "Done",
-    "actionFailed": "Action failed"
+    "actionFailed": "Action failed",
+    "actualRevenueTitle": "Actual revenue (Stripe ledger)",
+    "actualRevenue": "Collected (net)",
+    "grossPaid": "Gross paid",
+    "refunds": "Refunds",
+    "failedPayments": "Failed payments",
+    "ledgerEmpty": "No payments recorded yet — actuals populate once the Stripe webhook delivers invoice events.",
+    "lifetimePaid": "Lifetime paid (LTV)",
+    "payments": "Payments",
+    "subHistory": "Subscription history",
+    "noPayments": "No payments"
   }
 }

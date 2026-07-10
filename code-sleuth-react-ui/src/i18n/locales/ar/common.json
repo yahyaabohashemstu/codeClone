@@ -459,6 +459,16 @@
     "confirmDelete": "حذف هذا المستخدم وكل بياناته نهائيًا؟ لا يمكن التراجع عن ذلك.",
     "confirmSuspend": "إيقاف هذا الحساب؟ سيُسجَّل خروج المستخدم ويُمنع من الدخول.",
     "actionDone": "تم",
-    "actionFailed": "فشل الإجراء"
+    "actionFailed": "فشل الإجراء",
+    "actualRevenueTitle": "الإيراد الفعلي (دفتر Stripe)",
+    "actualRevenue": "المحصّل (صافٍ)",
+    "grossPaid": "إجمالي المدفوع",
+    "refunds": "المستردّات",
+    "failedPayments": "مدفوعات فاشلة",
+    "ledgerEmpty": "لا مدفوعات مسجّلة بعد — تظهر الأرقام الفعلية بعد أن يصل webhook من Stripe بأحداث الفواتير.",
+    "lifetimePaid": "إجمالي المدفوع (LTV)",
+    "payments": "المدفوعات",
+    "subHistory": "سجل الاشتراك",
+    "noPayments": "لا مدفوعات"
   }
 }

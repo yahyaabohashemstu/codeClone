@@ -156,6 +156,9 @@ export interface AdminUserDetail {
     analysesCount: number; lastAnalysisAt: string | null;
     avgSimilarity: number | null; languages: Record<string, number>;
   };
+  lifetimePaidCents: number;
+  payments: PaymentRow[];
+  subscriptionEvents: SubEventRow[];
 }
 
 export interface AdminRevenue {
@@ -167,6 +170,24 @@ export interface AdminRevenue {
   subStatusCounts: Record<string, number>;
   pastDue: number;
   canceled: number;
+  // Actuals from the Stripe payments ledger (0 until the webhook has run).
+  actualCollectedCents: number;
+  grossPaidCents: number;
+  refundsCents: number;
+  failedPaymentsCount: number;
+  failedPaymentsCents: number;
+  paymentsCount: number;
+}
+
+export interface PaymentRow {
+  id: number; product: string; amountCents: number; currency: string;
+  status: string; refundedAmountCents: number; netCents: number;
+  paidAt: string | null; createdAt: string | null;
+}
+
+export interface SubEventRow {
+  id: number; product: string; kind: string;
+  fromPlan: string | null; toPlan: string | null; status: string | null; createdAt: string | null;
 }
 
 export interface AdminUsage {

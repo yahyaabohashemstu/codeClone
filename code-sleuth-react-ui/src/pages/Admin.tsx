@@ -183,6 +183,7 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: number; onClo
                 </Select>
               </div>
               <DetailRow label={t("admin.estMonthlySpend")} value={money(apiSpend)} />
+              <DetailRow label={t("admin.lifetimePaid")} value={money(d.lifetimePaidCents)} />
               <DetailRow label={t("admin.renewsOn")} value={fmtDate(d.subscription.currentPeriodEnd)} />
               <DetailRow label={t("admin.stripeCustomer")} value={d.subscription.stripeCustomerId || "—"} />
             </Card>
@@ -228,6 +229,18 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: number; onClo
               <DetailRow label={t("admin.analyses")} value={d.activity.analysesCount} />
               <DetailRow label={t("admin.lastAnalysis")} value={fmtDateTime(d.activity.lastAnalysisAt)} />
               <DetailRow label={t("admin.avgSimilarity")} value={d.activity.avgSimilarity ?? "—"} />
+            </Card>
+            <Card title={t("admin.payments")}>
+              {d.payments.length === 0 ? <div className="text-sm text-muted-foreground">{t("admin.noPayments")}</div> : (
+                <div className="space-y-1 text-sm">
+                  {d.payments.map((p) => (
+                    <div key={p.id} className="flex justify-between border-b border-border/40 py-1">
+                      <span>{money(p.netCents)} <span className="ms-1 text-xs text-muted-foreground">{p.status} · {p.product}</span></span>
+                      <span className="text-muted-foreground">{fmtDate(p.paidAt || p.createdAt)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </Card>
             <Card title={t("admin.apiKeys")}>
               {d.apiKeys.length === 0 ? <div className="text-sm text-muted-foreground">{t("admin.noKeys")}</div> : (
@@ -413,6 +426,18 @@ function RevenueTab() {
         <Tile label={t("admin.pastDue")} value={r.pastDue} />
         <Tile label={t("admin.canceled")} value={r.canceled} />
       </div>
+      <Card title={t("admin.actualRevenueTitle")}>
+        {r.paymentsCount === 0 ? (
+          <div className="text-sm text-muted-foreground">{t("admin.ledgerEmpty")}</div>
+        ) : (
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <Tile label={t("admin.actualRevenue")} value={money(r.actualCollectedCents)} />
+            <Tile label={t("admin.grossPaid")} value={money(r.grossPaidCents)} />
+            <Tile label={t("admin.refunds")} value={money(r.refundsCents)} />
+            <Tile label={t("admin.failedPayments")} value={r.failedPaymentsCount} sub={money(r.failedPaymentsCents)} />
+          </div>
+        )}
+      </Card>
       {planTable(r.basePlans, t("admin.perPlan"))}
       {planTable(r.apiPlans, t("admin.apiRevenue"))}
     </div>
