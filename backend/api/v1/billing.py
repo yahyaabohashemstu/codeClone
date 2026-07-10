@@ -57,15 +57,20 @@ def api_billing_checkout():
             "message": "You can only upgrade to a higher plan.",
         }), 400
 
-    # An existing PAYING subscriber changes plan in the Stripe portal (modifying
-    # the single subscription) — never a second checkout, which would double-bill.
-    if sub.stripe_subscription_id and sub.status == "active":
-        return_url = current_app.config.get("BILLING_SUCCESS_URL") or _fallback_url("/billing")
+    # An existing (non-canceled) Stripe subscriber changes plan IN PLACE — modify
+    # the single subscription's price rather than opening a second checkout, which
+    # would create a duplicate subscription and double-bill. This covers active AND
+    # every live-but-delinquent status (past_due / trialing / unpaid / incomplete);
+    # only a fully canceled subscription falls through to a fresh checkout.
+    if sub.stripe_subscription_id and sub.status != "canceled":
         try:
-            url = stripe_service.create_billing_portal_session(sub.stripe_customer_id or "", return_url)
+            stripe_service.change_subscription_plan(sub.stripe_subscription_id, plan_code)
         except StripeNotConfigured as exc:
             return jsonify({"success": False, "message": str(exc), "code": "billing_not_configured"}), 503
-        return jsonify({"success": True, "checkoutUrl": url, "viaPortal": True})
+        # Reflect immediately for a snappy UI; the subscription.updated webhook
+        # (price -> plan) confirms the same change moments later.
+        billing_service.set_plan(current_user.id, plan_code, status=sub.status)
+        return jsonify({"success": True, "changed": True})
 
     # No Stripe subscription yet (free, or an admin-granted plan) → new checkout.
     success_url = current_app.config.get("BILLING_SUCCESS_URL") or _fallback_url("/billing?status=success")

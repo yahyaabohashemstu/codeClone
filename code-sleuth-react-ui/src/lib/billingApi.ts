@@ -34,13 +34,16 @@ export async function getPlans(): Promise<{ plans: BillingPlan[]; billingEnabled
   return { plans: res.plans ?? [], billingEnabled: Boolean(res.billingEnabled) };
 }
 
-/** Start a Stripe Checkout for a paid plan; returns the redirect URL. */
-export async function startCheckout(planCode: string): Promise<string> {
-  const res = await apiFetch<{ success: boolean; checkoutUrl: string }>("/api/v1/billing/checkout", {
+/**
+ * Start an upgrade. For a brand-new subscriber the response carries `checkoutUrl`
+ * (redirect to Stripe Checkout); for an existing subscriber the plan is changed
+ * in place and the response carries `changed: true` (no redirect).
+ */
+export async function startCheckout(planCode: string): Promise<{ checkoutUrl?: string; changed?: boolean }> {
+  return apiFetch<{ success: boolean; checkoutUrl?: string; changed?: boolean }>("/api/v1/billing/checkout", {
     method: "POST",
     body: JSON.stringify({ plan: planCode }),
   });
-  return res.checkoutUrl;
 }
 
 /** Open the Stripe billing portal to manage/cancel; returns the redirect URL. */

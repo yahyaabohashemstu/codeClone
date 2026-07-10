@@ -69,8 +69,15 @@ const Billing = () => {
   const handleChoose = async (planCode: string) => {
     setCheckingOut(planCode);
     try {
-      const url = await startCheckout(planCode);
-      window.location.href = url;
+      const res = await startCheckout(planCode);
+      if (res.changed) {
+        // Existing subscriber upgraded in place — no redirect; refresh the plan.
+        toast.success(t("billing.checkoutSuccess"));
+        const s = await getBillingSummary();
+        setSummary(s);
+      } else if (res.checkoutUrl) {
+        window.location.href = res.checkoutUrl;
+      }
     } catch (e) {
       if (e instanceof ApiError && e.status === 503) {
         toast.error(t("billing.billingDisabled"));

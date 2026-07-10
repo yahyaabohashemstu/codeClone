@@ -117,6 +117,25 @@ def create_api_checkout_session(user, api_plan_code: str, success_url: str, canc
     return session.url
 
 
+def change_subscription_plan(subscription_id: str, plan_code: str, *, is_api: bool = False) -> None:
+    """Upgrade an EXISTING subscription in place by swapping its price to the new
+    plan (prorated). Used instead of a second Checkout so the customer keeps ONE
+    subscription and is never double-billed. Raises StripeNotConfigured."""
+    stripe = _client()
+    price_id = (price_id_for_api_plan if is_api else price_id_for_plan)(plan_code)
+    if not price_id:
+        raise StripeNotConfigured(f"No Stripe price id configured for plan '{plan_code}'.")
+    sub = stripe.Subscription.retrieve(subscription_id)
+    items = (sub.get("items") or {}).get("data") or []
+    if not items:
+        raise StripeNotConfigured("Subscription has no line item to update.")
+    stripe.Subscription.modify(
+        subscription_id,
+        items=[{"id": items[0]["id"], "price": price_id}],
+        proration_behavior="create_prorations",
+    )
+
+
 def create_billing_portal_session(customer_id: str, return_url: str) -> str:
     """Return a Stripe Billing Portal URL so a customer can manage/cancel.
 

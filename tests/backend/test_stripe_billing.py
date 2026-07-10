@@ -92,9 +92,64 @@ def fake_stripe(monkeypatch):
             import json
             return json.loads(payload)
 
+    class _Subscription:
+        @staticmethod
+        def retrieve(subscription_id):
+            calls["retrieve"] = subscription_id
+            return {"id": subscription_id, "items": {"data": [{"id": "si_1"}]}}
+
+        @staticmethod
+        def modify(subscription_id, **kwargs):
+            calls["modify"] = {"id": subscription_id, **kwargs}
+            return {"id": subscription_id}
+
     fake.Webhook = _Webhook
+    fake.Subscription = _Subscription
     monkeypatch.setitem(sys.modules, "stripe", fake)
     return calls
+
+
+class TestUpgradeInPlace:
+    def test_existing_subscriber_upgrade_modifies_not_duplicates(self, app, client, fake_stripe):
+        from backend.services import billing_service
+        uid = _make_user(app, "upg")
+        with app.app_context():
+            billing_service.set_plan(uid, "pro", status="active",
+                                     stripe_customer_id="cus_1", stripe_subscription_id="sub_1")
+        _login(client, uid)
+        resp = client.post("/api/v1/billing/checkout", json={"plan": "team"})
+        assert resp.status_code == 200 and resp.get_json().get("changed") is True
+        # Modified the single subscription to the team price; created NO checkout.
+        assert fake_stripe.get("modify") is not None
+        assert fake_stripe["modify"]["items"][0]["price"] == "price_team_123"
+        assert "checkout" not in fake_stripe
+        with app.app_context():
+            assert billing_service.get_or_create_subscription(uid).plan_code == "team"
+
+    def test_past_due_subscriber_also_modifies_not_duplicates(self, app, client, fake_stripe):
+        # The confirmed-bug case: a live-but-delinquent sub must NOT mint a 2nd sub.
+        from backend.services import billing_service
+        uid = _make_user(app, "pastdue")
+        with app.app_context():
+            billing_service.set_plan(uid, "pro", status="past_due",
+                                     stripe_customer_id="cus_2", stripe_subscription_id="sub_2")
+        _login(client, uid)
+        resp = client.post("/api/v1/billing/checkout", json={"plan": "team"})
+        assert resp.status_code == 200 and resp.get_json().get("changed") is True
+        assert fake_stripe.get("modify") is not None
+        assert "checkout" not in fake_stripe
+
+    def test_canceled_subscriber_gets_a_fresh_checkout(self, app, client, fake_stripe):
+        from backend.services import billing_service
+        uid = _make_user(app, "canc")
+        with app.app_context():
+            billing_service.set_plan(uid, "free", status="canceled",
+                                     stripe_customer_id="cus_3", stripe_subscription_id="sub_3")
+        _login(client, uid)
+        resp = client.post("/api/v1/billing/checkout", json={"plan": "pro"})
+        assert resp.status_code == 200
+        assert resp.get_json().get("checkoutUrl", "").startswith("https://checkout.stripe.test/")
+        assert "modify" not in fake_stripe
 
 
 class TestCheckout:
