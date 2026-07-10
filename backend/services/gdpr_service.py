@@ -125,3 +125,43 @@ def reassign_core_user_to_tombstone(uid: int, tombstone_id: int) -> None:
             api_sub.stripe_customer_id = None
             api_sub.stripe_subscription_id = None
     db.session.flush()
+
+
+def hard_delete_user(uid: int) -> None:
+    """GDPR-erase a user end to end (the shared path for self-service AND admin
+    deletion).
+
+    Destroys the person's proprietary data (analyses + API keys), reassigns/
+    merges compliance rows onto the tombstone, then deletes the user row and
+    commits. The CALLER is responsible for any session/logout concerns and for
+    refusing to delete protected accounts (self, last admin, the tombstone).
+    Safe no-op if the user is already gone.
+    """
+    from backend.models import Analysis, ApiKey, User
+    from backend.services.cache_service import invalidate_cached_analysis_for_user
+
+    if db.session.get(User, uid) is None:
+        return
+
+    invalidate_cached_analysis_for_user(uid)
+    tombstone = get_or_create_tombstone_user()
+
+    # Enterprise erasure is best-effort — it must never block core deletion.
+    try:
+        from enterprise_platform.gdpr import purge_user_from_enterprise
+        purge_user_from_enterprise(uid, tombstone.id)
+    except Exception:
+        logger.exception("Enterprise GDPR purge failed for user %s — continuing core deletion.", uid)
+
+    # HARD DELETE the proprietary code data and API credentials.
+    Analysis.query.filter_by(user_id=uid).delete(synchronize_session=False)
+    ApiKey.query.filter_by(user_id=uid).delete(synchronize_session=False)
+
+    # REASSIGN/MERGE billing + audit onto the tombstone so the NOT-NULL FKs stay
+    # valid and financial/security aggregates survive, THEN delete the person.
+    reassign_core_user_to_tombstone(uid, tombstone.id)
+
+    user = db.session.get(User, uid)
+    if user is not None:
+        db.session.delete(user)
+    db.session.commit()

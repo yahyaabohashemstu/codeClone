@@ -7,14 +7,13 @@ Account data-rights endpoints (GDPR): export and delete.
 
 from __future__ import annotations
 
-from flask import current_app, jsonify, request
+from flask import jsonify, request
 from flask_login import current_user, login_required, logout_user
 
 from backend.api.v1 import v1_bp
-from backend.extensions import db, limiter
+from backend.extensions import limiter
 from backend.models import Analysis, ApiKey, Subscription, UsageRecord
 from backend.services.audit_service import record_audit
-from backend.services.cache_service import invalidate_cached_analysis_for_user
 
 
 @v1_bp.route("/account/export", methods=["GET"])
@@ -69,39 +68,12 @@ def account_delete():
         return jsonify({"success": False, "message": "Password is incorrect."}), 403
 
     uid = current_user.id
-    invalidate_cached_analysis_for_user(uid)
+    record_audit("account.delete", user_id=uid)
 
     # Tombstone / System-User erasure (backend/services/gdpr_service): destroy the
     # physical person's data while preserving financial aggregates and the
-    # immutable audit trail. The tombstone must exist BEFORE rows are reassigned
-    # onto it.
-    from backend.services.gdpr_service import (
-        get_or_create_tombstone_user,
-        reassign_core_user_to_tombstone,
-    )
-    tombstone = get_or_create_tombstone_user()
-
-    # Enterprise erasure is best-effort — it must never block the core deletion.
-    try:
-        from enterprise_platform.gdpr import purge_user_from_enterprise
-        purge_user_from_enterprise(uid, tombstone.id)
-    except Exception:
-        current_app.logger.exception(
-            "Enterprise GDPR purge failed for user %s — continuing core deletion.", uid
-        )
-
-    # HARD DELETE the proprietary code data and API credentials.
-    Analysis.query.filter_by(user_id=uid).delete(synchronize_session=False)
-    ApiKey.query.filter_by(user_id=uid).delete(synchronize_session=False)
-
-    # REASSIGN/MERGE billing + audit onto the tombstone so the NOT-NULL FKs stay
-    # valid and financial/security aggregates survive, THEN delete the person.
-    reassign_core_user_to_tombstone(uid, tombstone.id)
-
-    from backend.models import User
-    user = db.session.get(User, uid)
+    # immutable audit trail. Clear the caller's session BEFORE the row is gone.
+    from backend.services.gdpr_service import hard_delete_user
     logout_user()
-    if user:
-        db.session.delete(user)
-    db.session.commit()
+    hard_delete_user(uid)
     return jsonify({"success": True})

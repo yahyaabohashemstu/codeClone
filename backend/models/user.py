@@ -27,6 +27,16 @@ class User(db.Model, UserMixin):  # type: ignore[name-defined]
     email_verified = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime(timezone=True), server_default=func.now())
 
+    # Durable admin suspension (a real ban, distinct from the temporary
+    # brute-force ``locked_until``). Deliberately NOT named ``is_active``: in this
+    # Flask-Login, ``UserMixin.is_authenticated`` returns ``self.is_active``, so
+    # shadowing it with a DB column would make every auth check hit the database
+    # and raise on any detached instance. Enforcement is explicit instead — the
+    # user_loader rejects a suspended session and login refuses a suspended user.
+    is_suspended = db.Column(db.Boolean, default=False, nullable=False)
+    # Stamped on every successful sign-in for DAU / dormant-account monitoring.
+    last_login_at = db.Column(db.DateTime(timezone=True), nullable=True)
+
     # Two-factor auth (TOTP).  The secret is stored encrypted (see auth/crypto);
     # recovery codes are stored as a JSON list of werkzeug hashes.
     totp_secret_encrypted = db.Column(db.Text, nullable=True)

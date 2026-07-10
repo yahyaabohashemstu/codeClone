@@ -131,6 +131,10 @@ def create_app(config_override: dict[str, Any] | None = None) -> Flask:
                 return None
             if version != (user.session_version or 0):
                 return None
+        # Suspended/banned account: reject even an otherwise valid session so a
+        # mid-session suspend takes effect immediately.
+        if user.is_suspended:
+            return None
         return user
 
     # -- Unauthorized handler ------------------------------------------------
@@ -275,6 +279,7 @@ def _initialize_database(app: Flask) -> None:
     """Create tables and ensure bootstrap data exists."""
     db.create_all()
     _apply_core_additive_migrations(app)
+    _apply_portable_additive_migrations(app)
     _ensure_default_admin(app)
 
 
@@ -329,6 +334,59 @@ def _apply_core_additive_migrations(app: Flask) -> None:
             logger.info("Added missing column %s.%s", table, column)
         except Exception:
             logger.exception("Failed to add column %s.%s", table, column)
+
+
+# Columns added to EXISTING tables that must be back-filled on BOTH SQLite and
+# PostgreSQL. Unlike ``_CORE_ADDITIVE_COLUMNS`` (SQLite-only, legacy), these ship
+# after the managed-Postgres launch, where a Coolify Dockerfile deploy runs
+# ``python wsgi.py`` (this create_all path) and NOT ``alembic upgrade`` — so this
+# IS the migration that adds them in production. DDL is per-dialect because
+# create_all() only builds fresh tables, never alters existing ones.
+_PORTABLE_ADDITIVE_COLUMNS: tuple[tuple[str, str, dict[str, str]], ...] = (
+    ("user", "is_suspended", {
+        "sqlite": "BOOLEAN NOT NULL DEFAULT 0",
+        "postgresql": "BOOLEAN NOT NULL DEFAULT FALSE",
+    }),
+    ("user", "last_login_at", {
+        "sqlite": "DATETIME",
+        "postgresql": "TIMESTAMP WITH TIME ZONE",
+    }),
+)
+
+
+def _apply_portable_additive_migrations(app: Flask) -> None:
+    """Add post-launch columns on any supported dialect (SQLite + PostgreSQL).
+
+    ``create_all()`` only creates missing TABLES, never adds a column to an
+    existing one, and the managed-Postgres deploy here runs wsgi.py rather than
+    alembic, so without this the new columns are simply absent in production.
+    Uses the inspector to skip columns that already exist, then ALTERs with
+    dialect-correct DDL. Each column is attempted independently so one failure
+    cannot block the others.
+    """
+    from sqlalchemy import inspect as sa_inspect, text
+
+    dialect = db.engine.dialect.name
+    if dialect not in ("sqlite", "postgresql"):
+        logger.debug("Portable additive migration: unsupported dialect %s, skipping.", dialect)
+        return
+    inspector = sa_inspect(db.engine)
+    existing_tables = set(inspector.get_table_names())
+    for table, column, ddl_by_dialect in _PORTABLE_ADDITIVE_COLUMNS:
+        if table not in existing_tables:
+            continue  # create_all built it fresh with the column already
+        columns = {c["name"] for c in inspector.get_columns(table)}
+        if column in columns:
+            continue
+        ddl = ddl_by_dialect.get(dialect)
+        if not ddl:
+            continue
+        try:
+            with db.engine.begin() as conn:
+                conn.execute(text(f'ALTER TABLE "{table}" ADD COLUMN "{column}" {ddl}'))
+            logger.info("Added missing column %s.%s (%s)", table, column, dialect)
+        except Exception:
+            logger.exception("Failed to add column %s.%s on %s", table, column, dialect)
 
 
 def _ensure_default_admin(app: Flask) -> None:

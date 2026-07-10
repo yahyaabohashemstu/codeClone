@@ -14,6 +14,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import datetime
 import re
 
 from sqlalchemy.exc import IntegrityError
@@ -184,6 +185,15 @@ def api_login():
             check_password_hash(_DUMMY_PASSWORD_HASH, password)
         return jsonify({"success": False, "message": "Invalid credentials."}), 401
 
+    # Durable suspension (admin ban): refuse even with correct credentials. This
+    # is distinct from the temporary brute-force ``locked_until`` above.
+    if user.is_suspended:
+        return jsonify({
+            "success": False,
+            "message": "This account has been suspended.",
+            "code": "account_suspended",
+        }), 403
+
     # Optional gate: block unverified accounts when the deployment requires a
     # confirmed email.  Admins are exempt so an operator is never locked out.
     if (
@@ -210,7 +220,8 @@ def api_login():
         })
 
     login_user(user)
-    record_audit("login.success", user_id=user.id)
+    user.last_login_at = datetime.datetime.now(datetime.timezone.utc)
+    record_audit("login.success", user_id=user.id)  # commits last_login_at too
     return jsonify({
         "success": True,
         "user": _serialize_user(user),
@@ -540,8 +551,10 @@ def api_2fa_login():
     # Recovery codes are single-use via the compare-and-swap in consume_recovery_code.
     if not (twofa_service.verify_and_consume_totp(user, code) or twofa_service.consume_recovery_code(user, code)):
         return jsonify({"success": False, "message": "Invalid authentication code."}), 401
-    db.session.commit()  # persist the consumed TOTP step / recovery code
+    user.last_login_at = datetime.datetime.now(datetime.timezone.utc)
+    db.session.commit()  # persist the consumed TOTP step / recovery code + last login
     login_user(user)
+    record_audit("login.success", user_id=user.id)
     return jsonify({"success": True, "user": _serialize_user(user), "csrfToken": get_csrf_token()})
 
 

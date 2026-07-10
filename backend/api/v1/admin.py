@@ -280,11 +280,12 @@ def admin_users():
         limit = PLANS.get(plan_code, PLANS[DEFAULT_PLAN_CODE]).monthly_analysis_quota
         used = usage.get(u.id, 0)
         usage_pct = None if limit < 0 else (round(used / limit * 100, 1) if limit else 0)
-        last_active = last_logins.get(u.id)
+        last_active = u.last_login_at or last_logins.get(u.id)
         items.append({
             "id": u.id, "username": u.username, "email": u.email,
             "emailVerified": bool(u.email_verified), "twofaEnabled": bool(u.totp_enabled),
-            "isAdmin": bool(u.is_admin), "plan": plan_code, "status": status,
+            "isAdmin": bool(u.is_admin), "active": not u.is_suspended,
+            "plan": plan_code, "status": status,
             "createdAt": u.created_at.isoformat() if u.created_at else None,
             "lastActive": last_active.isoformat() if last_active else None,
             "locked": bool(u.locked_until and u.locked_until > _now()),
@@ -317,14 +318,14 @@ def admin_user_detail(user_id: int):
         db.session.query(Analysis.language, db.func.count(Analysis.id))
         .filter(Analysis.user_id == user_id).group_by(Analysis.language).all()
     )
-    last_login = _last_logins([user_id]).get(user_id)
+    last_login = user.last_login_at or _last_logins([user_id]).get(user_id)
 
     return jsonify({
         "success": True,
         "user": {
             "id": user.id, "username": user.username, "email": user.email,
             "emailVerified": bool(user.email_verified), "twofaEnabled": bool(user.totp_enabled),
-            "isAdmin": bool(user.is_admin),
+            "isAdmin": bool(user.is_admin), "active": not user.is_suspended,
             "createdAt": user.created_at.isoformat() if user.created_at else None,
             "failedLoginCount": user.failed_login_count or 0,
             "lockedUntil": user.locked_until.isoformat() if user.locked_until else None,
@@ -642,3 +643,230 @@ def admin_security():
         "revokedApiKeys": revoked_keys,
         "recentAdminActions": admin_actions,
     })
+
+
+# ===========================================================================
+# Admin ACTIONS (mutating). Every one records an audit row; destructive ones
+# carry guardrails (no self-harm, never strand the platform without an admin).
+# All are POST/DELETE, so the app's global CSRF protection applies.
+# ===========================================================================
+
+def _target_or_404(user_id: int):
+    user = db.session.get(User, user_id)
+    if not user:
+        return None, (jsonify({"success": False, "message": "User not found."}), 404)
+    return user, None
+
+
+def _is_self(user_id: int) -> bool:
+    return current_user.id == user_id
+
+
+def _admin_count() -> int:
+    return db.session.query(db.func.count(User.id)).filter(User.is_admin.is_(True)).scalar() or 0
+
+
+@v1_bp.route("/admin/users/<int:user_id>/api-plan", methods=["POST"])
+@admin_required
+def admin_set_api_plan(user_id: int):
+    payload = request.get_json(silent=True) or {}
+    plan = (payload.get("plan") or "").strip().lower()
+    if plan not in API_PLANS:
+        return jsonify({"success": False, "message": "Unknown API plan."}), 400
+    _, err = _target_or_404(user_id)
+    if err:
+        return err
+    api_billing_service.set_api_plan(user_id, plan)
+    record_audit("admin.set_api_plan", user_id=current_user.id, detail=f"user={user_id} plan={plan}")
+    return jsonify({"success": True, **api_billing_service.api_usage_summary(user_id)})
+
+
+@v1_bp.route("/admin/users/<int:user_id>/lock", methods=["POST"])
+@admin_required
+def admin_lock_user(user_id: int):
+    if _is_self(user_id):
+        return jsonify({"success": False, "message": "You cannot lock your own account."}), 400
+    user, err = _target_or_404(user_id)
+    if err:
+        return err
+    payload = request.get_json(silent=True) or {}
+    try:
+        minutes = int(payload.get("minutes", 60))
+    except (TypeError, ValueError):
+        minutes = 60
+    minutes = max(1, min(minutes, 60 * 24 * 30))  # cap at 30 days
+    user.locked_until = _now() + datetime.timedelta(minutes=minutes)
+    db.session.commit()
+    record_audit("admin.lock", user_id=current_user.id, detail=f"user={user_id} minutes={minutes}")
+    return jsonify({"success": True, "lockedUntil": user.locked_until.isoformat()})
+
+
+@v1_bp.route("/admin/users/<int:user_id>/unlock", methods=["POST"])
+@admin_required
+def admin_unlock_user(user_id: int):
+    user, err = _target_or_404(user_id)
+    if err:
+        return err
+    user.locked_until = None
+    user.failed_login_count = 0
+    db.session.commit()
+    record_audit("admin.unlock", user_id=current_user.id, detail=f"user={user_id}")
+    return jsonify({"success": True})
+
+
+@v1_bp.route("/admin/users/<int:user_id>/suspend", methods=["POST"])
+@admin_required
+def admin_suspend_user(user_id: int):
+    if _is_self(user_id):
+        return jsonify({"success": False, "message": "You cannot suspend your own account."}), 400
+    user, err = _target_or_404(user_id)
+    if err:
+        return err
+    if user.is_admin and _admin_count() <= 1:
+        return jsonify({"success": False, "message": "Cannot suspend the last admin."}), 400
+    user.is_suspended = True
+    user.session_version = (user.session_version or 0) + 1  # kill existing sessions
+    db.session.commit()
+    record_audit("admin.suspend", user_id=current_user.id, detail=f"user={user_id}")
+    return jsonify({"success": True})
+
+
+@v1_bp.route("/admin/users/<int:user_id>/unsuspend", methods=["POST"])
+@admin_required
+def admin_unsuspend_user(user_id: int):
+    user, err = _target_or_404(user_id)
+    if err:
+        return err
+    user.is_suspended = False
+    db.session.commit()
+    record_audit("admin.unsuspend", user_id=current_user.id, detail=f"user={user_id}")
+    return jsonify({"success": True})
+
+
+@v1_bp.route("/admin/users/<int:user_id>/reset-2fa", methods=["POST"])
+@admin_required
+def admin_reset_2fa(user_id: int):
+    user, err = _target_or_404(user_id)
+    if err:
+        return err
+    user.totp_enabled = False
+    user.totp_secret_encrypted = None
+    user.recovery_codes_json = None
+    user.last_totp_step = None
+    db.session.commit()
+    record_audit("admin.reset_2fa", user_id=current_user.id, detail=f"user={user_id}")
+    return jsonify({"success": True})
+
+
+@v1_bp.route("/admin/users/<int:user_id>/resend-verification", methods=["POST"])
+@admin_required
+def admin_resend_verification(user_id: int):
+    user, err = _target_or_404(user_id)
+    if err:
+        return err
+    if not user.email:
+        return jsonify({"success": False, "message": "User has no email on file."}), 400
+    if user.email_verified:
+        return jsonify({"success": True, "message": "Email already verified."})
+    from backend.api.v1.auth import _send_verification_email
+    _send_verification_email(user)
+    record_audit("admin.resend_verification", user_id=current_user.id, detail=f"user={user_id}")
+    return jsonify({"success": True})
+
+
+@v1_bp.route("/admin/users/<int:user_id>/logout-all", methods=["POST"])
+@admin_required
+def admin_logout_all(user_id: int):
+    user, err = _target_or_404(user_id)
+    if err:
+        return err
+    user.session_version = (user.session_version or 0) + 1
+    db.session.commit()
+    record_audit("admin.logout_all", user_id=current_user.id, detail=f"user={user_id}")
+    return jsonify({"success": True})
+
+
+@v1_bp.route("/admin/users/<int:user_id>/admin", methods=["POST"])
+@admin_required
+def admin_set_admin(user_id: int):
+    payload = request.get_json(silent=True) or {}
+    make_admin = bool(payload.get("isAdmin"))
+    user, err = _target_or_404(user_id)
+    if err:
+        return err
+    if not make_admin:
+        if _is_self(user_id):
+            return jsonify({"success": False, "message": "You cannot demote yourself."}), 400
+        if user.is_admin and _admin_count() <= 1:
+            return jsonify({"success": False, "message": "Cannot remove the last admin."}), 400
+    user.is_admin = make_admin
+    db.session.commit()
+    record_audit("admin.set_admin", user_id=current_user.id, detail=f"user={user_id} isAdmin={make_admin}")
+    return jsonify({"success": True})
+
+
+@v1_bp.route("/admin/users/<int:user_id>/reset-quota", methods=["POST"])
+@admin_required
+def admin_reset_quota(user_id: int):
+    user, err = _target_or_404(user_id)
+    if err:
+        return err
+    period = billing_service.current_period()
+    rec = UsageRecord.query.filter_by(user_id=user_id, period=period).first()
+    if rec:
+        rec.analyses_count = 0
+        rec.alert_sent = 0
+        db.session.commit()
+    record_audit("admin.reset_quota", user_id=current_user.id, detail=f"user={user_id} period={period}")
+    return jsonify({"success": True, **billing_service.quota_summary(user_id)})
+
+
+@v1_bp.route("/admin/users/<int:user_id>", methods=["DELETE"])
+@admin_required
+def admin_delete_user(user_id: int):
+    if _is_self(user_id):
+        return jsonify({"success": False, "message": "You cannot delete your own account here."}), 400
+    user, err = _target_or_404(user_id)
+    if err:
+        return err
+    from backend.services.gdpr_service import hard_delete_user, is_tombstone
+    if is_tombstone(user):
+        return jsonify({"success": False, "message": "The system tombstone cannot be deleted."}), 400
+    if user.is_admin and _admin_count() <= 1:
+        return jsonify({"success": False, "message": "Cannot delete the last admin."}), 400
+    # Audit BEFORE deletion (actor = the admin, whose row is untouched by the purge).
+    record_audit("admin.delete_user", user_id=current_user.id, detail=f"user={user_id} username={user.username}")
+    hard_delete_user(user_id)
+    return jsonify({"success": True})
+
+
+@v1_bp.route("/admin/users/export.csv", methods=["GET"])
+@admin_required
+def admin_users_export():
+    import csv
+    import io
+
+    from flask import Response
+
+    users = User.query.order_by(User.id.asc()).all()
+    subs = {s.user_id: s for s in Subscription.query.all()}
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow([
+        "id", "username", "email", "emailVerified", "twofa", "isAdmin", "active",
+        "plan", "status", "createdAt", "lastLoginAt",
+    ])
+    for u in users:
+        sub = subs.get(u.id)
+        writer.writerow([
+            u.id, u.username, u.email or "",
+            bool(u.email_verified), bool(u.totp_enabled), bool(u.is_admin), not u.is_suspended,
+            sub.plan_code if sub else "free", sub.status if sub else "active",
+            u.created_at.isoformat() if u.created_at else "",
+            u.last_login_at.isoformat() if u.last_login_at else "",
+        ])
+    record_audit("admin.export_users", user_id=current_user.id)
+    return Response(
+        out.getvalue(), mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=codeclone-users.csv"},
+    )
