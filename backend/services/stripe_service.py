@@ -187,6 +187,11 @@ def apply_webhook_event(event) -> bool:
         canceled = event_type == "customer.subscription.deleted" or data_object.get("status") == "canceled"
         status = "canceled" if canceled else data_object.get("status", "active")
         period_end = _ts_to_dt(data_object.get("current_period_end"))
+        # Derive the plan from the subscription's CURRENT price so a plan CHANGE
+        # made in the Stripe portal (or via subscription.modify) is reflected —
+        # subscription.updated carries no checkout metadata, only the price item.
+        items = (data_object.get("items") or {}).get("data") or []
+        price_id = (items[0].get("price") or {}).get("id") if items else None
 
         # A Stripe subscription id lives on exactly one of the two tables. Check
         # the API subscription first, then the base subscription.
@@ -194,11 +199,11 @@ def apply_webhook_event(event) -> bool:
         api_row = _find_api_subscription_row(subscription_id=subscription_id, customer_id=customer_id)
         if api_row:
             before = api_row.api_plan_code
-            target = "api_free" if canceled else api_row.api_plan_code
+            target = "api_free" if canceled else (_plan_from_price(price_id, is_api=True) or api_row.api_plan_code)
             set_api_plan(api_row.user_id, target, status=status, current_period_end=period_end)
             _record_subscription_event(
                 api_row.user_id, product="api", from_plan=before, to_plan=target,
-                status=status, kind="canceled" if canceled else "status",
+                status=status, kind=_change_kind(canceled, before, target),
             )
             return True
 
@@ -209,11 +214,11 @@ def apply_webhook_event(event) -> bool:
         )
         if base_row:
             before = base_row.plan_code
-            target = "free" if canceled else base_row.plan_code
+            target = "free" if canceled else (_plan_from_price(price_id, is_api=False) or base_row.plan_code)
             set_plan(base_row.user_id, target, status=status, current_period_end=period_end)
             _record_subscription_event(
                 base_row.user_id, product="base", from_plan=before, to_plan=target,
-                status=status, kind="canceled" if canceled else "status",
+                status=status, kind=_change_kind(canceled, before, target),
             )
             return True
 
@@ -354,6 +359,27 @@ def _current_plan(user_id, is_api: bool) -> str | None:
         return row.api_plan_code if row else None
     row = Subscription.query.filter_by(user_id=user_id).first()
     return row.plan_code if row else None
+
+
+def _plan_from_price(price_id, is_api: bool):
+    """Reverse-map a Stripe price id to a local plan code via its configured env
+    var, so a plan change made in the portal / via subscription.modify (which
+    carries only the price, no metadata) updates the local plan. None if unknown."""
+    from backend.models.billing import API_PLANS, PLANS
+
+    if not price_id:
+        return None
+    plans = API_PLANS if is_api else PLANS
+    for code, plan in plans.items():
+        if current_app.config.get(plan.stripe_price_env) == price_id:
+            return code
+    return None
+
+
+def _change_kind(canceled: bool, before, after) -> str:
+    if canceled:
+        return "canceled"
+    return "changed" if after != before else "status"
 
 
 def _resolve_account(customer_id, subscription_id):

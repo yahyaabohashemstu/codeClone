@@ -95,6 +95,11 @@ const Billing = () => {
       ? Math.min(100, Math.round((summary.used / summary.limit) * 100))
       : 0;
 
+  // Upgrade-only: a plan is choosable only if it ranks strictly above the current
+  // plan (plans arrive ordered free < pro < team). Applies whatever the source of
+  // the current plan — Stripe payment or an admin grant.
+  const currentIndex = plans.findIndex((p) => p.code === summary?.plan);
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
@@ -181,9 +186,10 @@ const Billing = () => {
       <section>
         <h2 className="t-h3 mb-4">{t("billing.availablePlans")}</h2>
         <div className="grid gap-4 md:grid-cols-3">
-          {plans.map((plan) => {
+          {plans.map((plan, i) => {
             const isCurrent = summary?.plan === plan.code;
             const isFree = plan.code === "free";
+            const isUpgrade = currentIndex >= 0 && i > currentIndex;
             return (
               <div
                 key={plan.code}
@@ -211,16 +217,24 @@ const Billing = () => {
                     : `${plan.monthlyAnalysisQuota} ${t("billing.usageThisMonth").toLowerCase()}`}
                 </div>
                 {!isCurrent && !isFree && (
-                  <Button
-                    onClick={() => handleChoose(plan.code)}
-                    disabled={checkingOut === plan.code}
-                    className="mt-5 h-10 w-full gap-2 text-white"
-                    style={{ background: "var(--gradient-brand)", boxShadow: "var(--glow-shadow-sm)" }}
-                  >
-                    {checkingOut === plan.code
-                      ? <Loader2 className="h-4 w-4 animate-spin" />
-                      : <>{t("billing.choose")}</>}
-                  </Button>
+                  isUpgrade ? (
+                    <Button
+                      onClick={() => handleChoose(plan.code)}
+                      disabled={checkingOut === plan.code}
+                      className="mt-5 h-10 w-full gap-2 text-white"
+                      style={{ background: "var(--gradient-brand)", boxShadow: "var(--glow-shadow-sm)" }}
+                    >
+                      {checkingOut === plan.code
+                        ? <Loader2 className="h-4 w-4 animate-spin" />
+                        : <>{t("billing.choose")}</>}
+                    </Button>
+                  ) : (
+                    // Lower tier than the current plan — a downgrade, so its
+                    // subscribe button is disabled (its features are already included).
+                    <Button variant="outline" disabled className="mt-5 h-10 w-full opacity-60">
+                      {t("billing.includedInPlan")}
+                    </Button>
+                  )
                 )}
               </div>
             );

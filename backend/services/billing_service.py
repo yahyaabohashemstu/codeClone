@@ -25,6 +25,19 @@ def get_plan(plan_code: str | None) -> Plan:
     return PLANS.get(plan_code or DEFAULT_PLAN_CODE, PLANS[DEFAULT_PLAN_CODE])
 
 
+# Tier order for upgrade/downgrade decisions (free < pro < team). Derived from
+# the declared order of PLANS so adding a tier updates the ranking automatically.
+_PLAN_ORDER = list(PLANS)
+
+
+def plan_rank(plan_code: str | None) -> int:
+    """Ordinal tier rank; higher == more premium. Unknown codes rank as 0 (free)."""
+    try:
+        return _PLAN_ORDER.index(plan_code or DEFAULT_PLAN_CODE)
+    except ValueError:
+        return 0
+
+
 def get_or_create_subscription(user_id: int) -> Subscription:
     sub = Subscription.query.filter_by(user_id=user_id).first()
     if sub is None:

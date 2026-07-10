@@ -287,6 +287,7 @@
     "current": "Current",
     "upgrade": "Upgrade",
     "choose": "Choose",
+    "includedInPlan": "Included in your plan",
     "free": "Free",
     "billingDisabled": "Online checkout is not enabled on this deployment. Contact your administrator to change plans.",
     "checkoutError": "Could not start checkout. Please try again.",

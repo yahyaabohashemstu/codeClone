@@ -47,9 +47,29 @@ def api_billing_checkout():
     if plan_code not in PLANS or plan_code == "free":
         return jsonify({"success": False, "message": "Choose a valid paid plan."}), 400
 
+    # Upgrade-only: refuse a plan that is not strictly higher than the current one,
+    # regardless of whether the current plan came from Stripe or an admin grant.
+    sub = billing_service.get_or_create_subscription(current_user.id)
+    if billing_service.plan_rank(plan_code) <= billing_service.plan_rank(sub.plan_code):
+        return jsonify({
+            "success": False,
+            "code": "not_an_upgrade",
+            "message": "You can only upgrade to a higher plan.",
+        }), 400
+
+    # An existing PAYING subscriber changes plan in the Stripe portal (modifying
+    # the single subscription) — never a second checkout, which would double-bill.
+    if sub.stripe_subscription_id and sub.status == "active":
+        return_url = current_app.config.get("BILLING_SUCCESS_URL") or _fallback_url("/billing")
+        try:
+            url = stripe_service.create_billing_portal_session(sub.stripe_customer_id or "", return_url)
+        except StripeNotConfigured as exc:
+            return jsonify({"success": False, "message": str(exc), "code": "billing_not_configured"}), 503
+        return jsonify({"success": True, "checkoutUrl": url, "viaPortal": True})
+
+    # No Stripe subscription yet (free, or an admin-granted plan) → new checkout.
     success_url = current_app.config.get("BILLING_SUCCESS_URL") or _fallback_url("/billing?status=success")
     cancel_url = current_app.config.get("BILLING_CANCEL_URL") or _fallback_url("/billing?status=cancel")
-
     try:
         url = stripe_service.create_checkout_session(current_user, plan_code, success_url, cancel_url)
     except StripeNotConfigured as exc:
