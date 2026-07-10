@@ -149,8 +149,15 @@ class BaseConfig:
     # account stays on the free plan — quotas still apply.
     STRIPE_SECRET_KEY: str = os.environ.get("STRIPE_SECRET_KEY", "")
     STRIPE_WEBHOOK_SECRET: str = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+    # Base web-app plan prices.
     STRIPE_PRICE_PRO: str = os.environ.get("STRIPE_PRICE_PRO", "")
     STRIPE_PRICE_TEAM: str = os.environ.get("STRIPE_PRICE_TEAM", "")
+    # SEPARATE metered public-API plan prices (see ApiPlan / API_PLANS). These
+    # must be wired here so ``price_id_for_api_plan`` (config.get by env name) can
+    # resolve them — otherwise an API-plan checkout 400s with "no price id".
+    STRIPE_PRICE_API_STARTER: str = os.environ.get("STRIPE_PRICE_API_STARTER", "")
+    STRIPE_PRICE_API_GROWTH: str = os.environ.get("STRIPE_PRICE_API_GROWTH", "")
+    STRIPE_PRICE_API_SCALE: str = os.environ.get("STRIPE_PRICE_API_SCALE", "")
     BILLING_SUCCESS_URL: str = os.environ.get("BILLING_SUCCESS_URL", "")
     BILLING_CANCEL_URL: str = os.environ.get("BILLING_CANCEL_URL", "")
 
