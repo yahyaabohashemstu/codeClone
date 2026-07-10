@@ -1,51 +1,497 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Loader2, ShieldCheck, Users } from "lucide-react";
-import { toast } from "sonner";
 import {
-  getAdminMetrics,
-  getAdminUsers,
-  setUserPlan,
-  type AdminMetrics,
-  type AdminUser,
-} from "@/lib/adminApi";
+  Activity, DollarSign, Gauge, Loader2, Lock, ShieldCheck, Users, X,
+} from "lucide-react";
+import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import * as api from "@/lib/adminApi";
 
 const PLANS = ["free", "pro", "team"];
 
-const Admin = () => {
+const money = (cents: number | null | undefined) =>
+  `$${((cents ?? 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString() : "—");
+const fmtDateTime = (iso?: string | null) => (iso ? new Date(iso).toLocaleString() : "—");
+
+const TABS = ["overview", "users", "revenue", "usage", "activity", "security"] as const;
+type Tab = (typeof TABS)[number];
+
+const TAB_ICON: Record<Tab, typeof Users> = {
+  overview: Activity, users: Users, revenue: DollarSign,
+  usage: Gauge, activity: Activity, security: ShieldCheck,
+};
+
+// ── small presentational helpers ────────────────────────────────────────────
+
+function Card({ title, children, className }: { title?: string; children: React.ReactNode; className?: string }) {
+  return (
+    <section className={cn("rounded-2xl border border-border bg-card p-5", className)} style={{ boxShadow: "var(--card-shadow-rest)" }}>
+      {title && <h2 className="t-h3 mb-4">{title}</h2>}
+      {children}
+    </section>
+  );
+}
+
+function Tile({ label, value, sub }: { label: string; value: React.ReactNode; sub?: string }) {
+  return (
+    <div className="rounded-xl border border-border/70 bg-card p-5" style={{ boxShadow: "var(--card-shadow-rest)" }}>
+      <div className="t-label">{label}</div>
+      <div className="mt-2 font-mono text-3xl font-bold tracking-tight text-foreground" style={{ fontVariantNumeric: "tabular-nums" }}>{value}</div>
+      {sub && <div className="mt-1 text-xs text-muted-foreground">{sub}</div>}
+    </div>
+  );
+}
+
+function Bars({ items }: { items: { label: string; count: number }[] }) {
   const { t } = useTranslation("common");
-  const [metrics, setMetrics] = useState<AdminMetrics | null>(null);
-  const [users, setUsers] = useState<AdminUser[]>([]);
-  const [loading, setLoading] = useState(true);
+  const max = Math.max(1, ...items.map((i) => i.count));
+  if (!items.length) return <div className="text-sm text-muted-foreground">{t("admin.noData")}</div>;
+  return (
+    <div className="space-y-2">
+      {items.map((i) => (
+        <div key={i.label} className="flex items-center gap-3 text-sm">
+          <div className="w-28 shrink-0 truncate text-muted-foreground">{i.label}</div>
+          <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+            <div className="h-full rounded-full" style={{ width: `${(i.count / max) * 100}%`, background: "var(--gradient-brand)" }} />
+          </div>
+          <div className="w-12 shrink-0 text-end font-mono tabular-nums">{i.count}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
+function Spinner() {
+  return <div className="flex min-h-[30vh] items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+}
+
+// ── Overview tab ────────────────────────────────────────────────────────────
+
+function OverviewTab() {
+  const { t } = useTranslation("common");
+  const [m, setM] = useState<api.AdminMetrics | null>(null);
+  useEffect(() => { api.getAdminMetrics().then(setM).catch(() => undefined); }, []);
+  if (!m) return <Spinner />;
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <Tile label={t("admin.totalUsers")} value={m.totalUsers} />
+        <Tile label={t("admin.totalAnalyses")} value={m.totalAnalyses} />
+        <Tile label={t("admin.verified")} value={m.verifiedUsers} sub={`${m.unverifiedUsers} ${t("admin.unverified")}`} />
+        <Tile label={t("admin.twofa")} value={m.twofaUsers} />
+        <Tile label={t("admin.admins")} value={m.adminUsers} />
+        <Tile label={t("admin.locked")} value={m.lockedUsers} />
+        <Tile label={t("admin.failedLogins24h")} value={m.failedLogins24h} />
+        <Tile label={t("admin.estMrr")} value={money(m.estimatedMrrCents)} sub={t("admin.estimatedNote")} />
+      </div>
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card title={t("admin.planMix")}>
+          <Bars items={PLANS.map((p) => ({ label: p, count: m.planCounts[p] ?? 0 }))} />
+        </Card>
+        <Card title={t("admin.apiPlanMix")}>
+          <Bars items={Object.entries(m.apiPlanCounts).map(([label, count]) => ({ label, count }))} />
+        </Card>
+      </div>
+      <Card title={t("admin.newSignups")}>
+        <div className="grid grid-cols-3 gap-4">
+          <Tile label={t("admin.today")} value={m.signups.today} />
+          <Tile label={t("admin.days7")} value={m.signups.last7d} />
+          <Tile label={t("admin.days30")} value={m.signups.last30d} />
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ── User detail modal ───────────────────────────────────────────────────────
+
+function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex justify-between gap-4 border-b border-border/40 py-1.5 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="text-end font-medium text-foreground">{value}</span>
+    </div>
+  );
+}
+
+function UserDetailModal({ userId, onClose }: { userId: number; onClose: () => void }) {
+  const { t } = useTranslation("common");
+  const [d, setD] = useState<api.AdminUserDetail | null>(null);
+  const [audit, setAudit] = useState<api.AuditRow[]>([]);
   useEffect(() => {
-    Promise.all([getAdminMetrics(), getAdminUsers(1)])
-      .then(([m, u]) => { setMetrics(m); setUsers(u.items); })
-      .catch(() => undefined)
-      .finally(() => setLoading(false));
-  }, []);
+    api.getAdminUserDetail(userId).then(setD).catch(() => undefined);
+    api.getAdminUserAudit(userId, 25).then(setAudit).catch(() => undefined);
+  }, [userId]);
 
-  const changePlan = async (userId: number, plan: string) => {
+  const quota = d?.quota as { used?: number; limit?: number; unlimited?: boolean } | undefined;
+  const apiSpend = d ? (d.apiUsage.monthlyPriceCents + d.apiUsage.estimatedCostCents) : 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/50" onClick={onClose}>
+      <div
+        className="h-full w-full max-w-xl overflow-y-auto bg-card p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="t-h3">{t("admin.userDetail")}</h2>
+          <button onClick={onClose} aria-label={t("admin.close")} className="rounded-md p-1 hover:bg-muted"><X className="h-5 w-5" /></button>
+        </div>
+        {!d ? <Spinner /> : (
+          <div className="space-y-5">
+            <Card title={t("admin.identity")}>
+              <DetailRow label="ID" value={d.user.id} />
+              <DetailRow label={t("admin.username")} value={<>{d.user.username}{d.user.isAdmin && <span className="ms-1 text-primary">★</span>}</>} />
+              <DetailRow label={t("admin.email")} value={d.user.email || "—"} />
+              <DetailRow label={t("admin.verified")} value={d.user.emailVerified ? "✓" : "—"} />
+              <DetailRow label={t("admin.twofa")} value={d.user.twofaEnabled ? "✓" : "—"} />
+              <DetailRow label={t("admin.created")} value={fmtDate(d.user.createdAt)} />
+              <DetailRow label={t("admin.lastLogin")} value={fmtDateTime(d.user.lastLoginAt)} />
+              <DetailRow label={t("admin.failedLogins")} value={d.user.failedLoginCount} />
+              <DetailRow label={t("admin.locked")} value={d.user.locked ? fmtDateTime(d.user.lockedUntil) : "—"} />
+              <DetailRow label={t("admin.sessionVersion")} value={d.user.sessionVersion} />
+            </Card>
+            <Card title={t("admin.planSpend")}>
+              <DetailRow label={t("admin.plan")} value={`${d.subscription.plan} (${d.subscription.status})`} />
+              <DetailRow label={t("admin.apiPlan")} value={`${d.apiUsage.apiPlan} (${d.apiUsage.status})`} />
+              <DetailRow label={t("admin.estMonthlySpend")} value={money(apiSpend)} />
+              <DetailRow label={t("admin.renewsOn")} value={fmtDate(d.subscription.currentPeriodEnd)} />
+              <DetailRow label={t("admin.stripeCustomer")} value={d.subscription.stripeCustomerId || "—"} />
+            </Card>
+            <Card title={t("admin.consumption")}>
+              <DetailRow label={t("admin.usage")} value={quota?.unlimited ? "∞" : `${quota?.used ?? 0} / ${quota?.limit ?? 0}`} />
+              <DetailRow label={t("admin.apiCalls")} value={d.apiUsage.calls} />
+              <DetailRow label={t("admin.apiPairs")} value={d.apiUsage.pairs} />
+              <DetailRow label={t("admin.analyses")} value={d.activity.analysesCount} />
+              <DetailRow label={t("admin.lastAnalysis")} value={fmtDateTime(d.activity.lastAnalysisAt)} />
+              <DetailRow label={t("admin.avgSimilarity")} value={d.activity.avgSimilarity ?? "—"} />
+            </Card>
+            <Card title={t("admin.apiKeys")}>
+              {d.apiKeys.length === 0 ? <div className="text-sm text-muted-foreground">{t("admin.noKeys")}</div> : (
+                <div className="space-y-1 text-sm">
+                  {d.apiKeys.map((k) => (
+                    <div key={k.id} className="flex justify-between border-b border-border/40 py-1">
+                      <span className="font-mono">{k.prefix}{k.revoked && <span className="ms-2 text-destructive">revoked</span>}</span>
+                      <span className="text-muted-foreground">{fmtDate(k.lastUsedAt)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+            <Card title={t("admin.securityHistory")}>
+              {audit.length === 0 ? <div className="text-sm text-muted-foreground">{t("admin.noData")}</div> : (
+                <div className="space-y-1 text-sm">
+                  {audit.map((a) => (
+                    <div key={a.id} className="flex justify-between border-b border-border/40 py-1">
+                      <span className="font-mono text-xs">{a.action}</span>
+                      <span className="text-muted-foreground">{fmtDateTime(a.createdAt)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Users tab ───────────────────────────────────────────────────────────────
+
+function UsersTab() {
+  const { t } = useTranslation("common");
+  const [data, setData] = useState<api.AdminUsersPage | null>(null);
+  const [page, setPage] = useState(1);
+  const [q, setQ] = useState("");
+  const [search, setSearch] = useState("");
+  const [plan, setPlan] = useState("all");
+  const [status, setStatus] = useState("all");
+  const [detailId, setDetailId] = useState<number | null>(null);
+
+  const load = useCallback(() => {
+    api.getAdminUsers({
+      page, q: search,
+      plan: plan === "all" ? "" : plan,
+      status: status === "all" ? "" : status,
+    }).then(setData).catch(() => undefined);
+  }, [page, search, plan, status]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const changePlan = async (userId: number, newPlan: string) => {
     try {
-      await setUserPlan(userId, plan);
-      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, plan } : u)));
-      toast.success("Updated");
-    } catch {
-      toast.error("Failed");
-    }
+      await api.setUserPlan(userId, newPlan);
+      setData((prev) => prev && { ...prev, items: prev.items.map((u) => (u.id === userId ? { ...u, plan: newPlan } : u)) });
+      toast.success(t("admin.updated"));
+    } catch { toast.error(t("admin.updateFailed")); }
   };
 
-  if (loading) {
-    return <div className="flex min-h-[40vh] items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
-  }
+  const perPage = data?.perPage ?? 25;
+  const total = data?.total ?? 0;
+  const maxPage = Math.max(1, Math.ceil(total / perPage));
 
-  const stats = metrics ? [
-    { label: t("admin.totalUsers"), value: metrics.totalUsers, icon: Users },
-    { label: t("admin.totalAnalyses"), value: metrics.totalAnalyses, icon: Users },
-    { label: t("admin.verified"), value: metrics.verifiedUsers, icon: ShieldCheck },
-    { label: t("admin.twofa"), value: metrics.twofaUsers, icon: ShieldCheck },
-  ] : [];
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <form onSubmit={(e) => { e.preventDefault(); setPage(1); setSearch(q); }} className="flex-1 min-w-[200px]">
+          <Input placeholder={t("admin.search")} value={q} onChange={(e) => setQ(e.target.value)} className="h-9" />
+        </form>
+        <Select value={plan} onValueChange={(v) => { setPlan(v); setPage(1); }}>
+          <SelectTrigger className="h-9 w-32"><SelectValue placeholder={t("admin.plan")} /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t("admin.all")}</SelectItem>
+            {PLANS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1); }}>
+          <SelectTrigger className="h-9 w-36"><SelectValue placeholder={t("admin.status")} /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t("admin.all")}</SelectItem>
+            <SelectItem value="active">active</SelectItem>
+            <SelectItem value="past_due">past_due</SelectItem>
+            <SelectItem value="canceled">canceled</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <Card>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-start t-label">
+                <th className="pb-2 pe-4 text-start">{t("admin.username")}</th>
+                <th className="pb-2 pe-4 text-start">{t("admin.email")}</th>
+                <th className="pb-2 pe-4 text-start">{t("admin.verified")}</th>
+                <th className="pb-2 pe-4 text-start">{t("admin.twofa")}</th>
+                <th className="pb-2 pe-4 text-start">{t("admin.status")}</th>
+                <th className="pb-2 pe-4 text-start">{t("admin.usage")}</th>
+                <th className="pb-2 pe-4 text-start">{t("admin.lastActive")}</th>
+                <th className="pb-2 pe-4 text-start">{t("admin.plan")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(data?.items ?? []).map((u) => (
+                <tr key={u.id} className="cursor-pointer border-b border-border/50 hover:bg-muted/40" onClick={() => setDetailId(u.id)}>
+                  <td className="py-2 pe-4 font-medium text-foreground">{u.username}{u.isAdmin && <span className="ms-1 text-xs text-primary">★</span>}{u.locked && <Lock className="ms-1 inline h-3 w-3 text-destructive" />}</td>
+                  <td className="py-2 pe-4 text-muted-foreground">{u.email || "—"}</td>
+                  <td className="py-2 pe-4">{u.emailVerified ? "✓" : "—"}</td>
+                  <td className="py-2 pe-4">{u.twofaEnabled ? "✓" : "—"}</td>
+                  <td className="py-2 pe-4">{u.status}</td>
+                  <td className="py-2 pe-4 font-mono tabular-nums">{u.usagePct === null ? "∞" : `${u.usageUsed}/${u.usageLimit}`}</td>
+                  <td className="py-2 pe-4 text-muted-foreground">{u.lastActive ? fmtDate(u.lastActive) : t("admin.never")}</td>
+                  <td className="py-2 pe-4" onClick={(e) => e.stopPropagation()}>
+                    <Select value={u.plan} onValueChange={(v) => changePlan(u.id, v)}>
+                      <SelectTrigger className="h-8 w-24"><SelectValue /></SelectTrigger>
+                      <SelectContent>{PLANS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </td>
+                </tr>
+              ))}
+              {data && data.items.length === 0 && (
+                <tr><td colSpan={8} className="py-6 text-center text-muted-foreground">{t("admin.noUsers")}</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+          <span>{t("admin.showing")} {data?.items.length ?? 0} {t("admin.of")} {total}</span>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>{t("admin.prev")}</Button>
+            <span className="px-2 py-1 font-mono">{page}/{maxPage}</span>
+            <Button variant="outline" size="sm" disabled={page >= maxPage} onClick={() => setPage((p) => p + 1)}>{t("admin.next")}</Button>
+          </div>
+        </div>
+      </Card>
+
+      {detailId !== null && <UserDetailModal userId={detailId} onClose={() => setDetailId(null)} />}
+    </div>
+  );
+}
+
+// ── Revenue tab ─────────────────────────────────────────────────────────────
+
+function RevenueTab() {
+  const { t } = useTranslation("common");
+  const [r, setR] = useState<api.AdminRevenue | null>(null);
+  useEffect(() => { api.getAdminRevenue().then(setR).catch(() => undefined); }, []);
+  if (!r) return <Spinner />;
+  const planTable = (rows: api.AdminRevenue["basePlans"], title: string) => (
+    <Card title={title}>
+      <table className="w-full text-sm">
+        <thead><tr className="border-b border-border t-label">
+          <th className="pb-2 pe-4 text-start">{t("admin.plan")}</th>
+          <th className="pb-2 pe-4 text-start">{t("admin.subscribers")}</th>
+          <th className="pb-2 pe-4 text-start">{t("admin.price")}</th>
+          <th className="pb-2 pe-4 text-start">{t("admin.monthly")}</th>
+        </tr></thead>
+        <tbody>
+          {rows.map((p) => (
+            <tr key={p.code} className="border-b border-border/50">
+              <td className="py-2 pe-4 font-medium">{p.name}</td>
+              <td className="py-2 pe-4 font-mono tabular-nums">{p.subscribers}</td>
+              <td className="py-2 pe-4 font-mono">{money(p.priceCents)}</td>
+              <td className="py-2 pe-4 font-mono font-semibold">{money(p.monthlyCents)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Card>
+  );
+  return (
+    <div className="space-y-6">
+      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-700 dark:text-amber-400">{t("admin.estimatedNote")}</div>
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <Tile label={t("admin.estMrr")} value={money(r.estimatedMrrCents)} />
+        <Tile label={t("admin.usageRevenue")} value={money(r.estimatedUsageRevenueCents)} />
+        <Tile label={t("admin.pastDue")} value={r.pastDue} />
+        <Tile label={t("admin.canceled")} value={r.canceled} />
+      </div>
+      {planTable(r.basePlans, t("admin.perPlan"))}
+      {planTable(r.apiPlans, t("admin.apiRevenue"))}
+    </div>
+  );
+}
+
+// ── Usage tab ───────────────────────────────────────────────────────────────
+
+function UsageTab() {
+  const { t } = useTranslation("common");
+  const [u, setU] = useState<api.AdminUsage | null>(null);
+  useEffect(() => { api.getAdminUsage().then(setU).catch(() => undefined); }, []);
+  if (!u) return <Spinner />;
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+        <Tile label={t("admin.period")} value={u.period} />
+        <Tile label={t("admin.interactiveAnalyses")} value={u.interactiveAnalyses} />
+        <Tile label={t("admin.apiCalls")} value={u.apiCalls} />
+        <Tile label={t("admin.apiPairs")} value={u.apiPairs} />
+        <Tile label={t("admin.overQuota")} value={u.overQuotaUsers} sub={`${u.nearQuotaUsers} ${t("admin.nearQuota")}`} />
+      </div>
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card title={t("admin.topInteractive")}>
+          {u.topInteractive.length === 0 ? <div className="text-sm text-muted-foreground">{t("admin.noData")}</div> : (
+            <Bars items={u.topInteractive.map((x) => ({ label: x.username, count: x.analyses }))} />
+          )}
+        </Card>
+        <Card title={t("admin.topApi")}>
+          {u.topApi.length === 0 ? <div className="text-sm text-muted-foreground">{t("admin.noData")}</div> : (
+            <table className="w-full text-sm">
+              <thead><tr className="border-b border-border t-label">
+                <th className="pb-2 pe-4 text-start">{t("admin.username")}</th>
+                <th className="pb-2 pe-4 text-start">{t("admin.calls")}</th>
+                <th className="pb-2 pe-4 text-start">{t("admin.pairs")}</th>
+              </tr></thead>
+              <tbody>
+                {u.topApi.map((x) => (
+                  <tr key={x.userId} className="border-b border-border/50">
+                    <td className="py-2 pe-4">{x.username}</td>
+                    <td className="py-2 pe-4 font-mono tabular-nums">{x.calls}</td>
+                    <td className="py-2 pe-4 font-mono tabular-nums">{x.pairs}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Card>
+      </div>
+      <div className="text-xs text-muted-foreground">{u.note}</div>
+    </div>
+  );
+}
+
+// ── Activity tab ────────────────────────────────────────────────────────────
+
+function ActivityTab() {
+  const { t } = useTranslation("common");
+  const [a, setA] = useState<api.AdminActivity | null>(null);
+  const [dist, setDist] = useState<api.AdminDistributions | null>(null);
+  useEffect(() => {
+    api.getAdminActivity(30).then(setA).catch(() => undefined);
+    api.getAdminDistributions().then(setDist).catch(() => undefined);
+  }, []);
+  if (!a || !dist) return <Spinner />;
+  const asBars = (rows: { date: string; count: number }[]) => rows.map((r) => ({ label: r.date.slice(5), count: r.count }));
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-6 md:grid-cols-3">
+        <Card title={t("admin.signupsPerDay")}><Bars items={asBars(a.signupsPerDay)} /></Card>
+        <Card title={t("admin.analysesPerDay")}><Bars items={asBars(a.analysesPerDay)} /></Card>
+        <Card title={t("admin.dau")}><Bars items={asBars(a.activeUsersPerDay)} /></Card>
+      </div>
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card title={t("admin.languageMix")}>
+          <Bars items={dist.languages.map((l) => ({ label: l.language, count: l.count }))} />
+        </Card>
+        <Card title={t("admin.similarityMix")}>
+          <Bars items={dist.similarity.map((s) => ({ label: s.range, count: s.count }))} />
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// ── Security tab ────────────────────────────────────────────────────────────
+
+function SecurityTab() {
+  const { t } = useTranslation("common");
+  const [s, setS] = useState<api.AdminSecurity | null>(null);
+  useEffect(() => { api.getAdminSecurity().then(setS).catch(() => undefined); }, []);
+  if (!s) return <Spinner />;
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+        <Tile label={t("admin.locked")} value={s.lockedCount} />
+        <Tile label={t("admin.failedLogins24h")} value={s.failedLogins24h} />
+        <Tile label={t("admin.twofa")} value={s.twofaUsers} />
+        <Tile label={t("admin.dormantKeys")} value={s.dormantApiKeys} />
+        <Tile label={t("admin.revokedKeys")} value={s.revokedApiKeys} />
+      </div>
+      <Card title={t("admin.lockedAccounts")}>
+        {s.lockedAccounts.length === 0 ? <div className="text-sm text-muted-foreground">{t("admin.noLocked")}</div> : (
+          <table className="w-full text-sm">
+            <thead><tr className="border-b border-border t-label">
+              <th className="pb-2 pe-4 text-start">{t("admin.username")}</th>
+              <th className="pb-2 pe-4 text-start">{t("admin.failedLogins")}</th>
+              <th className="pb-2 pe-4 text-start">{t("admin.lockedUntil")}</th>
+            </tr></thead>
+            <tbody>
+              {s.lockedAccounts.map((a) => (
+                <tr key={a.id} className="border-b border-border/50">
+                  <td className="py-2 pe-4">{a.username}</td>
+                  <td className="py-2 pe-4 font-mono">{a.failedLoginCount}</td>
+                  <td className="py-2 pe-4 text-muted-foreground">{fmtDateTime(a.lockedUntil)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Card>
+      <Card title={t("admin.adminActions")}>
+        {s.recentAdminActions.length === 0 ? <div className="text-sm text-muted-foreground">{t("admin.noData")}</div> : (
+          <div className="space-y-1 text-sm">
+            {s.recentAdminActions.map((a) => (
+              <div key={a.id} className="flex justify-between border-b border-border/40 py-1">
+                <span className="font-mono text-xs">{a.action}{a.detail ? ` · ${a.detail}` : ""}</span>
+                <span className="text-muted-foreground">{fmtDateTime(a.createdAt)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+// ── Root ────────────────────────────────────────────────────────────────────
+
+const Admin = () => {
+  const { t } = useTranslation("common");
+  const [tab, setTab] = useState<Tab>("overview");
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -54,49 +500,31 @@ const Admin = () => {
         <p className="mt-1 t-body">{t("admin.subtitle")}</p>
       </div>
 
-      <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        {stats.map((s) => (
-          <div key={s.label} className="rounded-xl border border-border/70 bg-card p-5" style={{ boxShadow: "var(--card-shadow-rest)" }}>
-            <div className="t-label">{s.label}</div>
-            <div className="mt-2 font-mono text-3xl font-bold tracking-tight text-foreground" style={{ fontVariantNumeric: "tabular-nums" }}>{s.value}</div>
-          </div>
-        ))}
-      </section>
+      <div className="flex flex-wrap gap-1 border-b border-border">
+        {TABS.map((tb) => {
+          const Icon = TAB_ICON[tb];
+          return (
+            <button
+              key={tb}
+              onClick={() => setTab(tb)}
+              className={cn(
+                "flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium transition-colors",
+                tab === tb ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {t(`admin.tabs.${tb}`)}
+            </button>
+          );
+        })}
+      </div>
 
-      <section className="rounded-2xl border border-border bg-card p-6" style={{ boxShadow: "var(--card-shadow-rest)" }}>
-        <h2 className="t-h3 mb-4">{t("admin.users")}</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left t-label">
-                <th className="pb-2 pr-4">{t("admin.username")}</th>
-                <th className="pb-2 pr-4">{t("admin.email")}</th>
-                <th className="pb-2 pr-4">{t("admin.verified")}</th>
-                <th className="pb-2 pr-4">{t("admin.twofa")}</th>
-                <th className="pb-2 pr-4">{t("admin.plan")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => (
-                <tr key={u.id} className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-medium text-foreground">{u.username}{u.isAdmin && <span className="ms-1 text-xs text-primary">★</span>}</td>
-                  <td className="py-2 pr-4 text-muted-foreground">{u.email || "—"}</td>
-                  <td className="py-2 pr-4">{u.emailVerified ? "✓" : "—"}</td>
-                  <td className="py-2 pr-4">{u.twofaEnabled ? "✓" : "—"}</td>
-                  <td className="py-2 pr-4">
-                    <Select value={u.plan} onValueChange={(v) => changePlan(u.id, v)}>
-                      <SelectTrigger className="h-8 w-28"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {PLANS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      {tab === "overview" && <OverviewTab />}
+      {tab === "users" && <UsersTab />}
+      {tab === "revenue" && <RevenueTab />}
+      {tab === "usage" && <UsageTab />}
+      {tab === "activity" && <ActivityTab />}
+      {tab === "security" && <SecurityTab />}
     </div>
   );
 };
