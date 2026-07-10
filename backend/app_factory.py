@@ -351,6 +351,13 @@ _PORTABLE_ADDITIVE_COLUMNS: tuple[tuple[str, str, dict[str, str]], ...] = (
         "sqlite": "DATETIME",
         "postgresql": "TIMESTAMP WITH TIME ZONE",
     }),
+    # Back-fill last_totp_step on Postgres too: the legacy _CORE list (SQLite-only)
+    # never adds it there, so a managed-Postgres box upgraded (rather than
+    # create_all-provisioned) would 500 on every 2FA login. No-op where present.
+    ("user", "last_totp_step", {
+        "sqlite": "BIGINT",
+        "postgresql": "BIGINT",
+    }),
 )
 
 

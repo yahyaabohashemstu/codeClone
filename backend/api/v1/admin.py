@@ -53,6 +53,7 @@ from backend.models.billing import (
 )
 from backend.services import api_billing_service, billing_service
 from backend.services.audit_service import record_audit
+from backend.services.gdpr_service import TOMBSTONE_USERNAME
 
 
 def admin_required(fn):
@@ -73,8 +74,14 @@ def _now() -> datetime.datetime:
     return datetime.datetime.now(datetime.timezone.utc)
 
 
+# The GDPR tombstone is a real ``user`` row but not a customer; every metric,
+# listing, and revenue query must exclude it so the numbers reflect real people.
+def _real_users_filter():
+    return User.username != TOMBSTONE_USERNAME
+
+
 def _total_users() -> int:
-    return db.session.query(db.func.count(User.id)).scalar() or 0
+    return db.session.query(db.func.count(User.id)).filter(_real_users_filter()).scalar() or 0
 
 
 def _corrected_plan_counts(total: int | None = None) -> dict:
@@ -83,11 +90,13 @@ def _corrected_plan_counts(total: int | None = None) -> dict:
     ``Subscription`` rows are created lazily, so users who never triggered one
     are effectively on the default (free) plan. We count the non-default rows
     from the table and assign everyone else to the default, so the buckets are
-    honest rather than undercounting free users.
+    honest rather than undercounting free users. The tombstone (and its
+    reassigned subscription) is excluded.
     """
     total = _total_users() if total is None else total
     rows = dict(
         db.session.query(Subscription.plan_code, db.func.count(Subscription.id))
+        .join(User, User.id == Subscription.user_id).filter(_real_users_filter())
         .group_by(Subscription.plan_code).all()
     )
     non_default = sum(c for code, c in rows.items() if code != DEFAULT_PLAN_CODE)
@@ -100,6 +109,7 @@ def _corrected_api_plan_counts(total: int | None = None) -> dict:
     total = _total_users() if total is None else total
     rows = dict(
         db.session.query(ApiSubscription.api_plan_code, db.func.count(ApiSubscription.id))
+        .join(User, User.id == ApiSubscription.user_id).filter(_real_users_filter())
         .group_by(ApiSubscription.api_plan_code).all()
     )
     non_default = sum(c for code, c in rows.items() if code != DEFAULT_API_PLAN_CODE)
@@ -113,6 +123,7 @@ def _corrected_sub_status_counts(total: int | None = None) -> dict:
     total = _total_users() if total is None else total
     rows = dict(
         db.session.query(Subscription.status, db.func.count(Subscription.id))
+        .join(User, User.id == Subscription.user_id).filter(_real_users_filter())
         .group_by(Subscription.status).all()
     )
     past_due = rows.get("past_due", 0)
@@ -124,10 +135,38 @@ def _corrected_sub_status_counts(total: int | None = None) -> dict:
     }
 
 
+def _active_plan_counts() -> dict:
+    """Base-plan counts over ACTIVE subscriptions only (for MRR). Excludes
+    canceled/past_due subs and the tombstone, so a lapsed or erased customer is
+    not billed at full list price."""
+    rows = dict(
+        db.session.query(Subscription.plan_code, db.func.count(Subscription.id))
+        .join(User, User.id == Subscription.user_id)
+        .filter(Subscription.status == "active", _real_users_filter())
+        .group_by(Subscription.plan_code).all()
+    )
+    return {code: rows.get(code, 0) for code in PLANS}
+
+
+def _active_api_plan_counts() -> dict:
+    rows = dict(
+        db.session.query(ApiSubscription.api_plan_code, db.func.count(ApiSubscription.id))
+        .join(User, User.id == ApiSubscription.user_id)
+        .filter(ApiSubscription.status == "active", _real_users_filter())
+        .group_by(ApiSubscription.api_plan_code).all()
+    )
+    return {code: rows.get(code, 0) for code in API_PLANS}
+
+
 def _estimated_mrr_cents(plan_counts: dict, api_plan_counts: dict) -> int:
     base = sum(plan_counts.get(c, 0) * PLANS[c].price_cents for c in PLANS)
     api = sum(api_plan_counts.get(c, 0) * API_PLANS[c].price_cents for c in API_PLANS)
     return base + api
+
+
+def _estimated_mrr_active() -> int:
+    """MRR from ACTIVE subscriptions only — the honest run-rate."""
+    return _estimated_mrr_cents(_active_plan_counts(), _active_api_plan_counts())
 
 
 def _failed_logins_since(hours: int = 24) -> int:
@@ -198,9 +237,55 @@ def admin_metrics():
         "planCounts": plan_counts,
         "apiPlanCounts": api_plan_counts,
         "subStatusCounts": status_counts,
-        "estimatedMrrCents": _estimated_mrr_cents(plan_counts, api_plan_counts),
+        "estimatedMrrCents": _estimated_mrr_active(),
         "signups": {"today": signups_today, "last7d": signups_7d, "last30d": signups_30d},
     })
+
+
+def _filtered_user_query(args):
+    """Base (unsorted) user query with the list filters applied, excluding the
+    GDPR tombstone. Shared by the list endpoint and the CSV export so the export
+    honors the same q / plan / status / verified / locked filters shown on screen.
+    A user with no Subscription row is treated as the default (free/active), so
+    the plan/status filters use NOT IN sub-queries to include that population.
+    """
+    query = User.query.filter(_real_users_filter())
+
+    q = (args.get("q") or "").strip()
+    if q:
+        like = f"%{q}%"
+        query = query.filter(or_(User.username.ilike(like), User.email.ilike(like)))
+
+    verified_filter = (args.get("verified") or "").strip().lower()
+    if verified_filter in ("true", "false"):
+        query = query.filter(User.email_verified.is_(verified_filter == "true"))
+
+    locked_filter = (args.get("locked") or "").strip().lower()
+    if locked_filter == "true":
+        query = query.filter(User.locked_until.isnot(None), User.locked_until > _now())
+
+    plan_filter = (args.get("plan") or "").strip().lower()
+    if plan_filter in PLANS:
+        non_default_ids = db.session.query(Subscription.user_id).filter(
+            Subscription.plan_code != DEFAULT_PLAN_CODE)
+        if plan_filter == DEFAULT_PLAN_CODE:
+            query = query.filter(User.id.notin_(non_default_ids))
+        else:
+            plan_ids = db.session.query(Subscription.user_id).filter(
+                Subscription.plan_code == plan_filter)
+            query = query.filter(User.id.in_(plan_ids))
+
+    status_filter = (args.get("status") or "").strip().lower()
+    if status_filter in ("active", "past_due", "canceled"):
+        non_active_ids = db.session.query(Subscription.user_id).filter(
+            Subscription.status.in_(("past_due", "canceled")))
+        if status_filter == "active":
+            query = query.filter(User.id.notin_(non_active_ids))
+        else:
+            status_ids = db.session.query(Subscription.user_id).filter(
+                Subscription.status == status_filter)
+            query = query.filter(User.id.in_(status_ids))
+    return query
 
 
 # ---------------------------------------------------------------------------
@@ -215,49 +300,10 @@ def admin_users():
     except (TypeError, ValueError):
         page, per_page = 1, 25
 
-    q = (request.args.get("q") or "").strip()
-    plan_filter = (request.args.get("plan") or "").strip().lower()
-    status_filter = (request.args.get("status") or "").strip().lower()
-    verified_filter = (request.args.get("verified") or "").strip().lower()
-    locked_filter = (request.args.get("locked") or "").strip().lower()
     sort_by = (request.args.get("sortBy") or "created").strip().lower()
     order = (request.args.get("order") or "desc").strip().lower()
 
-    query = User.query
-
-    if q:
-        like = f"%{q}%"
-        query = query.filter(or_(User.username.ilike(like), User.email.ilike(like)))
-
-    if verified_filter in ("true", "false"):
-        query = query.filter(User.email_verified.is_(verified_filter == "true"))
-
-    if locked_filter == "true":
-        query = query.filter(User.locked_until.isnot(None), User.locked_until > _now())
-
-    # Plan / status filters go through the Subscription table. A user with no
-    # row is treated as the default (free/active), so those filters must include
-    # the "no row" population via a NOT IN sub-query rather than a plain join.
-    if plan_filter in PLANS:
-        non_default_ids = db.session.query(Subscription.user_id).filter(
-            Subscription.plan_code != DEFAULT_PLAN_CODE)
-        if plan_filter == DEFAULT_PLAN_CODE:
-            query = query.filter(User.id.notin_(non_default_ids))
-        else:
-            plan_ids = db.session.query(Subscription.user_id).filter(
-                Subscription.plan_code == plan_filter)
-            query = query.filter(User.id.in_(plan_ids))
-
-    if status_filter in ("active", "past_due", "canceled"):
-        non_active_ids = db.session.query(Subscription.user_id).filter(
-            Subscription.status.in_(("past_due", "canceled")))
-        if status_filter == "active":
-            query = query.filter(User.id.notin_(non_active_ids))
-        else:
-            status_ids = db.session.query(Subscription.user_id).filter(
-                Subscription.status == status_filter)
-            query = query.filter(User.id.in_(status_ids))
-
+    query = _filtered_user_query(request.args)
     sort_col = {"username": User.username, "created": User.created_at, "id": User.id}.get(sort_by, User.created_at)
     query = query.order_by(sort_col.asc() if order == "asc" else sort_col.desc())
 
@@ -465,7 +511,7 @@ def admin_revenue():
     ).filter(Payment.status != "failed").scalar() or 0
     refunds = db.session.query(
         db.func.coalesce(db.func.sum(Payment.refunded_amount_cents), 0)
-    ).scalar() or 0
+    ).filter(Payment.status != "failed").scalar() or 0
     failed_count = db.session.query(db.func.count(Payment.id)).filter(Payment.status == "failed").scalar() or 0
     failed_amount = db.session.query(
         db.func.coalesce(db.func.sum(Payment.amount_cents), 0)
@@ -475,7 +521,7 @@ def admin_revenue():
     return jsonify({
         "success": True,
         "estimated": True,
-        "estimatedMrrCents": _estimated_mrr_cents(plan_counts, api_plan_counts),
+        "estimatedMrrCents": _estimated_mrr_active(),
         "estimatedUsageRevenueCents": usage_revenue_cents,
         "basePlans": base_plans,
         "apiPlans": api_plans,
@@ -882,7 +928,7 @@ def admin_users_export():
 
     from flask import Response
 
-    users = User.query.order_by(User.id.asc()).all()
+    users = _filtered_user_query(request.args).order_by(User.id.asc()).all()
     subs = {s.user_id: s for s in Subscription.query.all()}
     out = io.StringIO()
     writer = csv.writer(out)

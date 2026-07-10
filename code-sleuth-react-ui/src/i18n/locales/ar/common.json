@@ -469,6 +469,9 @@
     "lifetimePaid": "إجمالي المدفوع (LTV)",
     "payments": "المدفوعات",
     "subHistory": "سجل الاشتراك",
-    "noPayments": "لا مدفوعات"
+    "noPayments": "لا مدفوعات",
+    "loadError": "تعذّر التحميل — أعد المحاولة.",
+    "retry": "إعادة المحاولة",
+    "suspended": "موقوف"
   }
 }

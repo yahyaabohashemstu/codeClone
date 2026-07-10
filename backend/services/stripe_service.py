@@ -249,9 +249,14 @@ def _handle_invoice(invoice: dict, *, status: str) -> bool:
 
 
 def _handle_refund(charge: dict) -> bool:
-    """Fold a refund into the matching Payment row (by invoice id), or record a
-    standalone refund row when the charge has no linked invoice."""
+    """Fold a refund into the matching Payment row (keyed by the charge's invoice
+    id). Charges with no linked invoice are ignored: this app only creates
+    subscription (always-invoiced) charges, so an invoice-less charge cannot be
+    tracked idempotently and recording one would insert a duplicate row on every
+    webhook replay."""
     invoice_id = charge.get("invoice")
+    if not invoice_id:
+        return True  # nothing to fold onto; ignore rather than create phantom rows
     customer_id = charge.get("customer")
     amount_refunded = _safe_int(charge.get("amount_refunded")) or 0
     user_id, product = _resolve_account(customer_id, None)
@@ -267,41 +272,57 @@ def _record_payment(*, invoice_id, customer_id, user_id, product, amount_cents,
                     currency, status, paid_at=None, refunded_amount_cents=None) -> None:
     """Insert or update the Payment ledger row keyed by ``stripe_invoice_id``.
 
-    Keying on the invoice id makes this idempotent for Stripe's at-least-once
-    webhook delivery and lets a later refund update the same paid row.
+    Idempotent for Stripe's at-least-once delivery, and safe under concurrent
+    webhook processing: if two events for the same not-yet-persisted invoice race,
+    the loser of the unique-constraint commit re-fetches the winning row and
+    re-applies its mutation instead of silently dropping it. Events with no
+    invoice id are ignored (see ``_handle_refund``) — they cannot be deduped.
     """
     from backend.extensions import db
     from backend.models.billing import Payment
     from sqlalchemy.exc import IntegrityError
 
-    row = Payment.query.filter_by(stripe_invoice_id=invoice_id).first() if invoice_id else None
-    created = False
-    if row is None:
-        row = Payment(stripe_invoice_id=invoice_id)
-        db.session.add(row)
-        created = True
+    if not invoice_id:
+        return
 
-    if customer_id:
-        row.stripe_customer_id = customer_id
-    if user_id is not None:
-        row.user_id = user_id
-    if product:
-        row.product = product
-    if amount_cents is not None and (created or status != "refunded"):
-        # Don't let a refund event (charge amount) clobber the invoice amount.
-        row.amount_cents = amount_cents
-    if currency:
-        row.currency = currency
-    row.status = status
-    if paid_at is not None:
-        row.paid_at = paid_at
-    if refunded_amount_cents is not None:
-        row.refunded_amount_cents = refunded_amount_cents
-    try:
-        db.session.commit()
-    except IntegrityError:
-        # A concurrent webhook won the unique(stripe_invoice_id) race; reuse it.
-        db.session.rollback()
+    def _apply(row, created: bool) -> None:
+        if customer_id:
+            row.stripe_customer_id = customer_id
+        if user_id is not None:
+            row.user_id = user_id
+        if product:
+            row.product = product
+        if currency:
+            row.currency = currency
+        # An out-of-order/stale 'failed' event must never downgrade a row that
+        # already recorded a real payment or refund (Stripe does not guarantee
+        # ordering; a retried payment_failed can arrive after payment_succeeded).
+        downgrade = (not created) and status == "failed" and row.status in ("paid", "refunded")
+        if not downgrade:
+            if amount_cents is not None and (created or status != "refunded"):
+                # Don't let a refund event's charge amount clobber the invoice amount.
+                row.amount_cents = amount_cents
+            row.status = status
+            if paid_at is not None:
+                row.paid_at = paid_at
+        if refunded_amount_cents is not None:
+            row.refunded_amount_cents = refunded_amount_cents
+
+    for _attempt in (1, 2):
+        row = Payment.query.filter_by(stripe_invoice_id=invoice_id).first()
+        created = row is None
+        if created:
+            row = Payment(stripe_invoice_id=invoice_id)
+            db.session.add(row)
+        _apply(row, created)
+        try:
+            db.session.commit()
+            return
+        except IntegrityError:
+            # A concurrent webhook won the unique(stripe_invoice_id) race; roll
+            # back and retry — the second pass finds and updates the winning row.
+            db.session.rollback()
+    logger.warning("Payment upsert for invoice %s lost the concurrent race twice.", invoice_id)
 
 
 def _record_subscription_event(user_id, *, product, from_plan, to_plan, status, kind=None) -> None:

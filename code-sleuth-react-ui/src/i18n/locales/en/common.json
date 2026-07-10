@@ -469,6 +469,9 @@
     "lifetimePaid": "Lifetime paid (LTV)",
     "payments": "Payments",
     "subHistory": "Subscription history",
-    "noPayments": "No payments"
+    "noPayments": "No payments",
+    "loadError": "Couldn't load this — please try again.",
+    "retry": "Retry",
+    "suspended": "Suspended"
   }
 }

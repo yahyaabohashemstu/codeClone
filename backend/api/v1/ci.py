@@ -130,7 +130,7 @@ def _authenticate_user_api_key(token: str):
     import datetime
 
     from backend.extensions import db
-    from backend.models import ApiKey
+    from backend.models import ApiKey, User
 
     if "." not in token:
         return None
@@ -139,6 +139,12 @@ def _authenticate_user_api_key(token: str):
     if not key:
         return None
     if not hmac.compare_digest(key.key_hash, ApiKey.hash_secret(prefix, secret)):
+        return None
+    # Fail closed for a suspended owner: a ban must revoke programmatic access,
+    # not just browser sessions (the user_loader's suspension guard never runs on
+    # this API-key path, which is outside Flask-Login).
+    owner = db.session.get(User, key.user_id)
+    if owner is None or owner.is_suspended:
         return None
     key.last_used_at = datetime.datetime.now(datetime.timezone.utc)
     db.session.commit()

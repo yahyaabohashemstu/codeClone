@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Activity, DollarSign, Gauge, Loader2, Lock, ShieldCheck, Users, X,
@@ -69,12 +69,38 @@ function Spinner() {
   return <div className="flex min-h-[30vh] items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
 }
 
+function LoadError({ onRetry }: { onRetry: () => void }) {
+  const { t } = useTranslation("common");
+  return (
+    <div className="flex min-h-[30vh] flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+      <span>{t("admin.loadError")}</span>
+      <Button variant="outline" size="sm" onClick={onRetry}>{t("admin.retry")}</Button>
+    </div>
+  );
+}
+
+/** Load data once with an explicit error state + retry, so a failed fetch shows
+ *  an error + Retry instead of an infinite spinner. */
+function useLoad<T>(loader: () => Promise<T>): { data: T | null; error: boolean; reload: () => void } {
+  const [data, setData] = useState<T | null>(null);
+  const [error, setError] = useState(false);
+  const loaderRef = useRef(loader);
+  loaderRef.current = loader;
+  const reload = useCallback(() => {
+    setError(false);
+    setData(null);
+    loaderRef.current().then(setData).catch(() => setError(true));
+  }, []);
+  useEffect(() => { reload(); }, [reload]);
+  return { data, error, reload };
+}
+
 // ── Overview tab ────────────────────────────────────────────────────────────
 
 function OverviewTab() {
   const { t } = useTranslation("common");
-  const [m, setM] = useState<api.AdminMetrics | null>(null);
-  useEffect(() => { api.getAdminMetrics().then(setM).catch(() => undefined); }, []);
+  const { data: m, error, reload } = useLoad(() => api.getAdminMetrics());
+  if (error) return <LoadError onRetry={reload} />;
   if (!m) return <Spinner />;
   return (
     <div className="space-y-6">
@@ -123,9 +149,11 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: number; onClo
   const [d, setD] = useState<api.AdminUserDetail | null>(null);
   const [audit, setAudit] = useState<api.AuditRow[]>([]);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(false);
 
   const load = useCallback(() => {
-    api.getAdminUserDetail(userId).then(setD).catch(() => undefined);
+    setError(false);
+    api.getAdminUserDetail(userId).then(setD).catch(() => setError(true));
     api.getAdminUserAudit(userId, 25).then(setAudit).catch(() => undefined);
   }, [userId]);
   useEffect(() => { load(); }, [load]);
@@ -159,11 +187,11 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: number; onClo
           <h2 className="t-h3">{t("admin.userDetail")}</h2>
           <button onClick={onClose} aria-label={t("admin.close")} className="rounded-md p-1 hover:bg-muted"><X className="h-5 w-5" /></button>
         </div>
-        {!d ? <Spinner /> : (
+        {error ? <LoadError onRetry={load} /> : !d ? <Spinner /> : (
           <div className="space-y-5">
             <Card title={t("admin.identity")}>
               <DetailRow label="ID" value={d.user.id} />
-              <DetailRow label={t("admin.username")} value={<>{d.user.username}{d.user.isAdmin && <span className="ms-1 text-primary">★</span>}{!d.user.active && <span className="ms-2 text-xs text-destructive">{t("admin.suspend")}</span>}</>} />
+              <DetailRow label={t("admin.username")} value={<>{d.user.username}{d.user.isAdmin && <span className="ms-1 text-primary">★</span>}{!d.user.active && <span className="ms-2 text-xs text-destructive">{t("admin.suspended")}</span>}</>} />
               <DetailRow label={t("admin.email")} value={d.user.email || "—"} />
               <DetailRow label={t("admin.verified")} value={d.user.emailVerified ? "✓" : "—"} />
               <DetailRow label={t("admin.twofa")} value={d.user.twofaEnabled ? "✓" : "—"} />
@@ -290,18 +318,25 @@ function UsersTab() {
       page, q: search,
       plan: plan === "all" ? "" : plan,
       status: status === "all" ? "" : status,
-    }).then(setData).catch(() => undefined);
-  }, [page, search, plan, status]);
+    }).then(setData).catch(() => toast.error(t("admin.loadError")));
+  }, [page, search, plan, status, t]);
 
   useEffect(() => { load(); }, [load]);
 
   const changePlan = async (userId: number, newPlan: string) => {
     try {
       await api.setUserPlan(userId, newPlan);
-      setData((prev) => prev && { ...prev, items: prev.items.map((u) => (u.id === userId ? { ...u, plan: newPlan } : u)) });
       toast.success(t("admin.updated"));
+      load();  // re-fetch so derived columns (status, usage cap) reflect the change
     } catch { toast.error(t("admin.updateFailed")); }
   };
+
+  // The CSV export must reflect the same filters the table is showing.
+  const csvParams = new URLSearchParams();
+  if (search) csvParams.set("q", search);
+  if (plan !== "all") csvParams.set("plan", plan);
+  if (status !== "all") csvParams.set("status", status);
+  const csvUrl = csvParams.toString() ? `${api.ADMIN_USERS_CSV_URL}?${csvParams}` : api.ADMIN_USERS_CSV_URL;
 
   const perPage = data?.perPage ?? 25;
   const total = data?.total ?? 0;
@@ -330,7 +365,7 @@ function UsersTab() {
           </SelectContent>
         </Select>
         <Button asChild variant="outline" className="h-9">
-          <a href={api.ADMIN_USERS_CSV_URL} download>{t("admin.exportCsv")}</a>
+          <a href={csvUrl} download>{t("admin.exportCsv")}</a>
         </Button>
       </div>
 
@@ -392,8 +427,8 @@ function UsersTab() {
 
 function RevenueTab() {
   const { t } = useTranslation("common");
-  const [r, setR] = useState<api.AdminRevenue | null>(null);
-  useEffect(() => { api.getAdminRevenue().then(setR).catch(() => undefined); }, []);
+  const { data: r, error, reload } = useLoad(() => api.getAdminRevenue());
+  if (error) return <LoadError onRetry={reload} />;
   if (!r) return <Spinner />;
   const planTable = (rows: api.AdminRevenue["basePlans"], title: string) => (
     <Card title={title}>
@@ -448,8 +483,8 @@ function RevenueTab() {
 
 function UsageTab() {
   const { t } = useTranslation("common");
-  const [u, setU] = useState<api.AdminUsage | null>(null);
-  useEffect(() => { api.getAdminUsage().then(setU).catch(() => undefined); }, []);
+  const { data: u, error, reload } = useLoad(() => api.getAdminUsage());
+  if (error) return <LoadError onRetry={reload} />;
   if (!u) return <Spinner />;
   return (
     <div className="space-y-6">
@@ -496,13 +531,10 @@ function UsageTab() {
 
 function ActivityTab() {
   const { t } = useTranslation("common");
-  const [a, setA] = useState<api.AdminActivity | null>(null);
-  const [dist, setDist] = useState<api.AdminDistributions | null>(null);
-  useEffect(() => {
-    api.getAdminActivity(30).then(setA).catch(() => undefined);
-    api.getAdminDistributions().then(setDist).catch(() => undefined);
-  }, []);
-  if (!a || !dist) return <Spinner />;
+  const { data, error, reload } = useLoad(() => Promise.all([api.getAdminActivity(30), api.getAdminDistributions()]));
+  if (error) return <LoadError onRetry={reload} />;
+  if (!data) return <Spinner />;
+  const [a, dist] = data;
   const asBars = (rows: { date: string; count: number }[]) => rows.map((r) => ({ label: r.date.slice(5), count: r.count }));
   return (
     <div className="space-y-6">
@@ -527,8 +559,8 @@ function ActivityTab() {
 
 function SecurityTab() {
   const { t } = useTranslation("common");
-  const [s, setS] = useState<api.AdminSecurity | null>(null);
-  useEffect(() => { api.getAdminSecurity().then(setS).catch(() => undefined); }, []);
+  const { data: s, error, reload } = useLoad(() => api.getAdminSecurity());
+  if (error) return <LoadError onRetry={reload} />;
   if (!s) return <Spinner />;
   return (
     <div className="space-y-6">

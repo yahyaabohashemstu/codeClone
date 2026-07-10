@@ -113,14 +113,24 @@ def _password_problem(password: str) -> str | None:
     return None
 
 
-def _verification_link(token: str) -> str:
+def _email_link(path: str, token: str) -> str:
     base = (current_app.config.get("APP_BASE_URL") or "").rstrip("/")
-    return f"{base}/verify-email?token={token}" if base else f"/verify-email?token={token}"
+    if not base:
+        # A relative link is unusable inside an email — warn loudly so a
+        # misconfigured deploy is caught rather than silently shipping dead links.
+        current_app.logger.warning(
+            "APP_BASE_URL is not set — the emailed %s link is a broken relative URL. "
+            "Set APP_BASE_URL to your public origin (e.g. https://clonelens.com).", path,
+        )
+    return f"{base}{path}?token={token}" if base else f"{path}?token={token}"
+
+
+def _verification_link(token: str) -> str:
+    return _email_link("/verify-email", token)
 
 
 def _reset_link(token: str) -> str:
-    base = (current_app.config.get("APP_BASE_URL") or "").rstrip("/")
-    return f"{base}/reset-password?token={token}" if base else f"/reset-password?token={token}"
+    return _email_link("/reset-password", token)
 
 
 def _send_verification_email(user) -> None:
@@ -164,14 +174,6 @@ def api_login():
         # does not open a new username-enumeration channel.
         user = User.query.filter_by(email=identifier.lower()).first()
 
-    # Account lockout: refuse early (uniform message) while locked.
-    if user and _is_locked(user):
-        return jsonify({
-            "success": False,
-            "message": "Too many failed attempts. Try again later.",
-            "code": "account_locked",
-        }), 429
-
     if not user or not user.check_password(password):
         if user:
             # Persist the failed-login counter and the audit row in a SINGLE
@@ -188,6 +190,17 @@ def api_login():
             # exists (timing-based username enumeration).
             check_password_hash(_DUMMY_PASSWORD_HASH, password)
         return jsonify({"success": False, "message": "Invalid credentials."}), 401
+
+    # Password verified. NOW enforce the brute-force lockout — revealing the
+    # locked state only to a caller who proved the password, so the
+    # 429/account_locked response cannot be used as an account-existence oracle
+    # (every wrong-password OR unknown-account attempt returns a uniform 401).
+    if _is_locked(user):
+        return jsonify({
+            "success": False,
+            "message": "Too many failed attempts. Try again later.",
+            "code": "account_locked",
+        }), 429
 
     # Durable suspension (admin ban): refuse even with correct credentials. This
     # is distinct from the temporary brute-force ``locked_until`` above.
@@ -552,6 +565,15 @@ def api_2fa_login():
     user = db.session.get(User, user_id)
     if not user or not user.totp_enabled:
         return jsonify({"success": False, "message": "Invalid sign-in attempt."}), 400
+    # A user suspended between the password step and the second factor must be
+    # refused here too (parity with the api_login guard), before we consume the
+    # code, stamp last_login, or mint a session.
+    if user.is_suspended:
+        return jsonify({
+            "success": False,
+            "message": "This account has been suspended.",
+            "code": "account_suspended",
+        }), 403
     # verify_and_consume_totp records the accepted TOTP time-step and refuses any
     # step already used, so a captured {challenge token, code} pair cannot be
     # replayed within the code's ~90s validity window to mint extra sessions.
