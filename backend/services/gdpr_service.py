@@ -26,7 +26,16 @@ import secrets
 from sqlalchemy import update
 
 from backend.extensions import db
-from backend.models import ApiSubscription, ApiUsageRecord, AuditLog, Subscription, UsageRecord, User
+from backend.models import (
+    ApiSubscription,
+    ApiUsageRecord,
+    AuditLog,
+    Payment,
+    Subscription,
+    SubscriptionEvent,
+    UsageRecord,
+    User,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +133,22 @@ def reassign_core_user_to_tombstone(uid: int, tombstone_id: int) -> None:
             api_sub.user_id = tombstone_id
             api_sub.stripe_customer_id = None
             api_sub.stripe_subscription_id = None
+    db.session.flush()
+
+    # 4. Payment ledger — reassign to the tombstone so ACTUAL collected-revenue
+    #    aggregates survive erasure, while scrubbing the Stripe linkage (PII).
+    #    The unique stripe_invoice_id nulls out cleanly (NULLs don't collide).
+    db.session.execute(
+        update(Payment).where(Payment.user_id == uid).values(
+            user_id=tombstone_id, stripe_customer_id=None, stripe_invoice_id=None,
+        )
+    )
+
+    # 5. Subscription-change history — reassign (plan-code history, no PII beyond
+    #    the user linkage which is anonymized onto the tombstone).
+    db.session.execute(
+        update(SubscriptionEvent).where(SubscriptionEvent.user_id == uid).values(user_id=tombstone_id)
+    )
     db.session.flush()
 
 

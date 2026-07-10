@@ -8,8 +8,10 @@ from backend.models.billing import (
     ApiPlan,
     ApiSubscription,
     ApiUsageRecord,
+    Payment,
     Plan,
     Subscription,
+    SubscriptionEvent,
     UsageRecord,
 )
 from backend.models.user import User
@@ -17,5 +19,6 @@ from backend.models.user import User
 __all__ = [
     "User", "Analysis", "Subscription", "UsageRecord", "ApiUsageRecord",
     "ApiSubscription", "Plan", "PLANS", "ApiPlan", "API_PLANS",
+    "Payment", "SubscriptionEvent",
     "AuditLog", "ApiKey",
 ]

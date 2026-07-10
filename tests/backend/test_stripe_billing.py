@@ -170,7 +170,9 @@ class TestWebhookEvents:
 
     def test_unknown_event_is_ignored(self, app, client, fake_stripe):
         import json
-        event = {"type": "invoice.paid", "data": {"object": {}}}
+        # A genuinely unhandled event type (invoice.* / charge.refunded / the
+        # subscription lifecycle events are all handled now — see the P2 ledger).
+        event = {"type": "customer.created", "data": {"object": {}}}
         resp = client.post("/api/v1/billing/webhook", data=json.dumps(event),
                            headers={"Stripe-Signature": "sig"})
         assert resp.status_code == 200

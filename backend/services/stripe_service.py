@@ -144,11 +144,13 @@ def verify_and_parse_webhook(payload: bytes, signature_header: str):
 
 
 def apply_webhook_event(event) -> bool:
-    """Translate a Stripe event into a subscription change. Returns True if handled.
+    """Translate a Stripe event into a subscription change and/or a ledger row.
 
-    Events are routed to the correct product: the API plan (``kind == "api"`` in
-    the checkout metadata, or a Stripe subscription id living on ``ApiSubscription``)
-    versus the base web-app plan.
+    Handles: subscription lifecycle (checkout / updated / deleted) routed to the
+    correct product (API plan vs base plan), and the MONEY events
+    (invoice.paid / invoice.payment_succeeded / invoice.payment_failed /
+    charge.refunded) which write the local ``Payment`` ledger — the source of
+    actual collected revenue and per-user lifetime value. Returns True if handled.
     """
     from backend.services.api_billing_service import set_api_plan
     from backend.services.billing_service import set_plan
@@ -161,11 +163,17 @@ def apply_webhook_event(event) -> bool:
         user_id = _safe_int(metadata.get("user_id") or data_object.get("client_reference_id"))
         plan_code = metadata.get("plan_code")
         if user_id and plan_code:
-            setter = set_api_plan if metadata.get("kind") == "api" else set_plan
+            is_api = metadata.get("kind") == "api"
+            setter = set_api_plan if is_api else set_plan
+            before = _current_plan(user_id, is_api)
             setter(
                 user_id, plan_code, status="active",
                 stripe_customer_id=data_object.get("customer"),
                 stripe_subscription_id=data_object.get("subscription"),
+            )
+            _record_subscription_event(
+                user_id, product=("api" if is_api else "base"),
+                from_plan=before, to_plan=plan_code, status="active",
             )
             return True
 
@@ -178,30 +186,176 @@ def apply_webhook_event(event) -> bool:
         customer_id = data_object.get("customer")
         canceled = event_type == "customer.subscription.deleted" or data_object.get("status") == "canceled"
         status = "canceled" if canceled else data_object.get("status", "active")
+        period_end = _ts_to_dt(data_object.get("current_period_end"))
 
         # A Stripe subscription id lives on exactly one of the two tables. Check
         # the API subscription first, then the base subscription.
         metadata = data_object.get("metadata") or {}
         api_row = _find_api_subscription_row(subscription_id=subscription_id, customer_id=customer_id)
         if api_row:
+            before = api_row.api_plan_code
             target = "api_free" if canceled else api_row.api_plan_code
-            set_api_plan(api_row.user_id, target, status=status)
+            set_api_plan(api_row.user_id, target, status=status, current_period_end=period_end)
+            _record_subscription_event(
+                api_row.user_id, product="api", from_plan=before, to_plan=target,
+                status=status, kind="canceled" if canceled else "status",
+            )
             return True
 
-        # Base subscription: resolve by stripe ids, falling back to the metadata
-        # user id (subscription objects don't carry checkout metadata in practice,
-        # but keep the path for completeness / callers that supply it).
         base_row = _find_subscription_row(
             user_id=_safe_int(metadata.get("user_id")),
             subscription_id=subscription_id,
             customer_id=customer_id,
         )
         if base_row:
+            before = base_row.plan_code
             target = "free" if canceled else base_row.plan_code
-            set_plan(base_row.user_id, target, status=status)
+            set_plan(base_row.user_id, target, status=status, current_period_end=period_end)
+            _record_subscription_event(
+                base_row.user_id, product="base", from_plan=before, to_plan=target,
+                status=status, kind="canceled" if canceled else "status",
+            )
             return True
 
+    elif event_type in ("invoice.paid", "invoice.payment_succeeded"):
+        return _handle_invoice(data_object, status="paid")
+
+    elif event_type == "invoice.payment_failed":
+        return _handle_invoice(data_object, status="failed")
+
+    elif event_type == "charge.refunded":
+        return _handle_refund(data_object)
+
     return False
+
+
+def _handle_invoice(invoice: dict, *, status: str) -> bool:
+    """Upsert a Payment row for a paid/failed Stripe invoice (idempotent by id)."""
+    invoice_id = invoice.get("id")
+    customer_id = invoice.get("customer")
+    subscription_id = invoice.get("subscription")
+    user_id, product = _resolve_account(customer_id, subscription_id)
+    amount = invoice.get("amount_paid") if status == "paid" else invoice.get("amount_due")
+    paid_at = None
+    if status == "paid":
+        transitions = invoice.get("status_transitions") or {}
+        paid_at = _ts_to_dt(transitions.get("paid_at")) or _ts_to_dt(invoice.get("created"))
+    _record_payment(
+        invoice_id=invoice_id, customer_id=customer_id, user_id=user_id, product=product,
+        amount_cents=_safe_int(amount) or 0, currency=(invoice.get("currency") or "usd"),
+        status=status, paid_at=paid_at,
+    )
+    return True
+
+
+def _handle_refund(charge: dict) -> bool:
+    """Fold a refund into the matching Payment row (by invoice id), or record a
+    standalone refund row when the charge has no linked invoice."""
+    invoice_id = charge.get("invoice")
+    customer_id = charge.get("customer")
+    amount_refunded = _safe_int(charge.get("amount_refunded")) or 0
+    user_id, product = _resolve_account(customer_id, None)
+    _record_payment(
+        invoice_id=invoice_id, customer_id=customer_id, user_id=user_id, product=product,
+        amount_cents=_safe_int(charge.get("amount")) or 0, currency=(charge.get("currency") or "usd"),
+        status="refunded", refunded_amount_cents=amount_refunded,
+    )
+    return True
+
+
+def _record_payment(*, invoice_id, customer_id, user_id, product, amount_cents,
+                    currency, status, paid_at=None, refunded_amount_cents=None) -> None:
+    """Insert or update the Payment ledger row keyed by ``stripe_invoice_id``.
+
+    Keying on the invoice id makes this idempotent for Stripe's at-least-once
+    webhook delivery and lets a later refund update the same paid row.
+    """
+    from backend.extensions import db
+    from backend.models.billing import Payment
+    from sqlalchemy.exc import IntegrityError
+
+    row = Payment.query.filter_by(stripe_invoice_id=invoice_id).first() if invoice_id else None
+    created = False
+    if row is None:
+        row = Payment(stripe_invoice_id=invoice_id)
+        db.session.add(row)
+        created = True
+
+    if customer_id:
+        row.stripe_customer_id = customer_id
+    if user_id is not None:
+        row.user_id = user_id
+    if product:
+        row.product = product
+    if amount_cents is not None and (created or status != "refunded"):
+        # Don't let a refund event (charge amount) clobber the invoice amount.
+        row.amount_cents = amount_cents
+    if currency:
+        row.currency = currency
+    row.status = status
+    if paid_at is not None:
+        row.paid_at = paid_at
+    if refunded_amount_cents is not None:
+        row.refunded_amount_cents = refunded_amount_cents
+    try:
+        db.session.commit()
+    except IntegrityError:
+        # A concurrent webhook won the unique(stripe_invoice_id) race; reuse it.
+        db.session.rollback()
+
+
+def _record_subscription_event(user_id, *, product, from_plan, to_plan, status, kind=None) -> None:
+    """Append a churn/trend history row. Best-effort; never breaks the webhook."""
+    from backend.extensions import db
+    from backend.models.billing import SubscriptionEvent
+
+    if kind is None:
+        if from_plan == to_plan:
+            kind = "status"
+        else:
+            kind = "created" if not from_plan or from_plan in ("free", "api_free") else "changed"
+    try:
+        db.session.add(SubscriptionEvent(
+            user_id=user_id, product=product, kind=kind,
+            from_plan=from_plan, to_plan=to_plan, status=status,
+        ))
+        db.session.commit()
+    except Exception:  # pragma: no cover - history is best-effort
+        db.session.rollback()
+        logger.exception("Failed to record subscription event for user %s", user_id)
+
+
+def _current_plan(user_id, is_api: bool) -> str | None:
+    from backend.models.billing import ApiSubscription, Subscription
+
+    if is_api:
+        row = ApiSubscription.query.filter_by(user_id=user_id).first()
+        return row.api_plan_code if row else None
+    row = Subscription.query.filter_by(user_id=user_id).first()
+    return row.plan_code if row else None
+
+
+def _resolve_account(customer_id, subscription_id):
+    """Return ``(user_id, product)`` for a Stripe customer/subscription, resolving
+    the API subscription first then the base one. ``(None, "base")`` if unknown."""
+    api_row = _find_api_subscription_row(subscription_id=subscription_id, customer_id=customer_id)
+    if api_row:
+        return api_row.user_id, "api"
+    base_row = _find_subscription_row(subscription_id=subscription_id, customer_id=customer_id)
+    if base_row:
+        return base_row.user_id, "base"
+    return None, "base"
+
+
+def _ts_to_dt(ts):
+    import datetime
+
+    if not ts:
+        return None
+    try:
+        return datetime.datetime.fromtimestamp(int(ts), tz=datetime.timezone.utc)
+    except (TypeError, ValueError, OSError):
+        return None
 
 
 def _find_api_subscription_row(subscription_id=None, customer_id=None):

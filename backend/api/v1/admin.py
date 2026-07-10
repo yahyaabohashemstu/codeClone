@@ -47,6 +47,8 @@ from backend.models.billing import (
     PLANS,
     ApiSubscription,
     ApiUsageRecord,
+    Payment,
+    SubscriptionEvent,
     UsageRecord,
 )
 from backend.services import api_billing_service, billing_service
@@ -320,8 +322,19 @@ def admin_user_detail(user_id: int):
     )
     last_login = user.last_login_at or _last_logins([user_id]).get(user_id)
 
+    lifetime_paid = db.session.query(
+        db.func.coalesce(db.func.sum(Payment.amount_cents - Payment.refunded_amount_cents), 0)
+    ).filter(Payment.user_id == user_id, Payment.status != "failed").scalar() or 0
+    payments = [p.to_dict() for p in Payment.query.filter_by(user_id=user_id)
+                .order_by(Payment.id.desc()).limit(20).all()]
+    sub_events = [e.to_dict() for e in SubscriptionEvent.query.filter_by(user_id=user_id)
+                  .order_by(SubscriptionEvent.id.desc()).limit(20).all()]
+
     return jsonify({
         "success": True,
+        "lifetimePaidCents": max(0, lifetime_paid),
+        "payments": payments,
+        "subscriptionEvents": sub_events,
         "user": {
             "id": user.id, "username": user.username, "email": user.email,
             "emailVerified": bool(user.email_verified), "twofaEnabled": bool(user.totp_enabled),
@@ -445,6 +458,20 @@ def admin_revenue():
             usage_revenue_cents += round(overage * plan.overage_cents_per_1000 / 1000)
 
     status_counts = _corrected_sub_status_counts(total)
+
+    # ACTUAL money from the Payment ledger (populated by the Stripe webhook).
+    gross_paid = db.session.query(
+        db.func.coalesce(db.func.sum(Payment.amount_cents), 0)
+    ).filter(Payment.status != "failed").scalar() or 0
+    refunds = db.session.query(
+        db.func.coalesce(db.func.sum(Payment.refunded_amount_cents), 0)
+    ).scalar() or 0
+    failed_count = db.session.query(db.func.count(Payment.id)).filter(Payment.status == "failed").scalar() or 0
+    failed_amount = db.session.query(
+        db.func.coalesce(db.func.sum(Payment.amount_cents), 0)
+    ).filter(Payment.status == "failed").scalar() or 0
+    payments_count = db.session.query(db.func.count(Payment.id)).scalar() or 0
+
     return jsonify({
         "success": True,
         "estimated": True,
@@ -455,6 +482,13 @@ def admin_revenue():
         "subStatusCounts": status_counts,
         "pastDue": status_counts["past_due"],
         "canceled": status_counts["canceled"],
+        # Actuals from the payments ledger (0 until the Stripe webhook runs).
+        "actualCollectedCents": max(0, gross_paid - refunds),
+        "grossPaidCents": gross_paid,
+        "refundsCents": refunds,
+        "failedPaymentsCount": failed_count,
+        "failedPaymentsCents": failed_amount,
+        "paymentsCount": payments_count,
     })
 
 

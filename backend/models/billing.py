@@ -162,3 +162,91 @@ class ApiSubscription(db.Model):  # type: ignore[name-defined]
 
     def __repr__(self) -> str:
         return f"<ApiSubscription user={self.user_id} plan={self.api_plan_code} status={self.status}>"
+
+
+class Payment(db.Model):  # type: ignore[name-defined]
+    """Local financial ledger of Stripe invoice/charge outcomes.
+
+    One row per Stripe invoice (unique ``stripe_invoice_id``); a later refund
+    updates the same row's ``refunded_amount_cents``. This is the source of
+    ACTUAL collected revenue and per-user amount paid (lifetime value) — the
+    ``Subscription`` current-state row does not retain money history. Written by
+    the Stripe webhook (``stripe_service.apply_webhook_event``). New table, so
+    ``db.create_all`` / Alembic provisions it.
+
+    ``user_id`` is nullable so a payment whose account was later erased (reassigned
+    to the GDPR tombstone) or which cannot be resolved still preserves the revenue
+    aggregate.
+    """
+
+    __tablename__ = "payment"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True, index=True)
+    stripe_invoice_id = db.Column(db.String(255), unique=True, nullable=True, index=True)
+    stripe_customer_id = db.Column(db.String(255), nullable=True, index=True)
+    product = db.Column(db.String(16), nullable=False, default="base")   # base | api
+    amount_cents = db.Column(db.Integer, nullable=False, default=0)
+    currency = db.Column(db.String(8), nullable=False, default="usd")
+    status = db.Column(db.String(16), nullable=False, default="paid")    # paid | failed | refunded
+    refunded_amount_cents = db.Column(db.Integer, nullable=False, default=0)
+    paid_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), server_default=func.now(), index=True)
+
+    @property
+    def net_cents(self) -> int:
+        """Collected amount net of refunds (0 for failed payments)."""
+        if self.status == "failed":
+            return 0
+        return max(0, (self.amount_cents or 0) - (self.refunded_amount_cents or 0))
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "product": self.product,
+            "amountCents": self.amount_cents,
+            "currency": self.currency,
+            "status": self.status,
+            "refundedAmountCents": self.refunded_amount_cents,
+            "netCents": self.net_cents,
+            "paidAt": self.paid_at.isoformat() if self.paid_at else None,
+            "createdAt": self.created_at.isoformat() if self.created_at else None,
+        }
+
+    def __repr__(self) -> str:
+        return f"<Payment user={self.user_id} {self.status} {self.amount_cents}c>"
+
+
+class SubscriptionEvent(db.Model):  # type: ignore[name-defined]
+    """Append-only history of subscription changes (for churn / trend analysis).
+
+    ``Subscription``/``ApiSubscription`` are single current-state rows, so
+    upgrade/downgrade/cancel history would otherwise be lost. Written by the
+    Stripe webhook. New table, so ``db.create_all`` / Alembic provisions it.
+    """
+
+    __tablename__ = "subscription_event"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True, index=True)
+    product = db.Column(db.String(16), nullable=False, default="base")   # base | api
+    # created | upgraded | downgraded | canceled | reactivated | status
+    kind = db.Column(db.String(32), nullable=False)
+    from_plan = db.Column(db.String(32), nullable=True)
+    to_plan = db.Column(db.String(32), nullable=True)
+    status = db.Column(db.String(32), nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), server_default=func.now(), index=True)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "product": self.product,
+            "kind": self.kind,
+            "fromPlan": self.from_plan,
+            "toPlan": self.to_plan,
+            "status": self.status,
+            "createdAt": self.created_at.isoformat() if self.created_at else None,
+        }
+
+    def __repr__(self) -> str:
+        return f"<SubscriptionEvent user={self.user_id} {self.kind} {self.from_plan}->{self.to_plan}>"
