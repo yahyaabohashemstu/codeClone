@@ -441,6 +441,24 @@
     "lockedUntil": "مقفل حتى",
     "noLocked": "لا حسابات مقفلة",
     "updated": "تم التحديث",
-    "updateFailed": "فشل التحديث"
+    "updateFailed": "فشل التحديث",
+    "actions": "إجراءات المشرف",
+    "apiPlanLabel": "خطة API",
+    "suspend": "إيقاف",
+    "unsuspend": "إلغاء الإيقاف",
+    "lock": "قفل",
+    "unlock": "فتح",
+    "reset2fa": "تصفير 2FA",
+    "resendVerify": "إعادة إرسال التحقق",
+    "forceLogout": "تسجيل خروج قسري",
+    "promote": "ترقية لمشرف",
+    "demote": "إزالة الإشراف",
+    "resetQuota": "تصفير الحصة",
+    "deleteUser": "حذف المستخدم",
+    "exportCsv": "تصدير CSV",
+    "confirmDelete": "حذف هذا المستخدم وكل بياناته نهائيًا؟ لا يمكن التراجع عن ذلك.",
+    "confirmSuspend": "إيقاف هذا الحساب؟ سيُسجَّل خروج المستخدم ويُمنع من الدخول.",
+    "actionDone": "تم",
+    "actionFailed": "فشل الإجراء"
   }
 }

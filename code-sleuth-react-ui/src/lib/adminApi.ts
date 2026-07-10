@@ -139,6 +139,7 @@ export interface AdminUserDetail {
   user: {
     id: number; username: string; email: string | null;
     emailVerified: boolean; twofaEnabled: boolean; isAdmin: boolean;
+    active: boolean;
     createdAt: string | null; failedLoginCount: number;
     lockedUntil: string | null; locked: boolean; sessionVersion: number;
     lastLoginAt: string | null;
@@ -279,3 +280,43 @@ export async function setUserPlan(userId: number, plan: string): Promise<void> {
     body: JSON.stringify({ plan }),
   });
 }
+
+// ── Admin actions (mutating) ─────────────────────────────────────────────────
+
+export async function setUserApiPlan(userId: number, plan: string): Promise<void> {
+  await apiFetch(`/api/v1/admin/users/${userId}/api-plan`, { method: "POST", body: JSON.stringify({ plan }) });
+}
+export async function lockUser(userId: number, minutes = 60): Promise<void> {
+  await apiFetch(`/api/v1/admin/users/${userId}/lock`, { method: "POST", body: JSON.stringify({ minutes }) });
+}
+export async function unlockUser(userId: number): Promise<void> {
+  await apiFetch(`/api/v1/admin/users/${userId}/unlock`, { method: "POST" });
+}
+export async function suspendUser(userId: number): Promise<void> {
+  await apiFetch(`/api/v1/admin/users/${userId}/suspend`, { method: "POST" });
+}
+export async function unsuspendUser(userId: number): Promise<void> {
+  await apiFetch(`/api/v1/admin/users/${userId}/unsuspend`, { method: "POST" });
+}
+export async function resetUser2fa(userId: number): Promise<void> {
+  await apiFetch(`/api/v1/admin/users/${userId}/reset-2fa`, { method: "POST" });
+}
+export async function resendUserVerification(userId: number): Promise<void> {
+  await apiFetch(`/api/v1/admin/users/${userId}/resend-verification`, { method: "POST" });
+}
+export async function logoutUserEverywhere(userId: number): Promise<void> {
+  await apiFetch(`/api/v1/admin/users/${userId}/logout-all`, { method: "POST" });
+}
+export async function setUserAdmin(userId: number, isAdmin: boolean): Promise<void> {
+  await apiFetch(`/api/v1/admin/users/${userId}/admin`, { method: "POST", body: JSON.stringify({ isAdmin }) });
+}
+export async function resetUserQuota(userId: number): Promise<void> {
+  await apiFetch(`/api/v1/admin/users/${userId}/reset-quota`, { method: "POST" });
+}
+export async function deleteUser(userId: number): Promise<void> {
+  await apiFetch(`/api/v1/admin/users/${userId}`, { method: "DELETE" });
+}
+
+/** Same-origin URL for the users CSV export (GET, cookie-authenticated). */
+export const ADMIN_USERS_CSV_URL = "/api/v1/admin/users/export.csv";
+export const API_PLAN_CODES = ["api_free", "api_starter", "api_growth", "api_scale"];

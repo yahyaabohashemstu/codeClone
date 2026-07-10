@@ -441,6 +441,24 @@
     "lockedUntil": "Locked until",
     "noLocked": "No locked accounts",
     "updated": "Updated",
-    "updateFailed": "Update failed"
+    "updateFailed": "Update failed",
+    "actions": "Admin actions",
+    "apiPlanLabel": "API plan",
+    "suspend": "Suspend",
+    "unsuspend": "Unsuspend",
+    "lock": "Lock",
+    "unlock": "Unlock",
+    "reset2fa": "Reset 2FA",
+    "resendVerify": "Resend verification",
+    "forceLogout": "Force logout",
+    "promote": "Make admin",
+    "demote": "Remove admin",
+    "resetQuota": "Reset quota",
+    "deleteUser": "Delete user",
+    "exportCsv": "Export CSV",
+    "confirmDelete": "Permanently delete this user and all their data? This cannot be undone.",
+    "confirmSuspend": "Suspend this account? The user is signed out and blocked from signing in.",
+    "actionDone": "Done",
+    "actionFailed": "Action failed"
   }
 }

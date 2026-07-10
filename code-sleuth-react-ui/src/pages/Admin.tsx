@@ -118,14 +118,33 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
   );
 }
 
-function UserDetailModal({ userId, onClose }: { userId: number; onClose: () => void }) {
+function UserDetailModal({ userId, onClose, onChanged }: { userId: number; onClose: () => void; onChanged?: () => void }) {
   const { t } = useTranslation("common");
   const [d, setD] = useState<api.AdminUserDetail | null>(null);
   const [audit, setAudit] = useState<api.AuditRow[]>([]);
-  useEffect(() => {
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(() => {
     api.getAdminUserDetail(userId).then(setD).catch(() => undefined);
     api.getAdminUserAudit(userId, 25).then(setAudit).catch(() => undefined);
   }, [userId]);
+  useEffect(() => { load(); }, [load]);
+
+  const runAction = async (fn: () => Promise<void>, opts: { confirm?: string; closeAfter?: boolean } = {}) => {
+    if (opts.confirm && !window.confirm(opts.confirm)) return;
+    setBusy(true);
+    try {
+      await fn();
+      toast.success(t("admin.actionDone"));
+      onChanged?.();
+      if (opts.closeAfter) { onClose(); return; }
+      load();
+    } catch {
+      toast.error(t("admin.actionFailed"));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const quota = d?.quota as { used?: number; limit?: number; unlimited?: boolean } | undefined;
   const apiSpend = d ? (d.apiUsage.monthlyPriceCents + d.apiUsage.estimatedCostCents) : 0;
@@ -144,7 +163,7 @@ function UserDetailModal({ userId, onClose }: { userId: number; onClose: () => v
           <div className="space-y-5">
             <Card title={t("admin.identity")}>
               <DetailRow label="ID" value={d.user.id} />
-              <DetailRow label={t("admin.username")} value={<>{d.user.username}{d.user.isAdmin && <span className="ms-1 text-primary">★</span>}</>} />
+              <DetailRow label={t("admin.username")} value={<>{d.user.username}{d.user.isAdmin && <span className="ms-1 text-primary">★</span>}{!d.user.active && <span className="ms-2 text-xs text-destructive">{t("admin.suspend")}</span>}</>} />
               <DetailRow label={t("admin.email")} value={d.user.email || "—"} />
               <DetailRow label={t("admin.verified")} value={d.user.emailVerified ? "✓" : "—"} />
               <DetailRow label={t("admin.twofa")} value={d.user.twofaEnabled ? "✓" : "—"} />
@@ -156,10 +175,51 @@ function UserDetailModal({ userId, onClose }: { userId: number; onClose: () => v
             </Card>
             <Card title={t("admin.planSpend")}>
               <DetailRow label={t("admin.plan")} value={`${d.subscription.plan} (${d.subscription.status})`} />
-              <DetailRow label={t("admin.apiPlan")} value={`${d.apiUsage.apiPlan} (${d.apiUsage.status})`} />
+              <div className="flex items-center justify-between gap-4 border-b border-border/40 py-1.5 text-sm">
+                <span className="text-muted-foreground">{t("admin.apiPlanLabel")}</span>
+                <Select value={d.apiUsage.apiPlan} onValueChange={(v) => void runAction(() => api.setUserApiPlan(userId, v))}>
+                  <SelectTrigger className="h-8 w-36"><SelectValue /></SelectTrigger>
+                  <SelectContent>{api.API_PLAN_CODES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
               <DetailRow label={t("admin.estMonthlySpend")} value={money(apiSpend)} />
               <DetailRow label={t("admin.renewsOn")} value={fmtDate(d.subscription.currentPeriodEnd)} />
               <DetailRow label={t("admin.stripeCustomer")} value={d.subscription.stripeCustomerId || "—"} />
+            </Card>
+
+            <Card title={t("admin.actions")}>
+              <div className="flex flex-wrap gap-2">
+                {d.user.active ? (
+                  <Button variant="outline" size="sm" disabled={busy} onClick={() => void runAction(() => api.suspendUser(userId), { confirm: t("admin.confirmSuspend") })}>{t("admin.suspend")}</Button>
+                ) : (
+                  <Button variant="outline" size="sm" disabled={busy} onClick={() => void runAction(() => api.unsuspendUser(userId))}>{t("admin.unsuspend")}</Button>
+                )}
+                {d.user.locked ? (
+                  <Button variant="outline" size="sm" disabled={busy} onClick={() => void runAction(() => api.unlockUser(userId))}>{t("admin.unlock")}</Button>
+                ) : (
+                  <Button variant="outline" size="sm" disabled={busy} onClick={() => void runAction(() => api.lockUser(userId, 60))}>{t("admin.lock")}</Button>
+                )}
+                {d.user.twofaEnabled && (
+                  <Button variant="outline" size="sm" disabled={busy} onClick={() => void runAction(() => api.resetUser2fa(userId))}>{t("admin.reset2fa")}</Button>
+                )}
+                {!d.user.emailVerified && d.user.email && (
+                  <Button variant="outline" size="sm" disabled={busy} onClick={() => void runAction(() => api.resendUserVerification(userId))}>{t("admin.resendVerify")}</Button>
+                )}
+                <Button variant="outline" size="sm" disabled={busy} onClick={() => void runAction(() => api.logoutUserEverywhere(userId))}>{t("admin.forceLogout")}</Button>
+                <Button variant="outline" size="sm" disabled={busy} onClick={() => void runAction(() => api.resetUserQuota(userId))}>{t("admin.resetQuota")}</Button>
+                {d.user.isAdmin ? (
+                  <Button variant="outline" size="sm" disabled={busy} onClick={() => void runAction(() => api.setUserAdmin(userId, false))}>{t("admin.demote")}</Button>
+                ) : (
+                  <Button variant="outline" size="sm" disabled={busy} onClick={() => void runAction(() => api.setUserAdmin(userId, true))}>{t("admin.promote")}</Button>
+                )}
+                <Button
+                  variant="outline" size="sm" disabled={busy}
+                  className="border-destructive/40 text-destructive hover:bg-destructive/10"
+                  onClick={() => void runAction(() => api.deleteUser(userId), { confirm: t("admin.confirmDelete"), closeAfter: true })}
+                >
+                  {t("admin.deleteUser")}
+                </Button>
+              </div>
             </Card>
             <Card title={t("admin.consumption")}>
               <DetailRow label={t("admin.usage")} value={quota?.unlimited ? "∞" : `${quota?.used ?? 0} / ${quota?.limit ?? 0}`} />
@@ -256,6 +316,9 @@ function UsersTab() {
             <SelectItem value="canceled">canceled</SelectItem>
           </SelectContent>
         </Select>
+        <Button asChild variant="outline" className="h-9">
+          <a href={api.ADMIN_USERS_CSV_URL} download>{t("admin.exportCsv")}</a>
+        </Button>
       </div>
 
       <Card>
@@ -307,7 +370,7 @@ function UsersTab() {
         </div>
       </Card>
 
-      {detailId !== null && <UserDetailModal userId={detailId} onClose={() => setDetailId(null)} />}
+      {detailId !== null && <UserDetailModal userId={detailId} onClose={() => setDetailId(null)} onChanged={load} />}
     </div>
   );
 }
