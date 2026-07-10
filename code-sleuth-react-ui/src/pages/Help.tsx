@@ -56,7 +56,7 @@ const Help = () => {
       actionKey: "help.support.email.action",
       color: "text-accent",
       bg: "bg-accent/10",
-      mailto: "mailto:support@codesimilar.com",
+      mailto: "mailto:hello@clonelens.com",
     },
   ];
 
