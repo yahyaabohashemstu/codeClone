@@ -50,7 +50,7 @@ def account_export():
     }
     record_audit("account.export", user_id=uid)
     resp = jsonify({"success": True, "exportedAt": None, "data": data})
-    resp.headers["Content-Disposition"] = "attachment; filename=codesimilar-data-export.json"
+    resp.headers["Content-Disposition"] = "attachment; filename=clonelens-data-export.json"
     return resp
 
 

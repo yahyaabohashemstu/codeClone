@@ -8,7 +8,7 @@ from backend.services.email_templates import SUPPORT_EMAIL, render_action_email
 def test_renders_button_url_in_both_parts():
     url = "https://clonelens.com/verify-email?token=abc123"
     text, html = render_action_email(
-        heading="Confirm your email", intro="Welcome to CodeSimilar!",
+        heading="Confirm your email", intro="Welcome to Clone Lens!",
         button_label="Verify email address", button_url=url,
     )
     assert url in text

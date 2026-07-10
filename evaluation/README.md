@@ -1,7 +1,7 @@
 # Detection-accuracy evaluation
 
 This directory holds the labeled evaluation dataset and the measurement harness
-used to calibrate CodeClone's two detection stacks with evidence instead of
+used to calibrate Clone Lens's two detection stacks with evidence instead of
 hand-picked thresholds. It answers, with numbers: *if this tool flags a pair as
 a clone, how likely is that to be true?*
 

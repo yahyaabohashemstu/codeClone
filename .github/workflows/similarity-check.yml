@@ -1,10 +1,10 @@
 ##
-## Example workflow: CodeSimilar Similarity Check on Pull Requests
+## Example workflow: Clone Lens Similarity Check on Pull Requests
 ##
-## Add this to any repository that uses the CodeSimilar platform.
+## Add this to any repository that uses the Clone Lens platform.
 ## Adjust the inputs to match your project's language and threshold.
 ##
-name: CodeSimilar Check
+name: Clone Lens Check
 
 on:
   pull_request:
@@ -25,7 +25,7 @@ jobs:
   similarity-check:
     name: Code Similarity Analysis
     runs-on: ubuntu-latest
-    # Only run when a CodeSimilar deployment is actually configured for this
+    # Only run when a Clone Lens deployment is actually configured for this
     # repository.  Without the URL the check would curl localhost on the
     # runner, report verdict "error", pass vacuously, and spam the PR with a
     # meaningless comment.
@@ -35,7 +35,7 @@ jobs:
         with:
           fetch-depth: 0  # Full history for diff comparison
 
-      - name: Run CodeSimilar Check
+      - name: Run Clone Lens Check
         id: cs
         uses: ./.github/actions/codesimilar-check
         with:
@@ -58,8 +58,8 @@ jobs:
 
             const icon = verdict === 'pass' ? '✅' : '⚠️';
             const title = verdict === 'pass'
-              ? 'CodeSimilar: No violations detected'
-              : `CodeSimilar: ${violations} similarity violation(s) found`;
+              ? 'Clone Lens: No violations detected'
+              : `Clone Lens: ${violations} similarity violation(s) found`;
 
             let body = `## ${icon} ${title}\n\n`;
             body += `| Metric | Value |\n|---|---|\n`;
@@ -73,7 +73,7 @@ jobs:
               body += `Review the similar code sections and refactor as needed.\n`;
             }
 
-            body += `\n---\n*Powered by [CodeSimilar](https://github.com/your-org/codesimilar)*`;
+            body += `\n---\n*Powered by [Clone Lens](https://github.com/your-org/codesimilar)*`;
 
             // Find existing comment to update
             const { data: comments } = await github.rest.issues.listComments({
@@ -83,7 +83,7 @@ jobs:
             });
 
             const existingComment = comments.find(c =>
-              c.user.type === 'Bot' && c.body.includes('CodeSimilar')
+              c.user.type === 'Bot' && c.body.includes('Clone Lens')
             );
 
             if (existingComment) {

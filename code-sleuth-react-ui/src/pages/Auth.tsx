@@ -183,9 +183,9 @@ const Auth = () => {
               className="flex h-10 w-10 items-center justify-center rounded-[10px] overflow-hidden"
               style={{ background: "var(--gradient-brand)" }}
             >
-              <img src="/brand/logo.png" alt="CodeSimilar" className="h-10 w-10 object-contain" />
+              <img src="/brand/logo.png" alt="Clone Lens" className="h-10 w-10 object-contain" />
             </div>
-            <span className="text-[18px] font-extrabold tracking-tight">CodeSimilar</span>
+            <span className="text-[18px] font-extrabold tracking-tight">Clone Lens</span>
           </div>
 
           <h2

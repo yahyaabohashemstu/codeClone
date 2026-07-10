@@ -8,7 +8,7 @@ import { test, expect } from "@playwright/test";
 
 test("home page loads and links to sign in", async ({ page }) => {
   await page.goto("/");
-  await expect(page).toHaveTitle(/CodeSimilar/i);
+  await expect(page).toHaveTitle(/Clone Lens/i);
   // The home page has a call-to-action that reaches the auth flow.
   await page.goto("/login");
   await expect(page.getByRole("heading", { name: /login|sign in/i })).toBeVisible();

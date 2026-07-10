@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
-  title: CodeClone API
+  title: Clone Lens API
   version: 1.0.0
-  description: Complete, auto-generated surface of the CodeClone REST API (core v1 + enterprise). Regenerate
+  description: Complete, auto-generated surface of the Clone Lens REST API (core v1 + enterprise). Regenerate
     with `python tools/generate_openapi.py`. The /api/* (unversioned) paths are 307 redirects to their
     /api/v1 equivalents and are omitted here.
 servers:

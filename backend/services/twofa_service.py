@@ -34,7 +34,7 @@ def get_secret(user) -> str | None:
     return decrypt(user.totp_secret_encrypted)
 
 
-def provisioning_uri(user, secret: str, issuer: str = "CodeSimilar") -> str:
+def provisioning_uri(user, secret: str, issuer: str = "Clone Lens") -> str:
     label = user.email or user.username
     return pyotp.TOTP(secret).provisioning_uri(name=label, issuer_name=issuer)
 

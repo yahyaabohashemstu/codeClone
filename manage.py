@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Operational management CLI for CodeSimilar.
+"""Operational management CLI for Clone Lens.
 
 Small admin tasks that don't belong in the HTTP API. Runs inside a full app
 context so it uses the same config/DB as the server.
@@ -61,8 +61,8 @@ def cmd_send_test_email(args) -> None:
 
     ok = send_email(
         args.address,
-        "CodeSimilar test email",
-        "This is a test email from CodeSimilar. If you received it, SMTP is configured correctly.",
+        "Clone Lens test email",
+        "This is a test email from Clone Lens. If you received it, SMTP is configured correctly.",
     )
     print("sent" if ok else "NOT sent (check EMAIL_PROVIDER / SMTP_* settings)")
     if not ok:
@@ -77,7 +77,7 @@ def cmd_verify_user(args) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="CodeSimilar admin CLI")
+    parser = argparse.ArgumentParser(description="Clone Lens admin CLI")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("set-plan", help="Set a user's subscription plan")

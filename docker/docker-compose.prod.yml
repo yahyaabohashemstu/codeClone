@@ -1,5 +1,5 @@
 # =============================================================================
-# CodeClone -- Production docker-compose stack (STANDALONE)
+# Clone Lens -- Production docker-compose stack (STANDALONE)
 #
 # Usage:
 #   docker compose -f docker/docker-compose.prod.yml up -d --build

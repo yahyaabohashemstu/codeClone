@@ -17,11 +17,11 @@ export function DocumentTitleSync() {
       t("routes.notFound");
 
     if ((location.pathname === "/results" || location.pathname === "/chat") && currentResult) {
-      document.title = `${routeTitle} • ${currentResult.source_labels.code1} ↔ ${currentResult.source_labels.code2} • CodeSimilar`;
+      document.title = `${routeTitle} • ${currentResult.source_labels.code1} ↔ ${currentResult.source_labels.code2} • Clone Lens`;
       return;
     }
 
-    document.title = `${routeTitle} • CodeSimilar`;
+    document.title = `${routeTitle} • Clone Lens`;
   }, [location.pathname, t, currentResult]);
 
   return null;

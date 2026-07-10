@@ -1,4 +1,4 @@
-"""Alembic migration environment for the CodeSimilar core schema.
+"""Alembic migration environment for the Clone Lens core schema.
 
 Resolves the DB URL from DATABASE_URL (falling back to the instance SQLite DB),
 imports the core models so their metadata is populated, and restricts

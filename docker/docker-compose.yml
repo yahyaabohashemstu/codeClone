@@ -1,5 +1,5 @@
 # =============================================================================
-# CodeClone -- Development docker-compose stack
+# Clone Lens -- Development docker-compose stack
 #
 # Usage:
 #   docker compose -f docker/docker-compose.yml up --build

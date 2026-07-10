@@ -11,7 +11,7 @@ from __future__ import annotations
 import datetime
 import html as _html
 
-BRAND = "CodeSimilar"
+BRAND = "Clone Lens"
 SUPPORT_EMAIL = "hello@clonelens.com"
 SITE_URL = "https://clonelens.com"
 

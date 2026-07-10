@@ -31,7 +31,7 @@ def send_email(to_address: str, subject: str, body: str, html_body: str | None =
     Never raises: transactional email is best-effort from the caller's view.
     """
     provider = current_app.config.get("EMAIL_PROVIDER", "console").lower()
-    sender = current_app.config.get("EMAIL_FROM", "no-reply@codesimilar.local")
+    sender = current_app.config.get("EMAIL_FROM", "no-reply@clonelens.com")
 
     if not to_address:
         return False

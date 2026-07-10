@@ -1,6 +1,6 @@
-# CodeClone Public API Reference
+# Clone Lens Public API Reference
 
-CodeClone exposes a small, stable HTTP API so you can run clone/similarity
+Clone Lens exposes a small, stable HTTP API so you can run clone/similarity
 detection **programmatically** — from a CI/CD pipeline, a grading script, or any
 backend service — without the web UI.
 
@@ -39,7 +39,7 @@ A per-user key looks like:
 csk_1a2b3c4d.Xy8f...<43-char url-safe secret>
 ```
 
-- `csk_` — fixed prefix identifying a CodeClone user key.
+- `csk_` — fixed prefix identifying a Clone Lens user key.
 - `1a2b3c4d` — an 8-hex **public prefix** (used for lookup and rate-limiting; safe to log).
 - `.` — separator.
 - `<secret>` — a 256-bit URL-safe random secret.
@@ -413,5 +413,5 @@ console.log(data.verdict, data.results[0].combined_similarity);
 
 ---
 
-*Generated for the CodeClone public API. Endpoint source of truth:
+*Generated for the Clone Lens public API. Endpoint source of truth:
 `backend/api/v1/ci.py`, `backend/api/v1/api_keys.py`, `backend/models/audit.py`.*

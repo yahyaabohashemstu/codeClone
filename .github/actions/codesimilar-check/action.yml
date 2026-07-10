@@ -1,6 +1,6 @@
-name: 'CodeSimilar Similarity Check'
+name: 'Clone Lens Similarity Check'
 description: 'Run code similarity analysis on changed files in a pull request and fail if similarity exceeds threshold.'
-author: 'CodeSimilar'
+author: 'Clone Lens'
 
 branding:
   icon: 'shield'
@@ -8,7 +8,7 @@ branding:
 
 inputs:
   api-url:
-    description: 'Base URL of the CodeSimilar API (e.g., https://your-instance.com)'
+    description: 'Base URL of the Clone Lens API (e.g., https://your-instance.com)'
     required: true
   api-key:
     description: 'API key for authentication (CI_API_KEY or enterprise epk_ key)'
@@ -188,7 +188,7 @@ runs:
 
         echo ""
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "  CodeSimilar Check Results"
+        echo "  Clone Lens Check Results"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo "  Verdict:    $VERDICT"
         echo "  Threshold:  ${CS_THRESHOLD}%"
@@ -198,7 +198,7 @@ runs:
 
         if [ "$VERDICT" = "fail" ] && [ "${{ inputs.fail-on-violation }}" = "true" ]; then
           echo ""
-          echo "::error::CodeSimilar detected $VIOLATIONS similarity violations above ${CS_THRESHOLD}% threshold."
+          echo "::error::Clone Lens detected $VIOLATIONS similarity violations above ${CS_THRESHOLD}% threshold."
           exit 1
         fi
 
@@ -206,7 +206,7 @@ runs:
         # pass vacuously with verdict "error".
         if [ "$VERDICT" = "error" ]; then
           echo ""
-          echo "::error::CodeSimilar API call failed (HTTP $HTTP_CODE) — check CODESIMILAR_API_URL / CODESIMILAR_API_KEY."
+          echo "::error::Clone Lens API call failed (HTTP $HTTP_CODE) — check CODESIMILAR_API_URL / CODESIMILAR_API_KEY."
           exit 1
         fi
 

@@ -184,13 +184,13 @@ def _maybe_send_quota_alert(user_id: int, record, limit: int) -> None:
         if user and user.email:
             if threshold == 100:
                 subject, body = (
-                    "You've reached your CodeSimilar monthly limit",
+                    "You've reached your Clone Lens monthly limit",
                     f"You've used all {limit} analyses in your plan this month. "
                     "Upgrade your plan to keep running analyses.",
                 )
             else:
                 subject, body = (
-                    "You're at 80% of your CodeSimilar monthly quota",
+                    "You're at 80% of your Clone Lens monthly quota",
                     f"You've used {record.analyses_count} of {limit} analyses this month.",
                 )
             send_email(user.email, subject, body)

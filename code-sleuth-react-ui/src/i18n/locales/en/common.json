@@ -101,8 +101,8 @@
     "serverError": "Server error. Please try again later."
   },
   "footer": {
-    "copyright": "CodeSimilar Analysis Platform",
-    "fullCopyright": "© 2026 CodeSimilar — Intelligent Code Analysis Platform"
+    "copyright": "Clone Lens Analysis Platform",
+    "fullCopyright": "© 2026 Clone Lens — Intelligent Code Analysis Platform"
   },
   "guard": {
     "loadingWorkspace": "Loading your workspace…",
@@ -207,7 +207,7 @@
     "loadError": "Failed to load analytics."
   },
   "platform": "Analysis Platform",
-  "brandName": "CodeSimilar",
+  "brandName": "Clone Lens",
   "severity": {
     "high": "High",
     "moderate": "Moderate",

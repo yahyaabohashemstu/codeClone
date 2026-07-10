@@ -1,5 +1,5 @@
 # =============================================================================
-# CodeClone — Coolify (Traefik) production stack, single-container topology.
+# Clone Lens — Coolify (Traefik) production stack, single-container topology.
 #
 # WHY THIS FILE (vs docker/docker-compose.prod.yml):
 #   * Single container: the root Dockerfile builds the React SPA and serves it

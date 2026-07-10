@@ -61,9 +61,9 @@ export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
             className="flex h-7 w-7 items-center justify-center rounded-md overflow-hidden"
             style={{ background: "var(--gradient-brand)" }}
           >
-            <img src="/brand/logo.png" alt="CodeSimilar" className="h-7 w-7 object-contain" />
+            <img src="/brand/logo.png" alt="Clone Lens" className="h-7 w-7 object-contain" />
           </div>
-          <span className="text-sm font-bold">CodeSimilar</span>
+          <span className="text-sm font-bold">Clone Lens</span>
         </div>
 
         <div className="hidden items-center gap-2 text-sm md:flex">

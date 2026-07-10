@@ -948,5 +948,5 @@ def admin_users_export():
     record_audit("admin.export_users", user_id=current_user.id)
     return Response(
         out.getvalue(), mimetype="text/csv",
-        headers={"Content-Disposition": "attachment; filename=codeclone-users.csv"},
+        headers={"Content-Disposition": "attachment; filename=clonelens-users.csv"},
     )

@@ -1,4 +1,4 @@
-# CodeSimilar — Production Deployment Runbook
+# Clone Lens — Production Deployment Runbook
 
 This is the exact, ordered path from a fresh server to a live SaaS with a domain,
 HTTPS, transactional email, and Stripe billing. The application code is already

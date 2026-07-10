@@ -2,7 +2,7 @@
 Localization utilities.
 
 Provides request-aware language detection and simple English/Arabic message
-selection for the CodeClone UI and AI prompts.
+selection for the Clone Lens UI and AI prompts.
 
 The functions here depend on a Flask request context but have *no* dependency
 on application configuration or database models, so they can be imported early

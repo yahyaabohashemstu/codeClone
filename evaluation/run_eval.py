@@ -1,4 +1,4 @@
-"""Detection-accuracy evaluation harness for CodeClone.
+"""Detection-accuracy evaluation harness for Clone Lens.
 
 Runs both detection stacks over the labeled dataset in ``dataset/manifest.json``
 and reports precision/recall/F1, a full threshold sweep, per-category recall,

@@ -9,7 +9,7 @@ const Terms = () => (
 
     <section className="space-y-2">
       <h2 className="t-h4">1. Agreement</h2>
-      <p className="t-body">By creating an account or using CodeSimilar (the "Service") you agree to these Terms. If you do not agree, do not use the Service.</p>
+      <p className="t-body">By creating an account or using Clone Lens (the "Service") you agree to these Terms. If you do not agree, do not use the Service.</p>
     </section>
     <section className="space-y-2">
       <h2 className="t-h4">2. Accounts</h2>

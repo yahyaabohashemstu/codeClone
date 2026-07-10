@@ -101,8 +101,8 @@
     "serverError": "خطأ في الخادم. يرجى المحاولة لاحقًا."
   },
   "footer": {
-    "copyright": "منصة تحليل CodeSimilar",
-    "fullCopyright": "© 2026 CodeSimilar — منصة ذكية لتحليل الشيفرة"
+    "copyright": "منصة تحليل Clone Lens",
+    "fullCopyright": "© 2026 Clone Lens — منصة ذكية لتحليل الشيفرة"
   },
   "guard": {
     "loadingWorkspace": "جارٍ تحميل مساحة العمل...",
@@ -207,7 +207,7 @@
     "loadError": "فشل تحميل التحليلات."
   },
   "platform": "منصة التحليل",
-  "brandName": "CodeSimilar",
+  "brandName": "Clone Lens",
   "severity": {
     "high": "مرتفع",
     "moderate": "متوسط",

@@ -142,12 +142,12 @@ def _send_verification_email(user) -> None:
     link = _verification_link(token)
     text, html = render_action_email(
         heading="Confirm your email",
-        intro="Welcome to CodeSimilar! Please confirm your email address to activate your account and start comparing code.",
+        intro="Welcome to Clone Lens! Please confirm your email address to activate your account and start comparing code.",
         button_label="Verify email address",
         button_url=link,
         outro="If you didn't create this account, you can safely ignore this email.",
     )
-    send_email(user.email, "Verify your CodeSimilar account", text, html)
+    send_email(user.email, "Verify your Clone Lens account", text, html)
 
 
 # ---------------------------------------------------------------------------
@@ -387,12 +387,12 @@ def api_request_password_reset():
             from backend.services.email_templates import render_action_email
             text, html = render_action_email(
                 heading="Reset your password",
-                intro="We received a request to reset your CodeSimilar password. Click the button below to choose a new one. This link expires in one hour.",
+                intro="We received a request to reset your Clone Lens password. Click the button below to choose a new one. This link expires in one hour.",
                 button_label="Reset password",
                 button_url=link,
                 outro="If you didn't request this, you can safely ignore this email — your password won't change.",
             )
-            send_email(user.email, "Reset your CodeSimilar password", text, html)
+            send_email(user.email, "Reset your Clone Lens password", text, html)
     # Uniform response regardless of existence (no account enumeration).
     return jsonify({"success": True, "message": "If that address is registered, a reset link has been sent."})
 

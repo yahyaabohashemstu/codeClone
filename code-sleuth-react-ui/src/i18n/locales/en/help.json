@@ -31,7 +31,7 @@
       "items": [
         {
           "question": "What programming languages are supported?",
-          "answer": "CodeSimilar supports Java, JavaScript, TypeScript, Python, C/C++, C#, Go, Ruby, PHP, Swift, and Kotlin. Semantic and AI-based analysis can detect patterns across different languages."
+          "answer": "Clone Lens supports Java, JavaScript, TypeScript, Python, C/C++, C#, Go, Ruby, PHP, Swift, and Kotlin. Semantic and AI-based analysis can detect patterns across different languages."
         },
         {
           "question": "How does clone detection work?",
@@ -47,7 +47,7 @@
         },
         {
           "question": "Can I integrate this with my CI/CD pipeline?",
-          "answer": "Yes. CodeSimilar exposes API endpoints you can call from any CI/CD system. Set similarity thresholds to fail builds when code duplication exceeds acceptable levels."
+          "answer": "Yes. Clone Lens exposes API endpoints you can call from any CI/CD system. Set similarity thresholds to fail builds when code duplication exceeds acceptable levels."
         },
         {
           "question": "Is my code secure when I upload it?",

@@ -8,7 +8,7 @@ import { downloadText } from "@/lib/download";
 export async function exportAccountData(): Promise<void> {
   const result = await apiFetch<{ success: boolean; data: unknown }>("/api/v1/account/export");
   const body = result && typeof result === "object" && "data" in result ? result.data : result;
-  downloadText("codesimilar-data-export.json", JSON.stringify(body, null, 2), "application/json");
+  downloadText("clonelens-data-export.json", JSON.stringify(body, null, 2), "application/json");
 }
 
 /** Permanently delete the caller's account (password-confirmed). */

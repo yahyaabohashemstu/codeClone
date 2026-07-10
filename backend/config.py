@@ -164,7 +164,7 @@ class BaseConfig:
     # --- Email delivery ------------------------------------------------------
     # Provider: "console" (log to stdout, dev default), "smtp", or "disabled".
     EMAIL_PROVIDER: str = os.environ.get("EMAIL_PROVIDER", "console").lower()
-    EMAIL_FROM: str = os.environ.get("EMAIL_FROM", "no-reply@codesimilar.local")
+    EMAIL_FROM: str = os.environ.get("EMAIL_FROM", "no-reply@clonelens.com")
     SMTP_HOST: str = os.environ.get("SMTP_HOST", "")
     SMTP_PORT: int = int(os.environ.get("SMTP_PORT", "587"))
     SMTP_USERNAME: str = os.environ.get("SMTP_USERNAME", "")

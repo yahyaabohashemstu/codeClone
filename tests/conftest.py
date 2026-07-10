@@ -1,5 +1,5 @@
 """
-Shared pytest fixtures for the CodeClone test suite.
+Shared pytest fixtures for the Clone Lens test suite.
 
 Provides application instances, test clients, database sessions,
 and pre-built user accounts for use across all test modules.

@@ -1,6 +1,6 @@
 name: Production Deploy
 
-# Continuous delivery for CodeClone, single-container topology, tuned for a
+# Continuous delivery for Clone Lens, single-container topology, tuned for a
 # PRIVATE repo's monthly GitHub Actions minute budget:
 #
 #   * Every push to release/** runs ONLY the lightweight quality gate

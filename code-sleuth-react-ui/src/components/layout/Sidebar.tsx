@@ -88,11 +88,11 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
       >
         <div className={cn("flex h-16 items-center border-b border-sidebar-border px-4", collapsed ? "justify-center" : "gap-3")}>
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-brand shadow-glow-sm overflow-hidden">
-            <img src="/brand/logo.png" alt="CodeSimilar" className="h-9 w-9 object-contain" />
+            <img src="/brand/logo.png" alt="Clone Lens" className="h-9 w-9 object-contain" />
           </div>
           {!collapsed && (
             <div className="min-w-0">
-              <span className="block truncate text-sm font-bold text-sidebar-accent-foreground">CodeSimilar</span>
+              <span className="block truncate text-sm font-bold text-sidebar-accent-foreground">Clone Lens</span>
               <span className="block text-[10px] text-sidebar-foreground">{t("platform")}</span>
             </div>
           )}

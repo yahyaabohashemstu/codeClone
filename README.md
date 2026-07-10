@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="code-sleuth-react-ui/public/brand/logo.png" alt="CodeClone" width="120"/>
+<img src="code-sleuth-react-ui/public/brand/logo.png" alt="Clone Lens" width="120"/>
 
-# CodeClone
+# Clone Lens
 
 ### Enterprise code‑similarity & clone‑detection platform — AST analysis meets AI.
 
@@ -28,7 +28,7 @@
 
 ## Overview
 
-**CodeClone** is a full‑stack platform that answers one question with rigor: *how similar are these two pieces of code, and why?* It combines a language‑agnostic **AST engine** (tree‑sitter), a **UniXcoder** semantic embedding, and an optional **Mistral LLM** narrative into a single calibrated verdict — wrapped in a production SaaS with accounts, quotas, billing, a CI/CD gate, and a multi‑tenant enterprise mode for team code review.
+**Clone Lens** is a full‑stack platform that answers one question with rigor: *how similar are these two pieces of code, and why?* It combines a language‑agnostic **AST engine** (tree‑sitter), a **UniXcoder** semantic embedding, and an optional **Mistral LLM** narrative into a single calibrated verdict — wrapped in a production SaaS with accounts, quotas, billing, a CI/CD gate, and a multi‑tenant enterprise mode for team code review.
 
 > [!NOTE]
 > **Honest scope.** Thresholds are calibrated against a labeled dataset (`evaluation/`), not hand‑picked. The engine is **strong** on Type‑1 (identical), Type‑2 (renamed), and Type‑3 (near‑miss) clones. Type‑4 (behaviourally‑equivalent but structurally different) and **cross‑language** clones are **advisory‑only** — their scores overlap unrelated code with current embeddings. Run `python evaluation/run_eval.py` to reproduce the numbers.
@@ -562,6 +562,6 @@ CodeClone/
 
 ## License
 
-**All rights reserved.** © CodeClone. See the repository owner for usage terms.
+**All rights reserved.** © Clone Lens. See the repository owner for usage terms.
 
 <div align="center"><br/><sub>Built with tree‑sitter, UniXcoder, Flask, and React.</sub></div>

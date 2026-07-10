@@ -1,5 +1,5 @@
 /**
- * Same-origin API client for the CodeClone SPA.
+ * Same-origin API client for the Clone Lens SPA.
  *
  * The backend has no CORS and protects mutating requests with a session CSRF
  * token delivered in the `/api/session` (and login) responses. This module is
