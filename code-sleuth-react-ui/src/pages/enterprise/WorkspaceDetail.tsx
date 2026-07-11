@@ -6,14 +6,12 @@ import {
   ArrowLeft,
   ChevronRight,
   Copy,
-  FileCode2,
   GitBranch,
   KeyRound,
   Loader2,
   Play,
   Plus,
   RefreshCw,
-  Scan,
   Search,
   Shield,
   ShieldAlert,
@@ -27,9 +25,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { Masthead, FieldSheet, Field, Panel, Serial } from "@/components/dossier/Dossier";
 import { useLanguage } from "@/context/LanguageContext";
 import {
   addMember,
@@ -282,13 +280,18 @@ export default function WorkspaceDetail() {
     }
   };
 
-  const tabs: Array<{ id: Tab; label: string; icon: typeof Scan }> = [
-    { id: "repositories", label: t("enterprise.workspaceDetail.repositories"), icon: GitBranch },
-    { id: "cases",        label: t("enterprise.workspaceDetail.cases"),        icon: Shield },
-    { id: "members",      label: t("enterprise.workspaceDetail.members"),      icon: Users },
+  const tabCounts: Record<Tab, number> = {
+    repositories: repos.length,
+    cases: cases.length,
+    members: members.length,
+  };
+  const tabs: Array<{ id: Tab; label: string }> = [
+    { id: "repositories", label: t("enterprise.workspaceDetail.repositories") },
+    { id: "cases",        label: t("enterprise.workspaceDetail.cases") },
+    { id: "members",      label: t("enterprise.workspaceDetail.members") },
   ];
 
-  // Stat calculations for header
+  // Stat calculations for masthead meta strip
   const threshold = workspace ? Math.round(workspace.defaultSimilarityThreshold * 100) : 0;
   const flaggedCount = useMemo(
     () => cases.filter((c) => c.confidenceScore >= threshold).length,
@@ -311,10 +314,24 @@ export default function WorkspaceDetail() {
 
   const scoreColor = (score: number): string => {
     if (score >= 80) return "hsl(var(--destructive))";
-    if (score >= 60) return "hsl(14 85% 38%)";
     if (score >= 40) return "hsl(var(--warning))";
     return "hsl(var(--muted-foreground))";
   };
+
+  // Live case-file readings for the masthead — folds the old stat-card row in.
+  const meta = [
+    { label: "SERIAL", value: `WS-${wsId}` },
+    ...(workspace
+      ? [
+          { label: "REGION", value: workspace.storageRegion },
+          { label: "THRESHOLD", value: `${threshold}%` },
+        ]
+      : []),
+    { label: "REPOS", value: repos.length },
+    { label: "CASES", value: cases.length },
+    { label: "FLAGGED", value: <span className="text-destructive">{flaggedCount}</span> },
+    { label: "REVIEWED", value: `${reviewedCount}/${cases.length}` },
+  ];
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-6" dir={isRTL ? "rtl" : "ltr"}>
@@ -332,94 +349,35 @@ export default function WorkspaceDetail() {
         <span className="font-medium text-foreground">{workspace?.name ?? `#${wsId}`}</span>
       </div>
 
-      {/* Workspace hero card with stats */}
-      {workspace && (
-        <section
-          className="overflow-hidden rounded-2xl border border-border bg-card"
-          style={{ boxShadow: "var(--card-shadow-rest)" }}
-        >
-          <div className="flex flex-wrap items-start justify-between gap-4 p-6">
-            <div className="min-w-0 flex-1">
-              {/* Badge row */}
-              <div className="mb-3 flex flex-wrap items-center gap-2">
-                <span
-                  className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    background: "hsl(var(--secondary))",
-                    color: "hsl(var(--secondary-foreground))",
-                    border: "1px solid hsl(var(--border))",
-                  }}
-                >
-                  #{workspace.id}
-                </span>
-                <span
-                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold"
-                  style={{
-                    background: "hsl(var(--primary) / 0.12)",
-                    color: "hsl(var(--primary))",
-                    border: "1px solid hsl(var(--primary) / 0.25)",
-                  }}
-                >
-                  <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                  {t("enterprise.workspaceDetail.active", { defaultValue: "Active" })}
-                </span>
-              </div>
-              <h1 className="t-h3 text-foreground">{workspace.name}</h1>
-              {workspace.description && (
-                <p className="mt-1 t-body">{workspace.description}</p>
-              )}
-              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1.5">
-                  <Shield className="h-3.5 w-3.5 text-primary" />
-                  <span className="font-mono tabular-nums">{threshold}%</span>
-                  {t("enterprise.workspaceDetail.thresholdLabel", { defaultValue: "threshold" })}
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <FileCode2 className="h-3.5 w-3.5 text-primary" />
-                  {workspace.storageRegion}
-                </span>
-              </div>
-            </div>
-          </div>
+      {/* Workspace dossier masthead — identity + live readings, not a boxed hero */}
+      <Masthead
+        kicker={t("enterprise.workspaceDetail.dossierKicker", { defaultValue: "Workspace dossier" })}
+        title={workspace?.name ?? `#${wsId}`}
+        description={workspace?.description || undefined}
+        meta={meta}
+      />
 
-          {/* Stat row - 4 cards */}
-          <div className="grid grid-cols-2 gap-3 px-6 pb-6 md:grid-cols-4">
-            <StatCell label={t("enterprise.workspaceDetail.statRepos", { defaultValue: "Repositories" })} value={String(repos.length)} />
-            <StatCell label={t("enterprise.workspaceDetail.statCases", { defaultValue: "Cases" })} value={String(cases.length)} />
-            <StatCell
-              label={t("enterprise.workspaceDetail.statFlagged", { defaultValue: "Flagged ≥ threshold" })}
-              value={String(flaggedCount)}
-              valueColor="hsl(var(--destructive))"
-            />
-            <StatCell
-              label={t("enterprise.workspaceDetail.statReviewed", { defaultValue: "Reviewed" })}
-              value={`${reviewedCount} / ${cases.length}`}
-              valueColor="hsl(var(--success))"
-            />
-          </div>
-        </section>
-      )}
-
-      {/* Tabs */}
-      <div className="border-b border-border/50">
-        <nav className="flex gap-1" aria-label="Workspace tabs">
+      {/* Tabs — mono ledger selectors with live counts */}
+      <div className="border-b border-border">
+        <nav className="-mb-px flex gap-6" aria-label="Workspace tabs">
           {tabs.map((tab) => {
-            const Icon = tab.icon;
+            const active = activeTab === tab.id;
             return (
               <button
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  "flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors",
-                  activeTab === tab.id
+                  "flex items-center gap-2 border-b-2 pb-2.5 font-mono text-[11px] uppercase tracking-[0.14em] transition-colors",
+                  active
                     ? "border-primary text-primary"
                     : "border-transparent text-muted-foreground hover:text-foreground",
                 )}
               >
-                <Icon className="h-4 w-4" />
                 {tab.label}
+                <span className={cn("tabular-nums", active ? "text-primary/70" : "text-muted-foreground/50")}>
+                  {tabCounts[tab.id]}
+                </span>
               </button>
             );
           })}
@@ -428,70 +386,47 @@ export default function WorkspaceDetail() {
 
       {/* Tab content */}
       {loadingTab ? (
-        <div
-          className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-card py-16 text-muted-foreground"
-          style={{ boxShadow: "var(--card-shadow-rest)" }}
-        >
+        <div className="flex items-center justify-center gap-2 rounded-lg border border-border bg-card py-16 text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
         </div>
       ) : tabError ? (
-        <div className="flex items-center justify-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/5 py-12 text-destructive">
+        <div className="flex items-center justify-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 py-12 text-destructive">
           <AlertCircle className="h-4 w-4" />
           {tabError}
         </div>
       ) : (
         <>
-          {/* Repositories tab */}
+          {/* Repositories tab — repository ledger */}
           {activeTab === "repositories" && (
-            <div className="space-y-4">
-              <div className="flex justify-end">
-                <Button
-                  size="sm"
-                  className="h-9 gap-2 text-white"
-                  style={{ background: "var(--gradient-brand)", boxShadow: "var(--glow-shadow-sm)" }}
-                  onClick={() => setRepoOpen(true)}
-                >
+            <Panel
+              label={t("enterprise.workspaceDetail.repositories")}
+              actions={
+                <Button size="sm" className="h-8 gap-1.5" onClick={() => setRepoOpen(true)}>
                   <Plus className="h-3.5 w-3.5" />
                   {t("enterprise.workspaceDetail.addRepo")}
                 </Button>
-              </div>
-
+              }
+              bodyClassName="p-0"
+            >
               {repos.length === 0 ? (
-                <div
-                  className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card py-14 text-center"
-                  style={{ boxShadow: "var(--card-shadow-rest)" }}
-                >
-                  <div
-                    className="flex h-12 w-12 items-center justify-center rounded-full"
-                    style={{ background: "hsl(var(--primary) / 0.1)", color: "hsl(var(--primary))" }}
-                  >
-                    <GitBranch className="h-6 w-6" />
-                  </div>
+                <div className="flex flex-col items-center gap-3 py-14 text-center">
+                  <GitBranch className="h-5 w-5 text-muted-foreground" />
                   <p className="t-sm">{t("enterprise.workspaceDetail.noRepos")}</p>
                   <Button size="sm" variant="outline" onClick={() => setRepoOpen(true)} className="gap-2">
                     <Plus className="h-3.5 w-3.5" />{t("enterprise.workspaceDetail.addRepo")}
                   </Button>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {repos.map((repo) => (
-                    <div
-                      key={repo.id}
-                      className="flex items-center gap-4 rounded-2xl border border-border bg-card px-5 py-3.5 transition-all hover:border-primary/40"
-                      style={{ boxShadow: "var(--card-shadow-rest)" }}
-                    >
-                      <div
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white"
-                        style={{ background: "var(--gradient-brand)" }}
-                      >
-                        {PROVIDER_ICON[repo.provider] ?? "??"}
-                      </div>
+                <div className="divide-y divide-border">
+                  {repos.map((repo, i) => (
+                    <div key={repo.id} className="flex items-center gap-4 px-5 py-3.5">
+                      <Serial>{`R${String(i + 1).padStart(2, "0")}`}</Serial>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-foreground">{repo.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {repo.provider}
+                        <p className="font-mono text-xs text-muted-foreground">
+                          <span className="text-foreground/70">{PROVIDER_ICON[repo.provider] ?? "??"}</span>
                           {" · "}
-                          <span className="font-mono">{repo.defaultBranch ?? "main"}</span>
+                          {repo.defaultBranch ?? "main"}
                           {" · "}
                           {repo.declaredRegion}
                         </p>
@@ -514,21 +449,23 @@ export default function WorkspaceDetail() {
                   ))}
                 </div>
               )}
-            </div>
+            </Panel>
           )}
 
-          {/* Cases tab — table layout */}
+          {/* Cases tab — case ledger table */}
           {activeTab === "cases" && (
-            <div
-              className="overflow-hidden rounded-2xl border border-border bg-card"
-              style={{ boxShadow: "var(--card-shadow-rest)" }}
+            <Panel
+              label={t("enterprise.workspaceDetail.cases")}
+              actions={
+                <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                  {t("enterprise.workspaceDetail.showing", { defaultValue: "Showing" })} {filteredCases.length} / {cases.length}
+                </span>
+              }
+              bodyClassName="p-0"
             >
               {/* Filter bar */}
-              <div
-                className="flex flex-wrap items-center gap-2 border-b border-border px-5 py-3"
-                style={{ background: "hsl(var(--surface-2))" }}
-              >
-                <div className="relative min-w-[220px] flex-1 max-w-sm">
+              <div className="border-b border-border bg-muted px-5 py-3">
+                <div className="relative max-w-sm">
                   <Search className={cn("pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground", isRTL ? "right-3" : "left-3")} />
                   <Input
                     value={caseSearch}
@@ -537,58 +474,36 @@ export default function WorkspaceDetail() {
                     className={cn("h-8 bg-card text-sm", isRTL ? "pr-8" : "pl-8")}
                   />
                 </div>
-                <div className="flex-1" />
-                <span
-                  className="text-xs tabular-nums text-muted-foreground"
-                  style={{ fontFamily: "var(--font-mono)" }}
-                >
-                  {t("enterprise.workspaceDetail.showing", { defaultValue: "Showing" })} {filteredCases.length} / {cases.length}
-                </span>
               </div>
 
               {filteredCases.length === 0 ? (
                 <div className="flex flex-col items-center gap-3 py-14 text-center">
-                  <div
-                    className="flex h-12 w-12 items-center justify-center rounded-full"
-                    style={{ background: "hsl(var(--primary) / 0.1)", color: "hsl(var(--primary))" }}
-                  >
-                    <Shield className="h-6 w-6" />
-                  </div>
+                  <Shield className="h-5 w-5 text-muted-foreground" />
                   <p className="t-sm">{t("enterprise.workspaceDetail.noCases")}</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto scrollbar-thin">
                   <table className="w-full min-w-[820px] text-sm">
                     <thead>
-                      <tr style={{ background: "hsl(var(--surface-2))" }}>
-                        <th
-                          className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}
-                        >
-                          {t("enterprise.workspaceDetail.colCase", { defaultValue: "Case" })}
-                        </th>
-                        <th
-                          className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}
-                        >
-                          {t("enterprise.workspaceDetail.colPair", { defaultValue: "Pair" })}
-                        </th>
-                        <th
-                          className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}
-                        >
-                          {t("enterprise.workspaceDetail.colScore", { defaultValue: "Score" })}
-                        </th>
-                        <th
-                          className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}
-                        >
-                          {t("enterprise.workspaceDetail.colType", { defaultValue: "Clone type" })}
-                        </th>
-                        <th
-                          className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}
-                        >
-                          {t("enterprise.workspaceDetail.colStatus", { defaultValue: "Status" })}
-                        </th>
-                        <th
-                          className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-left" : "text-right")}
-                        >
+                      <tr className="bg-muted">
+                        {[
+                          t("enterprise.workspaceDetail.colCase", { defaultValue: "Case" }),
+                          t("enterprise.workspaceDetail.colPair", { defaultValue: "Pair" }),
+                          t("enterprise.workspaceDetail.colScore", { defaultValue: "Score" }),
+                          t("enterprise.workspaceDetail.colType", { defaultValue: "Clone type" }),
+                          t("enterprise.workspaceDetail.colStatus", { defaultValue: "Status" }),
+                        ].map((h) => (
+                          <th
+                            key={h}
+                            className={cn(
+                              "border-b border-border px-4 py-2.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-muted-foreground",
+                              isRTL ? "text-right" : "text-left",
+                            )}
+                          >
+                            {h}
+                          </th>
+                        ))}
+                        <th className={cn("border-b border-border px-4 py-2.5", isRTL ? "text-left" : "text-right")}>
                           &nbsp;
                         </th>
                       </tr>
@@ -597,8 +512,8 @@ export default function WorkspaceDetail() {
                       {filteredCases.map((c) => {
                         const sm = STATUS_META[c.status] ?? STATUS_META.open;
                         const sv = SEV_META[c.severity] ?? SEV_META.medium;
-                        const pathA = c.match?.artifactA?.logicalPath ?? "\u2014";
-                        const pathB = c.match?.artifactB?.logicalPath ?? "\u2014";
+                        const pathA = c.match?.artifactA?.logicalPath ?? "—";
+                        const pathB = c.match?.artifactB?.logicalPath ?? "—";
                         const score = Math.round(c.confidenceScore);
                         const initA = pathA.split(/[/\\]/).pop()?.slice(0, 2).toUpperCase() ?? "A";
                         const initB = pathB.split(/[/\\]/).pop()?.slice(0, 2).toUpperCase() ?? "B";
@@ -608,70 +523,48 @@ export default function WorkspaceDetail() {
                             className="border-b border-border/40 transition-colors last:border-b-0 hover:bg-muted/30"
                           >
                             <td className="px-4 py-3 align-middle">
-                              <span
-                                className="font-medium text-muted-foreground"
-                                style={{ fontFamily: "var(--font-mono)" }}
-                              >
-                                #C-{c.id}
-                              </span>
+                              <span className="font-mono font-medium text-muted-foreground">#C-{c.id}</span>
                             </td>
                             <td className="px-4 py-3 align-middle">
                               <div className="flex items-center gap-2 text-xs">
-                                <span
-                                  className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
-                                  style={{ background: "var(--gradient-brand)" }}
-                                >
+                                <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border bg-muted font-mono text-[10px] font-semibold text-muted-foreground">
                                   {initA}
                                 </span>
-                                <span className="max-w-[120px] truncate text-foreground">{pathA.split(/[/\\]/).pop()}</span>
+                                <span className="max-w-[120px] truncate font-mono text-foreground">{pathA.split(/[/\\]/).pop()}</span>
                                 <span className="text-muted-foreground">×</span>
-                                <span
-                                  className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
-                                  style={{ background: "linear-gradient(135deg, hsl(var(--accent)), hsl(var(--primary)))" }}
-                                >
+                                <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-primary/30 bg-primary/10 font-mono text-[10px] font-semibold text-primary">
                                   {initB}
                                 </span>
-                                <span className="max-w-[120px] truncate text-foreground">{pathB.split(/[/\\]/).pop()}</span>
+                                <span className="max-w-[120px] truncate font-mono text-foreground">{pathB.split(/[/\\]/).pop()}</span>
                               </div>
                             </td>
                             <td className="px-4 py-3 align-middle">
                               <div className="flex items-center gap-2">
-                                <span
-                                  className="h-1.5 w-14 overflow-hidden rounded-full"
-                                  style={{ background: "hsl(var(--muted))" }}
-                                >
+                                <span className="h-1.5 w-14 overflow-hidden rounded-sm bg-muted">
                                   <span
                                     className="block h-full"
                                     style={{ width: `${score}%`, background: scoreColor(score) }}
                                   />
                                 </span>
                                 <span
-                                  className="text-sm font-semibold tabular-nums"
-                                  style={{ fontFamily: "var(--font-mono)", color: scoreColor(score) }}
+                                  className="font-mono text-sm font-semibold tabular-nums"
+                                  style={{ color: scoreColor(score) }}
                                 >
                                   {score}%
                                 </span>
                               </div>
                             </td>
                             <td className="px-4 py-3 align-middle">
-                              <span
-                                className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium"
-                                style={{
-                                  fontFamily: "var(--font-mono)",
-                                  background: "hsl(var(--secondary))",
-                                  color: "hsl(var(--secondary-foreground))",
-                                  borderColor: "hsl(var(--border))",
-                                }}
-                              >
+                              <span className="inline-flex items-center rounded-md border border-border bg-muted px-2 py-0.5 font-mono text-[11px] font-medium text-muted-foreground">
                                 {c.cloneType.replace(/_/g, " ")}
                               </span>
                             </td>
                             <td className="px-4 py-3 align-middle">
                               <div className="flex flex-wrap items-center gap-1.5">
-                                <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold capitalize", sv.cls)}>
+                                <span className={cn("inline-flex items-center rounded-md border px-2 py-0.5 font-mono text-[11px] font-semibold capitalize", sv.cls)}>
                                   {c.severity}
                                 </span>
-                                <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold", sm.cls)}>
+                                <span className={cn("inline-flex items-center rounded-md border px-2 py-0.5 font-mono text-[11px] font-semibold", sm.cls)}>
                                   {t(`enterprise.status.${c.status}`, { defaultValue: c.status })}
                                 </span>
                               </div>
@@ -692,152 +585,136 @@ export default function WorkspaceDetail() {
                   </table>
                 </div>
               )}
-            </div>
+            </Panel>
           )}
 
-          {/* Members tab */}
+          {/* Members tab — roster ledger */}
           {activeTab === "members" && (
-            <div className="space-y-2">
-              <div className="flex justify-end">
-                <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setMemberOpen(true)}>
+            <Panel
+              label={t("enterprise.workspaceDetail.members")}
+              actions={
+                <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => setMemberOpen(true)}>
                   <Plus className="h-3.5 w-3.5" />
                   {t("enterprise.workspaceDetail.addMember")}
                 </Button>
-              </div>
+              }
+              bodyClassName="p-0"
+            >
               {members.length === 0 ? (
-                <div
-                  className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card py-14 text-center"
-                  style={{ boxShadow: "var(--card-shadow-rest)" }}
-                >
-                  <div
-                    className="flex h-12 w-12 items-center justify-center rounded-full"
-                    style={{ background: "hsl(var(--primary) / 0.1)", color: "hsl(var(--primary))" }}
-                  >
-                    <Users className="h-6 w-6" />
-                  </div>
+                <div className="flex flex-col items-center gap-3 py-14 text-center">
+                  <Users className="h-5 w-5 text-muted-foreground" />
                   <p className="t-sm">{t("enterprise.workspaceDetail.noMembers")}</p>
                 </div>
               ) : (
-                members.map((m) => (
-                  <div
-                    key={m.id}
-                    className="flex items-center gap-4 rounded-2xl border border-border bg-card px-5 py-3 transition-all hover:border-primary/40"
-                    style={{ boxShadow: "var(--card-shadow-rest)" }}
-                  >
-                    <div
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
-                      style={{ background: "var(--gradient-brand)" }}
-                    >
-                      {m.legacyUserId}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-foreground">
-                        {t("enterprise.workspaceDetail.userHash", { defaultValue: "User #" })}
-                        {m.legacyUserId}
-                      </p>
-                      {m.lastActiveAt && (
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(m.lastActiveAt).toLocaleDateString()}
+                <div className="divide-y divide-border">
+                  {members.map((m) => (
+                    <div key={m.id} className="flex items-center gap-4 px-5 py-3">
+                      <Serial>{m.legacyUserId}</Serial>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-foreground">
+                          {t("enterprise.workspaceDetail.userHash", { defaultValue: "User #" })}
+                          <span className="font-mono">{m.legacyUserId}</span>
                         </p>
-                      )}
+                        {m.lastActiveAt && (
+                          <p className="font-mono text-xs text-muted-foreground">
+                            {new Date(m.lastActiveAt).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                      <span
+                        className={cn(
+                          "rounded-md border px-2 py-0.5 font-mono text-[10px] font-semibold capitalize",
+                          ROLE_CLS[m.role] ?? "bg-muted text-muted-foreground border-border/60",
+                        )}
+                      >
+                        {m.role}
+                      </span>
                     </div>
-                    <span
-                      className={cn(
-                        "rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize",
-                        ROLE_CLS[m.role] ?? "bg-muted text-muted-foreground border-border/60",
-                      )}
-                    >
-                      {m.role}
-                    </span>
-                  </div>
-                ))
+                  ))}
+                </div>
               )}
-            </div>
+            </Panel>
           )}
         </>
       )}
 
-      {/* Create repository dialog */}
+      {/* Create repository dialog — margin-label fields */}
       <Dialog open={repoOpen} onOpenChange={setRepoOpen}>
         <DialogContent className="sm:max-w-md" dir={isRTL ? "rtl" : "ltr"}>
           <DialogHeader>
             <DialogTitle>{t("enterprise.workspaceDetail.addRepo")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <Label>{t("enterprise.workspaceDetail.repoNameLabel")}</Label>
-              <Input value={repoName} onChange={(e) => setRepoName(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>{t("enterprise.workspaceDetail.providerLabel")}</Label>
-              <Select value={repoProvider} onValueChange={setRepoProvider}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="local">local</SelectItem>
-                  <SelectItem value="github">github</SelectItem>
-                  <SelectItem value="gitlab">gitlab</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {repoProvider === "local" ? (
-              <div className="space-y-1.5">
-                <Label>{t("enterprise.workspaceDetail.localPathLabel")}</Label>
-                <Input value={repoPath} onChange={(e) => setRepoPath(e.target.value)} placeholder="/path/to/repo" />
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                <Label>{t("enterprise.workspaceDetail.cloneUrlLabel")}</Label>
-                <div className="flex gap-2">
-                  <Input
-                    className="flex-1"
-                    value={repoUrl}
-                    onChange={(e) => { setRepoUrl(e.target.value); setProbedBranches([]); setProbeError(""); }}
-                    placeholder="https://github.com/owner/repo"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0 gap-1.5"
-                    disabled={probing || !repoUrl.trim()}
-                    onClick={handleProbeUrl}
-                  >
-                    {probing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                    {t("enterprise.workspaceDetail.probe")}
-                  </Button>
-                </div>
-                {probeError && (
-                  <p className="mt-1 flex items-center gap-1 text-xs text-destructive">
-                    <AlertCircle className="h-3 w-3 shrink-0" />
-                    {probeError}
-                  </p>
-                )}
-              </div>
-            )}
-            <div className="space-y-1.5">
-              <Label>{t("enterprise.workspaceDetail.branchLabel")}</Label>
-              {probedBranches.length > 0 ? (
-                <Select value={repoBranch} onValueChange={setRepoBranch}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={t("enterprise.workspaceDetail.selectBranch")} />
-                  </SelectTrigger>
+            <FieldSheet>
+              <Field label={t("enterprise.workspaceDetail.repoNameLabel")} align="center">
+                <Input value={repoName} onChange={(e) => setRepoName(e.target.value)} />
+              </Field>
+              <Field label={t("enterprise.workspaceDetail.providerLabel")} align="center">
+                <Select value={repoProvider} onValueChange={setRepoProvider}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {probedBranches.map((b) => (
-                      <SelectItem key={b} value={b}>{b}</SelectItem>
-                    ))}
+                    <SelectItem value="local">local</SelectItem>
+                    <SelectItem value="github">github</SelectItem>
+                    <SelectItem value="gitlab">gitlab</SelectItem>
                   </SelectContent>
                 </Select>
+              </Field>
+              {repoProvider === "local" ? (
+                <Field label={t("enterprise.workspaceDetail.localPathLabel")} align="center">
+                  <Input value={repoPath} onChange={(e) => setRepoPath(e.target.value)} placeholder="/path/to/repo" />
+                </Field>
               ) : (
-                <Input value={repoBranch} onChange={(e) => setRepoBranch(e.target.value)} placeholder="main" />
+                <Field label={t("enterprise.workspaceDetail.cloneUrlLabel")}>
+                  <div className="flex gap-2">
+                    <Input
+                      className="flex-1"
+                      value={repoUrl}
+                      onChange={(e) => { setRepoUrl(e.target.value); setProbedBranches([]); setProbeError(""); }}
+                      placeholder="https://github.com/owner/repo"
+                      dir="ltr"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0 gap-1.5"
+                      disabled={probing || !repoUrl.trim()}
+                      onClick={handleProbeUrl}
+                    >
+                      {probing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                      {t("enterprise.workspaceDetail.probe")}
+                    </Button>
+                  </div>
+                  {probeError && (
+                    <p className="mt-1.5 flex items-center gap-1 text-xs text-destructive">
+                      <AlertCircle className="h-3 w-3 shrink-0" />
+                      {probeError}
+                    </p>
+                  )}
+                </Field>
               )}
-            </div>
+              <Field label={t("enterprise.workspaceDetail.branchLabel")} align="center">
+                {probedBranches.length > 0 ? (
+                  <Select value={repoBranch} onValueChange={setRepoBranch}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={t("enterprise.workspaceDetail.selectBranch")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {probedBranches.map((b) => (
+                        <SelectItem key={b} value={b}>{b}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input value={repoBranch} onChange={(e) => setRepoBranch(e.target.value)} placeholder="main" />
+                )}
+              </Field>
+            </FieldSheet>
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="ghost" onClick={() => setRepoOpen(false)}>{t("enterprise.common.cancel")}</Button>
               <Button
                 onClick={handleCreateRepo}
                 disabled={creatingRepo || !repoName.trim()}
-                className="text-white"
-                style={{ background: "var(--gradient-brand)", boxShadow: "var(--glow-shadow-sm)" }}
               >
                 {creatingRepo && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
                 {t("enterprise.workspaceDetail.addRepo")}
@@ -847,7 +724,7 @@ export default function WorkspaceDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* One-time webhook credentials dialog */}
+      {/* One-time webhook credentials dialog — a clear reveal callout */}
       <Dialog open={!!repoSecrets} onOpenChange={(open) => { if (!open) setRepoSecrets(null); }}>
         <DialogContent className="sm:max-w-lg" dir={isRTL ? "rtl" : "ltr"}>
           <DialogHeader>
@@ -857,51 +734,45 @@ export default function WorkspaceDetail() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
-            <div
-              className="flex items-start gap-2 rounded-lg border p-3 text-xs"
-              style={{ background: "hsl(var(--warning) / 0.1)", borderColor: "hsl(var(--warning) / 0.3)" }}
-            >
+            <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs">
               <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
               <span className="text-warning">{t("enterprise.workspaceDetail.secretsIntro")}</span>
             </div>
 
-            {([
-              { label: t("enterprise.workspaceDetail.secretsWebhookLabel"), value: repoSecrets?.webhookSecret, mono: true },
-              { label: t("enterprise.workspaceDetail.secretsGithubLabel"), value: repoSecrets?.githubWebhookUrl, mono: false },
-              { label: t("enterprise.workspaceDetail.secretsGitlabLabel"), value: repoSecrets?.gitlabWebhookUrl, mono: false },
-            ] as const).map((field) => (
-              <div key={field.label} className="space-y-1.5">
-                <Label>{field.label}</Label>
-                <div className="flex gap-2">
-                  <Input
-                    readOnly
-                    value={field.value ?? ""}
-                    onFocus={(e) => e.currentTarget.select()}
-                    className={cn("flex-1", field.mono && "font-mono text-xs")}
-                    dir="ltr"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0 gap-1.5"
-                    onClick={() => field.value && copyToClipboard(field.value)}
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                    {t("enterprise.workspaceDetail.copy")}
-                  </Button>
-                </div>
-              </div>
-            ))}
+            <FieldSheet>
+              {([
+                { label: t("enterprise.workspaceDetail.secretsWebhookLabel"), value: repoSecrets?.webhookSecret, mono: true },
+                { label: t("enterprise.workspaceDetail.secretsGithubLabel"), value: repoSecrets?.githubWebhookUrl, mono: false },
+                { label: t("enterprise.workspaceDetail.secretsGitlabLabel"), value: repoSecrets?.gitlabWebhookUrl, mono: false },
+              ] as const).map((field) => (
+                <Field key={field.label} label={field.label} align="center">
+                  <div className="flex gap-2">
+                    <Input
+                      readOnly
+                      value={field.value ?? ""}
+                      onFocus={(e) => e.currentTarget.select()}
+                      className={cn("flex-1", field.mono && "font-mono text-xs")}
+                      dir="ltr"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0 gap-1.5"
+                      onClick={() => field.value && copyToClipboard(field.value)}
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                      {t("enterprise.workspaceDetail.copy")}
+                    </Button>
+                  </div>
+                </Field>
+              ))}
+            </FieldSheet>
 
             <p className="text-xs text-muted-foreground">{t("enterprise.workspaceDetail.secretsHint")}</p>
 
             <div className="flex justify-end pt-2">
-              <Button
-                onClick={() => setRepoSecrets(null)}
-                className="text-white"
-                style={{ background: "var(--gradient-brand)", boxShadow: "var(--glow-shadow-sm)" }}
-              >
+              <Button onClick={() => setRepoSecrets(null)}>
                 {t("enterprise.workspaceDetail.secretsDone")}
               </Button>
             </div>
@@ -909,43 +780,41 @@ export default function WorkspaceDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* Add member dialog */}
+      {/* Add member dialog — margin-label fields */}
       <Dialog open={memberOpen} onOpenChange={setMemberOpen}>
         <DialogContent className="sm:max-w-md" dir={isRTL ? "rtl" : "ltr"}>
           <DialogHeader>
             <DialogTitle>{t("enterprise.workspaceDetail.addMember")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <Label>{t("enterprise.workspaceDetail.userIdLabel")}</Label>
-              <Input
-                type="number"
-                min={1}
-                value={memberUserId}
-                onChange={(e) => setMemberUserId(e.target.value)}
-                placeholder="e.g. 2"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>{t("enterprise.workspaceDetail.roleLabel")}</Label>
-              <Select value={memberRole} onValueChange={setMemberRole}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="student">{t("enterprise.workspaceDetail.roleStudent")}</SelectItem>
-                  <SelectItem value="reviewer">{t("enterprise.workspaceDetail.roleReviewer")}</SelectItem>
-                  <SelectItem value="manager">{t("enterprise.workspaceDetail.roleManager")}</SelectItem>
-                  <SelectItem value="admin">{t("enterprise.workspaceDetail.roleAdmin")}</SelectItem>
-                  <SelectItem value="owner">{t("enterprise.workspaceDetail.roleOwner")}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <FieldSheet>
+              <Field label={t("enterprise.workspaceDetail.userIdLabel")} align="center">
+                <Input
+                  type="number"
+                  min={1}
+                  value={memberUserId}
+                  onChange={(e) => setMemberUserId(e.target.value)}
+                  placeholder="e.g. 2"
+                />
+              </Field>
+              <Field label={t("enterprise.workspaceDetail.roleLabel")} align="center">
+                <Select value={memberRole} onValueChange={setMemberRole}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="student">{t("enterprise.workspaceDetail.roleStudent")}</SelectItem>
+                    <SelectItem value="reviewer">{t("enterprise.workspaceDetail.roleReviewer")}</SelectItem>
+                    <SelectItem value="manager">{t("enterprise.workspaceDetail.roleManager")}</SelectItem>
+                    <SelectItem value="admin">{t("enterprise.workspaceDetail.roleAdmin")}</SelectItem>
+                    <SelectItem value="owner">{t("enterprise.workspaceDetail.roleOwner")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+            </FieldSheet>
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="ghost" onClick={() => setMemberOpen(false)}>{t("enterprise.common.cancel")}</Button>
               <Button
                 onClick={handleAddMember}
                 disabled={addingMember || !memberUserId.trim()}
-                className="text-white"
-                style={{ background: "var(--gradient-brand)", boxShadow: "var(--glow-shadow-sm)" }}
               >
                 {addingMember && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
                 {t("enterprise.workspaceDetail.addMember")}
@@ -954,35 +823,6 @@ export default function WorkspaceDetail() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
-
-function StatCell({
-  label,
-  value,
-  valueColor,
-}: {
-  label: string;
-  value: string;
-  valueColor?: string;
-}) {
-  return (
-    <div
-      className="rounded-xl px-4 py-3"
-      style={{ background: "hsl(var(--surface-2))", border: "1px solid hsl(var(--border) / 0.5)" }}
-    >
-      <div className="t-label">{label}</div>
-      <div
-        className="mt-1.5 text-2xl font-bold tabular-nums"
-        style={{
-          fontFamily: "var(--font-mono)",
-          letterSpacing: "-0.02em",
-          color: valueColor ?? "hsl(var(--foreground))",
-        }}
-      >
-        {value}
-      </div>
     </div>
   );
 }

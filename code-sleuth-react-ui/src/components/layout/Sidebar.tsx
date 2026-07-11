@@ -76,7 +76,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
 
   return (
     <>
-      {isOpen && <div className="fixed inset-0 z-30 bg-background/80 backdrop-blur-sm md:hidden" role="button" tabIndex={0} aria-label="Close navigation" onClick={onClose} onKeyDown={(e) => { if (e.key === "Escape" || e.key === "Enter") onClose(); }} />}
+      {isOpen && <div className="fixed inset-0 z-30 bg-background/80 md:hidden" role="button" tabIndex={0} aria-label="Close navigation" onClick={onClose} onKeyDown={(e) => { if (e.key === "Escape" || e.key === "Enter") onClose(); }} />}
 
       <aside
         className={cn(
@@ -87,13 +87,13 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
         )}
       >
         <div className={cn("flex h-16 items-center border-b border-sidebar-border px-4", collapsed ? "justify-center" : "gap-3")}>
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-brand shadow-glow-sm overflow-hidden">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary">
             <img src="/brand/logo.png" alt="Clone Lens" className="h-9 w-9 object-contain" />
           </div>
           {!collapsed && (
             <div className="min-w-0">
-              <span className="block truncate text-sm font-bold text-sidebar-accent-foreground">Clone Lens</span>
-              <span className="block text-[10px] text-sidebar-foreground">{t("platform")}</span>
+              <span className="block truncate font-mono text-sm font-bold text-sidebar-accent-foreground">Clone Lens</span>
+              <span className="block font-mono text-[10px] uppercase tracking-wider text-sidebar-foreground">{t("platform")}</span>
             </div>
           )}
         </div>
@@ -115,13 +115,6 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
                     ? "bg-primary/12 text-primary"
                     : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                 )}
-                style={
-                  active && !collapsed
-                    ? isRTL
-                      ? { borderRight: "2px solid hsl(var(--primary))", paddingRight: "10px" }
-                      : { borderLeft: "2px solid hsl(var(--primary))", paddingLeft: "10px" }
-                    : undefined
-                }
               >
                 <Icon className={cn("h-4 w-4 shrink-0", active ? "text-primary" : "")} />
                 {!collapsed && <span>{label}</span>}
@@ -146,7 +139,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
           {user?.is_admin && (
           <div className={cn("mt-3", collapsed ? "px-0" : "px-1")}>
             {!collapsed && (
-              <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40">
+              <p className="mb-1 px-2 font-mono text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40">
                 {t("nav.enterprise")}
               </p>
             )}
@@ -167,13 +160,6 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
                       ? "bg-primary/12 text-primary"
                       : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                   )}
-                  style={
-                    active && !collapsed
-                      ? isRTL
-                        ? { borderRight: "2px solid hsl(var(--primary))", paddingRight: "10px" }
-                        : { borderLeft: "2px solid hsl(var(--primary))", paddingLeft: "10px" }
-                      : undefined
-                  }
                 >
                   <Icon className={cn("h-4 w-4 shrink-0", active ? "text-primary" : "")} />
                   {!collapsed && <span>{label}</span>}
@@ -201,7 +187,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
             <>
               {!collapsed && (
                 <div className="rounded-lg border border-sidebar-border bg-sidebar-accent/40 px-3 py-2 text-xs text-sidebar-foreground">
-                  {t("header.signedInAs")} <span className="font-semibold text-sidebar-accent-foreground">{user?.username}</span>
+                  {t("header.signedInAs")} <span className="font-mono font-semibold text-sidebar-accent-foreground">{user?.username}</span>
                 </div>
               )}
               <button

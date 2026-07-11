@@ -88,7 +88,8 @@
       "colScore": "Score",
       "colType": "Clone type",
       "colStatus": "Status",
-      "userHash": "User #"
+      "userHash": "User #",
+      "dossierKicker": "Workspace dossier"
     },
     "cases": {
       "title": "Review Cases",
@@ -137,6 +138,9 @@
       "structural": "Structural",
       "semantic": "Semantic",
       "token": "Token",
+      "symbol": "Symbol",
+      "tokens": "Tokens",
+      "hash": "Norm. hash",
       "noEvidence": "No evidence recorded.",
       "errorMsg": "Failed to load case",
       "updated": "Updated",

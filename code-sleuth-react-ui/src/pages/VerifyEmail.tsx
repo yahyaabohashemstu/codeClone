@@ -53,14 +53,11 @@ const VerifyEmail = () => {
     : "";
 
   return (
-    <div
-      className="mx-auto max-w-md rounded-2xl border border-border bg-card p-10 text-center"
-      style={{ boxShadow: "var(--card-shadow-rest)" }}
-    >
+    <div className="mx-auto max-w-md rounded-lg border border-border bg-card p-10 text-center">
       <div className="mb-4 flex justify-center">
-        {status === "verifying" && <Loader2 className="h-10 w-10 animate-spin text-primary" />}
-        {status === "ok" && <CheckCircle2 className="h-10 w-10 text-success" />}
-        {status === "error" && <XCircle className="h-10 w-10 text-destructive" />}
+        {status === "verifying" && <Loader2 className="h-9 w-9 animate-spin text-primary" />}
+        {status === "ok" && <CheckCircle2 className="h-9 w-9 text-success" />}
+        {status === "error" && <XCircle className="h-9 w-9 text-destructive" />}
       </div>
       <h1 className="t-h3">{title}</h1>
       {description && <p className="mt-2 t-body">{description}</p>}
@@ -69,12 +66,7 @@ const VerifyEmail = () => {
         <div className="mt-6 text-start">
           {resendState === "sent" ? (
             <div
-              className="flex items-start gap-2 rounded-md border px-4 py-3 text-sm"
-              style={{
-                borderColor: "hsl(var(--success) / 0.3)",
-                background: "hsl(var(--success) / 0.08)",
-                color: "hsl(var(--success))",
-              }}
+              className="flex items-start gap-2 rounded-md border border-success/30 bg-success/10 px-4 py-3 text-sm text-success"
               role="status"
             >
               <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
@@ -109,11 +101,7 @@ const VerifyEmail = () => {
       )}
 
       {status !== "verifying" && (
-        <Button
-          asChild
-          className="mt-6 h-10 w-full gap-2 text-white"
-          style={{ background: "var(--gradient-brand)", boxShadow: "var(--glow-shadow-sm)" }}
-        >
+        <Button asChild className="mt-6 h-10 w-full gap-2">
           <Link to="/login">{t("auth.backToLogin")}</Link>
         </Button>
       )}

@@ -18,11 +18,16 @@ import { Cpu, Maximize2, MousePointerClick, ZoomIn, ZoomOut } from "lucide-react
 
 type GraphTone = "primary" | "accent";
 
+// Warm two-tone coding: primary side = amber (the one accent), suspect side =
+// oxblood. Token-based so it tracks light/dark. Replaces the old indigo/cyan neon.
+function getGraphToneColor(color: GraphTone) {
+  return color === "primary" ? "hsl(var(--primary))" : "hsl(8 60% 46%)";
+}
+
 function getGraphEdgePalette(color: GraphTone) {
-  return {
-    base: color === "primary" ? "rgba(173, 184, 255, 0.42)" : "rgba(118, 226, 244, 0.42)",
-    highlighted: color === "primary" ? "rgba(210, 216, 255, 0.98)" : "rgba(164, 248, 255, 0.98)",
-  };
+  return color === "primary"
+    ? { base: "hsl(var(--primary) / 0.38)", highlighted: "hsl(var(--primary))" }
+    : { base: "hsl(8 60% 46% / 0.38)", highlighted: "hsl(8 60% 46%)" };
 }
 
 type RawPoint = [number, number] | null | undefined;
@@ -310,6 +315,28 @@ function buildTreeLayout(
 }
 
 const AstNode = memo(({ data, selected }: NodeProps<AstFlowNode>) => {
+  // The .ast-flow-* CSS still paints a dark-navy card with neon fills/glows.
+  // We keep those classes for layout/sizing but override the colors inline
+  // (inline wins over class) so nodes read as flat warm ink + amber accent
+  // with no neon glow, in both light and dark themes.
+  const toneColor = getGraphToneColor(data.tone);
+  const isEmphasized = selected || data.isPathTerminal;
+  const cardStyle: CSSProperties = {
+    background: "hsl(var(--card))",
+    borderColor: isEmphasized
+      ? toneColor
+      : data.isPathNode
+        ? "hsl(var(--foreground) / 0.35)"
+        : "hsl(var(--border))",
+    boxShadow: "none",
+  };
+  const labelStyle: CSSProperties = { color: "hsl(var(--foreground))", textShadow: "none" };
+  const dotStyle: CSSProperties = {
+    background: toneColor,
+    borderColor: "hsl(var(--border))",
+    boxShadow: "none",
+  };
+
   return (
     <div
       className={cn(
@@ -323,9 +350,9 @@ const AstNode = memo(({ data, selected }: NodeProps<AstFlowNode>) => {
       title={data.title || data.label}
     >
       <Handle type="target" position={Position.Top} className="ast-flow-handle ast-flow-handle-target" />
-      <div className="ast-flow-compact-dot" />
-      <div className="ast-flow-label-card">
-        <div className="ast-flow-compact-label">{data.label}</div>
+      <div className="ast-flow-compact-dot" style={dotStyle} />
+      <div className="ast-flow-label-card" style={cardStyle}>
+        <div className="ast-flow-compact-label" style={labelStyle}>{data.label}</div>
       </div>
       <Handle type="source" position={Position.Bottom} className="ast-flow-handle ast-flow-handle-source" />
     </div>
@@ -373,7 +400,10 @@ function GraphExplorer({
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className={cn("ast-node-detail-dot", selectedNode.tone === "primary" ? "is-primary" : "is-accent")} />
+                  <span
+                    className={cn("ast-node-detail-dot", selectedNode.tone === "primary" ? "is-primary" : "is-accent")}
+                    style={{ background: getGraphToneColor(selectedNode.tone), boxShadow: "none" }}
+                  />
                   <span className="text-sm font-semibold text-foreground">{selectedNode.label}</span>
                   <span className={selectedNode.isRoot ? "badge-success" : "badge-info"}>
                     {selectedNode.isRoot ? t("results.astGraph.rootNode") : t("results.astGraph.nestedNode")}
@@ -718,22 +748,19 @@ export function AstGraphPanel({ title, color, elements }: AstGraphPanelProps) {
     () =>
       flowGraph.edges.map((edge) => {
         const isHighlighted = highlightedPath.edgeIds.has(edge.id);
+        // Highlight the ancestry path with warm stroke color + weight only —
+        // no neon drop-shadow glow classes.
         return {
           ...edge,
-          className: cn(
-            edge.className,
-            isHighlighted && "ast-flow-edge-highlighted",
-            isHighlighted && (color === "primary" ? "ast-flow-edge-highlighted-primary" : "ast-flow-edge-highlighted-accent"),
-          ),
           style: {
             ...edge.style,
             opacity: isHighlighted ? 1 : edge.style?.opacity ?? 0.88,
             stroke: isHighlighted ? edgePalette.highlighted : edge.style?.stroke ?? edgePalette.base,
-            strokeWidth: isHighlighted ? 3.4 : edge.style?.strokeWidth ?? 1,
+            strokeWidth: isHighlighted ? 3 : edge.style?.strokeWidth ?? 1,
           },
         } satisfies Edge;
       }),
-    [color, edgePalette.base, edgePalette.highlighted, flowGraph.edges, highlightedPath.edgeIds],
+    [edgePalette.base, edgePalette.highlighted, flowGraph.edges, highlightedPath.edgeIds],
   );
 
   useEffect(() => {
@@ -748,7 +775,7 @@ export function AstGraphPanel({ title, color, elements }: AstGraphPanelProps) {
         <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border/50 px-5 py-4">
           <div>
             <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <Cpu className={`h-4 w-4 ${color === "primary" ? "text-primary" : "text-accent"}`} />
+              <Cpu className="h-4 w-4" style={{ color: getGraphToneColor(color) }} />
               {title}
             </h3>
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
@@ -800,7 +827,7 @@ export function AstGraphPanel({ title, color, elements }: AstGraphPanelProps) {
         <DialogContent className="flex h-[calc(100vh-1.5rem)] max-w-[calc(100vw-1.5rem)] flex-col gap-0 overflow-hidden border-border/60 bg-background p-0">
           <DialogHeader className="border-b border-border/50 px-6 py-4 pr-14">
             <DialogTitle className="flex items-center gap-2 text-base">
-              <Cpu className={`h-4 w-4 ${color === "primary" ? "text-primary" : "text-accent"}`} />
+              <Cpu className="h-4 w-4" style={{ color: getGraphToneColor(color) }} />
               {title}
             </DialogTitle>
             <DialogDescription className="mt-1 text-xs leading-relaxed">

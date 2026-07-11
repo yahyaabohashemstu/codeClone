@@ -102,11 +102,19 @@
   },
   "footer": {
     "copyright": "Clone Lens Analysis Platform",
-    "fullCopyright": "© 2026 Clone Lens — Intelligent Code Analysis Platform"
+    "fullCopyright": "© 2026 Clone Lens — Intelligent Code Analysis Platform",
+    "terms": "Terms",
+    "privacy": "Privacy",
+    "status": "Status"
   },
   "guard": {
     "loadingWorkspace": "Loading your workspace…",
     "adminRequired": "This area requires administrator access."
+  },
+  "cookies": {
+    "text": "We use a strictly-necessary session cookie for sign-in and store your preferences locally.",
+    "learn": "Privacy Policy",
+    "accept": "Got it"
   },
   "upload": {
     "fileTooLarge": "File too large. Maximum size is {{limitMb}} MB."
@@ -137,6 +145,8 @@
     "dropHint": "or browse · .py .js .java .cpp",
     "pairwise": "Pairwise",
     "pasteCode": "Paste code",
+    "exhibitA": "Exhibit A",
+    "exhibitB": "Exhibit B",
     "trustSignals": [
       "History-aware workflow",
       "AST graphs included",
@@ -204,7 +214,9 @@
     "source": "Source",
     "language": "Language",
     "analyses": "analyses",
-    "loadError": "Failed to load analytics."
+    "loadError": "Failed to load analytics.",
+    "eyebrow": "Figures report",
+    "last7Days": "Last 7 days"
   },
   "platform": "Analysis Platform",
   "brandName": "Clone Lens",
@@ -216,6 +228,7 @@
   "history": {
     "pageTitle": "Analysis History",
     "pageDescription": "Browse, search, reopen, rerun, export, or delete previous analysis sessions.",
+    "eyebrow": "Case register",
     "stats": {
       "totalAnalyses": "Total Analyses",
       "highSimilarity": "High Similarity",
@@ -266,6 +279,9 @@
     }
   },
   "chat": {
+    "eyebrow": "Grounded consultation",
+    "exhibitA": "Exhibit A",
+    "exhibitB": "Exhibit B",
     "loading": "Loading the latest analysis context…",
     "noContextTitle": "No active analysis context",
     "noContextDescription": "Run or reopen an analysis first so the AI chat can ground its answers in real comparison data.",
@@ -294,11 +310,25 @@
     "quotaReached": "You've reached your monthly analysis limit. Upgrade your plan to run more analyses.",
     "manageSubscription": "Manage subscription",
     "checkoutSuccess": "Subscription updated — welcome aboard!",
-    "checkoutCanceled": "Checkout canceled. No changes were made."
+    "checkoutCanceled": "Checkout canceled. No changes were made.",
+    "period": "Billing period",
+    "renewsOn": "renews",
+    "colTier": "Tier",
+    "colPrice": "Price"
   },
   "settings": {
     "title": "Settings",
     "subtitle": "Manage your account security.",
+    "kicker": "Account & Security",
+    "identity": "Identity",
+    "account": "Account",
+    "email": "Email",
+    "verified": "verified",
+    "unverified": "unverified",
+    "accessLevel": "Access level",
+    "roleAdmin": "Administrator",
+    "roleStandard": "Standard",
+    "accessData": "Access & data",
     "security": "Security",
     "twofa": "Two-factor authentication",
     "twofaOn": "Enabled",
@@ -348,6 +378,7 @@
   "admin": {
     "title": "Admin",
     "subtitle": "Platform overview and user management.",
+    "eyebrow": "Operations console",
     "users": "Users",
     "totalUsers": "Total users",
     "totalAnalyses": "Total analyses",

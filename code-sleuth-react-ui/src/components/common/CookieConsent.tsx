@@ -35,7 +35,7 @@ export function CookieConsent() {
 
   return (
     <div
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card/95 backdrop-blur px-4 py-3"
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card px-4 py-3"
       role="dialog"
       aria-label="Cookie notice"
     >
@@ -46,7 +46,7 @@ export function CookieConsent() {
             {t("cookies.learn", { defaultValue: "Privacy Policy" })}
           </Link>
         </p>
-        <Button size="sm" onClick={dismiss} className="shrink-0 text-white" style={{ background: "var(--gradient-brand)" }}>
+        <Button size="sm" onClick={dismiss} className="shrink-0">
           {t("cookies.accept", { defaultValue: "Got it" })}
         </Button>
       </div>

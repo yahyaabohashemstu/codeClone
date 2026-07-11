@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
+  Activity,
   AlertTriangle,
   BarChart3,
   Bookmark,
@@ -11,7 +12,6 @@ import {
   Cpu,
   Download,
   FileText,
-  GitCompare,
   MessageSquare,
   RefreshCw,
   Sparkles,
@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { AnalysisChatPanel } from "@/components/results/AnalysisChatPanel";
 import { AnalysisReport } from "@/components/results/AnalysisReport";
@@ -31,6 +32,7 @@ import { MetricsComparison } from "@/components/results/MetricsComparison";
 import { PdfExportDialog } from "@/components/results/PdfExportDialog";
 import { SimilarityRadar } from "@/components/results/SimilarityRadar";
 import { StructuredReport } from "@/components/results/StructuredReport";
+import { Masthead, FieldSheet, Field, Panel, Figure, Serial } from "@/components/dossier/Dossier";
 import { useAnalysis } from "@/context/AnalysisContext";
 import { useLanguage } from "@/context/LanguageContext";
 import type { AnalysisResult, CloneItem, SimilarityItem } from "@/types/api";
@@ -143,6 +145,63 @@ function formatSimilarityValue(item: SimilarityItem) {
   return `${item.value.toFixed(2)}%`;
 }
 
+// The deterministic (non-AI) signals. When these corroborate the verdict we can
+// call it high-confidence; when the score rests mainly on the AI/semantic signal
+// the engine itself treats it as advisory (Type-4 / cross-language), and so do we.
+const DETERMINISTIC_SIGNAL_NAMES = [
+  "Text Similarity",
+  "Token-Based Similarity",
+  "Renamed Clone Similarity",
+  "Graph-Based Similarity",
+];
+
+function findSignalValue(result: AnalysisResult, name: string): number | null {
+  const item = result.similarity_items.find((entry) => entry.name === name);
+  return item && Number.isFinite(item.value) ? item.value : null;
+}
+
+type ConfidenceLevel = "high" | "moderate" | "advisory";
+
+function getVerdictConfidence(result: AnalysisResult): {
+  level: ConfidenceLevel;
+  advisory: boolean;
+  corroborating: number;
+  deterministicTotal: number;
+} {
+  const deterministic = DETERMINISTIC_SIGNAL_NAMES
+    .map((name) => findSignalValue(result, name))
+    .filter((value): value is number => typeof value === "number");
+  const deterministicMax = deterministic.length ? Math.max(...deterministic) : 0;
+  const corroborating = deterministic.filter((value) => value >= 50).length;
+  const exactDetected = result.clone_items.some((clone) => clone.name === "Exact Clone" && clone.detected);
+
+  let level: ConfidenceLevel;
+  if (exactDetected || deterministicMax >= 70) {
+    level = "high";
+  } else if (deterministicMax >= 50) {
+    level = "moderate";
+  } else {
+    level = "advisory";
+  }
+
+  return { level, advisory: level === "advisory", corroborating, deterministicTotal: deterministic.length };
+}
+
+function getScoreBand(score: number): "high" | "moderate" | "low" {
+  if (score >= 80) return "high";
+  if (score >= 50) return "moderate";
+  return "low";
+}
+
+// Deep-link each driver chip to the tab that best explains it.
+function signalToTab(name: string): ResultTab {
+  if (name.includes("Graph")) return "graphs";
+  if (name.includes("AI")) return "report";
+  return "diff";
+}
+
+const TAB_IDS: ResultTab[] = ["overview", "diff", "graphs", "metrics", "quality", "report", "chat"];
+
 
 function exportAsJson(result: AnalysisResult) {
   downloadText(`analysis-${result.saved_analysis_id ?? "current"}.json`, JSON.stringify(result, null, 2), "application/json");
@@ -171,31 +230,43 @@ function exportAsText(result: AnalysisResult, t: TFunction) {
 
 function SimilarityBars({ items }: { items: SimilarityItem[] }) {
   const { t } = useTranslation("results");
+  const strongest = items.reduce<SimilarityItem | null>(
+    (max, item) => (max === null || item.value > max.value ? item : max),
+    null,
+  );
+
   return (
-    <div className="card-premium p-5">
-      <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold">
-        <TrendingUp className="h-4 w-4 text-primary" />
-        {t("results.similarity.title")}
-      </h3>
-      <div className="space-y-4">
+    <Figure n={1} label={t("results.similarity.title")}>
+      {/* Mono reading — signal count and the peak measurement */}
+      <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/70">
+        <span className="tabular-nums text-foreground">{items.length}</span> ·{" "}
+        {strongest ? (
+          <>
+            {translateSimilarityName(strongest.name, t)}{" "}
+            <span className="tabular-nums text-foreground">{Math.round(strongest.value)}%</span>
+          </>
+        ) : (
+          "—"
+        )}
+      </p>
+      <div className="divide-y divide-border">
         {items.map((item) => {
-          const barTone = item.value >= 80 ? "from-destructive to-destructive/70" : item.value >= 50 ? "from-warning to-warning/70" : "from-success to-success/70";
+          const barTone = item.value >= 80 ? "bg-destructive" : item.value >= 50 ? "bg-warning" : "bg-success";
+          const valueTone = item.value >= 80 ? "text-destructive" : item.value >= 50 ? "text-warning" : "text-success";
           return (
-            <div key={item.name} className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-medium text-foreground">{translateSimilarityName(item.name, t)}</span>
-                <span className={cn("font-bold tabular-nums", item.value >= 80 ? "text-destructive" : item.value >= 50 ? "text-warning" : "text-success")}>
-                  {formatSimilarityValue(item)}
-                </span>
+            <div key={item.name} className="flex items-center gap-4 py-2.5">
+              <span className="min-w-0 flex-1 truncate text-sm text-foreground">{translateSimilarityName(item.name, t)}</span>
+              <div className="metric-bar-track hidden w-28 shrink-0 sm:block lg:w-48">
+                <div className={cn("h-full rounded-full transition-all duration-700", barTone)} style={{ width: `${item.value}%` }} />
               </div>
-              <div className="metric-bar-track w-full">
-                <div className={cn("h-full rounded-full bg-gradient-to-r transition-all duration-700", barTone)} style={{ width: `${item.value}%` }} />
-              </div>
+              <span className={cn("w-16 shrink-0 text-end font-mono text-sm font-bold tabular-nums", valueTone)}>
+                {formatSimilarityValue(item)}
+              </span>
             </div>
           );
         })}
       </div>
-    </div>
+    </Figure>
   );
 }
 
@@ -272,133 +343,101 @@ function CloneDetection({ items }: { items: CloneItem[] }) {
   });
 
   return (
-    <div className="card-premium overflow-hidden">
-      <div className="border-b border-border/50 px-5 py-4">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="max-w-3xl">
-            <h3 className="flex items-center gap-2 text-sm font-semibold">
-              <GitCompare className="h-4 w-4 text-primary" />
-              {t("results.cloneTypes.cloneTypeDetection")}
-            </h3>
-            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              {summarizeCloneProfile(items, t)}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <span className={detectedCount > 0 ? "badge-warning" : "badge-success"}>
-              {detectedCount} {t("results.cloneTypes.detectedCount")}
-            </span>
-            <span className="badge-info">{undetectedCount} {t("results.cloneTypes.notDetectedCount")}</span>
-          </div>
-        </div>
-      </div>
+    <Panel
+      label={t("results.cloneTypes.cloneTypeDetection")}
+      actions={
+        <>
+          <span className={detectedCount > 0 ? "badge-warning" : "badge-success"}>
+            {detectedCount} {t("results.cloneTypes.detectedCount")}
+          </span>
+          <span className="badge-info">{undetectedCount} {t("results.cloneTypes.notDetectedCount")}</span>
+        </>
+      }
+      bodyClassName="p-0"
+    >
+      <p className="border-b border-border px-5 py-4 text-xs leading-relaxed text-muted-foreground">
+        {summarizeCloneProfile(items, t)}
+      </p>
 
-      <div className="grid gap-3 border-b border-border/50 p-5 xl:grid-cols-3">
-        <div className="rounded-xl border border-border/50 bg-muted/10 p-4">
-          <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-muted-foreground/70">
-            {t("results.cloneTypes.cloneProfile")}
-          </p>
-          <p className="mt-3 text-base font-semibold text-foreground">
-            {getCloneProfileLabel(items, t)}
-          </p>
-          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+      {/* Case attributes — margin-label fields */}
+      <div className="border-b border-border px-5 sm:px-6">
+        <Field label={t("results.cloneTypes.cloneProfile")}>
+          <p className="text-sm font-semibold text-foreground">{getCloneProfileLabel(items, t)}</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
             {t("results.cloneTypes.dominantInterpretation")}
           </p>
-        </div>
-
-        <div className="rounded-xl border border-border/50 bg-muted/10 p-4">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-muted-foreground/70">
-              {t("results.cloneTypes.detectionCoverage")}
-            </p>
-            <span className={detectedCount > 0 ? "badge-warning" : "badge-success"}>
-              {coverage}%
-            </span>
+        </Field>
+        <Field label={t("results.cloneTypes.detectionCoverage")}>
+          <div className="flex items-center gap-3">
+            <div className="metric-bar-track w-40 max-w-full shrink-0">
+              <div
+                className={cn("h-full rounded-full", detectedCount > 0 ? "bg-warning" : "bg-success")}
+                style={{ width: `${coverage}%` }}
+              />
+            </div>
+            <span className="font-mono text-sm font-bold tabular-nums text-foreground">{coverage}%</span>
           </div>
-          <div className="metric-bar-track mt-3 w-full">
-            <div
-              className={cn(
-                "h-full rounded-full transition-all duration-700",
-                detectedCount > 0 ? "bg-gradient-to-r from-warning to-warning/70" : "bg-gradient-to-r from-success to-success/70",
-              )}
-              style={{ width: `${coverage}%` }}
-            />
-          </div>
-          <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+          <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
             {t("results.cloneTypes.cloneFamiliesActivated", { detected: detectedCount, total: items.length })}
           </p>
-        </div>
-
-        <div className="rounded-xl border border-border/50 bg-muted/10 p-4">
-          <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-muted-foreground/70">
-            {t("results.cloneTypes.strongestSignals")}
-          </p>
-          <p className="mt-3 text-sm font-medium text-foreground">
-            {getCloneFocus(items, t)}
-          </p>
-          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+        </Field>
+        <Field label={t("results.cloneTypes.strongestSignals")}>
+          <p className="text-sm font-medium text-foreground">{getCloneFocus(items, t)}</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
             {t("results.cloneTypes.meaningfulCategoriesSurfaced")}
           </p>
-        </div>
+        </Field>
       </div>
 
-      <div className="grid gap-3 p-5 sm:grid-cols-2">
-        {sortedItems.map((item) => {
+      {/* The clone matrix — one ruled ledger with mono serials and status, not a card grid */}
+      <div className="divide-y divide-border">
+        {sortedItems.map((item, index) => {
           const meta = getCloneTypeMeta(item.name, t);
 
           return (
             <div
               key={item.name}
-              className={cn(
-                "rounded-xl border p-4 transition-all duration-200",
-                item.detected
-                  ? "border-warning/30 bg-warning/5"
-                  : "border-border/40 bg-muted/10",
-              )}
+              className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 px-5 py-4 sm:px-6"
             >
-              <div className="flex items-start gap-3">
-                <div
-                  className={cn(
-                    "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border",
-                    item.detected
-                      ? "border-warning/30 bg-warning/10 text-warning"
-                      : "border-border/50 bg-muted/30 text-muted-foreground/60",
-                  )}
-                >
-                  {item.detected ? <AlertTriangle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+              <Serial tone={item.detected ? "primary" : "muted"}>{String(index + 1).padStart(2, "0")}</Serial>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                  <h4 className={cn("text-sm font-semibold", item.detected ? "text-warning" : "text-foreground")}>
+                    {translateCloneName(item.name, t)}
+                  </h4>
+                  <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/70">
+                    {meta.family}
+                  </span>
+                  <span
+                    className={cn(
+                      "ms-auto inline-flex items-center gap-1 font-mono text-[11px] font-bold uppercase tracking-[0.14em]",
+                      item.detected ? "text-warning" : "text-muted-foreground/60",
+                    )}
+                  >
+                    {item.detected ? <AlertTriangle className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
+                    {item.detected ? t("results.cloneTypes.detected") : t("results.cloneTypes.notDetected")}
+                  </span>
                 </div>
 
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="badge-info">{meta.family}</span>
-                    <h4 className={cn("text-sm font-semibold", item.detected ? "text-warning" : "text-foreground")}>{translateCloneName(item.name, t)}</h4>
-                    <span className={item.detected ? "badge-warning" : "badge-info"}>
-                      {item.detected ? t("results.cloneTypes.detected") : t("results.cloneTypes.notDetected")}
-                    </span>
-                  </div>
+                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{meta.summary}</p>
 
-                  <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{meta.summary}</p>
+                <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground/85">
+                  <span className={cn("font-semibold", item.detected ? "text-warning" : "text-foreground/85")}>
+                    {item.detected ? t("results.cloneTypes.interpretation") : t("results.cloneTypes.reading")}
+                  </span>{" "}
+                  {item.detected ? meta.detectedMeaning : meta.absentMeaning}
+                </p>
 
-                  <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground/85">
-                    <span className={cn("font-semibold", item.detected ? "text-warning" : "text-foreground/85")}>
-                      {item.detected ? t("results.cloneTypes.interpretation") : t("results.cloneTypes.reading")}
-                    </span>{" "}
-                    {item.detected ? meta.detectedMeaning : meta.absentMeaning}
-                  </p>
-
-                  <div className="mt-3 rounded-lg border border-border/40 bg-background/40 px-3 py-2">
-                    <p className="text-[11px] font-semibold text-foreground/90">{t("results.cloneTypes.whyItMatters")}</p>
-                    <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground/85">
-                      {meta.whyItMatters}
-                    </p>
-                  </div>
-                </div>
+                <p className="mt-2 border-s-2 border-border ps-3 text-[11px] leading-relaxed text-muted-foreground/85">
+                  <span className="font-semibold text-foreground/90">{t("results.cloneTypes.whyItMatters")}:</span>{" "}
+                  {meta.whyItMatters}
+                </p>
               </div>
             </div>
           );
         })}
       </div>
-    </div>
+    </Panel>
   );
 }
 
@@ -411,35 +450,30 @@ function CodeComparisonPanel({
 }) {
   const { t } = useTranslation("results");
   const resolvedDescription = description || t("results.defaultComparisonDescription");
+  const exhibits = [
+    { serial: "A", title: result.source_labels.code1, code: result.code1 },
+    { serial: "B", title: result.source_labels.code2, code: result.code2 },
+  ] as const;
 
   return (
-    <div className="card-premium overflow-hidden">
-      <div className="border-b border-border/50 px-5 py-4">
-        <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-          <Code2 className="h-4 w-4 text-primary" />
-          {t("results.sourceCodeComparison")}
-        </h3>
-        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-          {resolvedDescription}
-        </p>
-      </div>
+    <div className="space-y-4 p-5">
+      <p className="font-mono text-[11px] leading-relaxed text-muted-foreground/80">{resolvedDescription}</p>
 
-      <div className="grid gap-5 p-5 xl:grid-cols-2">
-        {[
-          { title: result.source_labels.code1, code: result.code1, tone: "primary" },
-          { title: result.source_labels.code2, code: result.code2, tone: "accent" },
-        ].map((source, index) => (
-          <div key={source.title + index} className="overflow-hidden rounded-xl border border-border/50 bg-muted/10">
-            <div className="border-b border-border/50 bg-muted/10 px-4 py-3">
-              <div className="flex items-center gap-2">
-                <span className={cn("h-2 w-2 rounded-full", source.tone === "primary" ? "bg-primary" : "bg-accent")} />
-                <span className="text-xs font-medium text-foreground">{source.title}</span>
-              </div>
+      {/* Two numbered exhibits — ruled headers with serial markers, code kept LTR */}
+      <div className="grid gap-5 xl:grid-cols-2">
+        {exhibits.map((source) => (
+          <section key={source.serial} className="overflow-hidden rounded-lg border border-border bg-card">
+            <div className="flex items-center gap-3 border-b border-border px-4 py-2.5">
+              <Serial>{source.serial}</Serial>
+              <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">{source.title}</span>
+              <span className="shrink-0 font-mono text-[11px] uppercase tracking-[0.12em] tabular-nums text-muted-foreground/60">
+                {source.code ? source.code.split("\n").length : 0} LN
+              </span>
             </div>
-            <pre className="code-surface m-4 max-h-[680px] overflow-auto whitespace-pre-wrap p-4 text-xs leading-relaxed scrollbar-thin">
+            <pre className="code-surface m-4 max-h-[680px] overflow-auto whitespace-pre-wrap p-4 text-xs leading-relaxed scrollbar-thin" dir="ltr">
               <code>{source.code}</code>
             </pre>
-          </div>
+          </section>
         ))}
       </div>
     </div>
@@ -665,7 +699,7 @@ function getQualityToneMeta(statusTone: QualityReport["statusTone"], t: TFunctio
   if (statusTone === "excellent") {
     return {
       badgeClass: "badge-success",
-      containerClass: "border-success/20 bg-[radial-gradient(circle_at_top_right,rgba(22,163,74,0.16),transparent_45%),linear-gradient(180deg,rgba(22,163,74,0.04),rgba(10,14,25,0.22))]",
+      containerClass: "border-success/20 bg-success/[0.04]",
       scoreClass: "text-success",
       label: t("results.quality.statusTone.excellent"),
       icon: ShieldCheck,
@@ -674,7 +708,7 @@ function getQualityToneMeta(statusTone: QualityReport["statusTone"], t: TFunctio
   if (statusTone === "healthy") {
     return {
       badgeClass: "badge-success",
-      containerClass: "border-success/14 bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.12),transparent_45%),linear-gradient(180deg,rgba(34,197,94,0.03),rgba(10,14,25,0.22))]",
+      containerClass: "border-success/14 bg-success/[0.03]",
       scoreClass: "text-success",
       label: t("results.quality.statusTone.healthy"),
       icon: CheckCircle2,
@@ -683,7 +717,7 @@ function getQualityToneMeta(statusTone: QualityReport["statusTone"], t: TFunctio
   if (statusTone === "watch") {
     return {
       badgeClass: "badge-warning",
-      containerClass: "border-warning/18 bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.12),transparent_45%),linear-gradient(180deg,rgba(245,158,11,0.03),rgba(10,14,25,0.22))]",
+      containerClass: "border-warning/18 bg-warning/[0.04]",
       scoreClass: "text-warning",
       label: t("results.quality.statusTone.needsReview"),
       icon: ShieldAlert,
@@ -692,7 +726,7 @@ function getQualityToneMeta(statusTone: QualityReport["statusTone"], t: TFunctio
   if (statusTone === "critical") {
     return {
       badgeClass: "badge-error",
-      containerClass: "border-destructive/18 bg-[radial-gradient(circle_at_top_right,rgba(239,68,68,0.12),transparent_45%),linear-gradient(180deg,rgba(239,68,68,0.03),rgba(10,14,25,0.22))]",
+      containerClass: "border-destructive/18 bg-destructive/[0.04]",
       scoreClass: "text-destructive",
       label: t("results.quality.statusTone.highRisk"),
       icon: AlertTriangle,
@@ -700,7 +734,7 @@ function getQualityToneMeta(statusTone: QualityReport["statusTone"], t: TFunctio
   }
   return {
     badgeClass: "badge-info",
-    containerClass: "border-border/60 bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.08),transparent_45%),linear-gradient(180deg,rgba(99,102,241,0.03),rgba(10,14,25,0.22))]",
+    containerClass: "border-border/60 bg-card",
     scoreClass: "text-foreground",
     label: t("results.quality.statusTone.diagnosticView"),
     icon: FileText,
@@ -734,7 +768,7 @@ function QualitySourceCard({
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-              <span className={cn("h-2.5 w-2.5 rounded-full shadow-[0_0_16px_currentColor]", accentClass)} />
+              <span className={cn("h-2.5 w-2.5 rounded-full", accentClass)} />
               <h3 className="text-base font-semibold text-foreground">{title}</h3>
               <span className={toneMeta.badgeClass}>{toneMeta.label}</span>
             </div>
@@ -913,7 +947,7 @@ function QualityPanel({ result }: { result: AnalysisResult }) {
 
   return (
     <div className="space-y-5">
-      <div className="card-premium overflow-hidden border-primary/16 bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.16),transparent_42%),radial-gradient(circle_at_bottom_left,rgba(34,211,238,0.10),transparent_36%),linear-gradient(180deg,rgba(99,102,241,0.04),rgba(10,14,25,0.18))]">
+      <div className="card-premium overflow-hidden border-primary/16 bg-primary/[0.03]">
         <div className="grid gap-5 p-5 lg:grid-cols-[1.3fr_0.7fr]">
           <div>
             <div className="flex flex-wrap items-center gap-2">
@@ -978,11 +1012,10 @@ function PanelErrorFallback() {
 
 const Results = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { currentResult, loadCurrent, loadById, rerunById, clearCurrentResult } = useAnalysis();
   const { localizeRuntimeMessage, getProgrammingLanguageLabel } = useLanguage();
   const { t } = useTranslation("results");
-  const [activeTab, setActiveTab] = useState<ResultTab>("overview");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [pdfOpen, setPdfOpen] = useState(false);
@@ -990,6 +1023,23 @@ const Results = () => {
   const tabs = useMemo(() => getTabs(t), [t]);
 
   const requestedId = searchParams.get("analysisId");
+
+  // The active tab lives in the URL (?tab=…) so a refresh, a shared link, or a
+  // re-run all preserve the reviewer's place instead of snapping back to Overview.
+  const tabParam = searchParams.get("tab");
+  const activeTab: ResultTab = TAB_IDS.includes((tabParam ?? "") as ResultTab)
+    ? (tabParam as ResultTab)
+    : "overview";
+  const setActiveTab = (id: ResultTab) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("tab", id);
+        return next;
+      },
+      { replace: true },
+    );
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -1042,8 +1092,9 @@ const Results = () => {
     : currentResult;
   const overallScore = result ? getCombinedScore(result) : 0;
   const scoreTone = getScoreTone(overallScore, t);
-  const overallScoreLabel = overallScore.toFixed(1);
-  const isCompactOverallScore = overallScoreLabel.length >= 5;
+  // Whole-number score — the sub-percent precision the engine reports is not
+  // meaningful confidence, and "87%" is more honest to a reviewer than "87.3%".
+  const overallScoreLabel = String(Math.round(overallScore));
 
   const handleRerun = async () => {
     if (!result?.saved_analysis_id) {
@@ -1086,11 +1137,7 @@ const Results = () => {
         <h2 className="t-h3">{emptyStateTitle}</h2>
         <p className="mx-auto mt-3 max-w-md t-body">{emptyStateDescription}</p>
         <div className="mt-6 flex justify-center gap-3">
-          <Button
-            asChild
-            className="h-10 gap-2 text-white"
-            style={{ background: "var(--gradient-brand)", boxShadow: "var(--glow-shadow-sm)" }}
-          >
+          <Button asChild className="h-10 gap-2">
             <Link to="/analysis">{t("results.startAnalysis")}</Link>
           </Button>
           <Button asChild variant="outline" className="h-10">
@@ -1109,6 +1156,15 @@ const Results = () => {
         ? "hsl(var(--warning))"
         : "hsl(var(--success))";
 
+  const band = getScoreBand(overallScore);
+  const confidence = getVerdictConfidence(result);
+  const confidenceLabel = t(`results.confidence.${confidence.level}`);
+  // The verdict → evidence chain: which signals actually drove the combined score.
+  const drivers = [...result.similarity_items]
+    .filter((item) => item.name !== "Combined Similarity")
+    .sort((left, right) => right.value - left.value)
+    .slice(0, 3);
+
   return (
     <div className="space-y-5 animate-fade-in" ref={resultRef}>
       {error && (
@@ -1125,35 +1181,24 @@ const Results = () => {
         </div>
       )}
 
-      {/* Main result header — score ring + title + actions */}
-      <section
-        className="overflow-hidden rounded-2xl border border-border bg-card"
-        style={{ boxShadow: "var(--card-shadow-rest)" }}
-      >
-        <div className="flex flex-wrap items-center gap-6 p-6">
-          {/* Score ring */}
+      {/* CASE FILE — score ring as the exhibit, verdict readout as a mono meta strip */}
+      <section className="space-y-5">
+        <div className="flex flex-col gap-6 border-b border-border pb-6 lg:flex-row lg:items-start">
+          {/* Score ring — the dominant piece of evidence */}
           <div className="relative h-32 w-32 shrink-0">
-            <svg className="h-full w-full -rotate-90" viewBox="0 0 128 128">
-              <defs>
-                <linearGradient id="score-gr" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor={scoreRingColor} />
-                  <stop offset="100%" stopColor={scoreRingColor} stopOpacity="0.7" />
-                </linearGradient>
-              </defs>
+            <svg
+              className="h-full w-full -rotate-90"
+              viewBox="0 0 128 128"
+              role="img"
+              aria-label={t("results.ring.aria", { score: overallScoreLabel, band: scoreTone.label })}
+            >
+              <circle cx="64" cy="64" r="56" fill="none" stroke="hsl(var(--muted))" strokeWidth="10" />
               <circle
                 cx="64"
                 cy="64"
                 r="56"
                 fill="none"
-                stroke="hsl(var(--muted))"
-                strokeWidth="10"
-              />
-              <circle
-                cx="64"
-                cy="64"
-                r="56"
-                fill="none"
-                stroke="url(#score-gr)"
+                stroke={scoreRingColor}
                 strokeWidth="10"
                 strokeLinecap="round"
                 strokeDasharray={2 * Math.PI * 56}
@@ -1163,11 +1208,7 @@ const Results = () => {
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span
-                className={cn(
-                  "font-mono font-bold leading-none tabular-nums",
-                  scoreTone.color,
-                  isCompactOverallScore ? "text-[1.75rem]" : "text-[2.125rem]",
-                )}
+                className={cn("font-mono text-[2.125rem] font-bold leading-none tabular-nums", scoreTone.color)}
                 style={{ letterSpacing: "-0.04em" }}
               >
                 {overallScoreLabel}
@@ -1176,118 +1217,106 @@ const Results = () => {
                 className="mt-1 font-mono text-[11px] font-semibold text-muted-foreground"
                 style={{ letterSpacing: "0.04em" }}
               >
-                % {t("results.match", { defaultValue: "match" }).toLowerCase()}
+                {t("results.percentSimilar")}
               </span>
             </div>
           </div>
 
-          {/* Title + source labels */}
-          <div className="min-w-0 flex-1 space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              {result.saved_analysis_id && (
-                <span
-                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 font-mono text-xs font-semibold"
-                  style={{
-                    background: "hsl(var(--secondary))",
-                    color: "hsl(var(--secondary-foreground))",
-                  }}
+          {/* Masthead — the verdict readout lives in the mono meta strip */}
+          <Masthead
+            className="min-w-0 flex-1 border-b-0 pb-0"
+            kicker={t("results.title")}
+            title={
+              <span className="block truncate">
+                {result.source_labels.code1} × {result.source_labels.code2}
+              </span>
+            }
+            description={
+              <>
+                {t(`results.verdictMeaning.${band}`)}
+                {confidence.advisory ? ` ${t("results.verdictMeaning.advisoryNote")}` : ""}
+              </>
+            }
+            meta={[
+              { label: "SIMILARITY", value: <span className={scoreTone.color}>{overallScoreLabel}%</span> },
+              { label: "VERDICT", value: <span className={scoreTone.color}>{scoreTone.label}</span> },
+              {
+                label: "CONFIDENCE",
+                value: (
+                  <span
+                    className="inline-flex items-center gap-1.5"
+                    title={t("results.confidence.tooltip", {
+                      corroborating: confidence.corroborating,
+                      total: confidence.deterministicTotal,
+                    })}
+                  >
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    {confidenceLabel}
+                    {confidence.advisory && (
+                      <span className="text-warning">· {t("results.confidence.advisoryTag")}</span>
+                    )}
+                  </span>
+                ),
+              },
+              { label: "LANG", value: getProgrammingLanguageLabel(result.language) },
+              ...(result.saved_analysis_id
+                ? [{ label: "CASE", value: `#${result.saved_analysis_id}` }]
+                : []),
+            ]}
+            actions={
+              <>
+                <Button size="sm" className="h-9 gap-2" onClick={() => setPdfOpen(true)}>
+                  <Download className="h-4 w-4" />
+                  {t("results.export.pdf")}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 gap-2"
+                  onClick={() => setActiveTab("chat")}
                 >
-                  #{result.saved_analysis_id}
-                </span>
-              )}
-              <span
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold",
-                  scoreTone.badge,
-                )}
-              >
-                {scoreTone.label}
-              </span>
-              <span
-                className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold"
-                style={{
-                  background: "hsl(var(--secondary))",
-                  color: "hsl(var(--secondary-foreground))",
-                }}
-              >
-                {getProgrammingLanguageLabel(result.language)}
-              </span>
-            </div>
-            <h1 className="t-h3 truncate">
-              {result.source_labels.code1} × {result.source_labels.code2}
-            </h1>
-            <p className="max-w-2xl text-sm text-muted-foreground">
-              {t("results.summaryDescription")}
-            </p>
-          </div>
-
-          {/* Actions */}
-          <div className="flex shrink-0 flex-col gap-2">
-            <Button
-              size="sm"
-              className="h-9 gap-2 text-white"
-              style={{
-                background: "var(--gradient-brand)",
-                boxShadow: "var(--glow-shadow-sm)",
-              }}
-              onClick={() => setPdfOpen(true)}
-            >
-              <Download className="h-4 w-4" />
-              {t("results.export.pdf")}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-9 gap-2"
-              onClick={() => setActiveTab("chat")}
-            >
-              <Sparkles className="h-4 w-4" />
-              {t("results.askAnalyst", { defaultValue: "Ask analyst" })}
-            </Button>
-          </div>
+                  <Sparkles className="h-4 w-4" />
+                  {t("results.askAnalyst", { defaultValue: "Ask analyst" })}
+                </Button>
+              </>
+            }
+          />
         </div>
 
-        {/* Top engines row */}
+        {/* Threshold legend — the scale the verdict is read against, plus the CI gate */}
         <div
-          className="grid grid-cols-2 gap-3 border-t border-border p-6 sm:grid-cols-4"
-          style={{ background: "hsl(var(--surface-2) / 0.5)" }}
+          className="flex flex-wrap items-center gap-1.5"
+          role="group"
+          aria-label={t("results.legend.aria")}
         >
-          {result.similarity_items.slice(0, 4).map((item) => {
-            const color =
-              item.value >= 80
-                ? "hsl(var(--destructive))"
-                : item.value >= 50
-                  ? "hsl(var(--warning))"
-                  : "hsl(var(--success))";
+          {(
+            [
+              { key: "low", range: "< 50", token: "success" },
+              { key: "moderate", range: "50–79", token: "warning" },
+              { key: "high", range: "≥ 80", token: "destructive" },
+            ] as const
+          ).map((seg) => {
+            const isActive = band === seg.key;
             return (
-              <div
-                key={item.name}
-                className="rounded-md p-3"
-                style={{ background: "hsl(var(--surface-2))" }}
+              <span
+                key={seg.key}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px]",
+                  isActive ? "border-current font-semibold" : "border-border text-muted-foreground",
+                )}
+                style={isActive ? { color: `hsl(var(--${seg.token}))` } : undefined}
               >
-                <div className="t-label truncate">{translateSimilarityName(item.name, t)}</div>
-                <div
-                  className="mt-1 font-mono text-xl font-bold tabular-nums"
-                  style={{ color, letterSpacing: "-0.01em" }}
-                >
-                  {item.value.toFixed(1)}%
-                </div>
-                <div
-                  className="mt-2 h-1 overflow-hidden rounded-full"
-                  style={{ background: "hsl(var(--muted))" }}
-                >
-                  <div
-                    className="h-full transition-all duration-700"
-                    style={{ width: `${Math.min(100, item.value)}%`, background: color }}
-                  />
-                </div>
-              </div>
+                <span className="h-2 w-2 rounded-full" style={{ background: `hsl(var(--${seg.token}))` }} />
+                {t(`results.legend.${seg.key}`)}
+                <span className="font-mono tabular-nums opacity-80">{seg.range}</span>
+              </span>
             );
           })}
+          <span className="text-[11px] text-muted-foreground">{t("results.legend.gateNote")}</span>
         </div>
 
-        {/* Secondary actions strip */}
-        <div className="flex flex-wrap items-center gap-2 border-t border-border px-6 py-3">
+        {/* Utility strip — case handling actions, read as a mono row */}
+        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
           <Link to="/analysis">
             <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs">
               <ChevronLeft className="h-3.5 w-3.5" />
@@ -1335,49 +1364,88 @@ const Results = () => {
         </div>
       </section>
 
-      {/* Tabs — underline style */}
-      <div className="flex flex-wrap gap-1 border-b border-border overflow-x-auto">
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          const active = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "-mb-px flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition-all",
-                active
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground",
-              )}
-              style={active ? { fontWeight: 600 } : undefined}
-            >
-              <Icon className="h-4 w-4" />
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
+      {/* Accessible tablist (Radix): role=tab/tablist, aria-selected, and
+          arrow-key roving focus come for free; value is mirrored to the URL. */}
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as ResultTab)}>
+        <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto rounded-none border-b border-border bg-transparent p-0 text-muted-foreground">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <TabsTrigger
+                key={tab.id}
+                value={tab.id}
+                className="-mb-px flex items-center gap-2 whitespace-nowrap rounded-none border-b-2 border-transparent bg-transparent px-4 py-3 text-sm font-medium text-muted-foreground shadow-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-0 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-primary data-[state=active]:shadow-none"
+              >
+                <Icon className="h-4 w-4" />
+                {tab.label}
+              </TabsTrigger>
+            );
+          })}
+        </TabsList>
 
-      <div className="animate-fade-in-fast">
-        {activeTab === "overview" && (
-          <div className="space-y-5">
-            <CodeComparisonPanel
-              result={result}
-              description={t("results.overviewDescription")}
-            />
-            <div className="grid gap-5 xl:grid-cols-2">
-              <SimilarityBars items={result.similarity_items} />
+        {/* Overview leads with the exact signal values and the clone evidence;
+            the redundant radar and the raw source view fold behind disclosure. */}
+        <TabsContent value="overview" className="mt-5 space-y-5">
+          {/* Verdict → evidence chain, read as ruled margin-label fields */}
+          <FieldSheet>
+            <Field label={t("results.drivers.label")}>
+              <p className="text-sm text-muted-foreground">
+                {t("results.drivers.combinedDrivenBy", { score: overallScoreLabel })}
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-2">
+                {drivers.map((driver) => {
+                  const driverColor =
+                    driver.value >= 80
+                      ? "hsl(var(--destructive))"
+                      : driver.value >= 50
+                        ? "hsl(var(--warning))"
+                        : "hsl(var(--success))";
+                  return (
+                    <button
+                      key={driver.name}
+                      type="button"
+                      onClick={() => setActiveTab(signalToTab(driver.name))}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-0.5 text-xs font-medium transition-colors hover:border-primary/50 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                    >
+                      <span className="h-1.5 w-1.5 rounded-full" style={{ background: driverColor }} />
+                      {translateSimilarityName(driver.name, t)}
+                      <span className="font-mono tabular-nums text-muted-foreground">{Math.round(driver.value)}%</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </Field>
+            <Field label={t("results.drivers.families")}>
+              <p className="text-sm text-foreground/90">{getCloneFocus(result.clone_items, t)}</p>
+            </Field>
+          </FieldSheet>
+
+          <SimilarityBars items={result.similarity_items} />
+          <CloneDetection items={result.clone_items} />
+
+          <details className="overflow-hidden rounded-lg border border-border bg-card">
+            <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-4 text-sm font-semibold text-foreground">
+              <Activity className="h-4 w-4 text-primary" />
+              {t("results.disclosure.radar")}
+            </summary>
+            <div className="border-t border-border p-2">
               <ErrorBoundary fallback={<PanelErrorFallback />}>
                 <SimilarityRadar items={result.similarity_items} />
               </ErrorBoundary>
             </div>
-            <CloneDetection items={result.clone_items} />
-          </div>
-        )}
+          </details>
+          <details className="overflow-hidden rounded-lg border border-border bg-card">
+            <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-4 text-sm font-semibold text-foreground">
+              <Code2 className="h-4 w-4 text-primary" />
+              {t("results.disclosure.code")}
+            </summary>
+            <div className="border-t border-border">
+              <CodeComparisonPanel result={result} description={t("results.overviewDescription")} />
+            </div>
+          </details>
+        </TabsContent>
 
-        {activeTab === "diff" && (
+        <TabsContent value="diff" className="mt-5">
           <ErrorBoundary fallback={<PanelErrorFallback />}>
             <DiffViewer
               analysisId={result.saved_analysis_id}
@@ -1385,9 +1453,9 @@ const Results = () => {
               labelB={result.source_labels.code2}
             />
           </ErrorBoundary>
-        )}
+        </TabsContent>
 
-        {activeTab === "graphs" && (
+        <TabsContent value="graphs" className="mt-5">
           <div className="grid gap-5 xl:grid-cols-2">
             <ErrorBoundary fallback={<PanelErrorFallback />}>
               <AstGraphPanel title={t("results.graph1")} color="primary" elements={result.graph_json1} />
@@ -1396,29 +1464,32 @@ const Results = () => {
               <AstGraphPanel title={t("results.graph2")} color="accent" elements={result.graph_json2} />
             </ErrorBoundary>
           </div>
-        )}
+        </TabsContent>
 
-        {activeTab === "metrics" && (
+        <TabsContent value="metrics" className="mt-5">
           <ErrorBoundary fallback={<PanelErrorFallback />}>
             <MetricsComparison metricsA={result.metrics1} metricsB={result.metrics2} />
           </ErrorBoundary>
-        )}
+        </TabsContent>
 
-        {activeTab === "quality" && <QualityPanel result={result} />}
+        <TabsContent value="quality" className="mt-5">
+          <QualityPanel result={result} />
+        </TabsContent>
 
-        {activeTab === "report" && (
+        <TabsContent value="report" className="mt-5">
           <div className="space-y-6">
-            {result.analysis_structured && (
-              <StructuredReport data={result.analysis_structured} />
-            )}
+            {result.analysis_structured && <StructuredReport data={result.analysis_structured} />}
             <AnalysisReport html={result.analysis_html} />
           </div>
-        )}
+        </TabsContent>
 
-        {activeTab === "chat" && (
-          <AnalysisChatPanel contextLabel={`${result.source_labels.code1} \u2194 ${result.source_labels.code2}`} />
-        )}
-      </div>
+        <TabsContent value="chat" className="mt-5">
+          <AnalysisChatPanel
+            analysisId={result.saved_analysis_id}
+            contextLabel={`${result.source_labels.code1} \u2194 ${result.source_labels.code2}`}
+          />
+        </TabsContent>
+      </Tabs>
 
       <PdfExportDialog
         open={pdfOpen}

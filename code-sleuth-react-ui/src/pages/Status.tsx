@@ -59,10 +59,10 @@ const Status = () => {
       </div>
 
       {data && (
-        <section className="rounded-2xl border border-border bg-card p-6" style={{ boxShadow: "var(--card-shadow-rest)" }}>
-          <dl className="divide-y divide-border/60">
+        <section className="rounded-lg border border-border bg-card">
+          <dl className="divide-y divide-border">
             {Object.entries(data.checks).map(([key, value]) => (
-              <div key={key} className="flex items-center justify-between py-2.5">
+              <div key={key} className="flex items-center justify-between px-5 py-3">
                 <dt className="text-sm text-foreground">{LABEL_KEYS[key] ? t(LABEL_KEYS[key]) : key}</dt>
                 <dd>{renderValue(value)}</dd>
               </div>

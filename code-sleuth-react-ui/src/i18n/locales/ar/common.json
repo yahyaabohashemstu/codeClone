@@ -102,11 +102,19 @@
   },
   "footer": {
     "copyright": "منصة تحليل Clone Lens",
-    "fullCopyright": "© 2026 Clone Lens — منصة ذكية لتحليل الشيفرة"
+    "fullCopyright": "© 2026 Clone Lens — منصة ذكية لتحليل الشيفرة",
+    "terms": "الشروط",
+    "privacy": "الخصوصية",
+    "status": "الحالة"
   },
   "guard": {
     "loadingWorkspace": "جارٍ تحميل مساحة العمل...",
     "adminRequired": "هذه المنطقة تتطلب صلاحيات المسؤول."
+  },
+  "cookies": {
+    "text": "نستخدم ملفّ ارتباط ضروريًا فقط لتسجيل الدخول ونحفظ تفضيلاتك محليًا.",
+    "learn": "سياسة الخصوصية",
+    "accept": "حسنًا"
   },
   "upload": {
     "fileTooLarge": "الملف كبير جداً. الحد الأقصى للحجم هو {{limitMb}} ميجابايت."
@@ -137,6 +145,8 @@
     "dropHint": "أو تصفّح · .py .js .java .cpp",
     "pairwise": "مقارنة ثنائية",
     "pasteCode": "لصق الكود",
+    "exhibitA": "المستند أ",
+    "exhibitB": "المستند ب",
     "trustSignals": [
       "سير عمل واعٍ بالسجل",
       "رسوم AST مدمجة",
@@ -204,7 +214,9 @@
     "source": "المصدر",
     "language": "اللغة",
     "analyses": "تحليل",
-    "loadError": "فشل تحميل التحليلات."
+    "loadError": "فشل تحميل التحليلات.",
+    "eyebrow": "تقرير الأشكال",
+    "last7Days": "آخر 7 أيام"
   },
   "platform": "منصة التحليل",
   "brandName": "Clone Lens",
@@ -216,6 +228,7 @@
   "history": {
     "pageTitle": "سجل التحليلات",
     "pageDescription": "استعرض جلسات التحليل السابقة وابحث فيها وأعد فتحها أو تشغيلها أو تصديرها أو حذفها.",
+    "eyebrow": "سجلّ الحالات",
     "stats": {
       "totalAnalyses": "إجمالي التحليلات",
       "highSimilarity": "تشابه مرتفع",
@@ -266,6 +279,9 @@
     }
   },
   "chat": {
+    "eyebrow": "استشارة موثّقة",
+    "exhibitA": "المستند أ",
+    "exhibitB": "المستند ب",
     "loading": "جارٍ تحميل أحدث سياق للتحليل...",
     "noContextTitle": "لا يوجد سياق تحليل نشط",
     "noContextDescription": "شغّل تحليلًا أو أعد فتح تحليل سابق أولًا حتى تبني الدردشة الذكية إجاباتها على بيانات المقارنة الحقيقية.",
@@ -294,11 +310,25 @@
     "quotaReached": "لقد بلغت حدّ التحليلات الشهري. رقِّ خطتك لتشغيل المزيد.",
     "manageSubscription": "إدارة الاشتراك",
     "checkoutSuccess": "تم تحديث الاشتراك — أهلًا بك!",
-    "checkoutCanceled": "أُلغيت عملية الدفع. لم يتغيّر شيء."
+    "checkoutCanceled": "أُلغيت عملية الدفع. لم يتغيّر شيء.",
+    "period": "فترة الفوترة",
+    "renewsOn": "يتجدد",
+    "colTier": "الفئة",
+    "colPrice": "السعر"
   },
   "settings": {
     "title": "الإعدادات",
     "subtitle": "أدر أمان حسابك.",
+    "kicker": "الحساب والأمان",
+    "identity": "الهوية",
+    "account": "الحساب",
+    "email": "البريد",
+    "verified": "موثّق",
+    "unverified": "غير موثّق",
+    "accessLevel": "مستوى الوصول",
+    "roleAdmin": "مسؤول",
+    "roleStandard": "قياسي",
+    "accessData": "الوصول والبيانات",
     "security": "الأمان",
     "twofa": "المصادقة الثنائية",
     "twofaOn": "مُفعّلة",
@@ -348,6 +378,7 @@
   "admin": {
     "title": "الإدارة",
     "subtitle": "نظرة عامة على المنصة وإدارة المستخدمين.",
+    "eyebrow": "لوحة العمليات",
     "users": "المستخدمون",
     "totalUsers": "إجمالي المستخدمين",
     "totalAnalyses": "إجمالي التحليلات",

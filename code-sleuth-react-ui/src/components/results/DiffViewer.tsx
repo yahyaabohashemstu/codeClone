@@ -20,18 +20,19 @@ interface DiffResponse {
 }
 
 function lineClass(type: DiffBlock["type"], side: "a" | "b") {
+  // Background tint carries the change type (the legend labels each colour);
+  // no colored side-stripe, so the rows read as one calibrated system.
   if (type === "equal") return "bg-transparent";
-  if (type === "delete") return side === "a" ? "bg-destructive/10 border-l-2 border-destructive/50" : "bg-muted/20";
-  if (type === "insert") return side === "b" ? "bg-success/10 border-l-2 border-success/50" : "bg-muted/20";
+  if (type === "delete") return side === "a" ? "bg-destructive/10" : "bg-muted/20";
+  if (type === "insert") return side === "b" ? "bg-success/10" : "bg-muted/20";
   // replace
-  return side === "a" ? "bg-warning/10 border-l-2 border-warning/50" : "bg-primary/10 border-l-2 border-primary/50";
+  return side === "a" ? "bg-warning/10" : "bg-primary/10";
 }
 
-function lineNumClass(type: DiffBlock["type"], side: "a" | "b") {
-  if (type === "equal") return "text-muted-foreground/40";
-  if (type === "delete") return side === "a" ? "text-destructive/70" : "text-muted-foreground/25";
-  if (type === "insert") return side === "b" ? "text-success/70" : "text-muted-foreground/25";
-  return side === "a" ? "text-warning/70" : "text-primary/70";
+// Line numbers are the evidence trail: always full-opacity and legible, never
+// dimmed for decoration. The row background already encodes the change type.
+function lineNumClass() {
+  return "text-muted-foreground";
 }
 
 // Fixed-height virtualization: only the rows within the viewport (plus a small
@@ -70,7 +71,7 @@ function VirtualColumn({
               row.lineNum === null && "pointer-events-none select-none opacity-0",
             )}
           >
-            <span className={cn("w-8 shrink-0 select-none text-right text-[10px] leading-6", lineNumClass(row.type, side))}>
+            <span className={cn("w-8 shrink-0 select-none text-right text-[11px] leading-6", lineNumClass())}>
               {row.lineNum ?? ""}
             </span>
             <span className="whitespace-pre text-foreground/90">{row.line}</span>

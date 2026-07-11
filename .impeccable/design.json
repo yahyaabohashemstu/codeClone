@@ -1,0 +1,202 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-11T00:00:00Z",
+  "title": "Design System: Clone Lens",
+  "extensions": {
+    "colorMeta": {
+      "signal-indigo": {
+        "role": "primary",
+        "displayName": "Signal Indigo",
+        "canonical": "hsl(235 84% 59%)",
+        "tonalRamp": ["hsl(235 84% 15%)", "hsl(235 84% 24%)", "hsl(235 84% 33%)", "hsl(235 84% 44%)", "hsl(235 84% 59%)", "hsl(235 80% 70%)", "hsl(235 78% 82%)", "hsl(235 76% 93%)"]
+      },
+      "diagnostic-cyan": {
+        "role": "secondary",
+        "displayName": "Diagnostic Cyan",
+        "canonical": "hsl(190 78% 42%)",
+        "tonalRamp": ["hsl(190 78% 12%)", "hsl(190 78% 20%)", "hsl(190 78% 30%)", "hsl(190 78% 42%)", "hsl(190 72% 54%)", "hsl(190 70% 66%)", "hsl(190 68% 80%)", "hsl(190 66% 92%)"]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "hsl(228 28% 14%)",
+        "tonalRamp": ["hsl(228 28% 10%)", "hsl(228 26% 14%)", "hsl(226 22% 22%)", "hsl(224 18% 32%)", "hsl(223 14% 44%)", "hsl(221 16% 62%)", "hsl(220 22% 82%)", "hsl(220 30% 95%)"]
+      },
+      "slate-mute": {
+        "role": "neutral",
+        "displayName": "Slate Mute",
+        "canonical": "hsl(223 12% 44%)",
+        "tonalRamp": ["hsl(223 16% 14%)", "hsl(223 14% 22%)", "hsl(223 12% 30%)", "hsl(223 12% 38%)", "hsl(223 12% 44%)", "hsl(222 14% 58%)", "hsl(221 18% 74%)", "hsl(220 24% 90%)"]
+      },
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Luminous Canvas",
+        "canonical": "hsl(220 32% 97%)",
+        "tonalRamp": ["hsl(222 28% 7%)", "hsl(222 24% 12%)", "hsl(221 22% 20%)", "hsl(220 20% 40%)", "hsl(220 22% 66%)", "hsl(220 26% 88%)", "hsl(220 30% 95%)", "hsl(220 32% 99%)"]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface White",
+        "canonical": "hsl(0 0% 100%)",
+        "tonalRamp": ["hsl(222 26% 9%)", "hsl(222 24% 12%)", "hsl(222 22% 15%)", "hsl(220 22% 91%)", "hsl(220 30% 95%)", "hsl(220 35% 97%)", "hsl(0 0% 99%)", "hsl(0 0% 100%)"]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "hsl(220 22% 88%)",
+        "tonalRamp": ["hsl(222 20% 18%)", "hsl(221 20% 28%)", "hsl(221 20% 42%)", "hsl(220 20% 58%)", "hsl(220 22% 74%)", "hsl(220 22% 88%)", "hsl(220 24% 92%)", "hsl(220 26% 96%)"]
+      },
+      "clear-green": {
+        "role": "semantic-success",
+        "displayName": "Clear Green",
+        "canonical": "hsl(150 62% 39%)",
+        "tonalRamp": ["hsl(150 62% 12%)", "hsl(150 62% 20%)", "hsl(150 62% 30%)", "hsl(150 62% 39%)", "hsl(150 56% 48%)", "hsl(150 54% 62%)", "hsl(150 52% 78%)", "hsl(150 50% 92%)"]
+      },
+      "caution-amber": {
+        "role": "semantic-warning",
+        "displayName": "Caution Amber",
+        "canonical": "hsl(35 88% 48%)",
+        "tonalRamp": ["hsl(35 88% 14%)", "hsl(35 88% 24%)", "hsl(35 88% 36%)", "hsl(35 88% 48%)", "hsl(35 84% 58%)", "hsl(35 82% 70%)", "hsl(35 82% 82%)", "hsl(35 84% 93%)"]
+      },
+      "verdict-red": {
+        "role": "semantic-danger",
+        "displayName": "Verdict Red",
+        "canonical": "hsl(0 72% 52%)",
+        "tonalRamp": ["hsl(0 72% 16%)", "hsl(0 72% 26%)", "hsl(0 72% 40%)", "hsl(0 72% 52%)", "hsl(0 70% 62%)", "hsl(0 72% 74%)", "hsl(0 74% 85%)", "hsl(0 76% 94%)"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Marketing Home hero only; never inside the product shell." },
+      "headline": { "displayName": "Headline", "purpose": "Page titles and major section heads." },
+      "title": { "displayName": "Title", "purpose": "Card and panel headings." },
+      "body": { "displayName": "Body", "purpose": "Prose and descriptions; cap analysis prose at 65-75ch." },
+      "label": { "displayName": "Label", "purpose": "Uppercase field labels and column heads. A utility, not a section eyebrow." },
+      "mono": { "displayName": "Mono", "purpose": "Code, diffs, hashes, tabular figures only. Signals 'this is code or an exact value.'" }
+    },
+    "shadows": [
+      { "name": "card-rest", "value": "0 14px 38px rgba(24,39,75,0.08), 0 2px 8px rgba(24,39,75,0.06)", "purpose": "Resting card shadow. Soft, neutral, low. Structural only." },
+      { "name": "card-hover", "value": "0 22px 52px rgba(24,39,75,0.12), 0 6px 18px rgba(24,39,75,0.08)", "purpose": "Hover lift on interactive cards and floating layers (menus, dialogs)." },
+      { "name": "glow-DEPRECATED", "value": "0 0 24px hsl(235 84% 59% / 0.25)", "purpose": "DEPRECATED. Legacy colored glow (--shadow-glow-*, .glow-primary, pulse-glow). Do not use in new work; PRODUCT.md rejects decorative glow." }
+    ],
+    "motion": [
+      { "name": "ease-out", "value": "cubic-bezier(0.22, 1, 0.36, 1)", "purpose": "Default exponential ease-out for state transitions. No bounce, no elastic." },
+      { "name": "ease-in-out", "value": "cubic-bezier(0.65, 0, 0.35, 1)", "purpose": "Symmetric easing for reversible motion." },
+      { "name": "dur-fast", "value": "150ms", "purpose": "Micro-interactions: hover, focus, small toggles." },
+      { "name": "dur-base", "value": "200ms", "purpose": "Standard state transitions." },
+      { "name": "dur-slow", "value": "300ms", "purpose": "Larger reveals and panel transitions." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" },
+      { "name": "container-max", "value": "1400px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single primary action per view. Solid Signal Indigo.",
+      "html": "<button class=\"ds-btn-primary\">Run analysis</button>",
+      "css": ".ds-btn-primary{background:#3f4dee;color:#fff;font:500 .875rem/1 Inter,system-ui,sans-serif;padding:10px 16px;border:none;border-radius:8px;cursor:pointer;transition:background .15s cubic-bezier(.22,1,.36,1)}.ds-btn-primary:hover{background:#3644d6}.ds-btn-primary:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(63,77,238,.4)}.ds-btn-primary:active{background:#2f3cc0}.ds-btn-primary:disabled{opacity:.55;cursor:not-allowed}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Neutral action. Surface fill with a hairline border.",
+      "html": "<button class=\"ds-btn-secondary\">Cancel</button>",
+      "css": ".ds-btn-secondary{background:#fff;color:#1a1e2e;font:500 .875rem/1 Inter,system-ui,sans-serif;padding:10px 16px;border:1px solid #dadde7;border-radius:8px;cursor:pointer;transition:border-color .15s,background .15s}.ds-btn-secondary:hover{border-color:#c2c8d6;background:#f5f7fa}.ds-btn-secondary:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(63,77,238,.4)}"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Lowest-emphasis action. Transparent until hover.",
+      "html": "<button class=\"ds-btn-ghost\">Export</button>",
+      "css": ".ds-btn-ghost{background:transparent;color:#636b7d;font:500 .875rem/1 Inter,system-ui,sans-serif;padding:10px 16px;border:1px solid transparent;border-radius:8px;cursor:pointer;transition:background .15s,color .15s}.ds-btn-ghost:hover{background:#eef1f6;color:#1a1e2e}.ds-btn-ghost:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(63,77,238,.4)}"
+    },
+    {
+      "name": "Stat Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Dashboard metric tile. Flat at rest, lifts 1px on hover with a neutral structural shadow.",
+      "html": "<div class=\"ds-stat-card\"><span class=\"ds-stat-label\">Analyses this month</span><span class=\"ds-stat-value\">1,284</span><span class=\"ds-stat-meta\">of 1,000 quota</span></div>",
+      "css": ".ds-stat-card{display:flex;flex-direction:column;gap:6px;background:linear-gradient(180deg,#fff,#f5f7fa);border:1px solid rgba(218,221,231,.7);border-radius:16px;padding:20px;box-shadow:0 14px 38px rgba(24,39,75,.08),0 2px 8px rgba(24,39,75,.06);transition:box-shadow .2s,transform .2s;font-family:Inter,system-ui,sans-serif;width:220px}.ds-stat-card:hover{transform:translateY(-1px);box-shadow:0 22px 52px rgba(24,39,75,.12),0 6px 18px rgba(24,39,75,.08)}.ds-stat-label{font-size:.75rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#636b7d}.ds-stat-value{font-size:3rem;font-weight:700;line-height:1;color:#1a1e2e;font-variant-numeric:tabular-nums;letter-spacing:-.02em}.ds-stat-meta{font-size:.8125rem;color:#636b7d}"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Labeled field. Focus shows an indigo ring, never a glow.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Language</span><input class=\"ds-input\" type=\"text\" placeholder=\"python\" /></label>",
+      "css": ".ds-field{display:flex;flex-direction:column;gap:6px;font-family:Inter,system-ui,sans-serif;width:220px}.ds-field-label{font-size:.75rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#636b7d}.ds-input{background:#fff;color:#1a1e2e;border:1px solid #e5e9f0;border-radius:8px;padding:8px 12px;font-size:.875rem;transition:border-color .15s,box-shadow .15s}.ds-input::placeholder{color:#8a92a3}.ds-input:focus{outline:none;border-color:rgba(63,77,238,.6);box-shadow:0 0 0 2px rgba(63,77,238,.4)}"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "badge-info",
+      "description": "Pill status token mapped to the similarity scale (info/success/warning/error).",
+      "html": "<span class=\"ds-badge ds-badge-success\">Low · 32%</span> <span class=\"ds-badge ds-badge-warn\">Review · 64%</span> <span class=\"ds-badge ds-badge-error\">High · 91%</span>",
+      "css": ".ds-badge{display:inline-flex;align-items:center;gap:4px;border-radius:9999px;padding:2px 10px;font:600 .75rem/1.45 Inter,system-ui,sans-serif;letter-spacing:.02em}.ds-badge-info{background:rgba(63,77,238,.12);color:#3644d6;border:1px solid rgba(63,77,238,.22)}.ds-badge-success{background:rgba(38,161,99,.12);color:#1f8a53;border:1px solid rgba(38,161,99,.24)}.ds-badge-warn{background:rgba(230,140,15,.14);color:#b56f0a;border:1px solid rgba(230,140,15,.26)}.ds-badge-error{background:rgba(221,44,44,.12);color:#c62222;border:1px solid rgba(221,44,44,.24)}"
+    },
+    {
+      "name": "Sidebar Nav Item",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "Sidebar link. Active state is a full indigo tint fill — NOT a left border stripe.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item is-active\">Analysis</a><a class=\"ds-nav-item\">History</a><a class=\"ds-nav-item\">Billing</a></nav>",
+      "css": ".ds-nav{display:flex;flex-direction:column;gap:2px;font-family:Inter,system-ui,sans-serif;width:200px}.ds-nav-item{display:flex;align-items:center;padding:8px 12px;border-radius:8px;font-size:.875rem;color:#636b7d;text-decoration:none;cursor:pointer;transition:background .15s,color .15s}.ds-nav-item:hover{background:#eef1f6;color:#1a1e2e}.ds-nav-item.is-active{background:rgba(63,77,238,.12);color:#3644d6;font-weight:600}"
+    },
+    {
+      "name": "Similarity Score Ring",
+      "kind": "custom",
+      "refersTo": "score-ring",
+      "description": "Signature instrument dial. Combined-similarity 0-100 ring, stroke colored by the similarity scale (green <50 / amber 50-79 / red >=80), number in tabular mono.",
+      "html": "<div class=\"ds-ring\"><svg viewBox=\"0 0 120 120\" width=\"120\" height=\"120\"><circle cx=\"60\" cy=\"60\" r=\"52\" fill=\"none\" stroke=\"#eef1f6\" stroke-width=\"10\"/><circle cx=\"60\" cy=\"60\" r=\"52\" fill=\"none\" stroke=\"#e68c0f\" stroke-width=\"10\" stroke-linecap=\"round\" stroke-dasharray=\"326.7\" stroke-dashoffset=\"91.5\" transform=\"rotate(-90 60 60)\"/><text x=\"60\" y=\"58\" text-anchor=\"middle\" class=\"ds-ring-num\">72</text><text x=\"60\" y=\"78\" text-anchor=\"middle\" class=\"ds-ring-cap\">SIMILAR</text></svg></div>",
+      "css": ".ds-ring{font-family:Inter,system-ui,sans-serif}.ds-ring-num{font-size:26px;font-weight:700;fill:#1a1e2e;font-variant-numeric:tabular-nums;font-family:'JetBrains Mono',monospace}.ds-ring-cap{font-size:9px;font-weight:600;letter-spacing:.12em;fill:#636b7d}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Measuring Instrument",
+    "overview": "Clone Lens is an instrument, not a marketing surface. Every screen is a readout: it reports what was measured, on what scale, and with how much confidence, then lays the evidence beside the number so a reviewer can act on it and defend the call. Restraint is the aesthetic; the interface recedes and the evidence steps forward. 'Premium' is carried by precision, spacing, and typographic care, never by decoration. The palette is a calibrated slate with two working signals (an indigo and a cyan for the measurement axes), the type is a single well-tuned Inter with JetBrains Mono reserved for code, and depth is nearly flat, spent only where structure genuinely changes. The system explicitly rejects the glow, glassmorphism, and gradient-text costume it inherited; those are legacy, on the way out, not the target.",
+    "keyCharacteristics": [
+      "Calibrated luminous-slate canvas; two working signals (Signal Indigo, Diagnostic Cyan) used for meaning, not decoration.",
+      "One type family (Inter) across the whole UI; JetBrains Mono for code only; IBM Plex Sans Arabic for the full Arabic RTL surface.",
+      "Near-flat elevation; a single restrained neutral shadow marks true elevation, never a colored glow.",
+      "Semantic similarity scale — green (low) to amber (review) to red (high) — applied consistently to scores, badges, and rings.",
+      "Bilingual and RTL-correct by construction; code and data stay left-to-right inside an Arabic layout."
+    ],
+    "rules": [
+      { "name": "The One Signal Rule", "body": "Signal Indigo carries no more than ~10% of any screen's pixels. It marks the one primary action or the current selection and then stops. Its rarity is what makes it read as important.", "section": "colors" },
+      { "name": "The Meaning-Only Color Rule", "body": "Every non-neutral color must encode a fact — an action, a state, a similarity band, a chart axis. If a color is present only to look premium, delete it.", "section": "colors" },
+      { "name": "The Calibrated Scale Rule", "body": "Green then amber then red always maps to the same similarity bands (roughly <50 / 50-79 / >=80), everywhere: score ring, badges, radar dots, history rows.", "section": "colors" },
+      { "name": "The Fixed-Scale Rule", "body": "Product type is fixed rem, never fluid clamp(). Only the Home hero may be fluid.", "section": "typography" },
+      { "name": "The One-Voice-of-Type Rule", "body": "No second sans, no display face in the app. Hierarchy is weight (400/600/700) and size.", "section": "typography" },
+      { "name": "The No-Glow Rule", "body": "Shadows are neutral and structural. A shadow tinted with a brand hue, or any glow used as decoration, is forbidden. If it looks like the element is emitting light, it is wrong.", "section": "elevation" },
+      { "name": "The Structure-Over-Shadow Rule", "body": "Reach for a 1px hairline or a tonal surface step before a shadow. A shadow must justify itself by marking a real z-layer.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep Signal Indigo to <=10% of any screen — one primary action or the current selection, then stop.",
+      "Do draw structure with a 1px hairline (#dadde7) and tonal surface steps before reaching for any shadow.",
+      "Do keep shadows neutral and structural, marking only real z-layers (dropdowns, dialogs, hover lift).",
+      "Do set body and secondary text in Ink (#1a1e2e) / Slate Mute (#636b7d), verified >=4.5:1 (AAA where feasible); never lighten body text for elegance.",
+      "Do carry one type family (Inter) across the UI; hierarchy via weight and size; JetBrains Mono for code only.",
+      "Do map every semantic color to the same similarity band everywhere (green/amber/red), and always pair color with text or icon so it survives color blindness.",
+      "Do ship every interactive component with default, hover, focus-visible, active, disabled, and loading states, and a prefers-reduced-motion alternative for every animation.",
+      "Do keep code, diffs, and data left-to-right inside the Arabic RTL layout."
+    ],
+    "donts": [
+      "Don't use decorative glow or neon accents — retire --shadow-glow-*, .glow-primary/accent, and pulse-glow.",
+      "Don't use glassmorphism or blur as a default surface — .glass (frosted backdrop-filter) is not a resting-panel treatment.",
+      "Don't use gradient text or rainbow accents — .text-gradient-brand (background-clip: text) is banned; emphasize with weight, size, and one solid color.",
+      "Don't build the interchangeable SaaS template — identical icon-card grids and a big-number gradient hero.",
+      "Don't use a border-left/border-right greater than 1px as a colored accent stripe (the current .nav-link-active stripe) — use a full background tint instead.",
+      "Don't round cards past 20px or buttons past 12px; over-rounding reads as toy, not instrument.",
+      "Don't tint a shadow with a brand hue or animate a glow.",
+      "Don't introduce a second sans or a display font into product UI, or set prose/labels in mono."
+    ]
+  }
+}

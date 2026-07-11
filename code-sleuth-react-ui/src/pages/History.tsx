@@ -1,13 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  AlertTriangle,
-  BarChart3,
-  Clock,
   Download,
   ExternalLink,
   Filter,
-  GitCompare,
   History as HistoryIcon,
   Info,
   Plus,
@@ -17,6 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Masthead, Serial } from "@/components/dossier/Dossier";
 import { apiFetch } from "@/lib/api";
 import { downloadText } from "@/lib/download";
 import { useAnalysis } from "@/context/AnalysisContext";
@@ -30,9 +27,9 @@ import { PageError } from "@/components/common/PageError";
 import { EmptyState } from "@/components/common/EmptyState";
 
 function severityBadge(severity: HistorySummary["severity"]) {
-  if (severity === "high") return "bg-destructive/15 text-destructive border-destructive/30";
-  if (severity === "moderate") return "bg-warning/15 text-warning border-warning/30";
-  return "bg-success/15 text-success border-success/30";
+  if (severity === "high") return "badge-error";
+  if (severity === "moderate") return "badge-warning";
+  return "badge-success";
 }
 
 function scoreColor(score: number): string {
@@ -251,84 +248,38 @@ const History = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Hero header card */}
-      <section
-        className="relative overflow-hidden rounded-2xl border border-border bg-card"
-        style={{ boxShadow: "var(--card-shadow-rest)" }}
-      >
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-24 right-0 h-56 w-96 rounded-full opacity-30 blur-3xl"
-          style={{ background: "radial-gradient(ellipse, hsl(var(--primary) / 0.28), transparent 70%)" }}
-        />
-        <div className="relative flex flex-wrap items-end justify-between gap-4 p-6">
-          <div>
-            <div
-              className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold text-primary"
-              style={{ background: "hsl(var(--primary) / 0.08)", border: "1px solid hsl(var(--primary) / 0.18)" }}
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-              <HistoryIcon className="h-3 w-3" />
-              {t("history.eyebrow", { defaultValue: "Recent analyses" })}
-            </div>
-            <h1 className="mt-3 t-h2">{t("history.pageTitle")}</h1>
-            <p className="mt-1 max-w-[60ch] t-body">{t("history.pageDescription")}</p>
-          </div>
-          <Button
-            asChild
-            size="lg"
-            className="h-11 shrink-0 gap-2 px-5 text-white"
-            style={{ background: "var(--gradient-brand)", boxShadow: "var(--glow-shadow-sm)" }}
-          >
+      {/* Case-register masthead — stats fold into the live mono meta strip */}
+      <Masthead
+        kicker={t("history.eyebrow", { defaultValue: "Case register" })}
+        title={t("history.pageTitle")}
+        description={t("history.pageDescription")}
+        meta={[
+          { label: t("history.stats.totalAnalyses"), value: formatNumber(historyData?.stats.totalAnalyses ?? 0) },
+          {
+            label: t("history.stats.highSimilarity"),
+            value: <span className="text-destructive">{formatNumber(historyData?.stats.highSimilarity ?? 0)}</span>,
+          },
+          { label: t("history.stats.languagesUsed"), value: formatNumber(historyData?.stats.languagesUsed ?? 0) },
+          { label: t("history.stats.last7Days"), value: formatNumber(historyData?.stats.last7Days ?? 0) },
+        ]}
+        actions={
+          <Button asChild size="lg" className="h-11 shrink-0 gap-2 px-5">
             <Link to="/analysis">
               <Plus className="h-4 w-4" />
               {t("buttons.newAnalysis")}
             </Link>
           </Button>
-        </div>
-      </section>
+        }
+      />
 
       {error && (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {error}
         </div>
       )}
 
-      {/* Stat cards */}
-      <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        {[
-          { label: t("history.stats.totalAnalyses"), value: historyData?.stats.totalAnalyses ?? 0, icon: BarChart3, color: "text-muted-foreground/70" },
-          { label: t("history.stats.highSimilarity"), value: historyData?.stats.highSimilarity ?? 0, icon: AlertTriangle, color: "text-destructive" },
-          { label: t("history.stats.languagesUsed"), value: historyData?.stats.languagesUsed ?? 0, icon: GitCompare, color: "text-primary" },
-          { label: t("history.stats.last7Days"), value: historyData?.stats.last7Days ?? 0, icon: Clock, color: "text-accent" },
-        ].map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <div
-              key={stat.label}
-              className="rounded-xl border border-border bg-card p-5 transition-all hover:-translate-y-0.5"
-              style={{ boxShadow: "var(--card-shadow-rest)" }}
-            >
-              <div className="flex items-center justify-between">
-                <span className="t-label">{stat.label}</span>
-                <Icon className={cn("h-4 w-4", stat.color)} />
-              </div>
-              <div
-                className="mt-3 text-3xl font-bold tracking-tight text-foreground"
-                style={{ fontVariantNumeric: "tabular-nums", fontFamily: "var(--font-mono)" }}
-              >
-                {formatNumber(stat.value)}
-              </div>
-            </div>
-          );
-        })}
-      </section>
-
-      {/* Filter bar */}
-      <div
-        className="flex flex-wrap items-center gap-3 rounded-2xl border border-border p-3"
-        style={{ background: "hsl(var(--surface-2))", boxShadow: "var(--card-shadow-rest)" }}
-      >
+      {/* Register controls — a compact mono filter strip, ruled not boxed */}
+      <div className="flex flex-wrap items-center gap-2 border-y border-border py-3">
         <div className="relative min-w-48 flex-1">
           <Search className={cn("pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground", isRTL ? "right-3" : "left-3")} />
           <input
@@ -337,18 +288,18 @@ const History = () => {
             onChange={(event) => setSearch(event.target.value)}
             placeholder={t("history.searchPlaceholder")}
             className={cn(
-              "h-9 w-full rounded-lg border border-border bg-card py-2 pr-4 text-sm placeholder:text-muted-foreground/60 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20",
-              isRTL ? "pl-4 pr-9 text-right" : "pl-9",
+              "h-9 w-full rounded-sm border border-border bg-card py-2 font-mono text-xs placeholder:text-muted-foreground/50 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20",
+              isRTL ? "pl-3 pr-9 text-right" : "pl-9 pr-3",
             )}
           />
         </div>
 
-        <div className="flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3">
+        <div className="flex h-9 items-center gap-2 rounded-sm border border-border bg-card px-3">
           <Filter className="h-3.5 w-3.5 text-muted-foreground" />
           <select
             value={filterLanguage}
             onChange={(event) => setFilterLanguage(event.target.value)}
-            className="h-9 bg-transparent text-sm text-foreground focus:outline-none"
+            className="h-9 bg-transparent font-mono text-xs text-foreground focus:outline-none"
           >
             {languages.map((lang) => (
               <option key={lang} value={lang} className="bg-card">
@@ -358,11 +309,11 @@ const History = () => {
           </select>
         </div>
 
-        <div className="flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3">
+        <div className="flex h-9 items-center rounded-sm border border-border bg-card px-3">
           <select
             value={filterSeverity}
             onChange={(event) => setFilterSeverity(event.target.value)}
-            className="h-9 bg-transparent text-sm text-foreground focus:outline-none"
+            className="h-9 bg-transparent font-mono text-xs text-foreground focus:outline-none"
           >
             <option value="all" className="bg-card">{t("history.allSeverity")}</option>
             <option value="high" className="bg-card">{t("history.highSimilarity")}</option>
@@ -371,29 +322,25 @@ const History = () => {
           </select>
         </div>
 
-        <div className="flex h-9 gap-0.5 rounded-lg border border-border bg-card p-1">
+        <div className="flex h-9 rounded-sm border border-border bg-card">
           {(["date", "score"] as const).map((mode) => (
             <button
               key={mode}
               type="button"
               onClick={() => setSortBy(mode)}
               className={cn(
-                "rounded-md px-3 py-1 text-xs font-medium transition-all",
+                "border-e border-border px-3 font-mono text-[11px] uppercase tracking-wide transition-colors last:border-e-0",
                 sortBy === mode
-                  ? "text-white"
+                  ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:text-foreground",
               )}
-              style={sortBy === mode ? { background: "var(--gradient-brand)", boxShadow: "var(--glow-shadow-sm)" } : undefined}
             >
               {mode === "date" ? t("history.byDate") : t("history.byScore")}
             </button>
           ))}
         </div>
 
-        <span
-          className="text-xs tabular-nums text-muted-foreground"
-          style={{ fontFamily: "var(--font-mono)" }}
-        >
+        <span className={cn("font-mono text-xs tabular-nums text-muted-foreground", isRTL ? "mr-1" : "ml-1")}>
           {formatNumber(filteredItems.length)} / {formatNumber(items.length)}
         </span>
       </div>
@@ -407,14 +354,14 @@ const History = () => {
           onAction={() => navigate("/analysis")}
         />
       ) : (
-        <div
-          className="overflow-hidden rounded-2xl border border-border bg-card"
-          style={{ boxShadow: "var(--card-shadow-rest)" }}
-        >
+        <div className="overflow-hidden rounded-lg border border-border bg-card">
           <div className="overflow-x-auto scrollbar-thin">
             <table className="w-full min-w-[980px] text-sm">
               <thead>
-                <tr style={{ background: "hsl(var(--surface-2))" }}>
+                <tr className="bg-muted">
+                  <th className={cn("w-12 border-b border-border px-4 py-2.5 font-mono text-[11px] font-semibold text-muted-foreground", isRTL ? "text-right" : "text-left")}>
+                    #
+                  </th>
                   <th className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
                     {t("history.table.sourceA")}
                   </th>
@@ -439,13 +386,16 @@ const History = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredItems.map((item) => {
+                {filteredItems.map((item, index) => {
                   const score = item.similarity;
                   return (
                     <tr
                       key={item.id}
                       className="border-b border-border/40 transition-colors last:border-b-0 hover:bg-muted/30"
                     >
+                      <td className="px-4 py-3 align-middle">
+                        <Serial>{formatNumber(index + 1)}</Serial>
+                      </td>
                       <td className="max-w-[200px] px-4 py-3 align-middle">
                         <span className="truncate font-mono text-xs text-foreground">{item.sourceA}</span>
                       </td>
@@ -453,22 +403,14 @@ const History = () => {
                         <span className="truncate font-mono text-xs text-foreground">{item.sourceB}</span>
                       </td>
                       <td className="px-4 py-3 align-middle">
-                        <span
-                          className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium"
-                          style={{
-                            fontFamily: "var(--font-mono)",
-                            background: "hsl(var(--primary) / 0.1)",
-                            color: "hsl(var(--primary))",
-                            borderColor: "hsl(var(--primary) / 0.25)",
-                          }}
-                        >
+                        <span className="inline-flex items-center rounded-sm border border-primary/25 bg-primary/10 px-2 py-0.5 font-mono text-[11px] font-medium text-primary">
                           {getProgrammingLanguageLabel(item.language)}
                         </span>
                       </td>
                       <td className="px-4 py-3 align-middle">
                         <div className="flex items-center gap-2">
                           <span
-                            className="h-1.5 w-14 overflow-hidden rounded-full"
+                            className="h-1.5 w-14 overflow-hidden rounded-sm"
                             style={{ background: "hsl(var(--muted))" }}
                           >
                             <span
@@ -485,12 +427,7 @@ const History = () => {
                         </div>
                       </td>
                       <td className="px-4 py-3 align-middle">
-                        <span
-                          className={cn(
-                            "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold capitalize",
-                            severityBadge(item.severity),
-                          )}
-                        >
+                        <span className={cn(severityBadge(item.severity), "capitalize")}>
                           {severityLabel(item.severity)}
                         </span>
                       </td>
@@ -589,28 +526,16 @@ const History = () => {
           {selectedAnalysis ? (
             <div className="space-y-5 p-6">
               <div className="grid gap-5 lg:grid-cols-2">
-                <div
-                  className="overflow-hidden rounded-xl border border-border bg-card"
-                  style={{ boxShadow: "var(--card-shadow-rest)" }}
-                >
-                  <div
-                    className="border-b border-border px-4 py-2.5 t-label text-foreground"
-                    style={{ background: "hsl(var(--surface-2))" }}
-                  >
+                <div className="overflow-hidden rounded-lg border border-border bg-card">
+                  <div className="border-b border-border bg-muted px-4 py-2.5 t-label text-foreground">
                     {t("history.table.sourceA")}
                   </div>
                   <pre className="code-surface m-4 max-h-72 overflow-auto whitespace-pre-wrap p-4 text-xs scrollbar-thin">
                     {selectedAnalysis.code1}
                   </pre>
                 </div>
-                <div
-                  className="overflow-hidden rounded-xl border border-border bg-card"
-                  style={{ boxShadow: "var(--card-shadow-rest)" }}
-                >
-                  <div
-                    className="border-b border-border px-4 py-2.5 t-label text-foreground"
-                    style={{ background: "hsl(var(--surface-2))" }}
-                  >
+                <div className="overflow-hidden rounded-lg border border-border bg-card">
+                  <div className="border-b border-border bg-muted px-4 py-2.5 t-label text-foreground">
                     {t("history.table.sourceB")}
                   </div>
                   <pre className="code-surface m-4 max-h-72 overflow-auto whitespace-pre-wrap p-4 text-xs scrollbar-thin">
@@ -620,7 +545,7 @@ const History = () => {
               </div>
 
               <div
-                className="analysis-markdown max-h-72 overflow-auto rounded-xl border border-border bg-card px-5 py-4 scrollbar-thin"
+                className="analysis-markdown max-h-72 overflow-auto rounded-lg border border-border bg-card px-5 py-4 scrollbar-thin"
                 dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedAnalysis.analysis_html ?? "") }}
               />
 
@@ -628,11 +553,7 @@ const History = () => {
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                   {t("buttons.close")}
                 </Button>
-                <Button
-                  onClick={() => void openInResults(selectedSummary!)}
-                  className="text-white"
-                  style={{ background: "var(--gradient-brand)", boxShadow: "var(--glow-shadow-sm)" }}
-                >
+                <Button onClick={() => void openInResults(selectedSummary!)}>
                   {t("history.openFullResults")}
                 </Button>
               </div>

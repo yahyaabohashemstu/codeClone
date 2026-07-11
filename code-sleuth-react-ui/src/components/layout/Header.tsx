@@ -44,7 +44,7 @@ export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
   }, [navigate]);
 
   return (
-    <header className="sticky top-0 z-50 flex h-16 items-center border-b border-border/50 bg-background/90 backdrop-blur-xl">
+    <header className="sticky top-0 z-50 flex h-16 items-center border-b border-border bg-background">
       <div className="flex flex-1 items-center gap-3 px-4">
         <Button
           variant="ghost"
@@ -57,13 +57,10 @@ export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
         </Button>
 
         <div className="flex items-center gap-2 md:hidden">
-          <div
-            className="flex h-7 w-7 items-center justify-center rounded-md overflow-hidden"
-            style={{ background: "var(--gradient-brand)" }}
-          >
+          <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-md bg-primary">
             <img src="/brand/logo.png" alt="Clone Lens" className="h-7 w-7 object-contain" />
           </div>
-          <span className="text-sm font-bold">Clone Lens</span>
+          <span className="t-h5">Clone Lens</span>
         </div>
 
         <div className="hidden items-center gap-2 text-sm md:flex">
@@ -113,19 +110,18 @@ export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
         {isAuthenticated ? (
           <div className={cn("hidden items-center gap-2 md:flex", isRTL ? "mr-3" : "ml-3")}>
             <div
-              className="flex items-center gap-2 rounded-full border border-border/60 bg-card/60 px-3 py-1.5"
+              className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5"
               style={{ fontSize: "0.72rem" }}
             >
               {/* Avatar */}
               <span
-                className="flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold text-white"
-                style={{ background: "var(--gradient-brand)" }}
+                className="flex h-6 w-6 items-center justify-center rounded-full bg-primary font-mono text-[10px] font-bold text-primary-foreground"
                 aria-hidden
               >
                 {(user?.username ?? "U").slice(0, 2).toUpperCase()}
               </span>
               <span className="text-muted-foreground">{t("header.signedInAs")}</span>
-              <span className="font-semibold text-foreground">{user?.username}</span>
+              <span className="font-mono font-semibold text-foreground">{user?.username}</span>
             </div>
             <Button
               size="sm"

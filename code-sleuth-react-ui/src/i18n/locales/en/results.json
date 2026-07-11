@@ -377,6 +377,43 @@
       "sevInfo": "Info"
     },
     "match": "match",
-    "askAnalyst": "Ask analyst"
+    "askAnalyst": "Ask analyst",
+    "percentSimilar": "% similar",
+    "ring": {
+      "aria": "Combined similarity {{score}} percent, {{band}}"
+    },
+    "confidence": {
+      "high": "High",
+      "moderate": "Moderate",
+      "advisory": "Low",
+      "chip": "{{level}} confidence",
+      "tooltip": "Corroborated by {{corroborating}} of {{total}} structural signals",
+      "advisoryTag": "Advisory"
+    },
+    "verdictMeaning": {
+      "high": "Strong similarity. These two sources likely share substantial code — review the flagged clone families before deciding.",
+      "moderate": "Partial similarity. Some shared structure or logic is present; inspect the evidence to judge whether it is meaningful.",
+      "low": "Low similarity. Little shared structure was found; the sources appear largely independent.",
+      "advisoryNote": "This verdict rests mainly on the AI signal, so treat it as advisory rather than definitive."
+    },
+    "legend": {
+      "aria": "Similarity threshold bands",
+      "low": "Low",
+      "moderate": "Review",
+      "high": "High",
+      "gateNote": "≥ 80 fails the CI gate by default."
+    },
+    "drivers": {
+      "label": "Drivers",
+      "combinedDrivenBy": "Combined {{score}}% — driven by",
+      "families": "Detected families"
+    },
+    "disclosure": {
+      "radar": "Signal radar",
+      "code": "Source side-by-side"
+    }
+  },
+  "buttons": {
+    "backToAnalysis": "Back"
   }
 }

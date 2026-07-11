@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { AlertCircle, CheckCircle2, CreditCard, Loader2, Settings, Zap } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2, Settings, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { Masthead, FieldSheet, Field, Panel, Serial } from "@/components/dossier/Dossier";
 import {
   getBillingSummary,
   getPlans,
@@ -101,153 +102,223 @@ const Billing = () => {
     summary && !summary.unlimited && summary.limit > 0
       ? Math.min(100, Math.round((summary.used / summary.limit) * 100))
       : 0;
+  const overQuota = usagePct >= 100;
 
   // Upgrade-only: a plan is choosable only if it ranks strictly above the current
   // plan (plans arrive ordered free < pro < team). Applies whatever the source of
   // the current plan — Stripe payment or an admin grant.
   const currentIndex = plans.findIndex((p) => p.code === summary?.plan);
 
+  const renewsOn =
+    summary?.currentPeriodEnd
+      ? new Date(summary.currentPeriodEnd).toLocaleDateString(undefined, {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        })
+      : null;
+
+  // Live mono readings for the statement masthead.
+  const meta = summary
+    ? [
+        { label: "PLAN", value: <span className="uppercase">{summary.planName}</span> },
+        {
+          label: "STATUS",
+          value: <span className="uppercase text-success">{summary.status}</span>,
+        },
+        { label: "PERIOD", value: summary.period },
+        {
+          label: "USAGE",
+          value: summary.unlimited ? (
+            <span className="text-primary">∞</span>
+          ) : (
+            <span className={cn(overQuota && "text-destructive")}>
+              {summary.used}/{summary.limit}
+            </span>
+          ),
+        },
+      ]
+    : undefined;
+
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div>
-        <div
-          className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold text-primary"
-          style={{ background: "hsl(var(--primary) / 0.08)", border: "1px solid hsl(var(--primary) / 0.18)" }}
-        >
-          <CreditCard className="h-3 w-3" />
-          {t("nav.billing")}
-        </div>
-        <h1 className="mt-3 t-h2">{t("billing.title")}</h1>
-        <p className="mt-1 max-w-[60ch] t-body">{t("billing.subtitle")}</p>
-      </div>
-
-      {/* Current plan + usage */}
-      {summary && (
-        <section
-          className="rounded-2xl border border-border bg-card p-6"
-          style={{ boxShadow: "var(--card-shadow-rest)" }}
-        >
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <div className="t-label">{t("billing.currentPlan")}</div>
-              <div className="mt-1 flex items-center gap-2">
-                <span className="text-2xl font-bold text-foreground">{summary.planName}</span>
-                <span
-                  className="rounded-full border px-2 py-0.5 text-xs"
-                  style={{ borderColor: "hsl(var(--success) / 0.3)", background: "hsl(var(--success) / 0.08)", color: "hsl(var(--success))" }}
-                >
-                  {summary.status}
-                </span>
-              </div>
-            </div>
-            {billingEnabled && summary.plan !== "free" && (
-              <Button
-                variant="outline"
-                onClick={handlePortal}
-                disabled={openingPortal}
-                className="h-9 gap-2"
-              >
-                {openingPortal ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Settings className="h-3.5 w-3.5" />}
-                {t("billing.manageSubscription")}
-              </Button>
-            )}
-            <div className="min-w-[220px]">
-              <div className="t-label">{t("billing.usageThisMonth")}</div>
-              {summary.unlimited ? (
-                <div className="mt-1 flex items-center gap-1.5 text-lg font-semibold text-foreground">
-                  <Zap className="h-4 w-4 text-primary" /> {t("billing.unlimited")}
-                </div>
+      <Masthead
+        kicker={t("nav.billing")}
+        title={t("billing.title")}
+        description={t("billing.subtitle")}
+        meta={meta}
+        actions={
+          billingEnabled && summary && summary.plan !== "free" ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePortal}
+              disabled={openingPortal}
+              className="h-9 gap-2"
+            >
+              {openingPortal ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
-                <>
-                  <div className="mt-1 font-mono text-lg font-semibold text-foreground" style={{ fontVariantNumeric: "tabular-nums" }}>
-                    {summary.used} <span className="text-muted-foreground">{t("billing.of")} {summary.limit}</span>
+                <Settings className="h-3.5 w-3.5" />
+              )}
+              {t("billing.manageSubscription")}
+            </Button>
+          ) : undefined
+        }
+      />
+
+      {/* Account statement — margin-label fields */}
+      {summary && (
+        <FieldSheet>
+          <Field label={t("billing.currentPlan")} align="center">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span className="t-h4 font-mono">{summary.planName}</span>
+              <span className="badge-success">{summary.status}</span>
+            </div>
+          </Field>
+
+          <Field label={t("billing.usageThisMonth")}>
+            {summary.unlimited ? (
+              <div className="flex items-center gap-1.5 font-mono text-lg font-semibold text-foreground">
+                <Zap className="h-4 w-4 text-primary" /> {t("billing.unlimited")}
+              </div>
+            ) : (
+              <div className="max-w-sm">
+                <div className="flex items-baseline gap-2 font-mono tabular-nums">
+                  <span className="text-2xl font-semibold text-foreground">{summary.used}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {t("billing.of")} {summary.limit}
+                  </span>
+                  <span
+                    className={cn(
+                      "ms-auto text-sm font-semibold",
+                      overQuota ? "text-destructive" : "text-muted-foreground",
+                    )}
+                  >
+                    {usagePct}%
+                  </span>
+                </div>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-sm bg-muted">
+                  <div
+                    className={cn("h-full transition-all", overQuota ? "bg-destructive" : "bg-primary")}
+                    style={{ width: `${usagePct}%` }}
+                  />
+                </div>
+                {summary.remaining !== null && (
+                  <div className="mt-1.5 font-mono text-xs text-muted-foreground">
+                    {t("billing.remaining", { count: summary.remaining })}
                   </div>
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${usagePct}%`,
-                        background: usagePct >= 100 ? "hsl(var(--destructive))" : "var(--gradient-brand)",
-                      }}
-                    />
-                  </div>
-                </>
+                )}
+              </div>
+            )}
+          </Field>
+
+          <Field
+            label={t("billing.period", { defaultValue: "Billing period" })}
+            align="center"
+          >
+            <div className="font-mono text-sm text-foreground">
+              {summary.period}
+              {renewsOn && (
+                <span className="ms-2 text-muted-foreground">
+                  {t("billing.renewsOn", { defaultValue: "renews" })} {renewsOn}
+                </span>
               )}
             </div>
-          </div>
-        </section>
+          </Field>
+        </FieldSheet>
       )}
 
       {!billingEnabled && (
-        <div
-          className="flex items-start gap-2 rounded-lg border p-3 text-sm"
-          style={{ background: "hsl(var(--warning) / 0.08)", borderColor: "hsl(var(--warning) / 0.3)", color: "hsl(var(--warning))" }}
-        >
+        <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/5 p-3 text-sm text-warning">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <span>{t("billing.billingDisabled")}</span>
         </div>
       )}
 
-      {/* Plans */}
-      <section>
-        <h2 className="t-h3 mb-4">{t("billing.availablePlans")}</h2>
-        <div className="grid gap-4 md:grid-cols-3">
-          {plans.map((plan, i) => {
-            const isCurrent = summary?.plan === plan.code;
-            const isFree = plan.code === "free";
-            const isUpgrade = currentIndex >= 0 && i > currentIndex;
-            return (
-              <div
-                key={plan.code}
-                className={cn(
-                  "rounded-2xl border bg-card p-6 transition-all",
-                  isCurrent ? "border-primary" : "border-border hover:-translate-y-0.5",
-                )}
-                style={{ boxShadow: "var(--card-shadow-rest)" }}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-lg font-bold text-foreground">{plan.name}</span>
-                  {isCurrent && (
-                    <span className="flex items-center gap-1 text-xs text-primary">
-                      <CheckCircle2 className="h-3.5 w-3.5" /> {t("billing.current")}
-                    </span>
-                  )}
-                </div>
-                <div className="mt-2 text-2xl font-bold text-foreground">
-                  {plan.priceCents === 0 ? t("billing.free") : `$${(plan.priceCents / 100).toFixed(0)}`}
-                  {plan.priceCents > 0 && <span className="text-sm font-normal text-muted-foreground">{t("billing.perMonth")}</span>}
-                </div>
-                <div className="mt-3 t-sm">
-                  {plan.unlimited
-                    ? t("billing.unlimited")
-                    : `${plan.monthlyAnalysisQuota} ${t("billing.usageThisMonth").toLowerCase()}`}
-                </div>
-                {!isCurrent && !isFree && (
-                  isUpgrade ? (
-                    <Button
-                      onClick={() => handleChoose(plan.code)}
-                      disabled={checkingOut === plan.code}
-                      className="mt-5 h-10 w-full gap-2 text-white"
-                      style={{ background: "var(--gradient-brand)", boxShadow: "var(--glow-shadow-sm)" }}
-                    >
-                      {checkingOut === plan.code
-                        ? <Loader2 className="h-4 w-4 animate-spin" />
-                        : <>{t("billing.choose")}</>}
-                    </Button>
-                  ) : (
-                    // Lower tier than the current plan — a downgrade, so its
-                    // subscribe button is disabled (its features are already included).
-                    <Button variant="outline" disabled className="mt-5 h-10 w-full opacity-60">
-                      {t("billing.includedInPlan")}
-                    </Button>
-                  )
-                )}
-              </div>
-            );
-          })}
+      {/* Plans — a comparison ledger, one ruled row per tier */}
+      <Panel label={t("billing.availablePlans")} bodyClassName="p-0">
+        <div className="overflow-x-auto">
+          <table className="w-full text-start text-sm">
+            <thead>
+              <tr className="border-b border-border t-label [&>th]:px-5 [&>th]:py-2.5 [&>th]:text-start [&>th]:font-normal">
+                <th className="w-10">#</th>
+                <th>{t("billing.colTier", { defaultValue: "Tier" })}</th>
+                <th>{t("billing.colPrice", { defaultValue: "Price" })}</th>
+                <th>{t("billing.usageThisMonth")}</th>
+                <th className="text-end" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {plans.map((plan, i) => {
+                const isCurrent = summary?.plan === plan.code;
+                const isFree = plan.code === "free";
+                const isUpgrade = currentIndex >= 0 && i > currentIndex;
+                return (
+                  <tr
+                    key={plan.code}
+                    className={cn("[&>td]:px-5 [&>td]:py-4 [&>td]:align-middle", isCurrent && "bg-primary/5")}
+                  >
+                    <td>
+                      <Serial tone={isCurrent ? "primary" : "muted"}>{i + 1}</Serial>
+                    </td>
+                    <td>
+                      <div className="flex items-center gap-2">
+                        <span className="t-h4 font-mono">{plan.name}</span>
+                        {isCurrent && (
+                          <span className="badge-success flex items-center gap-1">
+                            <CheckCircle2 className="h-3 w-3" /> {t("billing.current")}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="flex items-baseline gap-1 font-mono tabular-nums">
+                        <span className="t-stat text-xl">
+                          {plan.priceCents === 0
+                            ? t("billing.free")
+                            : `$${(plan.priceCents / 100).toFixed(0)}`}
+                        </span>
+                        {plan.priceCents > 0 && (
+                          <span className="text-sm font-normal text-muted-foreground">
+                            {t("billing.perMonth")}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="font-mono tabular-nums text-foreground">
+                      {plan.unlimited ? t("billing.unlimited") : plan.monthlyAnalysisQuota}
+                    </td>
+                    <td className="text-end">
+                      {!isCurrent && !isFree && (
+                        isUpgrade ? (
+                          <Button
+                            onClick={() => handleChoose(plan.code)}
+                            disabled={checkingOut === plan.code}
+                            className="h-9 gap-2"
+                          >
+                            {checkingOut === plan.code ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <>{t("billing.choose")}</>
+                            )}
+                          </Button>
+                        ) : (
+                          // Lower tier than the current plan — a downgrade, so its
+                          // subscribe button is disabled (its features are already included).
+                          <Button variant="outline" disabled className="h-9 opacity-60">
+                            {t("billing.includedInPlan")}
+                          </Button>
+                        )
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-      </section>
+      </Panel>
     </div>
   );
 };

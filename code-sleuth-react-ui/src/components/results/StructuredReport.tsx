@@ -12,11 +12,12 @@ const RISK_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
   none: ShieldCheck,
 };
 
+// Risk maps onto the calibrated green/amber/red system, never off-palette hues.
 const RISK_STYLES: Record<string, { color: string; bg: string }> = {
   critical: { color: "text-destructive", bg: "bg-destructive/10 border-destructive/30" },
-  high: { color: "text-orange-500", bg: "bg-orange-500/10 border-orange-500/30" },
-  moderate: { color: "text-yellow-500", bg: "bg-yellow-500/10 border-yellow-500/30" },
-  low: { color: "text-blue-500", bg: "bg-blue-500/10 border-blue-500/30" },
+  high: { color: "text-destructive", bg: "bg-destructive/10 border-destructive/30" },
+  moderate: { color: "text-warning", bg: "bg-warning/10 border-warning/30" },
+  low: { color: "text-primary", bg: "bg-primary/10 border-primary/30" },
   none: { color: "text-success", bg: "bg-success/10 border-success/30" },
 };
 
@@ -30,9 +31,9 @@ const RISK_LABEL_KEYS: Record<string, string> = {
 
 const SEV_DOTS: Record<string, string> = {
   critical: "bg-destructive",
-  high: "bg-orange-500",
-  medium: "bg-yellow-500",
-  low: "bg-blue-500",
+  high: "bg-destructive",
+  medium: "bg-warning",
+  low: "bg-primary",
   info: "bg-muted-foreground",
 };
 

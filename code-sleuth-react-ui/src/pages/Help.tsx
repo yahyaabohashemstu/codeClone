@@ -1,13 +1,5 @@
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import {
-  FileQuestion,
-  HelpCircle,
   Mail,
   MessageSquare,
   BookOpen,
@@ -19,10 +11,20 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { Masthead, FieldSheet, Field, Panel, Serial } from "@/components/dossier/Dossier";
 
 interface FaqItem {
   question: string;
   answer: string;
+}
+
+function SectionHead({ n, children }: { n: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-4 flex items-baseline gap-3 border-b border-border pb-2">
+      <span className="font-mono text-xs font-bold tabular-nums text-primary">{`§${n}`}</span>
+      <h2 className="t-label text-foreground">{children}</h2>
+    </div>
+  );
 }
 
 const Help = () => {
@@ -36,8 +38,6 @@ const Help = () => {
       titleKey: "help.support.docs.title",
       descKey: "help.support.docs.description",
       actionKey: "help.support.docs.action",
-      color: "text-primary",
-      bg: "bg-primary/10",
       href: "/help#faq",
     },
     {
@@ -45,8 +45,6 @@ const Help = () => {
       titleKey: "help.support.chat.title",
       descKey: "help.support.chat.description",
       actionKey: "help.support.chat.action",
-      color: "text-success",
-      bg: "bg-success/10",
       href: "/chat",
     },
     {
@@ -54,8 +52,6 @@ const Help = () => {
       titleKey: "help.support.email.title",
       descKey: "help.support.email.description",
       actionKey: "help.support.email.action",
-      color: "text-accent",
-      bg: "bg-accent/10",
       mailto: "mailto:hello@clonelens.com",
     },
   ];
@@ -67,125 +63,149 @@ const Help = () => {
     { icon: Zap, labelKey: "help.quickLinks.apiGuide", href: "#faq" },
   ];
 
+  const sections = [
+    { id: "support", n: "01", label: t("help.support.title", { defaultValue: "Support channels" }) },
+    { id: "navigation", n: "02", label: t("help.quickLinks.title") },
+    { id: "faq", n: "03", label: t("help.faq.title") },
+  ];
+
   return (
     <div className="space-y-8 animate-fade-in">
-      {/* Header hero card */}
-      <section
-        className="relative overflow-hidden rounded-2xl border border-border bg-card"
-        style={{ boxShadow: "var(--card-shadow-rest)" }}
-      >
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-24 right-0 h-56 w-96 rounded-full opacity-30 blur-3xl"
-          style={{ background: "radial-gradient(ellipse, hsl(var(--primary) / 0.28), transparent 70%)" }}
-        />
-        <div className="relative flex flex-wrap items-end justify-between gap-4 p-6">
-          <div>
-            <div
-              className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold text-primary"
-              style={{ background: "hsl(var(--primary) / 0.08)", border: "1px solid hsl(var(--primary) / 0.18)" }}
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-              <HelpCircle className="h-3 w-3" />
-              {t("help.eyebrow", { defaultValue: "Support & docs" })}
-            </div>
-            <h1 className="mt-3 t-h2">{t("help.title")}</h1>
-            <p className="mt-1 max-w-[60ch] t-body">{t("help.subtitle")}</p>
-          </div>
-        </div>
-      </section>
+      <Masthead
+        kicker={t("help.eyebrow", { defaultValue: "Support & docs" })}
+        title={t("help.title")}
+        description={t("help.subtitle")}
+        meta={[
+          { label: "SECTIONS", value: String(sections.length).padStart(2, "0") },
+          { label: "ENTRIES", value: String(faqItems.length).padStart(2, "0") },
+          { label: "CHANNELS", value: String(supportCards.length).padStart(2, "0") },
+        ]}
+        actions={
+          <Button asChild size="sm" className="h-9 gap-1.5 text-sm">
+            <Link to="/chat">
+              {t("help.support.chat.action")}
+              <ExternalLink className="h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        }
+      />
 
-      {/* Support cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        {supportCards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <div
-              key={card.titleKey}
-              className="rounded-2xl border border-border bg-card p-5 space-y-3 transition-all hover:-translate-y-0.5"
-              style={{ boxShadow: "var(--card-shadow-rest)" }}
-            >
-              <div className={`inline-flex h-10 w-10 items-center justify-center rounded-lg ${card.bg}`}>
-                <Icon className={`h-5 w-5 ${card.color}`} />
-              </div>
-              <div>
-                <h3 className="t-h5 text-foreground">{t(card.titleKey)}</h3>
-                <p className="mt-1 t-sm leading-relaxed">{t(card.descKey)}</p>
-              </div>
-              {card.href ? (
-                <Button asChild variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
-                  <Link to={card.href}>
-                    {t(card.actionKey)}
-                    <ExternalLink className="h-3 w-3" />
-                  </Link>
-                </Button>
-              ) : card.mailto ? (
-                <Button asChild variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
-                  <a href={card.mailto}>
-                    {t(card.actionKey)}
-                    <ExternalLink className="h-3 w-3" />
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,11rem)_1fr] lg:gap-12">
+        {/* Left mono index — table of contents */}
+        <nav aria-label={t("help.title")} className="hidden lg:block">
+          <div className="sticky top-6">
+            <p className="t-label mb-3 text-muted-foreground">
+              {t("help.contents", { defaultValue: "Contents" })}
+            </p>
+            <ol className="space-y-1 border-s border-border">
+              {sections.map((section) => (
+                <li key={section.id}>
+                  <a
+                    href={`#${section.id}`}
+                    className="group flex items-baseline gap-2 border-s-2 border-transparent -ms-px py-1.5 ps-3 font-mono text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
+                  >
+                    <span className="tabular-nums text-primary/70 group-hover:text-primary">{section.n}</span>
+                    <span className="truncate">{section.label}</span>
                   </a>
-                </Button>
-              ) : (
-                <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
-                  {t(card.actionKey)}
-                  <ExternalLink className="h-3 w-3" />
-                </Button>
-              )}
+                </li>
+              ))}
+            </ol>
+          </div>
+        </nav>
+
+        {/* Right column — numbered reference sections */}
+        <div className="min-w-0 space-y-10">
+          {/* §01 — Support channels as margin-label fields */}
+          <section id="support" className="scroll-mt-6">
+            <SectionHead n="01">{t("help.support.title", { defaultValue: "Support channels" })}</SectionHead>
+            <FieldSheet>
+              {supportCards.map((card, i) => {
+                const Icon = card.icon;
+                const action = (
+                  <>
+                    {t(card.actionKey)}
+                    <ExternalLink className="h-3 w-3" />
+                  </>
+                );
+                return (
+                  <Field
+                    key={card.titleKey}
+                    label={
+                      <span className="flex items-center gap-2">
+                        <Serial>{String(i + 1).padStart(2, "0")}</Serial>
+                        <span className="min-w-0 truncate">{t(card.titleKey)}</span>
+                      </span>
+                    }
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <p className="flex max-w-[52ch] items-start gap-2.5 t-sm leading-relaxed">
+                        <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                        {t(card.descKey)}
+                      </p>
+                      {card.href ? (
+                        <Button asChild variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 text-xs">
+                          <Link to={card.href}>{action}</Link>
+                        </Button>
+                      ) : card.mailto ? (
+                        <Button asChild variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 text-xs">
+                          <a href={card.mailto}>{action}</a>
+                        </Button>
+                      ) : (
+                        <Button variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 text-xs">
+                          {action}
+                        </Button>
+                      )}
+                    </div>
+                  </Field>
+                );
+              })}
+            </FieldSheet>
+          </section>
+
+          {/* §02 — Quick links as a ruled ledger */}
+          <section id="navigation" className="scroll-mt-6">
+            <SectionHead n="02">{t("help.quickLinks.title")}</SectionHead>
+            <div className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
+              {quickLinks.map((link, i) => {
+                const Icon = link.icon;
+                return (
+                  <Link
+                    key={link.labelKey}
+                    to={link.href}
+                    className="group flex items-center gap-3.5 px-4 py-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    <Serial>{String(i + 1).padStart(2, "0")}</Serial>
+                    <Icon className="h-4 w-4 shrink-0 text-primary" />
+                    <span className="min-w-0 truncate">{t(link.labelKey)}</span>
+                    <ExternalLink className="ms-auto h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
+                  </Link>
+                );
+              })}
             </div>
-          );
-        })}
-      </div>
+          </section>
 
-      {/* Quick links */}
-      <div
-        className="rounded-2xl border border-border bg-card p-6"
-        style={{ boxShadow: "var(--card-shadow-rest)" }}
-      >
-        <h2 className="t-label mb-4">{t("help.quickLinks.title")}</h2>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {quickLinks.map((link) => {
-            const Icon = link.icon;
-            return (
-              <Link
-                key={link.labelKey}
-                to={link.href}
-                className="flex items-center gap-3 rounded-lg border border-border/40 bg-muted/10 px-4 py-3 text-sm text-muted-foreground transition-all hover:border-primary/30 hover:bg-primary/5 hover:text-primary group"
-              >
-                <Icon className="h-4 w-4 shrink-0 group-hover:text-primary transition-colors" />
-                {t(link.labelKey)}
-                <ExternalLink className="ml-auto h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </Link>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* FAQ */}
-      <div
-        className="overflow-hidden rounded-2xl border border-border bg-card"
-        style={{ boxShadow: "var(--card-shadow-rest)" }}
-      >
-        <div
-          className="flex items-center gap-2 border-b border-border/60 px-6 py-4"
-          style={{ background: "hsl(var(--surface-2))" }}
-        >
-          <FileQuestion className="h-4 w-4 text-primary" />
-          <h2 className="t-label text-foreground">{t("help.faq.title")}</h2>
-        </div>
-        <div className="p-6">
-          <Accordion type="single" collapsible className="space-y-2" id="faq">
-            {faqItems.map((item, i) => (
-              <AccordionItem key={i} value={`item-${i}`} className="border border-border/40 rounded-xl px-4 overflow-hidden">
-                <AccordionTrigger className="text-sm font-medium text-foreground hover:text-primary py-3 hover:no-underline">
-                  {item.question}
-                </AccordionTrigger>
-                <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4">
-                  {item.answer}
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
+          {/* §03 — FAQ as a ruled definition list (dt/dd), numbered exhibits */}
+          <section id="faq" className="scroll-mt-6">
+            <SectionHead n="03">{t("help.faq.title")}</SectionHead>
+            <Panel bodyClassName="p-0">
+              <dl className="divide-y divide-border">
+                {faqItems.map((item, i) => (
+                  <div
+                    key={i}
+                    className="grid grid-cols-1 gap-x-5 gap-y-2 px-5 py-5 sm:grid-cols-[minmax(3rem,4rem)_1fr] sm:px-6"
+                  >
+                    <div className="pt-0.5">
+                      <Serial tone="primary">{`Q${String(i + 1).padStart(2, "0")}`}</Serial>
+                    </div>
+                    <div className="min-w-0">
+                      <dt className="t-h5 text-foreground">{item.question}</dt>
+                      <dd className="mt-2 t-sm leading-relaxed text-muted-foreground">{item.answer}</dd>
+                    </div>
+                  </div>
+                ))}
+              </dl>
+            </Panel>
+          </section>
         </div>
       </div>
     </div>

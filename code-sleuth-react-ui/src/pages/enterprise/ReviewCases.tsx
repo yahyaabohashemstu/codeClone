@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -11,17 +11,18 @@ import {
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { Masthead, Serial } from "@/components/dossier/Dossier";
 import { useLanguage } from "@/context/LanguageContext";
 import { listWorkspaces, listCases } from "@/lib/enterpriseApi";
 import type { EnterpriseCase, CaseStatus, EnterpriseWorkspace } from "@/types/enterprise";
 import { cn } from "@/lib/utils";
 
 const STATUS_BADGE: Record<CaseStatus, string> = {
-  open: "bg-accent/15 text-accent border-accent/30",
+  open: "bg-primary/10 text-primary border-primary/30",
   in_review: "bg-warning/15 text-warning border-warning/30",
   confirmed_clone: "bg-destructive/15 text-destructive border-destructive/30",
-  false_positive: "bg-muted text-muted-foreground border-border/60",
-  dismissed: "bg-muted text-muted-foreground border-border/60",
+  false_positive: "bg-muted text-muted-foreground border-border",
+  dismissed: "bg-muted text-muted-foreground border-border",
   resolved: "bg-success/15 text-success border-success/30",
 };
 
@@ -29,12 +30,15 @@ const SEVERITY_DOT: Record<string, string> = {
   critical: "bg-destructive",
   high: "bg-warning",
   medium: "bg-warning/70",
-  low: "bg-accent",
+  low: "bg-primary",
 };
 
 const ALL_STATUSES: Array<CaseStatus | "all"> = [
   "all", "open", "in_review", "confirmed_clone", "false_positive", "dismissed", "resolved",
 ];
+
+const TH_CLASS =
+  "border-b border-border px-4 py-2.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-muted-foreground";
 
 export default function ReviewCases() {
   const { isRTL } = useLanguage();
@@ -90,6 +94,16 @@ export default function ReviewCases() {
     return pathA.includes(q) || pathB.includes(q) || String(c.id).includes(q);
   });
 
+  // Live docket readings for the masthead meta strip and status ledger footer
+  const confirmedCount = useMemo(
+    () => cases.filter((c) => c.status === "confirmed_clone").length,
+    [cases],
+  );
+  const scopeLabel =
+    selectedWs === "all"
+      ? t("enterprise.cases.allWorkspaces")
+      : workspaces.find((w) => String(w.id) === selectedWs)?.name ?? selectedWs;
+
   const scoreColor = (score: number): string => {
     if (score >= 80) return "hsl(var(--destructive))";
     if (score >= 60) return "hsl(14 85% 38%)";
@@ -99,43 +113,45 @@ export default function ReviewCases() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-6" dir={isRTL ? "rtl" : "ltr"}>
-      {/* Header hero */}
-      <section
-        className="relative overflow-hidden rounded-2xl border border-border bg-card"
-        style={{ boxShadow: "var(--card-shadow-rest)" }}
-      >
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-24 right-0 h-56 w-96 rounded-full opacity-30 blur-3xl"
-          style={{ background: "radial-gradient(ellipse, hsl(var(--primary) / 0.28), transparent 70%)" }}
-        />
-        <div className="relative p-6">
-          <div
-            className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold text-primary"
-            style={{ background: "hsl(var(--primary) / 0.08)", border: "1px solid hsl(var(--primary) / 0.18)" }}
-          >
-            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-            <Scale className="h-3 w-3" />
-            {t("enterprise.cases.eyebrow", { defaultValue: "Review queue" })}
-          </div>
-          <h1 className="mt-3 t-h2">{t("enterprise.cases.title")}</h1>
-          <p className="mt-1 max-w-[60ch] t-body">{t("enterprise.cases.subtitle")}</p>
-        </div>
-      </section>
+      {/* Docket masthead — ruled header + live mono readings */}
+      <Masthead
+        kicker={t("enterprise.cases.eyebrow", { defaultValue: "Review queue" })}
+        title={t("enterprise.cases.title")}
+        description={t("enterprise.cases.subtitle")}
+        meta={[
+          { label: "SCOPE", value: scopeLabel },
+          { label: "CASES", value: cases.length },
+          {
+            label: "SHOWN",
+            value: (
+              <span className="tabular-nums">
+                {filtered.length}
+                <span className="text-muted-foreground/60"> / {cases.length}</span>
+              </span>
+            ),
+          },
+          {
+            label: "CONFIRMED",
+            value:
+              confirmedCount > 0 ? (
+                <span className="text-destructive">{confirmedCount}</span>
+              ) : (
+                <span className="text-muted-foreground">0</span>
+              ),
+          },
+        ]}
+      />
 
-      {/* Content card with filters + table */}
-      <div
-        className="overflow-hidden rounded-2xl border border-border bg-card"
-        style={{ boxShadow: "var(--card-shadow-rest)" }}
-      >
-        {/* Filter bar */}
-        <div
-          className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-3"
-          style={{ background: "hsl(var(--surface-2))" }}
-        >
+      {/* Case docket — one ruled ledger: filter row + table, never a grid of cards */}
+      <section className="overflow-hidden rounded-lg border border-border bg-card">
+        {/* Compact filter row */}
+        <div className="flex flex-wrap items-center gap-3 border-b border-border bg-muted/40 px-5 py-3">
+          <span className="t-label me-1 hidden text-muted-foreground/70 sm:inline">
+            {t("enterprise.cases.colStatus", { defaultValue: "Filter" })}
+          </span>
           {/* Workspace picker */}
           <Select value={selectedWs} onValueChange={setSelectedWs}>
-            <SelectTrigger className="h-9 w-52 bg-card">
+            <SelectTrigger className="h-9 w-52 bg-card font-mono text-xs">
               <SelectValue placeholder={t("enterprise.cases.allWorkspaces")} />
             </SelectTrigger>
             <SelectContent>
@@ -148,7 +164,7 @@ export default function ReviewCases() {
 
           {/* Status picker */}
           <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as CaseStatus | "all")}>
-            <SelectTrigger className="h-9 w-44 bg-card">
+            <SelectTrigger className="h-9 w-44 bg-card font-mono text-xs">
               <SelectValue placeholder={t("enterprise.cases.allStatuses")} />
             </SelectTrigger>
             <SelectContent>
@@ -165,18 +181,12 @@ export default function ReviewCases() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t("enterprise.cases.searchPlaceholder")}
-              className={cn("h-9 bg-card", isRTL ? "pr-9" : "pl-9")}
+              className={cn("h-9 bg-card font-mono text-xs", isRTL ? "pr-9" : "pl-9")}
             />
           </div>
-          <span
-            className="text-xs tabular-nums text-muted-foreground"
-            style={{ fontFamily: "var(--font-mono)" }}
-          >
-            {t("enterprise.cases.showing", { defaultValue: "Showing" })} {filtered.length} / {cases.length}
-          </span>
         </div>
 
-        {/* Content */}
+        {/* Ledger body */}
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -189,38 +199,33 @@ export default function ReviewCases() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-16 text-center">
-            <div
-              className="flex h-12 w-12 items-center justify-center rounded-full"
-              style={{ background: "hsl(var(--primary) / 0.1)", color: "hsl(var(--primary))" }}
-            >
-              <Scale className="h-6 w-6" />
-            </div>
+            <Scale className="h-5 w-5 text-muted-foreground" />
             <p className="t-body">{t("enterprise.cases.noCases")}</p>
           </div>
         ) : (
           <div className="overflow-x-auto scrollbar-thin">
-            <table className="w-full min-w-[900px] text-sm">
+            <table className="w-full min-w-[900px] text-sm" dir="ltr">
               <thead>
-                <tr style={{ background: "hsl(var(--surface-2))" }}>
-                  <th className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
+                <tr className="bg-muted/40">
+                  <th className={cn(TH_CLASS, "text-left")}>
                     {t("enterprise.cases.colCase", { defaultValue: "Case" })}
                   </th>
-                  <th className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
+                  <th className={cn(TH_CLASS, "text-left")}>
                     {t("enterprise.cases.colPaths", { defaultValue: "Artifacts" })}
                   </th>
-                  <th className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
+                  <th className={cn(TH_CLASS, "text-left")}>
                     {t("enterprise.cases.colScore", { defaultValue: "Score" })}
                   </th>
-                  <th className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
+                  <th className={cn(TH_CLASS, "text-left")}>
                     {t("enterprise.cases.colType", { defaultValue: "Clone type" })}
                   </th>
-                  <th className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
+                  <th className={cn(TH_CLASS, "text-left")}>
                     {t("enterprise.cases.colStatus", { defaultValue: "Status" })}
                   </th>
-                  <th className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
+                  <th className={cn(TH_CLASS, "text-left")}>
                     {t("enterprise.cases.workspace")}
                   </th>
-                  <th className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-left" : "text-right")}>
+                  <th className={cn(TH_CLASS, "text-right")}>
                     &nbsp;
                   </th>
                 </tr>
@@ -228,8 +233,8 @@ export default function ReviewCases() {
               <tbody>
                 {filtered.map((c) => {
                   const wsName = workspaces.find((w) => w.id === c.workspaceId)?.name;
-                  const pathA = c.match?.artifactA?.logicalPath ?? "\u2014";
-                  const pathB = c.match?.artifactB?.logicalPath ?? "\u2014";
+                  const pathA = c.match?.artifactA?.logicalPath ?? "—";
+                  const pathB = c.match?.artifactB?.logicalPath ?? "—";
                   const score = Math.round(c.confidenceScore);
                   return (
                     <tr
@@ -240,83 +245,70 @@ export default function ReviewCases() {
                         <div className="flex items-center gap-2">
                           <span
                             aria-hidden
+                            title={c.severity}
                             className={cn(
                               "h-2 w-2 shrink-0 rounded-full",
                               SEVERITY_DOT[c.severity] ?? "bg-muted",
                             )}
                           />
-                          <span
-                            className="font-medium text-muted-foreground"
-                            style={{ fontFamily: "var(--font-mono)" }}
-                          >
-                            #C-{c.id}
-                          </span>
+                          <Serial tone={c.status === "confirmed_clone" ? "primary" : "muted"}>
+                            C-{c.id}
+                          </Serial>
                         </div>
                       </td>
                       <td className="max-w-[280px] px-4 py-3 align-middle">
                         <div className="space-y-0.5 text-xs">
                           <div className="flex items-center gap-1.5">
-                            <span className="shrink-0 text-muted-foreground">A</span>
+                            <span className="shrink-0 font-mono text-muted-foreground/60">A</span>
                             <span className="truncate font-mono text-foreground">{pathA}</span>
                           </div>
                           <div className="flex items-center gap-1.5">
-                            <span className="shrink-0 text-muted-foreground">B</span>
+                            <span className="shrink-0 font-mono text-muted-foreground/60">B</span>
                             <span className="truncate font-mono text-foreground">{pathB}</span>
                           </div>
                         </div>
                       </td>
                       <td className="px-4 py-3 align-middle">
                         <div className="flex items-center gap-2">
-                          <span
-                            className="h-1.5 w-14 overflow-hidden rounded-full"
-                            style={{ background: "hsl(var(--muted))" }}
-                          >
+                          <span className="h-1.5 w-14 overflow-hidden rounded-sm bg-muted">
                             <span
                               className="block h-full"
                               style={{ width: `${score}%`, background: scoreColor(score) }}
                             />
                           </span>
                           <span
-                            className="text-sm font-semibold tabular-nums"
-                            style={{ fontFamily: "var(--font-mono)", color: scoreColor(score) }}
+                            className="font-mono text-sm font-semibold tabular-nums"
+                            style={{ color: scoreColor(score) }}
                           >
                             {score}%
                           </span>
                         </div>
                       </td>
                       <td className="px-4 py-3 align-middle">
-                        <span
-                          className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium capitalize"
-                          style={{
-                            fontFamily: "var(--font-mono)",
-                            background: "hsl(var(--secondary))",
-                            color: "hsl(var(--secondary-foreground))",
-                            borderColor: "hsl(var(--border))",
-                          }}
-                        >
+                        <span className="inline-flex items-center rounded-sm border border-border bg-muted px-2 py-0.5 font-mono text-[11px] font-medium capitalize text-muted-foreground">
                           {c.cloneType.replace(/_/g, " ")}
                         </span>
                       </td>
                       <td className="px-4 py-3 align-middle">
                         <span
                           className={cn(
-                            "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold capitalize",
-                            STATUS_BADGE[c.status] ?? "bg-muted text-muted-foreground border-border/60",
+                            "inline-flex items-center rounded-sm border px-2 py-0.5 font-mono text-[11px] font-semibold capitalize",
+                            STATUS_BADGE[c.status] ?? "bg-muted text-muted-foreground border-border",
                           )}
                         >
                           {t(`enterprise.status.${c.status}`, { defaultValue: c.status })}
                         </span>
                       </td>
                       <td className="max-w-[160px] px-4 py-3 align-middle text-xs text-muted-foreground">
-                        <span className="truncate">{wsName ?? "\u2014"}</span>
+                        <span className="truncate font-mono">{wsName ?? "—"}</span>
                       </td>
-                      <td className={cn("px-4 py-3 align-middle", isRTL ? "text-left" : "text-right")}>
+                      <td className="px-4 py-3 text-right align-middle">
                         <Link
                           to={`/enterprise/cases/${c.id}`}
                           className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
                         >
                           {t("enterprise.cases.viewCase")}
-                          <ChevronRight className={cn("h-3 w-3", isRTL && "rotate-180")} />
+                          <ChevronRight className="h-3 w-3" />
                         </Link>
                       </td>
                     </tr>
@@ -326,7 +318,19 @@ export default function ReviewCases() {
             </table>
           </div>
         )}
-      </div>
+
+        {/* Ledger footer — mono tally line */}
+        {!loading && !error && filtered.length > 0 && (
+          <div className="flex items-center justify-between gap-3 border-t border-border bg-muted/20 px-5 py-2.5 font-mono text-[11px] text-muted-foreground">
+            <span className="uppercase tracking-[0.14em] text-muted-foreground/70">
+              {t("enterprise.cases.showing", { defaultValue: "Showing" })}
+            </span>
+            <span className="tabular-nums">
+              {filtered.length} / {cases.length}
+            </span>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

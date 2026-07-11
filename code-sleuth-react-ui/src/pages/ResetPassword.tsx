@@ -47,17 +47,13 @@ const ResetPassword = () => {
 
   if (done) {
     return (
-      <div
-        className="mx-auto max-w-md rounded-2xl border border-border bg-card p-10 text-center"
-        style={{ boxShadow: "var(--card-shadow-rest)" }}
-      >
+      <div className="mx-auto max-w-md rounded-lg border border-border bg-card p-10 text-center">
         <div className="mb-4 flex justify-center">
-          <CheckCircle2 className="h-10 w-10 text-success" />
+          <CheckCircle2 className="h-9 w-9 text-success" />
         </div>
         <h1 className="t-h3">{t("auth.resetDoneTitle")}</h1>
         <p className="mt-2 t-body">{t("auth.resetDoneDescription")}</p>
-        <Button asChild className="mt-6 h-10 w-full text-white"
-          style={{ background: "var(--gradient-brand)", boxShadow: "var(--glow-shadow-sm)" }}>
+        <Button asChild className="mt-6 h-10 w-full">
           <Link to="/login">{t("auth.backToLogin")}</Link>
         </Button>
       </div>
@@ -65,21 +61,13 @@ const ResetPassword = () => {
   }
 
   return (
-    <div
-      className="mx-auto max-w-md rounded-2xl border border-border bg-card p-10"
-      style={{ boxShadow: "var(--card-shadow-rest)" }}
-    >
+    <div className="mx-auto max-w-md rounded-lg border border-border bg-card p-10">
       <h1 className="t-h3 text-center">{t("auth.resetTitle")}</h1>
       <p className="mt-2 mb-6 text-center t-body">{t("auth.resetDescription")}</p>
 
       {error && (
         <div
-          className="mb-4 rounded-md border px-4 py-3 text-sm"
-          style={{
-            borderColor: "hsl(var(--destructive) / 0.25)",
-            background: "hsl(var(--destructive) / 0.06)",
-            color: "hsl(var(--destructive))",
-          }}
+          className="mb-4 rounded-md border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive"
           role="alert"
         >
           {error}
@@ -114,12 +102,11 @@ const ResetPassword = () => {
         <Button
           type="submit"
           disabled={isSubmitting}
-          className="mt-2 h-11 w-full gap-2 text-white"
-          style={{ background: "var(--gradient-brand)", boxShadow: "var(--glow-shadow-sm)" }}
+          className="mt-2 h-11 w-full gap-2"
         >
           {isSubmitting ? (
             <span className="flex items-center gap-2">
-              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
               {t("auth.updating")}
             </span>
           ) : (

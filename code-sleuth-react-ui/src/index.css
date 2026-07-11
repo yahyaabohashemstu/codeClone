@@ -50,85 +50,82 @@
   :root {
     color-scheme: light;
 
-    /* Core palette — luminous slate with indigo/cyan accents */
-    --background: 220 32% 97%;
-    --foreground: 228 28% 14%;
+    /* Evidence Dossier — warm paper & ink, a single amber signal, forensic mono voice */
+    --background: 42 30% 95%;          /* warm paper */
+    --foreground: 30 14% 13%;          /* warm ink */
 
-    --card: 0 0% 100%;
-    --card-foreground: 228 28% 14%;
+    --card: 40 36% 97%;
+    --card-foreground: 30 14% 13%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 228 28% 14%;
+    --popover: 40 36% 98%;
+    --popover-foreground: 30 14% 13%;
 
-    --primary: 235 84% 59%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 34 92% 46%;             /* amber / ochre — the one signal colour */
+    --primary-foreground: 32 34% 10%;  /* dark ink on amber (high contrast) */
 
-    --secondary: 220 27% 95%;
-    --secondary-foreground: 228 24% 20%;
+    --secondary: 40 22% 90%;
+    --secondary-foreground: 30 14% 22%;
 
-    --muted: 220 24% 95%;
-    --muted-foreground: 223 12% 44%;
+    --muted: 40 20% 91%;
+    --muted-foreground: 34 9% 37%;
 
-    --accent: 190 78% 42%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 40 24% 88%;              /* warm neutral hover tint */
+    --accent-foreground: 30 14% 20%;
 
-    --success: 150 62% 39%;
-    --success-foreground: 0 0% 100%;
+    --success: 130 32% 33%;            /* muted olive — low similarity / safe */
+    --success-foreground: 44 42% 96%;
 
-    --warning: 35 88% 48%;
-    --warning-foreground: 0 0% 100%;
+    --warning: 38 92% 45%;             /* amber — needs review */
+    --warning-foreground: 32 34% 10%;
 
-    --destructive: 0 72% 52%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 8 64% 42%;          /* oxblood — high similarity / flagged */
+    --destructive-foreground: 44 42% 96%;
 
-    --border: 220 22% 88%;
-    --input: 220 24% 92%;
-    --ring: 235 84% 59%;
+    --border: 38 17% 82%;
+    --input: 38 17% 85%;
+    --ring: 34 92% 46%;
 
-    --radius: 0.625rem;
+    --radius: 0.35rem;                 /* sharp, technical — not rounded-blob */
 
-    --sidebar-background: 220 35% 99%;
-    --sidebar-foreground: 222 14% 36%;
-    --sidebar-primary: 235 84% 59%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 26% 95%;
-    --sidebar-accent-foreground: 228 24% 20%;
-    --sidebar-border: 220 22% 90%;
-    --sidebar-ring: 235 84% 59%;
+    --sidebar-background: 42 30% 96%;
+    --sidebar-foreground: 34 10% 33%;
+    --sidebar-primary: 34 92% 46%;
+    --sidebar-primary-foreground: 32 34% 10%;
+    --sidebar-accent: 40 24% 90%;
+    --sidebar-accent-foreground: 30 14% 22%;
+    --sidebar-border: 38 17% 86%;
+    --sidebar-ring: 34 92% 46%;
 
-    --surface-1: 0 0% 100%;
-    --surface-2: 220 35% 97%;
-    --surface-3: 220 22% 91%;
+    --surface-1: 40 36% 97%;
+    --surface-2: 42 28% 94%;
+    --surface-3: 40 20% 90%;
 
-    --glow-primary: 235 84% 59%;
-    --glow-accent: 190 78% 42%;
+    --code-surface: 40 30% 96%;
+    --code-surface-foreground: 30 14% 16%;
+    --code-surface-border: 38 17% 84%;
 
-    --code-surface: 220 42% 99%;
-    --code-surface-foreground: 228 28% 18%;
-    --code-surface-border: 220 24% 86%;
+    /* Flat by default — one hairline shadow, reserved for true overlays. */
+    --card-shadow-rest: 0 1px 2px hsl(30 24% 18% / 0.05);
+    --card-shadow-hover: 0 2px 8px hsl(30 24% 18% / 0.09);
+    /* Glow shadows retired to none — kept as no-op aliases so the existing
+       var(--*-glow-*) call sites across the app resolve to a flat surface.
+       See DESIGN.md "The No-Glow Rule". */
+    --glow-shadow-sm: none;
+    --glow-shadow-md: none;
+    --shadow-glow-sm: none;
+    --shadow-glow-md: none;
+    --shadow-glow-lg: none;
 
-    --card-shadow-rest: 0 14px 38px rgba(24, 39, 75, 0.08), 0 2px 8px rgba(24, 39, 75, 0.06);
-    --card-shadow-hover: 0 22px 52px rgba(24, 39, 75, 0.12), 0 6px 18px rgba(24, 39, 75, 0.08);
-    --glow-shadow-sm: 0 0 0 1px hsl(var(--primary) / 0.08), 0 16px 34px hsl(var(--primary) / 0.18);
-    --glow-shadow-md: 0 0 0 1px hsl(var(--primary) / 0.1), 0 24px 52px hsl(var(--primary) / 0.22);
-    --shadow-glow-sm: 0 0 12px hsl(var(--primary) / 0.2);
-    --shadow-glow-md: 0 0 24px hsl(var(--primary) / 0.3);
-    --shadow-glow-lg: 0 0 40px hsl(var(--primary) / 0.4);
+    /* Brand gradient retired to a solid Signal Indigo. Kept as a no-op alias
+       so existing var(--gradient-brand) fills render flat, not gradient. */
+    --gradient-brand: hsl(var(--primary));
 
-    /* Brand gradients (used across surfaces) */
-    --gradient-brand: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
-    --gradient-surface: linear-gradient(160deg, hsl(var(--surface-1)), hsl(var(--surface-2)));
-    --gradient-page:
-      radial-gradient(circle at top, hsl(var(--primary) / 0.09), transparent 28%),
-      radial-gradient(circle at 90% 85%, hsl(var(--accent) / 0.08), transparent 22%),
-      linear-gradient(180deg, hsl(var(--surface-2)), hsl(var(--background)));
-
-    /* Radius scale */
-    --radius-sm: calc(var(--radius) - 4px);
-    --radius-md: calc(var(--radius) - 2px);
+    /* Radius scale — sharp; over-rounding retired */
+    --radius-sm: 2px;
+    --radius-md: 3px;
     --radius-lg: var(--radius);
-    --radius-xl: 1rem;
-    --radius-2xl: 1.25rem;
+    --radius-xl: 0.5rem;
+    --radius-2xl: 0.625rem;
     --radius-full: 9999px;
 
     /* Spatial scale (4-pt grid) */
@@ -151,9 +148,11 @@
     --dur-base: 200ms;
     --dur-slow: 300ms;
 
-    /* Typography: font stacks */
+    /* Typography: font stacks. Mono is promoted to the brand DISPLAY voice —
+       a code-forensics tool that speaks in monospace reads as authored. */
     --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
     --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    --font-display: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
     --font-arabic: 'IBM Plex Sans Arabic', 'Inter', system-ui, sans-serif;
 
     /* Typography: scale */
@@ -184,64 +183,62 @@
   .dark {
     color-scheme: dark;
 
-    --background: 222 28% 7%;
-    --foreground: 213 20% 93%;
+    /* Ink & Ember — warm near-black ground, amber signal */
+    --background: 30 12% 8%;
+    --foreground: 42 22% 88%;
 
-    --card: 222 24% 10%;
-    --card-foreground: 213 20% 93%;
+    --card: 30 12% 11%;
+    --card-foreground: 42 22% 88%;
 
-    --popover: 222 26% 9%;
-    --popover-foreground: 213 20% 93%;
+    --popover: 30 12% 10%;
+    --popover-foreground: 42 22% 88%;
 
-    --primary: 235 85% 65%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 38 95% 54%;
+    --primary-foreground: 32 40% 8%;
 
-    --secondary: 222 22% 16%;
-    --secondary-foreground: 213 15% 80%;
+    --secondary: 30 10% 17%;
+    --secondary-foreground: 42 16% 78%;
 
-    --muted: 222 20% 14%;
-    --muted-foreground: 215 14% 52%;
+    --muted: 30 9% 15%;
+    --muted-foreground: 38 10% 58%;
 
-    --accent: 192 85% 52%;
-    --accent-foreground: 222 28% 7%;
+    --accent: 30 10% 19%;
+    --accent-foreground: 42 20% 84%;
 
-    --success: 152 68% 46%;
-    --success-foreground: 0 0% 100%;
+    --success: 128 34% 46%;
+    --success-foreground: 30 22% 8%;
 
-    --warning: 38 90% 56%;
-    --warning-foreground: 222 28% 7%;
+    --warning: 40 92% 54%;
+    --warning-foreground: 32 40% 8%;
 
-    --destructive: 0 70% 56%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 8 66% 52%;
+    --destructive-foreground: 44 30% 94%;
 
-    --border: 222 20% 18%;
-    --input: 222 22% 14%;
-    --ring: 235 85% 65%;
+    --border: 30 9% 19%;
+    --input: 30 9% 17%;
+    --ring: 38 95% 54%;
 
-    --sidebar-background: 222 28% 6%;
-    --sidebar-foreground: 215 14% 62%;
-    --sidebar-primary: 235 85% 65%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 22% 13%;
-    --sidebar-accent-foreground: 213 20% 88%;
-    --sidebar-border: 222 20% 14%;
-    --sidebar-ring: 235 85% 65%;
+    --sidebar-background: 30 12% 7%;
+    --sidebar-foreground: 38 10% 60%;
+    --sidebar-primary: 38 95% 54%;
+    --sidebar-primary-foreground: 32 40% 8%;
+    --sidebar-accent: 30 10% 15%;
+    --sidebar-accent-foreground: 42 20% 84%;
+    --sidebar-border: 30 9% 15%;
+    --sidebar-ring: 38 95% 54%;
 
-    --surface-1: 222 26% 9%;
-    --surface-2: 222 24% 12%;
-    --surface-3: 222 22% 15%;
+    --surface-1: 30 12% 10%;
+    --surface-2: 30 11% 13%;
+    --surface-3: 30 10% 16%;
 
-    --glow-primary: 235 85% 65%;
-    --glow-accent: 192 85% 52%;
+    --code-surface: 30 14% 6%;
+    --code-surface-foreground: 42 18% 82%;
+    --code-surface-border: 30 9% 18%;
 
-    --code-surface: 222 30% 6%;
-    --code-surface-foreground: 213 20% 88%;
-    --code-surface-border: 222 20% 18%;
-
-    --card-shadow-rest: 0 1px 3px hsl(var(--background) / 0.5), 0 4px 12px hsl(var(--background) / 0.3);
-    --card-shadow-hover: 0 4px 12px hsl(var(--background) / 0.5), 0 8px 24px hsl(var(--background) / 0.4);
-    --glow-shadow-sm: 0 0 0 1px hsl(var(--primary) / 0.05), 0 10px 25px hsl(var(--primary) / 0.18);
-    --glow-shadow-md: 0 0 0 1px hsl(var(--primary) / 0.08), 0 18px 44px hsl(var(--primary) / 0.22);
+    --card-shadow-rest: 0 1px 2px hsl(0 0% 0% / 0.4);
+    --card-shadow-hover: 0 2px 10px hsl(0 0% 0% / 0.55);
+    --glow-shadow-sm: none;
+    --glow-shadow-md: none;
   }
 }
 
@@ -261,25 +258,36 @@
     font-family: var(--font-arabic);
   }
 
+  /* The mono display voice is Latin-only (JetBrains Mono has no Arabic glyphs).
+     Under Arabic, headings/labels/stats keep the proper Arabic typeface. */
+  html[lang="ar"] .t-hero,
+  html[lang="ar"] .t-h1,
+  html[lang="ar"] .t-h2,
+  html[lang="ar"] .t-h3,
+  html[lang="ar"] .t-h4,
+  html[lang="ar"] .t-h5,
+  html[lang="ar"] .t-label,
+  html[lang="ar"] .t-stat {
+    font-family: var(--font-arabic);
+  }
+
+  /* Compat shim: legacy buttons hardcode text-white but the brand is now amber.
+     Force readable dark ink on any element still filled with the brand colour,
+     until each is migrated to <Button variant="default">. */
+  .bg-gradient-brand,
+  [style*="gradient-brand"] {
+    color: hsl(var(--primary-foreground)) !important;
+  }
+
   body {
     @apply text-foreground;
     min-height: 100vh;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
-    background:
-      radial-gradient(circle at top, hsl(var(--primary) / 0.09), transparent 28%),
-      radial-gradient(circle at 90% 85%, hsl(var(--accent) / 0.08), transparent 22%),
-      linear-gradient(180deg, hsl(var(--surface-2)), hsl(var(--background)));
+    background: hsl(var(--background));
   }
 
   body[dir="rtl"] {
     text-align: right;
-  }
-
-  html.dark body {
-    background:
-      radial-gradient(circle at top, hsl(var(--primary) / 0.12), transparent 26%),
-      radial-gradient(circle at 90% 85%, hsl(var(--accent) / 0.1), transparent 20%),
-      linear-gradient(180deg, hsl(var(--surface-2)), hsl(var(--background)));
   }
 
   code, pre, .font-mono {
@@ -301,50 +309,25 @@
 }
 
 @layer utilities {
-  /* Gradient utilities */
+  /* Brand fill retired to a solid — no gradient, no glow. */
   .bg-gradient-brand {
-    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
+    background: hsl(var(--primary));
   }
 
-  .bg-gradient-surface {
-    background: linear-gradient(160deg, hsl(var(--surface-1)), hsl(var(--surface-2)));
-  }
-
+  /* Gradient text retired; emphasis is weight + size + one solid color. */
   .text-gradient-brand {
-    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: hsl(var(--primary));
   }
 
-  /* Glow effects */
-  .glow-primary {
-    box-shadow: 0 0 24px hsl(var(--primary) / 0.25), 0 0 4px hsl(var(--primary) / 0.15);
-  }
-
-  .glow-accent {
-    box-shadow: 0 0 24px hsl(var(--accent) / 0.25), 0 0 4px hsl(var(--accent) / 0.15);
-  }
-
-  /* Glass morphism */
-  .glass {
-    background: hsl(var(--card) / 0.76);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid hsl(var(--border) / 0.6);
-  }
-
-  /* Premium card */
+  /* Panel surface — flat dossier card: solid fill + hairline border, NO shadow
+     (border OR shadow, never both). Hover deepens the border, no lift. */
   .card-premium {
-    @apply rounded-xl border border-border/70 transition-all duration-200;
-    background: linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--card)) 72%, hsl(var(--secondary) / 0.38) 100%);
-    box-shadow: var(--card-shadow-rest);
+    @apply rounded-lg border border-border transition-colors duration-200;
+    background: hsl(var(--card));
   }
 
   .card-premium:hover {
-    @apply border-border;
-    transform: translateY(-1px);
-    box-shadow: var(--card-shadow-hover);
+    border-color: hsl(var(--foreground) / 0.22);
   }
 
   /* Code surface */
@@ -355,16 +338,14 @@
     color: hsl(var(--code-surface-foreground));
   }
 
-  /* Stat card */
+  /* Stat card — flat, border-only. */
   .stat-card {
-    @apply rounded-xl border border-border/70 p-5 transition-all duration-200;
-    background: linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--surface-2)) 100%);
-    box-shadow: var(--card-shadow-rest);
+    @apply rounded-lg border border-border p-5 transition-colors duration-200;
+    background: hsl(var(--card));
   }
 
   .stat-card:hover {
-    transform: translateY(-1px);
-    box-shadow: var(--card-shadow-hover);
+    border-color: hsl(var(--foreground) / 0.22);
   }
 
   /* Scrollbar */
@@ -387,40 +368,44 @@
     border-radius: 2px;
   }
 
-  /* Status badges */
+  /* Status tags — squared, mono, evidence-label feel (not pills). */
   .badge-success {
-    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
-    background: hsl(var(--success) / 0.12);
+    @apply inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[11px] font-semibold;
+    font-family: var(--font-display);
+    background: hsl(var(--success) / 0.14);
     color: hsl(var(--success));
-    border: 1px solid hsl(var(--success) / 0.2);
+    border: 1px solid hsl(var(--success) / 0.3);
   }
 
   .badge-warning {
-    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
-    background: hsl(var(--warning) / 0.12);
-    color: hsl(var(--warning));
-    border: 1px solid hsl(var(--warning) / 0.2);
+    @apply inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[11px] font-semibold;
+    font-family: var(--font-display);
+    background: hsl(var(--warning) / 0.18);
+    color: hsl(var(--foreground));
+    border: 1px solid hsl(var(--warning) / 0.42);
   }
 
   .badge-error {
-    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
-    background: hsl(var(--destructive) / 0.12);
+    @apply inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[11px] font-semibold;
+    font-family: var(--font-display);
+    background: hsl(var(--destructive) / 0.14);
     color: hsl(var(--destructive));
-    border: 1px solid hsl(var(--destructive) / 0.2);
+    border: 1px solid hsl(var(--destructive) / 0.3);
   }
 
   .badge-info {
-    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
-    background: hsl(var(--primary) / 0.12);
-    color: hsl(var(--primary));
-    border: 1px solid hsl(var(--primary) / 0.2);
+    @apply inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[11px] font-semibold;
+    font-family: var(--font-display);
+    background: hsl(var(--secondary));
+    color: hsl(var(--muted-foreground));
+    border: 1px solid hsl(var(--border));
   }
 
-  /* Sidebar link active */
+  /* Sidebar link active — full tint fill, no side-stripe. */
   .nav-link-active {
     background: hsl(var(--primary) / 0.12);
     color: hsl(var(--primary));
-    border-left: 2px solid hsl(var(--primary));
+    font-weight: 600;
   }
 
   /* Input focus ring */
@@ -451,7 +436,7 @@
 
   .metric-bar-fill {
     @apply h-full rounded-full transition-all duration-700;
-    background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--accent)));
+    background: hsl(var(--primary));
   }
 
   /* Chat bubbles */
@@ -488,18 +473,19 @@
      same-named class here would add font-size alongside Tailwind's height
      on the same element instead of overriding it, collapsing the box and
      overlapping the next element's text. */
-  .t-hero { font-size: var(--fs-hero); font-weight: var(--fw-bold); line-height: 1.08; letter-spacing: -0.02em; }
-  .t-h1   { font-size: var(--fs-h1);   font-weight: var(--fw-bold); line-height: var(--lh-heading); letter-spacing: -0.015em; }
-  .t-h2   { font-size: var(--fs-h2);   font-weight: var(--fw-bold); line-height: var(--lh-heading); letter-spacing: -0.01em; }
-  .t-h3   { font-size: var(--fs-h3);   font-weight: var(--fw-bold); line-height: var(--lh-heading); }
-  .t-h4   { font-size: var(--fs-h4);   font-weight: var(--fw-semibold); line-height: var(--lh-heading); }
-  .t-h5   { font-size: var(--fs-h5);   font-weight: var(--fw-semibold); line-height: 1.4; }
+  /* Headings, labels, and data speak in the mono display voice. Body stays Inter. */
+  .t-hero { font-family: var(--font-display); font-size: var(--fs-hero); font-weight: var(--fw-bold); line-height: 1.05; letter-spacing: -0.02em; }
+  .t-h1   { font-family: var(--font-display); font-size: var(--fs-h1);   font-weight: var(--fw-bold); line-height: 1.15; letter-spacing: -0.02em; }
+  .t-h2   { font-family: var(--font-display); font-size: var(--fs-h2);   font-weight: var(--fw-bold); line-height: 1.2; letter-spacing: -0.015em; }
+  .t-h3   { font-family: var(--font-display); font-size: var(--fs-h3);   font-weight: var(--fw-semibold); line-height: 1.25; letter-spacing: -0.01em; }
+  .t-h4   { font-family: var(--font-display); font-size: var(--fs-h4);   font-weight: var(--fw-semibold); line-height: 1.3; }
+  .t-h5   { font-family: var(--font-display); font-size: var(--fs-h5);   font-weight: var(--fw-semibold); line-height: 1.4; }
   .t-body { font-size: var(--fs-body); font-weight: var(--fw-regular); line-height: var(--lh-body); color: hsl(var(--muted-foreground)); }
   .t-sm   { font-size: var(--fs-sm);   font-weight: var(--fw-regular); line-height: 1.55; color: hsl(var(--muted-foreground)); }
   .t-xs   { font-size: var(--fs-xs);   font-weight: var(--fw-medium);  line-height: 1.45; color: hsl(var(--muted-foreground)); }
-  .t-label{ font-size: var(--fs-xs);   font-weight: var(--fw-semibold);letter-spacing: 0.04em; text-transform: uppercase; color: hsl(var(--muted-foreground)); }
+  .t-label{ font-family: var(--font-display); font-size: var(--fs-xs); font-weight: var(--fw-semibold); letter-spacing: 0.08em; text-transform: uppercase; color: hsl(var(--muted-foreground)); }
   .t-mono { font-family: var(--font-mono); font-size: var(--fs-sm); line-height: var(--lh-code); }
-  .t-stat { font-size: var(--fs-h1); font-weight: var(--fw-bold); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  .t-stat { font-family: var(--font-display); font-size: var(--fs-h1); font-weight: var(--fw-bold); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 
   .shadow-glow-sm {
     box-shadow: var(--glow-shadow-sm);
@@ -952,15 +938,10 @@
   }
 
   .analysis-markdown blockquote {
-    border-left: 3px solid hsl(var(--primary));
+    border: 1px solid hsl(var(--primary) / 0.25);
     background: hsl(var(--primary) / 0.05);
     padding: 0.85rem 1rem;
     border-radius: 0.75rem;
     color: hsl(var(--foreground));
-  }
-
-  body[dir="rtl"] .analysis-markdown blockquote {
-    border-left: none;
-    border-right: 3px solid hsl(var(--primary));
   }
 }

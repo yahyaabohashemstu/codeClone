@@ -13,12 +13,26 @@ interface ChatMessage {
   time: string;
 }
 
-export function AnalysisChatPanel({ contextLabel }: { contextLabel: string }) {
+export function AnalysisChatPanel({
+  analysisId,
+  contextLabel,
+}: {
+  analysisId?: number | null;
+  contextLabel: string;
+}) {
   const { localizeRuntimeMessage } = useLanguage();
   const { t } = useTranslation("results");
 
   const intro = t("results.chat.intro", { contextLabel });
   const justNow = t("results.chat.justNow");
+
+  // Keep the latest localized strings available to the context-reset effect
+  // without making that effect re-run (and wipe a live conversation) on a mere
+  // language switch.
+  const introRef = useRef(intro);
+  introRef.current = intro;
+  const justNowRef = useRef(justNow);
+  justNowRef.current = justNow;
 
   const suggestions = [
     t("results.chat.suggestion1"),
@@ -37,12 +51,32 @@ export function AnalysisChatPanel({ contextLabel }: { contextLabel: string }) {
   ]);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
+  // The panel can ground answers only when it has a real analysis id to send;
+  // the server confirms (or corrects) this per response. Drives the "Grounded"
+  // trust badge so it never claims grounding that isn't actually attached.
+  const [grounded, setGrounded] = useState<boolean>(analysisId != null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isSending]);
 
+  // Reset the thread whenever the viewed analysis (or its label) changes, so a
+  // prior conversation about one pair can never bleed into another.
+  useEffect(() => {
+    setMessages([
+      {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: introRef.current,
+        time: justNowRef.current,
+      },
+    ]);
+    setInput("");
+    setGrounded(analysisId != null);
+  }, [analysisId, contextLabel]);
+
+  // Re-localize the intro on a language switch without discarding a live thread.
   useEffect(() => {
     setMessages((current) => {
       if (current.length === 1 && current[0]?.role === "assistant") {
@@ -68,11 +102,15 @@ export function AnalysisChatPanel({ contextLabel }: { contextLabel: string }) {
     setIsSending(true);
 
     try {
-      const response = await apiFetch<{ response: string }>("/api/chat", {
+      const response = await apiFetch<{ response: string; grounded?: boolean }>("/api/chat", {
         method: "POST",
-        body: JSON.stringify({ message: content }),
+        body: JSON.stringify({
+          message: content,
+          ...(analysisId != null ? { analysisId } : {}),
+        }),
       });
 
+      setGrounded(Boolean(response.grounded));
       setMessages((current) => [
         ...current,
         {
@@ -106,10 +144,12 @@ export function AnalysisChatPanel({ contextLabel }: { contextLabel: string }) {
           <h3 className="text-sm font-semibold text-foreground">{t("results.chat.title")}</h3>
           <p className="mt-1 text-xs text-muted-foreground">{t("results.chat.description")}</p>
         </div>
-        <span className="ml-auto badge-success">
-          <Sparkles className="h-3 w-3" />
-          {t("results.chat.grounded")}
-        </span>
+        {grounded && (
+          <span className="ml-auto badge-success">
+            <Sparkles className="h-3 w-3" />
+            {t("results.chat.grounded")}
+          </span>
+        )}
       </div>
 
       <div className="flex-1 space-y-4 overflow-y-auto p-4 scrollbar-thin">

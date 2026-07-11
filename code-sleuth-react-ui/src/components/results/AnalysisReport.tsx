@@ -7,12 +7,12 @@ export function AnalysisReport({ html }: { html: string }) {
 
   return (
     <div className="card-premium overflow-hidden">
-      <div className="border-b border-border/50 px-5 py-4">
-        <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+      <div className="border-b border-border px-5 py-4">
+        <h3 className="t-h5 flex items-center gap-2 text-foreground">
           <FileText className="h-4 w-4 text-primary" />
           {t("results.analysisReport.title")}
         </h3>
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="mt-1.5 text-xs text-muted-foreground">
           {t("results.analysisReport.description")}
         </p>
       </div>

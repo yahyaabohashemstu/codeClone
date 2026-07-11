@@ -1,15 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   AlertCircle,
-  Building2,
   ChevronRight,
   Folder,
   Loader2,
   Plus,
-  Shield,
-  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,9 +17,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { Masthead, FieldSheet, Field, Serial } from "@/components/dossier/Dossier";
 import { useLanguage } from "@/context/LanguageContext";
 import { createOrganization, createWorkspace, listOrganizations, listWorkspaces } from "@/lib/enterpriseApi";
 import type { EnterpriseWorkspace } from "@/types/enterprise";
@@ -31,11 +28,11 @@ import { cn } from "@/lib/utils";
 const REGIONS = ["global", "us-east", "us-west", "eu-west", "eu-central", "ap-southeast", "me-central"];
 
 const ROLE_BADGE: Record<string, string> = {
-  owner: "bg-primary/15 text-primary border-primary/25",
-  admin: "bg-destructive/15 text-destructive border-destructive/25",
-  manager: "bg-warning/15 text-warning border-warning/25",
-  reviewer: "bg-accent/15 text-accent border-accent/25",
-  student: "bg-muted text-muted-foreground border-border/60",
+  owner: "bg-primary/15 text-primary border-primary/30",
+  admin: "bg-destructive/15 text-destructive border-destructive/30",
+  manager: "bg-warning/15 text-warning border-warning/30",
+  reviewer: "bg-accent/15 text-accent border-accent/30",
+  student: "bg-muted text-muted-foreground border-border",
 };
 
 export default function Workspaces() {
@@ -61,6 +58,11 @@ export default function Workspaces() {
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t]);
+
+  const regionCount = useMemo(
+    () => new Set(workspaces.map((ws) => ws.storageRegion)).size,
+    [workspaces],
+  );
 
   const handleCreate = async () => {
     if (!wsName.trim()) return;
@@ -100,182 +102,173 @@ export default function Workspaces() {
     }
   };
 
+  const createDialog = (
+    <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <DialogTrigger asChild>
+        <Button size="lg" className="shrink-0 gap-2">
+          <Plus className="h-4 w-4" />
+          {t("enterprise.workspaces.create")}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-lg" dir={isRTL ? "rtl" : "ltr"}>
+        <DialogHeader>
+          <DialogTitle>{t("enterprise.workspaces.create")}</DialogTitle>
+        </DialogHeader>
+
+        {/* Intake form — margin-label fields, a printed requisition sheet */}
+        <FieldSheet className="mt-2">
+          <Field label={t("enterprise.workspaces.orgLabel")} align="center">
+            <Input
+              value={orgName}
+              onChange={(e) => setOrgName(e.target.value)}
+              placeholder={t("enterprise.workspaces.orgPlaceholder")}
+            />
+          </Field>
+          <Field label={t("enterprise.workspaces.wsLabel")} align="center">
+            <Input
+              value={wsName}
+              onChange={(e) => setWsName(e.target.value)}
+              placeholder={t("enterprise.workspaces.wsPlaceholder")}
+            />
+          </Field>
+          <Field label={t("enterprise.workspaces.descLabel")} align="center">
+            <Input
+              value={wsDesc}
+              onChange={(e) => setWsDesc(e.target.value)}
+              placeholder={t("enterprise.workspaces.descPlaceholder")}
+            />
+          </Field>
+          <Field label={t("enterprise.workspaces.regionLabel")} align="center">
+            <Select value={wsRegion} onValueChange={setWsRegion}>
+              <SelectTrigger className="font-mono text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {REGIONS.map((r) => (
+                  <SelectItem key={r} value={r} className="font-mono text-sm">{r}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        </FieldSheet>
+
+        <div className="flex justify-end gap-2 pt-4">
+          <Button variant="ghost" onClick={() => setCreateOpen(false)}>{t("enterprise.common.cancel")}</Button>
+          <Button
+            onClick={handleCreate}
+            disabled={creating || !wsName.trim()}
+          >
+            {creating && <Loader2 className="me-2 h-3.5 w-3.5 animate-spin" />}
+            {t("enterprise.common.confirm")}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6" dir={isRTL ? "rtl" : "ltr"}>
-      {/* Header hero */}
-      <section
-        className="relative overflow-hidden rounded-2xl border border-border bg-card"
-        style={{ boxShadow: "var(--card-shadow-rest)" }}
-      >
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-24 right-0 h-56 w-96 rounded-full opacity-30 blur-3xl"
-          style={{ background: "radial-gradient(ellipse, hsl(var(--primary) / 0.28), transparent 70%)" }}
-        />
-        <div className="relative flex flex-wrap items-end justify-between gap-4 p-6">
-          <div>
-            <div
-              className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold text-primary"
-              style={{ background: "hsl(var(--primary) / 0.08)", border: "1px solid hsl(var(--primary) / 0.18)" }}
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-              <Building2 className="h-3 w-3" />
-              {t("enterprise.workspaces.eyebrow", { defaultValue: "Enterprise admin" })}
-            </div>
-            <h1 className="mt-3 t-h2">{t("enterprise.workspaces.title")}</h1>
-            <p className="mt-1 max-w-[60ch] t-body">{t("enterprise.workspaces.subtitle")}</p>
-          </div>
+      <Masthead
+        kicker={t("enterprise.workspaces.eyebrow", { defaultValue: "Enterprise admin" })}
+        title={t("enterprise.workspaces.title")}
+        description={t("enterprise.workspaces.subtitle")}
+        actions={createDialog}
+        meta={[
+          { label: "INDEX", value: <span className="tabular-nums">{workspaces.length}</span> },
+          { label: t("enterprise.workspaces.region", { defaultValue: "Region" }), value: <span className="tabular-nums">{regionCount}</span> },
+          {
+            label: "STATUS",
+            value: loading ? (
+              <span className="text-warning">SYNC</span>
+            ) : error ? (
+              <span className="text-destructive">ERROR</span>
+            ) : (
+              <span className="text-success">LIVE</span>
+            ),
+          },
+        ]}
+      />
 
-          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-            <DialogTrigger asChild>
-              <Button
-                size="lg"
-                className="h-11 shrink-0 gap-2 px-5 text-white"
-                style={{ background: "var(--gradient-brand)", boxShadow: "var(--glow-shadow-sm)" }}
-              >
-                <Plus className="h-4 w-4" />
-                {t("enterprise.workspaces.create")}
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md" dir={isRTL ? "rtl" : "ltr"}>
-              <DialogHeader>
-                <DialogTitle>{t("enterprise.workspaces.create")}</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 pt-2">
-                <div className="space-y-1.5">
-                  <Label>{t("enterprise.workspaces.orgLabel")}</Label>
-                  <Input
-                    value={orgName}
-                    onChange={(e) => setOrgName(e.target.value)}
-                    placeholder={t("enterprise.workspaces.orgPlaceholder")}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>{t("enterprise.workspaces.wsLabel")}</Label>
-                  <Input
-                    value={wsName}
-                    onChange={(e) => setWsName(e.target.value)}
-                    placeholder={t("enterprise.workspaces.wsPlaceholder")}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>{t("enterprise.workspaces.descLabel")}</Label>
-                  <Input
-                    value={wsDesc}
-                    onChange={(e) => setWsDesc(e.target.value)}
-                    placeholder={t("enterprise.workspaces.descPlaceholder")}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>{t("enterprise.workspaces.regionLabel")}</Label>
-                  <Select value={wsRegion} onValueChange={setWsRegion}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {REGIONS.map((r) => (
-                        <SelectItem key={r} value={r}>{r}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="ghost" onClick={() => setCreateOpen(false)}>{t("enterprise.common.cancel")}</Button>
-                  <Button
-                    onClick={handleCreate}
-                    disabled={creating || !wsName.trim()}
-                    className="text-white"
-                    style={{ background: "var(--gradient-brand)", boxShadow: "var(--glow-shadow-sm)" }}
-                  >
-                    {creating && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
-                    {t("enterprise.common.confirm")}
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </section>
-
-      {/* Body */}
+      {/* Case-management index */}
       {loading ? (
-        <div
-          className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-card py-16 text-muted-foreground"
-          style={{ boxShadow: "var(--card-shadow-rest)" }}
-        >
+        <div className="flex items-center justify-center gap-2 rounded-lg border border-border bg-card py-16 font-mono text-xs uppercase tracking-wide text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           {t("enterprise.common.loading")}
         </div>
       ) : error ? (
-        <div
-          className="flex items-center justify-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/5 py-12 text-destructive"
-        >
+        <div className="flex items-center justify-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 py-12 text-sm text-destructive">
           <AlertCircle className="h-4 w-4" />
           {error}
         </div>
       ) : workspaces.length === 0 ? (
-        <div
-          className="flex flex-col items-center gap-4 rounded-2xl border border-border bg-card py-16 text-center"
-          style={{ boxShadow: "var(--card-shadow-rest)" }}
-        >
-          <div
-            className="flex h-14 w-14 items-center justify-center rounded-full"
-            style={{ background: "hsl(var(--primary) / 0.1)", color: "hsl(var(--primary))" }}
-          >
-            <Folder className="h-7 w-7" />
+        <div className="flex flex-col items-start gap-4 rounded-lg border border-dashed border-border bg-card px-6 py-14">
+          <div className="flex items-center gap-2.5 text-muted-foreground">
+            <Folder className="h-5 w-5" />
+            <span className="font-mono text-xs uppercase tracking-[0.14em]">
+              {t("enterprise.workspaces.noWorkspaces")}
+            </span>
           </div>
-          <p className="t-body">{t("enterprise.workspaces.noWorkspaces")}</p>
-          <Button
-            onClick={() => setCreateOpen(true)}
-            size="sm"
-            className="gap-2 text-white"
-            style={{ background: "var(--gradient-brand)", boxShadow: "var(--glow-shadow-sm)" }}
-          >
+          <Button onClick={() => setCreateOpen(true)} size="sm" className="gap-2">
             <Plus className="h-3.5 w-3.5" />
             {t("enterprise.workspaces.create")}
           </Button>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {workspaces.map((ws) => (
-            <Link key={ws.id} to={`/enterprise/workspaces/${ws.id}`} className="group block">
-              <div
-                className="relative h-full overflow-hidden rounded-2xl border border-border bg-card p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40"
-                style={{ boxShadow: "var(--card-shadow-rest)" }}
-              >
-                {/* Gradient accent line on hover */}
-                <span
-                  aria-hidden
-                  className="absolute inset-x-0 top-0 h-0.5 scale-x-0 transform transition-transform duration-300 group-hover:scale-x-100"
-                  style={{ background: "var(--gradient-brand)", transformOrigin: isRTL ? "right" : "left" }}
-                />
+        <section className="overflow-hidden rounded-lg border border-border bg-card">
+          {/* Ledger column header */}
+          <div className="hidden items-center gap-4 border-b border-border bg-muted/40 px-5 py-2.5 sm:grid sm:grid-cols-[2.75rem_minmax(0,1fr)_6.5rem_7rem_6rem_1.25rem]">
+            <span className="t-label">#</span>
+            <span className="t-label">{t("enterprise.workspaces.title")}</span>
+            <span className="t-label">{t("enterprise.workspaces.threshold")}</span>
+            <span className="t-label">{t("enterprise.workspaces.region")}</span>
+            <span className="t-label">{t("enterprise.workspaces.yourRole")}</span>
+            <span />
+          </div>
 
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div
-                      className="mb-2 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
-                      style={{
-                        fontFamily: "var(--font-mono)",
-                        background: "hsl(var(--secondary))",
-                        color: "hsl(var(--secondary-foreground))",
-                      }}
-                    >
-                      #{ws.id}
-                    </div>
-                    <h3 className="truncate text-base font-semibold text-foreground transition-colors group-hover:text-primary">
-                      {ws.name}
-                    </h3>
-                    {ws.description && (
-                      <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-                        {ws.description}
-                      </p>
-                    )}
-                  </div>
+          {/* Ledger rows */}
+          <div className="divide-y divide-border">
+            {workspaces.map((ws) => (
+              <Link
+                key={ws.id}
+                to={`/enterprise/workspaces/${ws.id}`}
+                className="group grid grid-cols-1 gap-x-4 gap-y-2.5 px-5 py-4 transition-colors hover:bg-muted/40 sm:grid-cols-[2.75rem_minmax(0,1fr)_6.5rem_7rem_6rem_1.25rem] sm:items-center"
+              >
+                {/* Serial / case number */}
+                <Serial tone="muted" className="group-hover:border-primary/40 group-hover:text-primary">
+                  {ws.id}
+                </Serial>
+
+                {/* Name + description */}
+                <div className="min-w-0">
+                  <h3 className="truncate t-h5 transition-colors group-hover:text-primary">
+                    {ws.name}
+                  </h3>
+                  {ws.description && (
+                    <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
+                      {ws.description}
+                    </p>
+                  )}
+                </div>
+
+                {/* Threshold */}
+                <div className="font-mono text-sm tabular-nums text-foreground">
+                  <span className="t-label me-2 sm:hidden">{t("enterprise.workspaces.threshold")}</span>
+                  {Math.round(ws.defaultSimilarityThreshold * 100)}%
+                </div>
+
+                {/* Region */}
+                <div className="font-mono text-xs text-muted-foreground">
+                  <span className="t-label me-2 sm:hidden">{t("enterprise.workspaces.region")}</span>
+                  {ws.storageRegion}
+                </div>
+
+                {/* Role */}
+                <div>
                   {ws.membership && (
                     <span
                       className={cn(
-                        "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize",
-                        ROLE_BADGE[ws.membership.role] ?? "bg-muted text-muted-foreground border-border/60",
+                        "inline-flex rounded-sm border px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider",
+                        ROLE_BADGE[ws.membership.role] ?? "bg-muted text-muted-foreground border-border",
                       )}
                     >
                       {ws.membership.role}
@@ -283,30 +276,17 @@ export default function Workspaces() {
                   )}
                 </div>
 
-                <div className="mt-4 flex flex-wrap gap-4 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1.5">
-                    <Shield className="h-3 w-3" />
-                    <span className="font-mono tabular-nums">
-                      {Math.round(ws.defaultSimilarityThreshold * 100)}%
-                    </span>
-                    {t("enterprise.workspaces.threshold")}
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <Users className="h-3 w-3" />
-                    {ws.storageRegion}
-                  </span>
-                </div>
-
-                <div className="mt-3 flex items-center justify-end">
-                  <span className="flex items-center gap-1 text-xs font-medium text-primary">
-                    {t("enterprise.workspaces.viewDetails")}
-                    <ChevronRight className={cn("h-3 w-3 transition-transform group-hover:translate-x-0.5", isRTL && "rotate-180 group-hover:-translate-x-0.5")} />
-                  </span>
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
+                {/* Chevron */}
+                <ChevronRight
+                  className={cn(
+                    "hidden h-4 w-4 justify-self-end text-muted-foreground transition-colors group-hover:text-primary sm:block",
+                    isRTL && "rotate-180",
+                  )}
+                />
+              </Link>
+            ))}
+          </div>
+        </section>
       )}
     </div>
   );

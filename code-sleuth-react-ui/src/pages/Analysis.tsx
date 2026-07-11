@@ -13,7 +13,6 @@ import {
   FileSpreadsheet,
   Info,
   Loader2,
-  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Masthead, FieldSheet, Field, Serial } from "@/components/dossier/Dossier";
 import { useAnalysis } from "@/context/AnalysisContext";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -88,6 +88,10 @@ function getSelectedFile(source: SourceState) {
   }
 }
 
+function sourceReady(source: SourceState) {
+  return Boolean(source.code.trim() || getSelectedFile(source));
+}
+
 const METHOD_ICONS: Record<InputMethod, typeof Code2> = {
   paste: Code2,
   file: FileCode,
@@ -97,14 +101,12 @@ const METHOD_ICONS: Record<InputMethod, typeof Code2> = {
 
 const INPUT_METHOD_IDS: InputMethod[] = ["paste", "file", "zip", "excel"];
 
-function SourceCard({
+function ExhibitPanel({
   label,
-  accent,
   source,
   onChange,
 }: {
   label: "A" | "B";
-  accent: "primary" | "accent";
   source: SourceState;
   onChange: (next: SourceState) => void;
 }) {
@@ -114,12 +116,11 @@ function SourceCard({
   const inputMethods = INPUT_METHOD_IDS.map((id) => ({
     id,
     label: t(`analysis.methods.${id}`),
-    description: t(`analysis.methodDescriptions.${id}`),
     icon: METHOD_ICONS[id],
   }));
 
   const selectedFile = getSelectedFile(source);
-  const isReady = Boolean(source.code.trim() || selectedFile);
+  const isReady = sourceReady(source);
 
   const setMethod = (method: InputMethod) => onChange({ ...source, method });
 
@@ -151,46 +152,26 @@ function SourceCard({
     });
   };
 
-  const accentColor = accent === "primary" ? "hsl(var(--primary))" : "hsl(var(--accent))";
-  const accentBg = accent === "primary" ? "hsl(var(--primary) / 0.12)" : "hsl(var(--accent) / 0.12)";
-
   return (
-    <div
-      className="overflow-hidden rounded-xl border border-border bg-card"
-      style={{ boxShadow: "var(--card-shadow-rest)" }}
-    >
-      {/* Card header */}
-      <div
-        className="flex items-center gap-3 border-b border-border px-5 py-3"
-        style={{ background: "hsl(var(--surface-2))" }}
-      >
-        <div
-          className="flex h-7 w-7 items-center justify-center rounded-md text-xs font-bold"
-          style={{ background: accentBg, color: accentColor }}
-        >
-          {label}
-        </div>
-        <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-semibold text-foreground">
-            {t("analysis.sourceTitle", { label })}
-          </h2>
-          <p className="truncate text-xs text-muted-foreground">
-            {t("analysis.sourceDescription")}
-          </p>
-        </div>
-        {isReady && (
-          <span className="flex items-center gap-1 text-xs font-semibold text-success">
+    <section className="overflow-hidden rounded-lg border border-border bg-card">
+      {/* Exhibit header — serial marker + label + status */}
+      <div className="flex items-center gap-3 border-b border-border px-4 py-2.5">
+        <Serial tone={isReady ? "primary" : "muted"}>{label}</Serial>
+        <h2 className="t-label flex-1 text-foreground">{t("analysis.sourceTitle", { label })}</h2>
+        {isReady ? (
+          <span className="badge-success">
             <CheckCircle2 className="h-3.5 w-3.5" />
             {t("analysis.ready")}
+          </span>
+        ) : (
+          <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground/60">
+            {t("analysis.empty", { defaultValue: "empty" })}
           </span>
         )}
       </div>
 
-      {/* Method tabs (pill row) */}
-      <div
-        className="grid grid-cols-2 gap-2 p-4 lg:grid-cols-4"
-        style={{ background: "hsl(var(--surface-2) / 0.4)" }}
-      >
+      {/* Segmented mono method control — an instrument switch, not four cards */}
+      <div className="flex border-b border-border">
         {inputMethods.map((method) => {
           const Icon = method.icon;
           const active = source.method === method.id;
@@ -200,20 +181,12 @@ function SourceCard({
               type="button"
               onClick={() => setMethod(method.id)}
               className={cn(
-                "rounded-lg border px-3 py-2.5 text-left transition-all duration-150",
-                active
-                  ? "border-primary/40 text-foreground"
-                  : "border-border/50 text-muted-foreground hover:border-border hover:text-foreground",
+                "flex-1 border-e border-border py-2 text-center font-mono text-[11px] uppercase tracking-wide transition-colors last:border-e-0",
+                active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
-              style={{
-                background: active
-                  ? "hsl(var(--primary) / 0.08)"
-                  : "hsl(var(--card))",
-              }}
             >
-              <Icon className="mb-1.5 h-4 w-4" style={active ? { color: "hsl(var(--primary))" } : undefined} />
-              <div className="text-xs font-semibold">{method.label}</div>
-              <div className="mt-0.5 text-[11px] leading-snug opacity-80">{method.description}</div>
+              <Icon className="mx-auto mb-1 h-3.5 w-3.5" />
+              {method.label}
             </button>
           );
         })}
@@ -243,9 +216,7 @@ function SourceCard({
         )}
 
         {source.method !== "paste" && (
-          <label
-            className="flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed border-border/60 p-8 transition-all hover:border-primary/50 hover:bg-primary/5"
-          >
+          <label className="flex cursor-pointer flex-col items-center gap-3 rounded-md border border-dashed border-border p-8 transition-colors hover:border-primary/60 hover:bg-primary/5">
             <input
               type="file"
               className="hidden"
@@ -267,26 +238,21 @@ function SourceCard({
                 setFile(key, nextFile);
               }}
             />
-            <div
-              className="flex h-14 w-14 items-center justify-center rounded-2xl"
-              style={{ background: "hsl(var(--primary) / 0.10)", color: "hsl(var(--primary))" }}
-            >
+            <div className="text-muted-foreground">
               {source.method === "file" && <FileCode className="h-7 w-7" />}
               {source.method === "zip" && <FileArchive className="h-7 w-7" />}
               {source.method === "excel" && <FileSpreadsheet className="h-7 w-7" />}
             </div>
             {selectedFile ? (
               <div className="text-center">
-                <p className="max-w-[260px] truncate text-sm font-semibold text-foreground">
+                <p className="max-w-[260px] truncate font-mono text-sm font-semibold text-foreground">
                   {selectedFile.name}
                 </p>
                 <p className="mt-0.5 text-xs text-success">{t("analysis.ready")}</p>
               </div>
             ) : (
               <div className="text-center">
-                <p className="text-sm font-semibold text-foreground">
-                  {t("analysis.clickOrDrop")}
-                </p>
+                <p className="text-sm font-semibold text-foreground">{t("analysis.clickOrDrop")}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {source.method === "file"
                     ? t("analysis.codeFiles")
@@ -300,10 +266,7 @@ function SourceCard({
         )}
 
         {source.method === "excel" && (
-          <div
-            className="flex items-center gap-2 rounded-xl border border-border/50 px-3 py-3 text-xs text-muted-foreground"
-            style={{ background: "hsl(var(--surface-2))" }}
-          >
+          <div className="flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-3 text-xs text-muted-foreground">
             <Info className="h-3.5 w-3.5 shrink-0" />
             <span>{t("analysis.excelRow")}</span>
             <input
@@ -313,14 +276,14 @@ function SourceCard({
               onChange={(event) => onChange({ ...source, excelRow: event.target.value })}
               placeholder="1"
               className={cn(
-                "h-8 w-20 rounded-md border border-border/60 bg-card px-2 text-foreground focus:border-primary/60 focus:outline-none",
+                "h-8 w-20 rounded-sm border border-border bg-card px-2 font-mono text-foreground focus:border-primary/60 focus:outline-none",
                 isRTL ? "mr-auto text-right" : "ml-auto",
               )}
             />
           </div>
         )}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -349,6 +312,9 @@ const Analysis = () => {
   const languageOptions = useMemo(() => {
     return supportedLanguages.length ? supportedLanguages : FALLBACK_LANGUAGE_OPTIONS;
   }, [supportedLanguages]);
+
+  const readyCount = (sourceReady(sourceA) ? 1 : 0) + (sourceReady(sourceB) ? 1 : 0);
+  const bothReady = readyCount === 2;
 
   const buildFormData = () => {
     const formData = new FormData();
@@ -398,9 +364,7 @@ const Analysis = () => {
       navigate(nextUrl);
     } catch (error) {
       setErrorMessage(
-        error instanceof Error
-          ? localizeRuntimeMessage(error.message)
-          : t("analysis.analysisFailed"),
+        error instanceof Error ? localizeRuntimeMessage(error.message) : t("analysis.analysisFailed"),
       );
     }
   };
@@ -411,91 +375,46 @@ const Analysis = () => {
       : null;
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Hero band */}
-      <section
-        className="relative overflow-hidden rounded-2xl border border-border bg-card"
-        style={{ boxShadow: "var(--card-shadow-rest)" }}
-      >
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-24 right-0 h-64 w-96 rounded-full opacity-30 blur-3xl"
-          style={{ background: "radial-gradient(ellipse, hsl(var(--primary) / 0.3), transparent 70%)" }}
-        />
-        <div className="relative flex flex-wrap items-end justify-between gap-4 p-6">
-          <div>
-            <div
-              className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold text-primary"
-              style={{ background: "hsl(var(--primary) / 0.08)", border: "1px solid hsl(var(--primary) / 0.18)" }}
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-              {t("analysis.eyebrow", { defaultValue: "Pairwise analysis" })}
-            </div>
-            <h1 className="mt-3 t-h2">{t("analysis.title")}</h1>
-            <p className="mt-1 max-w-[60ch] t-body">{t("analysis.subtitle")}</p>
-          </div>
+    <div className="space-y-6">
+      <Masthead
+        kicker={t("analysis.eyebrow", { defaultValue: "Pairwise analysis" })}
+        title={t("analysis.title")}
+        description={t("analysis.subtitle")}
+        meta={[
+          { label: "MODE", value: "PAIRWISE" },
+          {
+            label: "STATUS",
+            value: bothReady ? (
+              <span className="text-success">READY</span>
+            ) : (
+              <span className="text-warning">DRAFT · {readyCount}/2</span>
+            ),
+          },
+          { label: "AUTOSAVE", value: "ON" },
+        ]}
+      />
 
-          {/* Language selector */}
-          <div
-            className="shrink-0 rounded-xl border border-border/60 px-4 py-3"
-            style={{ background: "hsl(var(--surface-2))" }}
-          >
-            <div className="flex items-center gap-2 t-label">
-              <Code2 className="h-3.5 w-3.5" />
-              {t("analysis.language")}
-            </div>
-            <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-              <SelectTrigger className="mt-1.5 h-8 w-[180px] border-0 bg-transparent p-0 text-sm font-semibold shadow-none focus:ring-0">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {languageOptions.map((option) => (
-                  <SelectItem key={option} value={option} className="text-sm">
-                    {getProgrammingLanguageLabel(option)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Step pills */}
-        <div className="flex flex-wrap items-center gap-3 border-t border-border px-6 py-3 text-xs text-muted-foreground"
-             style={{ background: "hsl(var(--surface-2) / 0.5)" }}>
-          <div className="flex items-center gap-1.5">
-            <span
-              className="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white"
-              style={{ background: "var(--gradient-brand)" }}
-            >
-              1
-            </span>
-            <span className="font-semibold text-foreground">{t("analysis.steps.provide")}</span>
-          </div>
-          <div className="h-px w-6 bg-border" />
-          <div className="flex items-center gap-1.5">
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-medium">
-              2
-            </span>
-            {t("analysis.steps.run")}
-          </div>
-          <div className="h-px w-6 bg-border" />
-          <div className="flex items-center gap-1.5">
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-medium">
-              3
-            </span>
-            {t("analysis.steps.inspect")}
-          </div>
-        </div>
-      </section>
+      {/* Case parameters — margin-label fields */}
+      <FieldSheet>
+        <Field label={t("analysis.language")} align="center">
+          <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+            <SelectTrigger className="h-9 w-full max-w-[220px] rounded-sm border-border bg-card font-mono text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {languageOptions.map((option) => (
+                <SelectItem key={option} value={option} className="font-mono text-sm">
+                  {getProgrammingLanguageLabel(option)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+      </FieldSheet>
 
       {errorMessage && (
         <div
-          className="flex items-start gap-3 rounded-xl border px-4 py-3 text-sm"
-          style={{
-            borderColor: "hsl(var(--destructive) / 0.25)",
-            background: "hsl(var(--destructive) / 0.06)",
-            color: "hsl(var(--destructive))",
-          }}
+          className="flex items-start gap-3 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"
           role="alert"
         >
           <Info className="mt-0.5 h-4 w-4 shrink-0" />
@@ -503,88 +422,70 @@ const Analysis = () => {
         </div>
       )}
 
-      {/* Two source cards */}
+      {/* Two exhibits, A vs B */}
       <div className="grid gap-5 xl:grid-cols-2">
-        <SourceCard label="A" accent="primary" source={sourceA} onChange={setSourceA} />
-        <SourceCard label="B" accent="accent" source={sourceB} onChange={setSourceB} />
+        <ExhibitPanel label="A" source={sourceA} onChange={setSourceA} />
+        <ExhibitPanel label="B" source={sourceB} onChange={setSourceB} />
       </div>
 
-      {/* Advanced capabilities */}
+      {/* Engine capabilities — collapsed spec list */}
       <div>
         <button
           type="button"
           onClick={() => setShowAdvanced((current) => !current)}
-          className="flex items-center gap-2 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
+          className="flex items-center gap-2 font-mono text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
         >
           {showAdvanced ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           {t("analysis.capabilities.toggle")}
         </button>
 
         {showAdvanced && (
-          <div
-            className="mt-3 animate-fade-in rounded-xl border border-border/50 p-4"
-            style={{ background: "hsl(var(--surface-2) / 0.6)" }}
-          >
-            <div className="grid gap-3 text-xs sm:grid-cols-2 lg:grid-cols-3">
-              {CAPABILITY_KEYS.map((key) => (
-                <div
-                  key={key}
-                  className="flex items-center gap-2 rounded-lg border border-border/40 bg-card px-3 py-2"
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5 text-success" />
-                  <span className="text-muted-foreground">{t(`analysis.${key}`)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          <dl className="mt-3 grid grid-cols-1 gap-x-8 overflow-hidden rounded-lg border border-border bg-card sm:grid-cols-2">
+            {CAPABILITY_KEYS.map((key, i) => (
+              <div
+                key={key}
+                className={cn(
+                  "flex items-center gap-2.5 border-border px-4 py-2.5 text-xs",
+                  i % 2 === 0 && "sm:border-e",
+                  i < CAPABILITY_KEYS.length - 2 && "border-b",
+                )}
+              >
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-success" />
+                <dt className="text-muted-foreground">{t(`analysis.${key}`)}</dt>
+              </div>
+            ))}
+          </dl>
         )}
       </div>
 
-      {/* Action bar */}
-      <div
-        className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 lg:flex-row lg:items-center lg:justify-between"
-        style={{ boxShadow: "var(--card-shadow-rest)" }}
-      >
-        <div className="text-xs text-muted-foreground">
-          {t("analysis.autoSave")}
-          {isAnalyzing && analysisProgress && (
-            <div className="mt-2 flex items-center gap-3">
-              <div className="flex-1 max-w-md">
-                <div className="flex items-center justify-between text-[11px] font-semibold text-primary">
-                  <span>{localizeRuntimeMessage(analysisProgress.stage)}</span>
-                  {progressPercent !== null && <span className="font-mono">{progressPercent}%</span>}
-                </div>
-                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{
-                      width: `${progressPercent ?? 20}%`,
-                      background: "var(--gradient-brand)",
-                    }}
-                  />
-                </div>
+      {/* Run footer — mono status line + actions */}
+      <div className="sticky bottom-0 flex flex-col gap-3 rounded-lg border border-border bg-card/95 p-4 backdrop-blur-sm lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0 font-mono text-[11px] text-muted-foreground">
+          {isAnalyzing && analysisProgress ? (
+            <div className="flex items-center gap-3">
+              <span className="uppercase tracking-wide text-primary">
+                {localizeRuntimeMessage(analysisProgress.stage)}
+                {progressPercent !== null && <span className="tabular-nums"> · {progressPercent}%</span>}
+              </span>
+              <div className="h-1 w-40 overflow-hidden rounded-sm bg-muted">
+                <div
+                  className="h-full bg-primary transition-all duration-500"
+                  style={{ width: `${progressPercent ?? 20}%` }}
+                />
               </div>
             </div>
+          ) : (
+            <span className="uppercase tracking-wide">{t("analysis.autoSave")}</span>
           )}
         </div>
 
         <div className="flex flex-wrap gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-10 border-border/60 text-sm"
-            onClick={clearAll}
-            disabled={isAnalyzing}
-          >
+          <Button variant="outline" size="sm" className="h-10 text-sm" onClick={clearAll} disabled={isAnalyzing}>
             {t("analysis.clearAll")}
           </Button>
           <Button
             size="sm"
-            className="h-10 gap-2 px-6 text-sm text-white"
-            style={{
-              background: "var(--gradient-brand)",
-              boxShadow: "var(--glow-shadow-sm)",
-            }}
+            className="h-10 gap-2 px-6 text-sm"
             onClick={() => void handleAnalyze()}
             disabled={isAnalyzing}
           >
@@ -595,7 +496,6 @@ const Analysis = () => {
               </span>
             ) : (
               <>
-                <Sparkles className="h-4 w-4" />
                 {t("analysis.submit")}
                 <ArrowRight className="h-4 w-4" />
               </>

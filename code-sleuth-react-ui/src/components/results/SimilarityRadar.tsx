@@ -75,7 +75,11 @@ export function SimilarityRadar({ items }: { items: SimilarityItem[] }) {
         </h3>
         <p className="mt-1 text-xs text-muted-foreground">{t("results.radar.description")}</p>
       </div>
-      <div className="flex items-center justify-center p-4">
+      <div
+        className="flex items-center justify-center p-4"
+        role="img"
+        aria-label={data.map((entry) => `${entry.fullName}: ${Math.round(entry.value)}%`).join(", ")}
+      >
         <ResponsiveContainer width="100%" height={320}>
           <RadarChart data={data} margin={{ top: 16, right: 32, bottom: 16, left: 32 }}>
             <PolarGrid stroke="hsl(var(--border) / 0.5)" />
@@ -86,8 +90,8 @@ export function SimilarityRadar({ items }: { items: SimilarityItem[] }) {
             <Radar
               name="similarity"
               dataKey="value"
-              stroke="hsl(235 84% 59%)"
-              fill="hsl(235 84% 59%)"
+              stroke="hsl(var(--primary))"
+              fill="hsl(var(--primary))"
               fillOpacity={0.18}
               strokeWidth={2}
               dot={(props: CustomDotProps) => {

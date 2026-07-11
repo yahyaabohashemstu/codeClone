@@ -3,6 +3,7 @@
     "title": "Help & Support",
     "subtitle": "Find answers, read documentation, or contact our support team.",
     "support": {
+      "title": "Support channels",
       "docs": {
         "title": "Documentation",
         "description": "Comprehensive guides, API references, and integration tutorials.",
@@ -55,6 +56,7 @@
         }
       ]
     },
-    "eyebrow": "Support & docs"
+    "eyebrow": "Support & docs",
+    "contents": "Contents"
   }
 }

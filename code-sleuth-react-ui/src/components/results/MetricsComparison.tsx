@@ -56,30 +56,30 @@ export function MetricsComparison({
 
   return (
     <div className="card-premium overflow-hidden">
-      <div className="border-b border-border/50 px-5 py-4">
-        <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+      <div className="border-b border-border px-5 py-4">
+        <h3 className="t-h5 flex items-center gap-2 text-foreground">
           <Cpu className="h-4 w-4 text-primary" />
           {t("results.metrics.title")}
         </h3>
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="mt-1.5 text-xs text-muted-foreground">
           {t("results.metrics.description")}
         </p>
       </div>
       <div className="overflow-x-auto scrollbar-thin">
         <table className="w-full min-w-[760px]">
           <thead>
-            <tr className="border-b border-border/40 bg-muted/20">
-              <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground">{t("results.metrics.metric")}</th>
-              <th className="px-5 py-3 text-center text-xs font-medium text-primary">{t("results.metrics.sourceA")}</th>
-              <th className="px-5 py-3 text-center text-xs font-medium text-accent">{t("results.metrics.sourceB")}</th>
+            <tr className="border-b border-border bg-muted/30">
+              <th className="t-label px-5 py-3 text-left text-muted-foreground">{t("results.metrics.metric")}</th>
+              <th className="t-label px-5 py-3 text-center text-foreground">{t("results.metrics.sourceA")}</th>
+              <th className="t-label px-5 py-3 text-center text-foreground">{t("results.metrics.sourceB")}</th>
             </tr>
           </thead>
-          <tbody>
-            {metricNames.map((name, index) => (
-              <tr key={name} className={index % 2 === 0 ? "border-b border-border/30" : "border-b border-border/30 bg-muted/5"}>
+          <tbody className="divide-y divide-border">
+            {metricNames.map((name) => (
+              <tr key={name}>
                 <td className="px-5 py-3 text-xs font-medium text-foreground">{name}</td>
-                <td className="px-5 py-3 text-center font-mono text-xs text-primary">{formatValue(flatA[name], t)}</td>
-                <td className="px-5 py-3 text-center font-mono text-xs text-accent">{formatValue(flatB[name], t)}</td>
+                <td className="px-5 py-3 text-center font-mono text-xs text-foreground">{formatValue(flatA[name], t)}</td>
+                <td className="px-5 py-3 text-center font-mono text-xs text-foreground">{formatValue(flatB[name], t)}</td>
               </tr>
             ))}
           </tbody>

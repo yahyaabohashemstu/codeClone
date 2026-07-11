@@ -169,14 +169,8 @@ const Auth = () => {
       {/* ── Brand side (dark panel) ── */}
       <section
         className="relative flex flex-col justify-between overflow-hidden p-10 text-white"
-        style={{ background: "hsl(222 28% 7%)" }}
+        style={{ background: "hsl(30 12% 8%)" }}
       >
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-20 -top-32 h-[500px] w-[500px] rounded-full"
-          style={{ background: "radial-gradient(circle, hsl(var(--primary) / 0.4), transparent 70%)" }}
-        />
-
         <div className="relative">
           <div className="flex items-center gap-3">
             <div

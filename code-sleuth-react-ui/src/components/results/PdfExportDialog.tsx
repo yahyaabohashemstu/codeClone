@@ -21,7 +21,6 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { useLanguage } from "@/context/LanguageContext";
 import { openPdfReport, DEFAULT_SECTIONS, type PdfSections } from "@/lib/pdfGenerator";
 import type { AnalysisResult } from "@/types/api";
@@ -138,10 +137,8 @@ export function PdfExportDialog({ open, onOpenChange, result }: Props) {
         dir={isRTL ? "rtl" : "ltr"}
       >
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-base">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-brand shadow-glow-sm">
-              <FileText className="h-3.5 w-3.5 text-white" />
-            </div>
+          <DialogTitle className="t-h4 flex items-center gap-2">
+            <FileText className="h-4 w-4 shrink-0 text-primary" />
             {t("results.pdfExport.title")}
           </DialogTitle>
           <DialogDescription className="text-xs leading-relaxed">
@@ -152,7 +149,10 @@ export function PdfExportDialog({ open, onOpenChange, result }: Props) {
         {/* Section picker */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-foreground">{t("results.pdfExport.sectionTitle")}</span>
+            <div className="t-label flex items-center gap-2.5">
+              <span className="h-px w-6 bg-primary" />
+              {t("results.pdfExport.sectionTitle")}
+            </div>
             <div className="flex gap-2">
               <button
                 type="button"
@@ -161,7 +161,7 @@ export function PdfExportDialog({ open, onOpenChange, result }: Props) {
               >
                 {t("results.pdfExport.selectAll")}
               </button>
-              <span className="text-muted-foreground/40">&middot;</span>
+              <span className="text-muted-foreground">&middot;</span>
               <button
                 type="button"
                 onClick={() => toggleAll(false)}
@@ -172,58 +172,50 @@ export function PdfExportDialog({ open, onOpenChange, result }: Props) {
             </div>
           </div>
 
-          <div className="space-y-1.5 rounded-xl border border-border/50 bg-muted/20 p-2">
-            {SECTIONS.map((def, idx) => {
+          <div className="divide-y divide-border rounded-lg border border-border bg-card">
+            {SECTIONS.map((def) => {
               const checked = sections[def.key];
               const Icon = def.icon;
               const label = t(def.labelKey);
               const desc = t(def.descKey);
               return (
-                <div key={def.key}>
-                  <label
-                    htmlFor={`sec-${def.key}`}
-                    className={cn(
-                      "flex cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5 transition-colors",
-                      checked
-                        ? "bg-primary/8 hover:bg-primary/12"
-                        : "hover:bg-muted/60",
-                      def.alwaysOn && "cursor-default",
-                    )}
-                    onClick={(e) => {
-                      if ((e.target as HTMLElement).closest('[role="checkbox"]')) return;
-                      toggle(def.key);
-                    }}
-                  >
-                    <Checkbox
-                      id={`sec-${def.key}`}
-                      checked={checked}
-                      disabled={def.alwaysOn}
-                      onCheckedChange={() => toggle(def.key)}
-                      className="mt-0.5 shrink-0"
-                    />
-                    <div className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border", checked ? "border-primary/30 bg-primary/10 text-primary" : "border-border/50 bg-muted/40 text-muted-foreground")}>
-                      <Icon className="h-3.5 w-3.5" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor={`sec-${def.key}`} className="cursor-pointer text-sm font-medium text-foreground">
-                          {label}
-                        </Label>
-                        {def.alwaysOn && (
-                          <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary">
-                            {t("results.pdfExport.alwaysOn")}
-                          </span>
-                        )}
-                      </div>
-                      <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
-                        {desc}
-                      </p>
-                    </div>
-                  </label>
-                  {idx < SECTIONS.length - 1 && (
-                    <Separator className="mx-3 bg-border/30" />
+                <label
+                  key={def.key}
+                  htmlFor={`sec-${def.key}`}
+                  className={cn(
+                    "flex cursor-pointer items-start gap-3 px-3 py-2.5 transition-colors",
+                    checked ? "bg-muted" : "hover:bg-muted/60",
+                    def.alwaysOn && "cursor-default",
                   )}
-                </div>
+                  onClick={(e) => {
+                    if ((e.target as HTMLElement).closest('[role="checkbox"]')) return;
+                    toggle(def.key);
+                  }}
+                >
+                  <Checkbox
+                    id={`sec-${def.key}`}
+                    checked={checked}
+                    disabled={def.alwaysOn}
+                    onCheckedChange={() => toggle(def.key)}
+                    className="mt-0.5 shrink-0"
+                  />
+                  <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", checked ? "text-primary" : "text-muted-foreground")} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor={`sec-${def.key}`} className="cursor-pointer text-sm font-medium text-foreground">
+                        {label}
+                      </Label>
+                      {def.alwaysOn && (
+                        <span className="badge-info">
+                          {t("results.pdfExport.alwaysOn")}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+                      {desc}
+                    </p>
+                  </div>
+                </label>
               );
             })}
           </div>
@@ -231,9 +223,9 @@ export function PdfExportDialog({ open, onOpenChange, result }: Props) {
 
         {/* Counter + note */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between rounded-lg border border-border/40 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+          <div className="flex items-center justify-between rounded-lg border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
             <span>
-              <span className="font-semibold text-foreground">{enabledCount}</span>{" "}
+              <span className="font-mono font-semibold text-foreground">{enabledCount}</span>{" "}
               {t("results.pdfExport.selected")}
             </span>
             <span className="text-[10px] italic">{t("results.pdfExport.previewNote")}</span>
