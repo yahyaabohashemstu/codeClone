@@ -18,7 +18,7 @@ import { Cpu, Maximize2, MousePointerClick, ZoomIn, ZoomOut } from "lucide-react
 
 type GraphTone = "primary" | "accent";
 
-// Warm two-tone coding: primary side = amber (the one accent), suspect side =
+// Two-tone coding: primary side = ink navy (the one accent), suspect side =
 // terracotta. Both fully token-based (--primary / --accent-suspect) so they
 // track light/dark. Replaces the old hardcoded indigo/cyan neon.
 function getGraphToneColor(color: GraphTone) {
@@ -317,7 +317,7 @@ function buildTreeLayout(
 
 const AstNode = memo(({ data, selected }: NodeProps<AstFlowNode>) => {
   // The .ast-flow-* CSS now paints a flat token surface (no neon, no glow).
-  // We still set node tone (amber / suspect) and the selection/path border
+  // We still set node tone (navy / suspect) and the selection/path border
   // inline so a node's emphasis tracks the live theme tokens directly, in
   // both light and dark.
   const toneColor = getGraphToneColor(data.tone);

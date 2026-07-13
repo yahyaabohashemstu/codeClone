@@ -50,7 +50,7 @@
   :root {
     color-scheme: light;
 
-    /* Evidence Dossier — warm paper & ink, a single amber signal, forensic mono voice */
+    /* Evidence Dossier — warm paper & ink, a single ink-navy signal, forensic mono voice */
     --background: 42 30% 95%;          /* warm paper */
     --foreground: 30 14% 13%;          /* warm ink */
 
@@ -60,8 +60,8 @@
     --popover: 40 36% 98%;
     --popover-foreground: 30 14% 13%;
 
-    --primary: 34 92% 46%;             /* amber / ochre — the one signal colour */
-    --primary-foreground: 32 34% 10%;  /* dark ink on amber (high contrast) */
+    --primary: 214 60% 34%;            /* ink navy (Prussian) — the one signal colour */
+    --primary-foreground: 44 40% 96%;  /* near-white paper on navy (7.6:1) */
 
     --secondary: 40 22% 90%;
     --secondary-foreground: 30 14% 22%;
@@ -87,18 +87,18 @@
 
     --border: 38 17% 82%;
     --input: 38 17% 85%;
-    --ring: 34 92% 46%;
+    --ring: 214 60% 34%;
 
     --radius: 0.35rem;                 /* sharp, technical — not rounded-blob */
 
     --sidebar-background: 42 30% 96%;
     --sidebar-foreground: 34 10% 33%;
-    --sidebar-primary: 34 92% 46%;
-    --sidebar-primary-foreground: 32 34% 10%;
+    --sidebar-primary: 214 60% 34%;
+    --sidebar-primary-foreground: 44 40% 96%;
     --sidebar-accent: 40 24% 90%;
     --sidebar-accent-foreground: 30 14% 22%;
     --sidebar-border: 38 17% 86%;
-    --sidebar-ring: 34 92% 46%;
+    --sidebar-ring: 214 60% 34%;
 
     --surface-1: 40 36% 97%;
     --surface-2: 42 28% 94%;
@@ -110,11 +110,11 @@
 
     /* Categorical chart palette — warm, on-paper hues (not the raw indigo/cyan
        neon). For SEMANTIC similarity bands use --success/--warning/--destructive. */
-    --chart-1: 34 92% 46%;   /* amber (primary) */
+    --chart-1: 214 60% 34%;  /* ink navy (primary) */
     --chart-2: 16 58% 46%;   /* terracotta */
     --chart-3: 130 32% 33%;  /* olive */
     --chart-4: 30 9% 45%;    /* warm slate */
-    --chart-5: 200 24% 42%;  /* muted steel */
+    --chart-5: 284 22% 54%;  /* muted plum — kept clear of the navy primary */
 
     /* Fixed dark "ink" rail — the auth brand panel is always dark in both
        themes (defined once in :root, not overridden by .dark). */
@@ -209,8 +209,8 @@
     --popover: 30 12% 10%;
     --popover-foreground: 42 22% 88%;
 
-    --primary: 38 95% 54%;
-    --primary-foreground: 32 40% 8%;
+    --primary: 210 72% 64%;
+    --primary-foreground: 214 45% 12%;
 
     --secondary: 30 10% 17%;
     --secondary-foreground: 42 16% 78%;
@@ -234,16 +234,16 @@
 
     --border: 30 9% 19%;
     --input: 30 9% 17%;
-    --ring: 38 95% 54%;
+    --ring: 210 72% 64%;
 
     --sidebar-background: 30 12% 7%;
     --sidebar-foreground: 38 10% 60%;
-    --sidebar-primary: 38 95% 54%;
-    --sidebar-primary-foreground: 32 40% 8%;
+    --sidebar-primary: 210 72% 64%;
+    --sidebar-primary-foreground: 214 45% 12%;
     --sidebar-accent: 30 10% 15%;
     --sidebar-accent-foreground: 42 20% 84%;
     --sidebar-border: 30 9% 15%;
-    --sidebar-ring: 38 95% 54%;
+    --sidebar-ring: 210 72% 64%;
 
     --surface-1: 30 12% 10%;
     --surface-2: 30 11% 13%;
@@ -253,11 +253,11 @@
     --code-surface-foreground: 42 18% 82%;
     --code-surface-border: 30 9% 18%;
 
-    --chart-1: 38 95% 54%;
+    --chart-1: 210 72% 64%;
     --chart-2: 16 66% 58%;
     --chart-3: 128 34% 46%;
     --chart-4: 38 10% 58%;
-    --chart-5: 200 30% 58%;
+    --chart-5: 284 30% 66%;
 
     --card-shadow-rest: 0 1px 2px hsl(0 0% 0% / 0.4);
     --card-shadow-hover: 0 2px 10px hsl(0 0% 0% / 0.55);
@@ -600,7 +600,7 @@
   }
 
   /* Flat dossier node: solid card fill + hairline, no glass, no glow. Node
-     tone (amber / suspect) and selection border are applied inline by AstNode
+     tone (navy / suspect) and selection border are applied inline by AstNode
      so they track the token themes; this class owns layout + resting surface. */
   .ast-flow-label-card {
     width: 100%;
@@ -631,7 +631,7 @@
   }
 
   /* Node marker — solid token dot, no coloured glow ring. AstNode sets the
-     amber / suspect fill inline; this is the neutral resting fallback. */
+     navy / suspect fill inline; this is the neutral resting fallback. */
   .ast-flow-compact-dot {
     width: 14px;
     height: 14px;
@@ -647,7 +647,7 @@
   }
 
   /* Selection & ancestry-path emphasis is carried by the inline border colour
-     AstNode already sets (amber / suspect) — no transform, no neon box-shadow,
+     AstNode already sets (navy / suspect) — no transform, no neon box-shadow,
      no white text. Keeps the graph calm and reduced-motion friendly. */
 
   .ast-flow-handle {
