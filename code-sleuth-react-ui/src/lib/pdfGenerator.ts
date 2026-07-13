@@ -320,7 +320,7 @@ function radarSvg(items: Array<{ name: string; value: number }>, lang: Lang): st
   const dots = pts
     .map((p, i) => {
       const [x, y] = coord(i, (clamp(p.value) / 100) * R);
-      return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.6" fill="#4f46e5"/>`;
+      return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.6" fill="#c97f0d"/>`;
     })
     .join("");
   const labels = pts
@@ -334,7 +334,7 @@ function radarSvg(items: Array<{ name: string; value: number }>, lang: Lang): st
     .join("");
   return `<svg viewBox="0 0 350 320" width="100%" height="auto" style="max-width:360px" role="img" aria-label="${esc(LABELS[lang].radar)}">
     ${rings}${axes}
-    <polygon points="${valuePoly}" fill="rgba(79,70,229,.18)" stroke="#4f46e5" stroke-width="2"/>
+    <polygon points="${valuePoly}" fill="rgba(201,127,13,.18)" stroke="#c97f0d" stroke-width="2"/>
     ${dots}${labels}
   </svg>`;
 }
@@ -481,7 +481,7 @@ export function buildReportHtml(result: AnalysisResult, sections: PdfSections, l
     const kpis = [
       kpi(L.combined, `${score.toFixed(0)}%`, strengthColor(score), strengthLabel(score, L)),
       kpi(L.risk, riskLabel(risk, L), riskColor),
-      kpi(L.kpiClones, `${detectedClones}/${clones.length || 0}`, "#4f46e5"),
+      kpi(L.kpiClones, `${detectedClones}/${clones.length || 0}`, "#c97f0d"),
       kpi(L.kpiFindings, String(findingCount), findingCount ? "#ea580c" : "#059669"),
       kpi(L.language, esc(result.language), "#0f172a"),
       strongest
@@ -542,7 +542,7 @@ export function buildReportHtml(result: AnalysisResult, sections: PdfSections, l
         L.cloneDetection,
         `<div class="coverage">
           <div class="coverage-head"><span>${esc(L.coverage)}</span><b>${detectedClones} / ${clones.length} ${esc(L.activated)}</b></div>
-          <div class="bar-track"><div class="bar-fill" style="width:${coverage.toFixed(1)}%;background:#4f46e5"></div></div>
+          <div class="bar-track"><div class="bar-fill" style="width:${coverage.toFixed(1)}%;background:#c97f0d"></div></div>
         </div>
         <div class="chips">${chips}</div>`,
       ),
@@ -607,13 +607,13 @@ export function buildReportHtml(result: AnalysisResult, sections: PdfSections, l
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>${esc(L.title)}</title>
 <style>
-  :root { --brand:#4f46e5; --brand2:#7c3aed; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --soft:#f8fafc; }
+  :root { --brand:#c97f0d; --brand2:#b9663a; --ink:#25211d; --muted:#6b6459; --line:#e4ddd0; --soft:#faf6ee; }
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   html { -webkit-text-size-adjust: 100%; }
   body { font-family: -apple-system, "Segoe UI", Roboto, "Noto Sans Arabic", "Noto Naskh Arabic", sans-serif;
-    color: var(--ink); margin: 0; background: #eef2f7; line-height: 1.55; font-size: 14px; }
-  .page { max-width: 940px; margin: 24px auto; background: #fff; box-shadow: 0 10px 40px rgba(15,23,42,.12);
-    border-radius: 14px; overflow: hidden; }
+    color: var(--ink); margin: 0; background: #f4efe6; line-height: 1.55; font-size: 14px; }
+  .page { max-width: 940px; margin: 24px auto; background: #fff; box-shadow: 0 6px 24px rgba(37,33,29,.12);
+    border-radius: 6px; overflow: hidden; }
   .page-inner { padding: 0 40px 40px; }
   a { color: var(--brand); }
 
@@ -717,7 +717,7 @@ export function buildReportHtml(result: AnalysisResult, sections: PdfSections, l
 
   .print-btn { position: fixed; top: 16px; ${dir === "rtl" ? "left" : "right"}: 16px; z-index: 10;
     background: var(--brand); color: #fff; border: 0; padding: 10px 16px; border-radius: 8px; cursor: pointer;
-    font-size: 13px; font-weight: 600; box-shadow: 0 6px 20px rgba(79,70,229,.4); }
+    font-size: 13px; font-weight: 600; box-shadow: 0 6px 20px rgba(201,127,13,.4); }
   .print-btn:hover { background: #4338ca; }
 
   @media print {

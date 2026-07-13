@@ -126,7 +126,7 @@ const Settings = () => {
             value: twofaOn ? (
               <span className="text-success">ENABLED</span>
             ) : (
-              <span className="text-warning">DISABLED</span>
+              <span className="rounded-sm bg-warning/20 px-1.5 py-0.5 text-foreground">DISABLED</span>
             ),
           },
           { label: "ROLE", value: user?.is_admin ? "ADMIN" : "STANDARD" },
@@ -137,14 +137,14 @@ const Settings = () => {
             ) : user?.email_verified ? (
               <span className="text-success">VERIFIED</span>
             ) : (
-              <span className="text-warning">UNVERIFIED</span>
+              <span className="rounded-sm bg-warning/20 px-1.5 py-0.5 text-foreground">UNVERIFIED</span>
             ),
           },
         ]}
       />
 
-      {/* Identity — read-only case attributes */}
-      <Panel label={t("settings.identity", { defaultValue: "Identity" })} bodyClassName="px-5 py-0 sm:px-6">
+      {/* Identity — read-only case attributes, a ruled spec sheet (not a card) */}
+      <Panel bare marker="§" label={t("settings.identity", { defaultValue: "Identity" })}>
         <Field label={t("settings.account", { defaultValue: "Account" })} align="center">
           <div className="flex flex-wrap items-center gap-2.5">
             <span className="font-mono text-sm font-semibold text-foreground" dir="ltr">
@@ -159,7 +159,7 @@ const Settings = () => {
               <span className="font-mono text-sm text-foreground" dir="ltr">
                 {user?.email}
               </span>
-              <span className={user?.email_verified ? "badge-success" : "font-mono text-[11px] uppercase tracking-[0.14em] text-warning"}>
+              <span className={user?.email_verified ? "badge-success" : "badge-warning"}>
                 {user?.email_verified
                   ? t("settings.verified", { defaultValue: "verified" })
                   : t("settings.unverified", { defaultValue: "unverified" })}

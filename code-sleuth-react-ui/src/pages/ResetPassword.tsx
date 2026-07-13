@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowRight, CheckCircle2, Eye, EyeOff, Lock } from "lucide-react";
+import { CheckCircle2, Eye, EyeOff, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
@@ -110,16 +110,13 @@ const ResetPassword = () => {
               {t("auth.updating")}
             </span>
           ) : (
-            <>
-              {t("auth.updatePassword")}
-              <ArrowRight className="h-4 w-4" />
-            </>
+            t("auth.updatePassword")
           )}
         </Button>
       </form>
 
       <div className="mt-5 text-center text-sm">
-        <Link to="/login" className="text-primary hover:underline">{t("auth.backToLogin")}</Link>
+        <Link to="/login" className="text-foreground underline underline-offset-2 hover:opacity-70">{t("auth.backToLogin")}</Link>
       </div>
     </div>
   );

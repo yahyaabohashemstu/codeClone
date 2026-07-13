@@ -23,7 +23,7 @@ export function LanguageToggle() {
       variant="ghost"
       size="sm"
       onClick={toggleLanguage}
-      className="h-9 gap-2 rounded-full border border-border/50 bg-card/50 px-3 text-xs font-semibold shadow-sm backdrop-blur-sm hover:bg-card"
+      className="h-9 gap-2 rounded-md border border-border bg-card px-3 text-xs font-semibold hover:bg-accent"
       aria-label={label.aria}
       title={label.aria}
     >

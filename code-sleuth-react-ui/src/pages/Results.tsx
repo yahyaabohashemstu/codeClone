@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -14,7 +15,6 @@ import {
   FileText,
   MessageSquare,
   RefreshCw,
-  Sparkles,
   ShieldCheck,
   ShieldAlert,
   TrendingUp,
@@ -32,7 +32,7 @@ import { MetricsComparison } from "@/components/results/MetricsComparison";
 import { PdfExportDialog } from "@/components/results/PdfExportDialog";
 import { SimilarityRadar } from "@/components/results/SimilarityRadar";
 import { StructuredReport } from "@/components/results/StructuredReport";
-import { Masthead, FieldSheet, Field, Panel, Figure, Serial } from "@/components/dossier/Dossier";
+import { Masthead, FieldSheet, Field, Panel, Figure, Serial, SectionHead } from "@/components/dossier/Dossier";
 import { useAnalysis } from "@/context/AnalysisContext";
 import { useLanguage } from "@/context/LanguageContext";
 import type { AnalysisResult, CloneItem, SimilarityItem } from "@/types/api";
@@ -252,14 +252,13 @@ function SimilarityBars({ items }: { items: SimilarityItem[] }) {
       <div className="divide-y divide-border">
         {items.map((item) => {
           const barTone = item.value >= 80 ? "bg-destructive" : item.value >= 50 ? "bg-warning" : "bg-success";
-          const valueTone = item.value >= 80 ? "text-destructive" : item.value >= 50 ? "text-warning" : "text-success";
           return (
             <div key={item.name} className="flex items-center gap-4 py-2.5">
               <span className="min-w-0 flex-1 truncate text-sm text-foreground">{translateSimilarityName(item.name, t)}</span>
               <div className="metric-bar-track hidden w-28 shrink-0 sm:block lg:w-48">
                 <div className={cn("h-full rounded-full transition-all duration-700", barTone)} style={{ width: `${item.value}%` }} />
               </div>
-              <span className={cn("w-16 shrink-0 text-end font-mono text-sm font-bold tabular-nums", valueTone)}>
+              <span className="w-16 shrink-0 text-end font-mono text-sm font-bold tabular-nums text-foreground">
                 {formatSimilarityValue(item)}
               </span>
             </div>
@@ -402,27 +401,27 @@ function CloneDetection({ items }: { items: CloneItem[] }) {
               <Serial tone={item.detected ? "primary" : "muted"}>{String(index + 1).padStart(2, "0")}</Serial>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                  <h4 className={cn("text-sm font-semibold", item.detected ? "text-warning" : "text-foreground")}>
+                  <h4 className="text-sm font-semibold text-foreground">
                     {translateCloneName(item.name, t)}
                   </h4>
-                  <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/70">
+                  <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
                     {meta.family}
                   </span>
                   <span
                     className={cn(
-                      "ms-auto inline-flex items-center gap-1 font-mono text-[11px] font-bold uppercase tracking-[0.14em]",
-                      item.detected ? "text-warning" : "text-muted-foreground/60",
+                      "ms-auto inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 font-mono text-[11px] font-bold uppercase tracking-[0.14em]",
+                      item.detected ? "bg-warning/20 text-foreground" : "text-muted-foreground",
                     )}
                   >
-                    {item.detected ? <AlertTriangle className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
+                    {item.detected ? <AlertTriangle className="h-3 w-3 text-warning" /> : <CheckCircle2 className="h-3 w-3 text-success" />}
                     {item.detected ? t("results.cloneTypes.detected") : t("results.cloneTypes.notDetected")}
                   </span>
                 </div>
 
                 <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{meta.summary}</p>
 
-                <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground/85">
-                  <span className={cn("font-semibold", item.detected ? "text-warning" : "text-foreground/85")}>
+                <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+                  <span className="font-semibold text-foreground">
                     {item.detected ? t("results.cloneTypes.interpretation") : t("results.cloneTypes.reading")}
                   </span>{" "}
                   {item.detected ? meta.detectedMeaning : meta.absentMeaning}
@@ -564,6 +563,41 @@ const qualitySeverityMeta: Record<
     cardClass: "border-accent/16 bg-accent/[0.04]",
   },
 };
+
+// Amber/red/ink tint for the small severity glyph on a finding row. Colour lives
+// on the icon (allowed) — never on the paper text, which stays ink.
+const severityIconClass: Record<QualitySeverity, string> = {
+  critical: "text-destructive",
+  warning: "text-warning",
+  style: "text-primary",
+  info: "text-muted-foreground",
+};
+
+// A ruled ledger row: mono label + optional note in the main column, a bold ink
+// (or tone-coloured) figure in the value column. Replaces the stat-card grids.
+function QualityLedgerRow({
+  label,
+  value,
+  note,
+  valueClass,
+}: {
+  label: ReactNode;
+  value: ReactNode;
+  note?: ReactNode;
+  valueClass?: string;
+}) {
+  return (
+    <div className="grid grid-cols-[1fr_auto] items-baseline gap-x-4 py-3">
+      <div className="min-w-0">
+        <dt className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{label}</dt>
+        {note != null && <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground/80">{note}</p>}
+      </div>
+      <dd className={cn("shrink-0 text-end font-mono text-lg font-bold tabular-nums text-foreground", valueClass)}>
+        {value}
+      </dd>
+    </div>
+  );
+}
 
 function getQualitySeverity(rawType: string): QualitySeverity {
   const normalized = rawType.trim().toLowerCase();
@@ -763,131 +797,132 @@ function QualitySourceCard({
   };
 
   return (
-    <div className={cn("card-premium overflow-hidden border", toneMeta.containerClass)}>
-      <div className="border-b border-border/50 px-5 py-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className={cn("h-2.5 w-2.5 rounded-full", accentClass)} />
-              <h3 className="text-base font-semibold text-foreground">{title}</h3>
-              <span className={toneMeta.badgeClass}>{toneMeta.label}</span>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-foreground">{report.headline}</p>
-              <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted-foreground">{report.summary}</p>
-            </div>
-          </div>
-
-          <div className="min-w-[168px] rounded-2xl border border-border/60 bg-background/45 px-4 py-3 text-right shadow-[0_10px_30px_rgba(0,0,0,0.14)]">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground/75">
-                {t("results.quality.qualityScore")}
-              </span>
-              <ToneIcon className={cn("h-4 w-4", toneMeta.scoreClass)} />
-            </div>
-            <div className={cn("mt-3 text-4xl font-bold tracking-tight", toneMeta.scoreClass)}>
-              {report.score !== null ? report.score.toFixed(1) : "\u2014"}
-            </div>
-            <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-              {report.ratingLine
-                ? t("results.quality.derivedFromPylint")
-                : t("results.quality.basedOnTextual")}
-            </p>
-          </div>
+    <Panel
+      bodyClassName="p-0"
+      label={
+        <span className="flex items-center gap-2">
+          <span className={cn("h-2.5 w-2.5 rounded-full", accentClass)} />
+          {title}
+        </span>
+      }
+      actions={<span className={toneMeta.badgeClass}>{toneMeta.label}</span>}
+    >
+      {/* Verdict readout + the score as the exhibit figure */}
+      <div className="flex flex-col gap-4 border-b border-border px-5 py-5 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">{report.headline}</p>
+          <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted-foreground">{report.summary}</p>
         </div>
-      </div>
-
-      <div className="grid gap-3 border-b border-border/50 p-5 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-2xl border border-border/50 bg-background/30 p-4">
-          <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-muted-foreground/70">{t("results.quality.findings")}</p>
-          <p className="mt-3 text-2xl font-semibold text-foreground">{totalFindings}</p>
-          <p className="mt-2 text-xs text-muted-foreground">{t("results.quality.findingsDesc")}</p>
-        </div>
-        <div className="rounded-2xl border border-destructive/20 bg-destructive/[0.04] p-4">
-          <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-muted-foreground/70">{t("results.quality.critical")}</p>
-          <p className="mt-3 text-2xl font-semibold text-destructive">{report.counts.critical}</p>
-          <p className="mt-2 text-xs text-muted-foreground">{t("results.quality.criticalDesc")}</p>
-        </div>
-        <div className="rounded-2xl border border-warning/20 bg-warning/[0.04] p-4">
-          <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-muted-foreground/70">{t("results.quality.warnings")}</p>
-          <p className="mt-3 text-2xl font-semibold text-warning">{report.counts.warning + report.counts.style}</p>
-          <p className="mt-2 text-xs text-muted-foreground">{t("results.quality.warningsDesc")}</p>
-        </div>
-        <div className="rounded-2xl border border-border/50 bg-background/30 p-4">
-          <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-muted-foreground/70">{t("results.quality.dominantSignals")}</p>
-          <p className="mt-3 text-sm font-semibold text-foreground">
-            {report.dominantSymbols.length ? report.dominantSymbols.join(" \u2022 ") : t("results.quality.noRepeatedRule")}
+        <div className="flex shrink-0 items-center gap-3 sm:flex-col sm:items-end sm:gap-1 sm:text-end">
+          <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/75">
+            <ToneIcon className={cn("h-3.5 w-3.5", toneMeta.scoreClass)} />
+            {t("results.quality.qualityScore")}
+          </span>
+          <span className="font-mono text-4xl font-bold leading-none tabular-nums text-foreground">
+            {report.score !== null ? report.score.toFixed(1) : "\u2014"}
+          </span>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            {report.ratingLine
+              ? t("results.quality.derivedFromPylint")
+              : t("results.quality.basedOnTextual")}
           </p>
-          <p className="mt-2 text-xs text-muted-foreground">{t("results.quality.dominantSignalsDesc")}</p>
         </div>
       </div>
 
-      <div className="p-5">
+      {/* Severity ledger \u2014 ruled mono rows instead of a stat-card grid */}
+      <dl className="divide-y divide-border border-b border-border px-5">
+        <QualityLedgerRow
+          label={t("results.quality.findings")}
+          note={t("results.quality.findingsDesc")}
+          value={totalFindings}
+        />
+        <QualityLedgerRow
+          label={t("results.quality.critical")}
+          note={t("results.quality.criticalDesc")}
+          value={report.counts.critical}
+          valueClass={report.counts.critical > 0 ? "text-destructive" : undefined}
+        />
+        <QualityLedgerRow
+          label={t("results.quality.warnings")}
+          note={t("results.quality.warningsDesc")}
+          value={report.counts.warning + report.counts.style}
+        />
+        <QualityLedgerRow
+          label={t("results.quality.dominantSignals")}
+          note={t("results.quality.dominantSignalsDesc")}
+          value={
+            <span className="text-sm font-semibold text-foreground">
+              {report.dominantSymbols.length
+                ? report.dominantSymbols.join(" \u2022 ")
+                : t("results.quality.noRepeatedRule")}
+            </span>
+          }
+        />
+      </dl>
+
+      <div className="px-5 py-5">
         {topIssues.length > 0 ? (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <h4 className="text-sm font-semibold text-foreground">{t("results.quality.priorityFindings")}</h4>
-            </div>
-            <div className="space-y-3">
+          <>
+            <SectionHead
+              marker="§"
+              title={t("results.quality.priorityFindings")}
+              aside={<span className="tabular-nums">{`${topIssues.length}/${totalFindings}`}</span>}
+              className="mb-4"
+            />
+            <ol className="divide-y divide-border">
               {topIssues.map((issue, index) => {
                 const meta = qualitySeverityMeta[issue.severity];
                 const IssueIcon = meta.icon;
                 return (
-                  <div key={`${issue.symbol ?? issue.message}-${index}`} className={cn("rounded-2xl border p-4 transition-all duration-200", meta.cardClass)}>
-                    <div className="flex items-start gap-3">
-                      <div className={cn("mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border", meta.iconClass)}>
-                        <IssueIcon className="h-4 w-4" />
+                  <li
+                    key={`${issue.symbol ?? issue.message}-${index}`}
+                    className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 py-4 first:pt-0"
+                  >
+                    <Serial tone={issue.severity === "critical" ? "primary" : "muted"}>
+                      {String(index + 1).padStart(2, "0")}
+                    </Serial>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <IssueIcon className={cn("h-3.5 w-3.5", severityIconClass[issue.severity])} />
+                        <span className={meta.badgeClass}>{severityLabels[issue.severity]}</span>
+                        {issue.symbol && <span className="badge-info">{issue.symbol}</span>}
+                        {(issue.line !== null || issue.column !== null) && (
+                          <span className="rounded-sm border border-border bg-background px-2 py-0.5 font-mono text-[11px] tabular-nums text-muted-foreground">
+                            {issue.line !== null ? t("results.quality.line", { line: issue.line }) : t("results.quality.lineEmpty")}
+                            {issue.column !== null ? t("results.quality.column", { column: issue.column }) : ""}
+                          </span>
+                        )}
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className={meta.badgeClass}>{severityLabels[issue.severity]}</span>
-                          {issue.symbol && <span className="badge-info">{issue.symbol}</span>}
-                          {(issue.line !== null || issue.column !== null) && (
-                            <span className="rounded-full border border-border/60 bg-background/45 px-2.5 py-0.5 text-[11px] text-muted-foreground">
-                              {issue.line !== null ? t("results.quality.line", { line: issue.line }) : t("results.quality.lineEmpty")}
-                              {issue.column !== null ? t("results.quality.column", { column: issue.column }) : ""}
-                            </span>
-                          )}
-                        </div>
-                        <p className="mt-2 text-sm font-medium leading-relaxed text-foreground">{issue.message}</p>
-                        <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground/85">
-                          {t("results.quality.reportedByLinter")}{" "}
-                          <span className="font-semibold text-foreground/85">{issue.rawType}</span>.
-                        </p>
-                      </div>
+                      <p className="mt-2 text-sm font-medium leading-relaxed text-foreground">{issue.message}</p>
+                      <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground/85">
+                        {t("results.quality.reportedByLinter")}{" "}
+                        <span className="font-semibold text-foreground/85">{issue.rawType}</span>.
+                      </p>
                     </div>
-                  </div>
+                  </li>
                 );
               })}
-            </div>
-          </div>
+            </ol>
+          </>
         ) : (
-          <div className="rounded-2xl border border-success/18 bg-success/[0.05] p-5">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-success/20 bg-success/10 text-success">
-                <ShieldCheck className="h-4 w-4" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-foreground">{t("results.quality.noStructuredFindings")}</p>
-                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                  {report.generalNotes[0] || t("results.quality.noStructuredFindingsDesc")}
-                </p>
-              </div>
-            </div>
+          <div className="border-s-2 border-success ps-4">
+            <p className="text-sm font-semibold text-foreground">{t("results.quality.noStructuredFindings")}</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              {report.generalNotes[0] || t("results.quality.noStructuredFindingsDesc")}
+            </p>
           </div>
         )}
 
         {(report.generalNotes.length > 0 || report.text) && (
-          <details className="mt-4 overflow-hidden rounded-2xl border border-border/50 bg-background/35">
+          <details className="mt-4 overflow-hidden rounded-sm border border-border bg-background">
             <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-foreground">
               {t("results.quality.rawDiagnosticReport")}
             </summary>
-            <div className="border-t border-border/40 px-4 py-4">
+            <div className="border-t border-border px-4 py-4">
               {report.generalNotes.length > 0 && (
                 <div className="mb-3 space-y-2">
                   {report.generalNotes.map((note, index) => (
-                    <div key={`${note}-${index}`} className="rounded-xl border border-border/40 bg-muted/10 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+                    <div key={`${note}-${index}`} className="rounded-sm border border-border bg-muted/10 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
                       {note}
                     </div>
                   ))}
@@ -900,7 +935,7 @@ function QualitySourceCard({
           </details>
         )}
       </div>
-    </div>
+    </Panel>
   );
 }
 
@@ -946,45 +981,51 @@ function QualityPanel({ result }: { result: AnalysisResult }) {
   })[0];
 
   return (
-    <div className="space-y-5">
-      <div className="card-premium overflow-hidden border-primary/16 bg-primary/[0.03]">
-        <div className="grid gap-5 p-5 lg:grid-cols-[1.3fr_0.7fr]">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="badge-info">{t("results.quality.intelligence")}</span>
-              <span className="badge-info">{t("results.quality.linterDriven")}</span>
-            </div>
-            <h3 className="mt-3 text-lg font-semibold tracking-tight text-foreground">{t("results.quality.headline")}</h3>
-            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
-              {t("results.quality.description")}
-            </p>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-            <div className="rounded-2xl border border-border/50 bg-background/40 p-4">
-              <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-muted-foreground/70">{t("results.quality.totalFindings")}</p>
-              <p className="mt-3 text-3xl font-semibold text-foreground">{totalFindings}</p>
-              <p className="mt-2 text-xs text-muted-foreground">{t("results.quality.totalFindingsDesc")}</p>
-            </div>
-            <div className="rounded-2xl border border-border/50 bg-background/40 p-4">
-              <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-muted-foreground/70">{t("results.quality.averageScore")}</p>
-              <p className={cn("mt-3 text-3xl font-semibold", averageScore !== null && averageScore >= 7 ? "text-success" : averageScore !== null && averageScore >= 5 ? "text-warning" : averageScore !== null ? "text-destructive" : "text-foreground")}>
-                {averageScore !== null ? averageScore.toFixed(1) : "\u2014"}
-              </p>
-              <p className="mt-2 text-xs text-muted-foreground">{t("results.quality.averageScoreDesc")}</p>
-            </div>
-            <div className="rounded-2xl border border-border/50 bg-background/40 p-4">
-              <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-muted-foreground/70">{t("results.quality.healthierSource")}</p>
-              <p className="mt-3 text-sm font-semibold text-foreground">{healthierSource.title}</p>
-              <p className="mt-2 text-xs text-muted-foreground">
-                {healthierSource.report.score !== null
-                  ? t("results.quality.healthierScoreDesc", { score: healthierSource.report.score.toFixed(1) })
-                  : t("results.quality.healthierIssueDesc")}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div className="space-y-10">
+      {/* Intelligence brief \u2014 a ruled \u00a7-section, not a tinted card; the three
+          aggregates read as a mono spec ledger. */}
+      <Panel
+        bare
+        marker="§"
+        label={t("results.quality.intelligence")}
+        actions={
+          <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+            {t("results.quality.linterDriven")}
+          </span>
+        }
+      >
+        <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
+          {t("results.quality.description")}
+        </p>
+        <dl className="mt-6 divide-y divide-border border-y border-border">
+          <QualityLedgerRow
+            label={t("results.quality.totalFindings")}
+            note={t("results.quality.totalFindingsDesc")}
+            value={totalFindings}
+          />
+          <QualityLedgerRow
+            label={t("results.quality.averageScore")}
+            note={t("results.quality.averageScoreDesc")}
+            value={averageScore !== null ? averageScore.toFixed(1) : "\u2014"}
+            valueClass={
+              averageScore !== null && averageScore >= 7
+                ? "text-success"
+                : averageScore !== null && averageScore < 5
+                  ? "text-destructive"
+                  : undefined
+            }
+          />
+          <QualityLedgerRow
+            label={t("results.quality.healthierSource")}
+            note={
+              healthierSource.report.score !== null
+                ? t("results.quality.healthierScoreDesc", { score: healthierSource.report.score.toFixed(1) })
+                : t("results.quality.healthierIssueDesc")
+            }
+            value={<span className="text-sm font-semibold text-foreground">{healthierSource.title}</span>}
+          />
+        </dl>
+      </Panel>
 
       <div className="grid gap-5 xl:grid-cols-2">
         {sourceReports.map((source) => (
@@ -1131,7 +1172,7 @@ const Results = () => {
 
     return (
       <div
-        className="mx-auto max-w-2xl rounded-2xl border border-border bg-card p-10 text-center"
+        className="mx-auto max-w-2xl rounded-lg border border-border bg-card p-10 text-center"
         style={{ boxShadow: "var(--card-shadow-rest)" }}
       >
         <h2 className="t-h3">{emptyStateTitle}</h2>
@@ -1208,7 +1249,7 @@ const Results = () => {
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span
-                className={cn("font-mono text-[2.125rem] font-bold leading-none tabular-nums", scoreTone.color)}
+                className="font-mono text-[2.125rem] font-bold leading-none tabular-nums text-foreground"
                 style={{ letterSpacing: "-0.04em" }}
               >
                 {overallScoreLabel}
@@ -1238,8 +1279,8 @@ const Results = () => {
               </>
             }
             meta={[
-              { label: "SIMILARITY", value: <span className={scoreTone.color}>{overallScoreLabel}%</span> },
-              { label: "VERDICT", value: <span className={scoreTone.color}>{scoreTone.label}</span> },
+              { label: "SIMILARITY", value: <span className="font-semibold text-foreground">{overallScoreLabel}%</span> },
+              { label: "VERDICT", value: <span className={scoreTone.badge}>{scoreTone.label}</span> },
               {
                 label: "CONFIDENCE",
                 value: (
@@ -1253,7 +1294,7 @@ const Results = () => {
                     <ShieldCheck className="h-3.5 w-3.5" />
                     {confidenceLabel}
                     {confidence.advisory && (
-                      <span className="text-warning">· {t("results.confidence.advisoryTag")}</span>
+                      <span className="ms-1 rounded-sm bg-warning/20 px-1.5 py-0.5 text-foreground">{t("results.confidence.advisoryTag")}</span>
                     )}
                   </span>
                 ),
@@ -1275,7 +1316,7 @@ const Results = () => {
                   className="h-9 gap-2"
                   onClick={() => setActiveTab("chat")}
                 >
-                  <Sparkles className="h-4 w-4" />
+                  <MessageSquare className="h-4 w-4" />
                   {t("results.askAnalyst", { defaultValue: "Ask analyst" })}
                 </Button>
               </>
@@ -1374,7 +1415,7 @@ const Results = () => {
               <TabsTrigger
                 key={tab.id}
                 value={tab.id}
-                className="-mb-px flex items-center gap-2 whitespace-nowrap rounded-none border-b-2 border-transparent bg-transparent px-4 py-3 text-sm font-medium text-muted-foreground shadow-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-0 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-primary data-[state=active]:shadow-none"
+                className="-mb-px flex items-center gap-2 whitespace-nowrap rounded-none border-b-2 border-transparent bg-transparent px-4 py-3 text-sm font-medium text-muted-foreground shadow-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-0 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none"
               >
                 <Icon className="h-4 w-4" />
                 {tab.label}
@@ -1405,7 +1446,7 @@ const Results = () => {
                       key={driver.name}
                       type="button"
                       onClick={() => setActiveTab(signalToTab(driver.name))}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-0.5 text-xs font-medium transition-colors hover:border-primary/50 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                      className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-card px-2.5 py-0.5 text-xs font-medium transition-colors hover:border-primary/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                     >
                       <span className="h-1.5 w-1.5 rounded-full" style={{ background: driverColor }} />
                       {translateSimilarityName(driver.name, t)}

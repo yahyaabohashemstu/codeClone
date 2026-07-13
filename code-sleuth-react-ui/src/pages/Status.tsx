@@ -76,7 +76,7 @@ const Status = () => {
       )}
 
       <p>
-        <Link to="/" className="text-primary hover:underline">
+        <Link to="/" className="text-foreground underline underline-offset-2 hover:opacity-70">
           {isRTL ? "→" : "←"} {t("status.home")}
         </Link>
       </p>

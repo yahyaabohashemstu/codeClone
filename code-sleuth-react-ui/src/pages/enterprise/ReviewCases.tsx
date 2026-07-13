@@ -11,15 +11,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Masthead, Serial } from "@/components/dossier/Dossier";
+import { Masthead, Serial, SectionHead, SpecList } from "@/components/dossier/Dossier";
 import { useLanguage } from "@/context/LanguageContext";
 import { listWorkspaces, listCases } from "@/lib/enterpriseApi";
 import type { EnterpriseCase, CaseStatus, EnterpriseWorkspace } from "@/types/enterprise";
 import { cn } from "@/lib/utils";
 
 const STATUS_BADGE: Record<CaseStatus, string> = {
-  open: "bg-primary/10 text-primary border-primary/30",
-  in_review: "bg-warning/15 text-warning border-warning/30",
+  open: "bg-primary/10 text-foreground border-primary/40",
+  in_review: "bg-warning/15 text-foreground border-warning/40",
   confirmed_clone: "bg-destructive/15 text-destructive border-destructive/30",
   false_positive: "bg-muted text-muted-foreground border-border",
   dismissed: "bg-muted text-muted-foreground border-border",
@@ -37,8 +37,14 @@ const ALL_STATUSES: Array<CaseStatus | "all"> = [
   "all", "open", "in_review", "confirmed_clone", "false_positive", "dismissed", "resolved",
 ];
 
+// The six real docket dispositions, in reading order (excludes the "all" filter token).
+const DOCKET_STATUSES: CaseStatus[] = [
+  "open", "in_review", "confirmed_clone", "false_positive", "dismissed", "resolved",
+];
+
+// Heavy-rule ledger header: a 2px foreground rule under a bare mono column head, no fill.
 const TH_CLASS =
-  "border-b border-border px-4 py-2.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-muted-foreground";
+  "border-b-2 border-foreground px-4 py-2.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-muted-foreground";
 
 export default function ReviewCases() {
   const { isRTL } = useLanguage();
@@ -104,15 +110,35 @@ export default function ReviewCases() {
       ? t("enterprise.cases.allWorkspaces")
       : workspaces.find((w) => String(w.id) === selectedWs)?.name ?? selectedWs;
 
+  // Disposition tally across the loaded docket — the marginalia spec-sheet reading.
+  const statusReadings = useMemo(() => {
+    const counts = new Map<CaseStatus, number>();
+    for (const c of cases) counts.set(c.status, (counts.get(c.status) ?? 0) + 1);
+    return DOCKET_STATUSES.map((s) => ({
+      label: t(`enterprise.status.${s}`, { defaultValue: s }),
+      value: (
+        <span
+          className={cn(
+            "tabular-nums",
+            (counts.get(s) ?? 0) === 0 && "text-muted-foreground/50",
+          )}
+        >
+          {counts.get(s) ?? 0}
+        </span>
+      ),
+    }));
+  }, [cases, t]);
+  const readingsMid = Math.ceil(statusReadings.length / 2);
+
+  // Calibrated similarity scale (DESIGN §2), token-based so it tracks the theme.
   const scoreColor = (score: number): string => {
     if (score >= 80) return "hsl(var(--destructive))";
-    if (score >= 60) return "hsl(14 85% 38%)";
-    if (score >= 40) return "hsl(var(--warning))";
+    if (score >= 50) return "hsl(var(--warning))";
     return "hsl(var(--muted-foreground))";
   };
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-6" dir={isRTL ? "rtl" : "ltr"}>
+    <div className="mx-auto max-w-6xl space-y-12 p-6" dir={isRTL ? "rtl" : "ltr"}>
       {/* Docket masthead — ruled header + live mono readings */}
       <Masthead
         kicker={t("enterprise.cases.eyebrow", { defaultValue: "Review queue" })}
@@ -142,10 +168,36 @@ export default function ReviewCases() {
         ]}
       />
 
-      {/* Case docket — one ruled ledger: filter row + table, never a grid of cards */}
-      <section className="overflow-hidden rounded-lg border border-border bg-card">
-        {/* Compact filter row */}
-        <div className="flex flex-wrap items-center gap-3 border-b border-border bg-muted/40 px-5 py-3">
+      {/* § Docket readings — disposition tally as a ruled two-column spec-sheet */}
+      {!loading && !error && cases.length > 0 && (
+        <section>
+          <SectionHead
+            marker="§"
+            title={t("enterprise.cases.readingsTitle", { defaultValue: "Docket readings" })}
+            aside={scopeLabel}
+          />
+          <div className="grid sm:grid-cols-2">
+            <SpecList rows={statusReadings.slice(0, readingsMid)} className="sm:pe-12" />
+            <SpecList
+              rows={statusReadings.slice(readingsMid)}
+              className="sm:border-s sm:border-border sm:ps-12"
+            />
+          </div>
+        </section>
+      )}
+
+      {/* § Case ledger — one ruled dossier section: filter toolbar + heavy-rule table, never a grid of cards */}
+      <section>
+        <SectionHead
+          marker="§"
+          title={t("enterprise.cases.ledgerTitle", { defaultValue: "Case ledger" })}
+          aside={
+            !loading && !error ? `${filtered.length} / ${cases.length}` : undefined
+          }
+        />
+
+        {/* Ruled filter toolbar — controls sit on the page under a hairline, not in a card */}
+        <div className="mb-6 flex flex-wrap items-center gap-3 border-b border-border pb-5">
           <span className="t-label me-1 hidden text-muted-foreground/70 sm:inline">
             {t("enterprise.cases.colStatus", { defaultValue: "Filter" })}
           </span>
@@ -206,7 +258,7 @@ export default function ReviewCases() {
           <div className="overflow-x-auto scrollbar-thin">
             <table className="w-full min-w-[900px] text-sm" dir="ltr">
               <thead>
-                <tr className="bg-muted/40">
+                <tr>
                   <th className={cn(TH_CLASS, "text-left")}>
                     {t("enterprise.cases.colCase", { defaultValue: "Case" })}
                   </th>
@@ -276,10 +328,7 @@ export default function ReviewCases() {
                               style={{ width: `${score}%`, background: scoreColor(score) }}
                             />
                           </span>
-                          <span
-                            className="font-mono text-sm font-semibold tabular-nums"
-                            style={{ color: scoreColor(score) }}
-                          >
+                          <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
                             {score}%
                           </span>
                         </div>
@@ -305,7 +354,7 @@ export default function ReviewCases() {
                       <td className="px-4 py-3 text-right align-middle">
                         <Link
                           to={`/enterprise/cases/${c.id}`}
-                          className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                          className="inline-flex items-center gap-1 text-xs font-medium text-foreground underline underline-offset-2 hover:opacity-70"
                         >
                           {t("enterprise.cases.viewCase")}
                           <ChevronRight className="h-3 w-3" />
@@ -319,9 +368,9 @@ export default function ReviewCases() {
           </div>
         )}
 
-        {/* Ledger footer — mono tally line */}
+        {/* Ledger footer — mono tally line under a hairline rule */}
         {!loading && !error && filtered.length > 0 && (
-          <div className="flex items-center justify-between gap-3 border-t border-border bg-muted/20 px-5 py-2.5 font-mono text-[11px] text-muted-foreground">
+          <div className="mt-0 flex items-center justify-between gap-3 border-t border-border px-1 py-2.5 font-mono text-[11px] text-muted-foreground">
             <span className="uppercase tracking-[0.14em] text-muted-foreground/70">
               {t("enterprise.cases.showing", { defaultValue: "Showing" })}
             </span>

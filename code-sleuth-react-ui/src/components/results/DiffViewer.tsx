@@ -25,8 +25,9 @@ function lineClass(type: DiffBlock["type"], side: "a" | "b") {
   if (type === "equal") return "bg-transparent";
   if (type === "delete") return side === "a" ? "bg-destructive/10" : "bg-muted/20";
   if (type === "insert") return side === "b" ? "bg-success/10" : "bg-muted/20";
-  // replace
-  return side === "a" ? "bg-warning/10" : "bg-primary/10";
+  // replace — both sides tinted warning to match the legend swatch; the accent
+  // (amber --primary) is never spent on data rows.
+  return "bg-warning/10";
 }
 
 // Line numbers are the evidence trail: always full-opacity and legible, never
@@ -175,16 +176,16 @@ export function DiffViewer({
             <p className="mt-1 text-xs text-muted-foreground">{t("results.diff.description")}</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <div className="rounded-xl border border-border/50 bg-muted/20 px-4 py-2 text-center">
+            <div className="rounded-lg border border-border/50 bg-muted/20 px-4 py-2 text-center">
               <div className="text-lg font-bold text-foreground">{data.match_ratio}%</div>
               <div className="text-[10px] text-muted-foreground">{t("results.diff.matchRatio")}</div>
             </div>
-            <div className="rounded-xl border border-border/50 bg-muted/20 px-4 py-2 text-center">
-              <div className="text-lg font-bold text-primary">{data.total_lines_a}</div>
+            <div className="rounded-lg border border-border/50 bg-muted/20 px-4 py-2 text-center">
+              <div className="text-lg font-bold text-foreground">{data.total_lines_a}</div>
               <div className="text-[10px] text-muted-foreground">{t("results.diff.linesA")}</div>
             </div>
-            <div className="rounded-xl border border-border/50 bg-muted/20 px-4 py-2 text-center">
-              <div className="text-lg font-bold text-accent">{data.total_lines_b}</div>
+            <div className="rounded-lg border border-border/50 bg-muted/20 px-4 py-2 text-center">
+              <div className="text-lg font-bold text-foreground">{data.total_lines_b}</div>
               <div className="text-[10px] text-muted-foreground">{t("results.diff.linesB")}</div>
             </div>
           </div>
@@ -209,14 +210,14 @@ export function DiffViewer({
         {/* Column headers (kept outside the scroll area so they stay put). */}
         <div className="grid grid-cols-1 border-b border-border/40 md:grid-cols-2 md:divide-x md:divide-border/40">
           <div className="bg-card px-3 py-2">
-            <span className="flex items-center gap-1.5 text-xs font-semibold text-primary">
+            <span className="flex items-center gap-1.5 font-mono text-xs font-semibold text-foreground">
               <span className="h-2 w-2 rounded-full bg-primary" />
               {labelA}
             </span>
           </div>
           <div className="hidden bg-card px-3 py-2 md:block">
-            <span className="flex items-center gap-1.5 text-xs font-semibold text-accent">
-              <span className="h-2 w-2 rounded-full bg-accent" />
+            <span className="flex items-center gap-1.5 font-mono text-xs font-semibold text-foreground">
+              <span className="h-2 w-2 rounded-full bg-accent-suspect" />
               {labelB}
             </span>
           </div>

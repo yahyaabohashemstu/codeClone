@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowRight, Compass } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const NotFound = () => {
@@ -15,16 +14,14 @@ const NotFound = () => {
             <span>{t("notFound.title")}</span>
           </div>
 
-          <Compass className="h-8 w-8 text-primary" />
+          {/* Exhibit number as the motif — a mono error code, not a generic icon. */}
+          <span className="t-stat text-primary">404</span>
 
           <h1 className="t-h2">{t("notFound.heading")}</h1>
           <p className="max-w-md t-body">{t("notFound.description")}</p>
 
-          <Button asChild size="lg" className="mt-2 gap-2">
-            <Link to="/">
-              {t("notFound.backHome")}
-              <ArrowRight className="h-4 w-4" />
-            </Link>
+          <Button asChild size="lg" className="mt-2">
+            <Link to="/">{t("notFound.backHome")}</Link>
           </Button>
         </div>
       </div>

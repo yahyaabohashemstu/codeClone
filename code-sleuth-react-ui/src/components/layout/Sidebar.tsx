@@ -80,14 +80,14 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
 
       <aside
         className={cn(
-          "fixed inset-y-0 z-40 flex flex-col bg-sidebar transition-all duration-300 ease-in-out",
+          "fixed inset-y-0 z-40 flex flex-col bg-sidebar transition-[width,transform] duration-300 ease-in-out",
           isRTL ? "right-0 border-l border-border/50" : "left-0 border-r border-border/50",
           collapsed ? "w-16" : "w-60",
           isOpen ? "translate-x-0" : isRTL ? "translate-x-full md:translate-x-0" : "-translate-x-full md:translate-x-0",
         )}
       >
         <div className={cn("flex h-16 items-center border-b border-sidebar-border px-4", collapsed ? "justify-center" : "gap-3")}>
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-primary">
             <img src="/brand/logo.png" alt="Clone Lens" className="h-9 w-9 object-contain" />
           </div>
           {!collapsed && (
@@ -109,10 +109,10 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
                 to={item.path}
                 onClick={onClose}
                 className={cn(
-                  "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
+                  "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150",
                   collapsed ? "justify-center px-2.5" : "",
                   active
-                    ? "bg-primary/12 text-primary"
+                    ? "bg-primary/12 text-foreground"
                     : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                 )}
               >
@@ -139,7 +139,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
           {user?.is_admin && (
           <div className={cn("mt-3", collapsed ? "px-0" : "px-1")}>
             {!collapsed && (
-              <p className="mb-1 px-2 font-mono text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40">
+              <p className="mb-1 px-2 font-mono text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground">
                 {t("nav.enterprise")}
               </p>
             )}
@@ -154,10 +154,10 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
                   to={item.path}
                   onClick={onClose}
                   className={cn(
-                    "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
+                    "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150",
                     collapsed ? "justify-center px-2.5" : "",
                     active
-                      ? "bg-primary/12 text-primary"
+                      ? "bg-primary/12 text-foreground"
                       : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                   )}
                 >
@@ -194,7 +194,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
                 type="button"
                 onClick={() => void handleLogout()}
                 className={cn(
-                  "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                  "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                   collapsed ? "justify-center px-2.5" : "",
                 )}
               >
@@ -207,7 +207,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
               to="/login"
               onClick={onClose}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                 collapsed ? "justify-center px-2.5" : "",
               )}
             >
@@ -221,12 +221,14 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
             size="icon"
             className={cn("h-8 w-full text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground", collapsed ? "" : "justify-end pr-3")}
             onClick={onCollapse}
+            aria-label={t("nav.toggleSidebar", { defaultValue: t("nav.collapse") })}
+            title={t("nav.toggleSidebar", { defaultValue: t("nav.collapse") })}
           >
             {collapsed ? (
               isRTL ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />
             ) : (
               <>
-                <span className={cn("text-xs text-sidebar-foreground/60", isRTL ? "ml-1" : "mr-1")}>{t("nav.collapse")}</span>
+                <span className={cn("text-xs text-sidebar-foreground", isRTL ? "ml-1" : "mr-1")}>{t("nav.collapse")}</span>
                 {isRTL ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
               </>
             )}

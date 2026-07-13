@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   ChevronRight,
   Copy,
+  FileSearch,
   GitBranch,
   KeyRound,
   Loader2,
@@ -13,7 +14,6 @@ import {
   Plus,
   RefreshCw,
   Search,
-  Shield,
   ShieldAlert,
   Users,
 } from "lucide-react";
@@ -27,7 +27,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Masthead, FieldSheet, Field, Panel, Serial } from "@/components/dossier/Dossier";
+import { Masthead, FieldSheet, Field, Panel, Serial, SpecList } from "@/components/dossier/Dossier";
 import { useLanguage } from "@/context/LanguageContext";
 import {
   addMember,
@@ -53,7 +53,7 @@ type Tab = "repositories" | "cases" | "members";
 
 const STATUS_META: Record<string, { cls: string }> = {
   open:            { cls: "bg-accent/15 text-accent border-accent/30" },
-  in_review:       { cls: "bg-warning/15 text-warning border-warning/30" },
+  in_review:       { cls: "bg-warning/15 text-foreground border-warning/30" },
   confirmed_clone: { cls: "bg-destructive/15 text-destructive border-destructive/30" },
   false_positive:  { cls: "bg-muted text-muted-foreground border-border/60" },
   resolved:        { cls: "bg-success/15 text-success border-success/30" },
@@ -62,15 +62,15 @@ const STATUS_META: Record<string, { cls: string }> = {
 
 const SEV_META: Record<string, { cls: string }> = {
   critical: { cls: "bg-destructive/15 text-destructive border-destructive/30" },
-  high:     { cls: "bg-warning/15 text-warning border-warning/30" },
-  medium:   { cls: "bg-warning/12 text-warning border-warning/25" },
+  high:     { cls: "bg-warning/15 text-foreground border-warning/30" },
+  medium:   { cls: "bg-warning/12 text-foreground border-warning/25" },
   low:      { cls: "bg-accent/15 text-accent border-accent/30" },
 };
 
 const ROLE_CLS: Record<string, string> = {
   owner:    "bg-primary/15 text-primary border-primary/25",
   admin:    "bg-destructive/15 text-destructive border-destructive/25",
-  manager:  "bg-warning/15 text-warning border-warning/25",
+  manager:  "bg-warning/15 text-foreground border-warning/25",
   reviewer: "bg-accent/15 text-accent border-accent/25",
   student:  "bg-muted text-muted-foreground border-border/60",
 };
@@ -357,6 +357,22 @@ export default function WorkspaceDetail() {
         meta={meta}
       />
 
+      {/* Workspace case-file record — a ruled spec sheet, not a boxed hero */}
+      {workspace && (
+        <Panel bare marker="§" label={t("enterprise.workspaceDetail.caseFile", { defaultValue: "Case file" })}>
+          <SpecList
+            rows={[
+              { label: t("enterprise.workspaceDetail.specSlug", { defaultValue: "Slug" }), value: <span dir="ltr">{workspace.slug}</span> },
+              { label: t("enterprise.workspaceDetail.specRegion", { defaultValue: "Storage region" }), value: workspace.storageRegion },
+              { label: t("enterprise.workspaceDetail.specSimilarity", { defaultValue: "Similarity threshold" }), value: `${threshold}%` },
+              { label: t("enterprise.workspaceDetail.specSemantic", { defaultValue: "Semantic threshold" }), value: `${Math.round(workspace.semanticThreshold * 100)}%` },
+              { label: t("enterprise.workspaceDetail.specRole", { defaultValue: "Your role" }), value: workspace.membership ? <span className="capitalize">{workspace.membership.role}</span> : "—" },
+              { label: t("enterprise.workspaceDetail.specCreated", { defaultValue: "Opened" }), value: workspace.createdAt ? new Date(workspace.createdAt).toLocaleDateString() : "—" },
+            ]}
+          />
+        </Panel>
+      )}
+
       {/* Tabs — mono ledger selectors with live counts */}
       <div className="border-b border-border">
         <nav className="-mb-px flex gap-6" aria-label="Workspace tabs">
@@ -396,9 +412,11 @@ export default function WorkspaceDetail() {
         </div>
       ) : (
         <>
-          {/* Repositories tab — repository ledger */}
+          {/* Repositories tab — a ruled repository ledger flowing on the page */}
           {activeTab === "repositories" && (
             <Panel
+              bare
+              marker="§"
               label={t("enterprise.workspaceDetail.repositories")}
               actions={
                 <Button size="sm" className="h-8 gap-1.5" onClick={() => setRepoOpen(true)}>
@@ -406,7 +424,6 @@ export default function WorkspaceDetail() {
                   {t("enterprise.workspaceDetail.addRepo")}
                 </Button>
               }
-              bodyClassName="p-0"
             >
               {repos.length === 0 ? (
                 <div className="flex flex-col items-center gap-3 py-14 text-center">
@@ -419,7 +436,7 @@ export default function WorkspaceDetail() {
               ) : (
                 <div className="divide-y divide-border">
                   {repos.map((repo, i) => (
-                    <div key={repo.id} className="flex items-center gap-4 px-5 py-3.5">
+                    <div key={repo.id} className="flex items-center gap-4 py-3.5">
                       <Serial>{`R${String(i + 1).padStart(2, "0")}`}</Serial>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-foreground">{repo.name}</p>
@@ -452,19 +469,20 @@ export default function WorkspaceDetail() {
             </Panel>
           )}
 
-          {/* Cases tab — case ledger table */}
+          {/* Cases tab — a ruled case ledger under a heavy §-rule */}
           {activeTab === "cases" && (
             <Panel
+              bare
+              marker="§"
               label={t("enterprise.workspaceDetail.cases")}
               actions={
                 <span className="font-mono text-xs tabular-nums text-muted-foreground">
                   {t("enterprise.workspaceDetail.showing", { defaultValue: "Showing" })} {filteredCases.length} / {cases.length}
                 </span>
               }
-              bodyClassName="p-0"
             >
-              {/* Filter bar */}
-              <div className="border-b border-border bg-muted px-5 py-3">
+              {/* Filter row — flush to the page, no card fill */}
+              <div className="mb-4">
                 <div className="relative max-w-sm">
                   <Search className={cn("pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground", isRTL ? "right-3" : "left-3")} />
                   <Input
@@ -478,14 +496,14 @@ export default function WorkspaceDetail() {
 
               {filteredCases.length === 0 ? (
                 <div className="flex flex-col items-center gap-3 py-14 text-center">
-                  <Shield className="h-5 w-5 text-muted-foreground" />
+                  <FileSearch className="h-5 w-5 text-muted-foreground" />
                   <p className="t-sm">{t("enterprise.workspaceDetail.noCases")}</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto scrollbar-thin">
                   <table className="w-full min-w-[820px] text-sm">
                     <thead>
-                      <tr className="bg-muted">
+                      <tr>
                         {[
                           t("enterprise.workspaceDetail.colCase", { defaultValue: "Case" }),
                           t("enterprise.workspaceDetail.colPair", { defaultValue: "Pair" }),
@@ -496,14 +514,14 @@ export default function WorkspaceDetail() {
                           <th
                             key={h}
                             className={cn(
-                              "border-b border-border px-4 py-2.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-muted-foreground",
+                              "border-b-2 border-foreground px-4 py-2.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-muted-foreground",
                               isRTL ? "text-right" : "text-left",
                             )}
                           >
                             {h}
                           </th>
                         ))}
-                        <th className={cn("border-b border-border px-4 py-2.5", isRTL ? "text-left" : "text-right")}>
+                        <th className={cn("border-b-2 border-foreground px-4 py-2.5", isRTL ? "text-left" : "text-right")}>
                           &nbsp;
                         </th>
                       </tr>
@@ -523,7 +541,7 @@ export default function WorkspaceDetail() {
                             className="border-b border-border/40 transition-colors last:border-b-0 hover:bg-muted/30"
                           >
                             <td className="px-4 py-3 align-middle">
-                              <span className="font-mono font-medium text-muted-foreground">#C-{c.id}</span>
+                              <Serial>{`C${c.id}`}</Serial>
                             </td>
                             <td className="px-4 py-3 align-middle">
                               <div className="flex items-center gap-2 text-xs">
@@ -546,10 +564,7 @@ export default function WorkspaceDetail() {
                                     style={{ width: `${score}%`, background: scoreColor(score) }}
                                   />
                                 </span>
-                                <span
-                                  className="font-mono text-sm font-semibold tabular-nums"
-                                  style={{ color: scoreColor(score) }}
-                                >
+                                <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
                                   {score}%
                                 </span>
                               </div>
@@ -572,7 +587,7 @@ export default function WorkspaceDetail() {
                             <td className={cn("px-4 py-3 align-middle", isRTL ? "text-left" : "text-right")}>
                               <Link
                                 to={`/enterprise/cases/${c.id}`}
-                                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                                className="inline-flex items-center gap-1 text-xs font-medium text-foreground underline underline-offset-2 hover:opacity-70"
                               >
                                 {t("enterprise.workspaceDetail.viewCase")}
                                 <ChevronRight className={cn("h-3 w-3", isRTL && "rotate-180")} />
@@ -588,9 +603,11 @@ export default function WorkspaceDetail() {
             </Panel>
           )}
 
-          {/* Members tab — roster ledger */}
+          {/* Members tab — a ruled roster ledger flowing on the page */}
           {activeTab === "members" && (
             <Panel
+              bare
+              marker="§"
               label={t("enterprise.workspaceDetail.members")}
               actions={
                 <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => setMemberOpen(true)}>
@@ -598,7 +615,6 @@ export default function WorkspaceDetail() {
                   {t("enterprise.workspaceDetail.addMember")}
                 </Button>
               }
-              bodyClassName="p-0"
             >
               {members.length === 0 ? (
                 <div className="flex flex-col items-center gap-3 py-14 text-center">
@@ -608,7 +624,7 @@ export default function WorkspaceDetail() {
               ) : (
                 <div className="divide-y divide-border">
                   {members.map((m) => (
-                    <div key={m.id} className="flex items-center gap-4 px-5 py-3">
+                    <div key={m.id} className="flex items-center gap-4 py-3">
                       <Serial>{m.legacyUserId}</Serial>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-foreground">
@@ -736,7 +752,7 @@ export default function WorkspaceDetail() {
           <div className="space-y-4 pt-2">
             <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs">
               <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-              <span className="text-warning">{t("enterprise.workspaceDetail.secretsIntro")}</span>
+              <span className="text-foreground">{t("enterprise.workspaceDetail.secretsIntro")}</span>
             </div>
 
             <FieldSheet>

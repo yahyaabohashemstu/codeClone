@@ -3,12 +3,12 @@ import { useTranslation } from "react-i18next";
 import {
   BarChart3,
   BookOpen,
+  ClipboardList,
   Code2,
   FileText,
   GitCompare,
   Loader2,
   ShieldAlert,
-  Sparkles,
   TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -64,7 +64,7 @@ const SECTIONS: SectionDef[] = [
   },
   {
     key: "aiStructuredReport",
-    icon: Sparkles,
+    icon: ClipboardList,
     labelKey: "results.pdfExport.aiStructuredReportLabel",
     descKey: "results.pdfExport.aiStructuredReportDesc",
   },
@@ -157,7 +157,7 @@ export function PdfExportDialog({ open, onOpenChange, result }: Props) {
               <button
                 type="button"
                 onClick={() => toggleAll(true)}
-                className="text-[11px] font-medium text-primary hover:underline"
+                className="text-[11px] font-medium text-foreground underline-offset-2 hover:underline"
               >
                 {t("results.pdfExport.selectAll")}
               </button>

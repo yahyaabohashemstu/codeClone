@@ -17,14 +17,14 @@ export function ThemeToggle() {
       variant="ghost"
       size="icon"
       onClick={toggleTheme}
-      className="rounded-full border border-border/50 bg-card/50 shadow-sm backdrop-blur-sm hover:bg-card"
+      className="rounded-md border border-border bg-card hover:bg-accent"
       aria-label={label}
       title={label}
     >
       {theme === "light" ? (
-        <Moon className="h-5 w-5 transition-all text-foreground" />
+        <Moon className="h-5 w-5 text-foreground" />
       ) : (
-        <Sun className="h-5 w-5 transition-all text-warning" />
+        <Sun className="h-5 w-5 text-foreground" />
       )}
     </Button>
   );

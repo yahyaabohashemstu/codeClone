@@ -16,7 +16,7 @@ const sections = [
   {
     n: "03",
     title: "Processors",
-    body: "We use third-party processors for payments and email delivery (insert names, e.g. Stripe, your SMTP provider). They process data only to provide their service.",
+    body: "We use third-party processors for payments (Stripe) and transactional email delivery (our SMTP provider). They process data only to provide their service.",
   },
   {
     n: "04",
@@ -42,7 +42,7 @@ const Privacy = () => (
       Legal
     </div>
     <h1 className="t-h2 mt-3">Privacy Policy</h1>
-    <p className="t-sm mt-1 font-mono text-muted-foreground">Last updated: (set on publish)</p>
+    <p className="t-sm mt-1 font-mono text-muted-foreground">Last updated: 13 July 2026</p>
 
     <dl className="mt-8 divide-y divide-border border-y border-border">
       {sections.map((s) => (
@@ -59,8 +59,8 @@ const Privacy = () => (
         <dd>
           <h2 className="t-h4">Contact</h2>
           <p className="t-body mt-2">
-            Privacy questions or requests: (insert contact email). See also our{" "}
-            <Link to="/terms" className="text-primary hover:underline">
+            Privacy questions or requests: hello@clonelens.com. See also our{" "}
+            <Link to="/terms" className="text-foreground underline underline-offset-2 hover:opacity-70">
               Terms of Service
             </Link>
             .
@@ -70,7 +70,7 @@ const Privacy = () => (
     </dl>
 
     <p className="mt-8">
-      <Link to="/" className="text-primary hover:underline">
+      <Link to="/" className="text-foreground underline underline-offset-2 hover:opacity-70">
         ← Home
       </Link>
     </p>

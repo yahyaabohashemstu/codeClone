@@ -65,7 +65,7 @@ const Terms = () => (
           <h2 className="t-h4">Contact</h2>
           <p className="t-body mt-2">
             Questions about these Terms: (insert contact email). See also our{" "}
-            <Link to="/privacy" className="text-primary hover:underline">
+            <Link to="/privacy" className="text-foreground underline underline-offset-2 hover:opacity-70">
               Privacy Policy
             </Link>
             .
@@ -75,7 +75,7 @@ const Terms = () => (
     </dl>
 
     <p className="mt-8">
-      <Link to="/" className="text-primary hover:underline">
+      <Link to="/" className="text-foreground underline underline-offset-2 hover:opacity-70">
         ← Home
       </Link>
     </p>

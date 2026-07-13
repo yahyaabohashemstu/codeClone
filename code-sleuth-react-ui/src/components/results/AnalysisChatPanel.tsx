@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Bot, Clock, MessageSquare, Send, Sparkles, User } from "lucide-react";
+import { Clock, Link2, MessageSquare, ScanSearch, Send, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 import { useLanguage } from "@/context/LanguageContext";
@@ -141,12 +141,12 @@ export function AnalysisChatPanel({
       <div className="flex items-center gap-2 border-b border-border/50 px-5 py-4">
         <MessageSquare className="h-4 w-4 text-primary" />
         <div>
-          <h3 className="text-sm font-semibold text-foreground">{t("results.chat.title")}</h3>
+          <h3 className="font-display text-sm font-semibold text-foreground">{t("results.chat.title")}</h3>
           <p className="mt-1 text-xs text-muted-foreground">{t("results.chat.description")}</p>
         </div>
         {grounded && (
           <span className="ml-auto badge-success">
-            <Sparkles className="h-3 w-3" />
+            <Link2 className="h-3 w-3" />
             {t("results.chat.grounded")}
           </span>
         )}
@@ -157,7 +157,7 @@ export function AnalysisChatPanel({
           <div key={message.id} className={cn("flex gap-3", message.role === "user" ? "justify-end" : "justify-start")}>
             {message.role === "assistant" && (
               <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/12">
-                <Bot className="h-4 w-4 text-primary" />
+                <ScanSearch className="h-4 w-4 text-primary" />
               </div>
             )}
 
@@ -165,7 +165,7 @@ export function AnalysisChatPanel({
               <div className={message.role === "user" ? "chat-bubble-user" : "chat-bubble-ai"}>
                 <div className="whitespace-pre-wrap leading-relaxed">{message.content}</div>
               </div>
-              <div className={cn("flex items-center gap-1 text-[10px] text-muted-foreground/60", message.role === "user" ? "justify-end" : "justify-start")}>
+              <div className={cn("flex items-center gap-1 text-[10px] text-muted-foreground", message.role === "user" ? "justify-end" : "justify-start")}>
                 <Clock className="h-2.5 w-2.5" />
                 {message.time}
               </div>
@@ -182,7 +182,7 @@ export function AnalysisChatPanel({
         {isSending && (
           <div className="flex gap-3 justify-start">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/12">
-              <Bot className="h-4 w-4 text-primary" />
+              <ScanSearch className="h-4 w-4 text-primary" />
             </div>
             <div className="chat-bubble-ai flex items-center gap-1.5">
               <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/50" style={{ animationDelay: "0ms" }} />
@@ -202,7 +202,7 @@ export function AnalysisChatPanel({
               key={suggestion}
               type="button"
               onClick={() => void sendMessage(suggestion)}
-              className="rounded-full border border-border/50 bg-card/50 px-3 py-1.5 text-xs text-muted-foreground transition-all hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
+              className="rounded-md border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"
             >
               {suggestion}
             </button>
@@ -220,9 +220,9 @@ export function AnalysisChatPanel({
               }
             }}
             placeholder={t("results.chat.placeholder")}
-            className="h-11 flex-1 rounded-xl border border-border/60 bg-card/70 px-4 text-sm text-foreground focus:border-primary/60 focus:outline-none focus:ring-1 focus:ring-primary/20 placeholder:text-muted-foreground/40"
+            className="input-focus h-11 flex-1 rounded-md border border-border bg-card px-4 text-sm text-foreground placeholder:text-muted-foreground/40"
           />
-          <Button size="icon" className="h-11 w-11 rounded-xl shadow-glow-sm" onClick={() => void sendMessage()} disabled={!input.trim() || isSending}>
+          <Button size="icon" className="h-11 w-11 rounded-md" onClick={() => void sendMessage()} disabled={!input.trim() || isSending}>
             <Send className="h-4 w-4" />
           </Button>
         </div>

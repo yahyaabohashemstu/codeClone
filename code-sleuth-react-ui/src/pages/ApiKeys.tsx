@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Masthead, FieldSheet, Field, Panel, Serial } from "@/components/dossier/Dossier";
+import { Masthead, FieldSheet, Field, Panel, Serial, Figure, SpecList } from "@/components/dossier/Dossier";
 import { useLanguage } from "@/context/LanguageContext";
 import {
   createApiKey,
@@ -41,6 +41,7 @@ function money(cents: number): string {
 // ── Shared bits ─────────────────────────────────────────────────────────────
 
 function CopyButton({ text, label }: { text: string; label: string }) {
+  const { t } = useTranslation("apiKeys");
   const [copied, setCopied] = useState(false);
   return (
     <button
@@ -54,7 +55,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
       className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
     >
       {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
-      {copied ? label + "…" : label}
+      {copied ? t("apiKeys.keys.copied", { defaultValue: "Copied" }) : label}
     </button>
   );
 }
@@ -72,23 +73,30 @@ function CodeBlock({ code, copyLabel }: { code: string; copyLabel: string }) {
   );
 }
 
-/** A single margin-label metric reading for the usage statement. */
-function Reading({
-  label,
-  value,
-  sub,
-  accent = "text-foreground",
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  accent?: string;
-}) {
+/** A code specimen framed as a dossier exhibit — a FIG caption + copy, code on the mount. */
+function Exhibit({ n, label, code, copyLabel }: { n: number; label: string; code: string; copyLabel: string }) {
   return (
-    <Field label={label}>
-      <div className={cn("t-stat text-2xl tabular-nums", accent)}>{value}</div>
-      {sub && <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p>}
-    </Field>
+    <Figure n={n} label={label} actions={<CopyButton text={code} label={copyLabel} />}>
+      <pre className="overflow-x-auto text-left font-mono text-[12.5px] leading-relaxed text-foreground" dir="ltr">
+        <code>{code}</code>
+      </pre>
+    </Figure>
+  );
+}
+
+/** A right-aligned statement reading for the usage spec-sheet: ink number, optional caption; amber only as a tint chip. */
+function UsageValue({ value, sub, warn = false }: { value: string; sub?: string; warn?: boolean }) {
+  return (
+    <div className="text-end">
+      {warn ? (
+        <span className="rounded-sm bg-warning/20 px-1.5 py-0.5 font-mono text-sm font-bold tabular-nums text-foreground">
+          {value}
+        </span>
+      ) : (
+        <span className="font-mono text-sm font-semibold tabular-nums text-foreground">{value}</span>
+      )}
+      {sub && <span className="mt-1 block text-[11px] font-normal normal-case leading-tight text-muted-foreground">{sub}</span>}
+    </div>
   );
 }
 
@@ -136,8 +144,8 @@ function KeysTab() {
   const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : t("apiKeys.keys.never"));
 
   return (
-    <div className="space-y-6">
-      {/* Issue credential — margin-label form */}
+    <div className="space-y-10">
+      {/* Issue credential — the interactive form, kept as a bordered card */}
       <FieldSheet>
         <Field label={t("apiKeys.keys.createTitle")}>
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -155,49 +163,56 @@ function KeysTab() {
           </div>
           <p className="mt-2 text-xs text-muted-foreground">{t("apiKeys.keys.description")}</p>
           {activeCount >= 20 && (
-            <p className="mt-2 text-xs text-warning">{t("apiKeys.keys.limitReached")}</p>
+            <p className="mt-2 text-xs text-foreground">{t("apiKeys.keys.limitReached")}</p>
           )}
         </Field>
       </FieldSheet>
 
-      {/* One-time token reveal */}
+      {/* One-time token reveal — the issued credential, framed as a warning-toned exhibit */}
       {freshToken && (
-        <div className="rounded-lg border border-success/45 bg-success/5 p-5">
-          <div className="t-label flex items-center gap-2 text-success">
-            <TriangleAlert className="h-4 w-4" />
-            {t("apiKeys.keys.tokenTitle")}
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">{t("apiKeys.keys.tokenWarning")}</p>
-          <div className="mt-3 flex items-center gap-2">
-            <code className="flex-1 overflow-x-auto rounded-md border border-border bg-background px-3 py-2 font-mono text-xs" dir="ltr">
-              {freshToken}
-            </code>
-            <CopyButton text={freshToken} label={t("apiKeys.keys.copy")} />
-          </div>
+        <Figure
+          label={
+            <span className="flex items-center gap-2">
+              <TriangleAlert className="h-4 w-4 text-warning" />
+              {t("apiKeys.keys.tokenTitle")}
+            </span>
+          }
+          actions={<CopyButton text={freshToken} label={t("apiKeys.keys.copy")} />}
+          className="border-warning/50"
+        >
+          <p className="mb-3 text-sm text-muted-foreground">{t("apiKeys.keys.tokenWarning")}</p>
+          <code
+            className="block overflow-x-auto rounded-md border border-border bg-background px-3 py-2 font-mono text-xs"
+            dir="ltr"
+          >
+            {freshToken}
+          </code>
           <Button variant="ghost" size="sm" className="mt-3" onClick={() => setFreshToken("")}>
             {t("apiKeys.keys.done")}
           </Button>
-        </div>
+        </Figure>
       )}
 
-      {/* Register — a ruled ledger, not a stack of cards */}
-      <div>
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <h3 className="t-label text-foreground">{t("apiKeys.keys.heading")}</h3>
+      {/* Register — a ruled ledger §-section, not a card box */}
+      <Panel
+        bare
+        marker="§"
+        label={t("apiKeys.keys.heading")}
+        actions={
           <span className="font-mono text-xs tabular-nums text-muted-foreground">
             {activeCount} / 20 {t("apiKeys.keys.active").toLowerCase()}
           </span>
-        </div>
-
+        }
+      >
         {keys.length === 0 ? (
           <p className="rounded-lg border border-dashed border-border bg-card/50 p-6 text-center text-sm text-muted-foreground">
             {t("apiKeys.keys.none")}
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-border bg-card">
+          <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] border-collapse text-sm">
               <thead>
-                <tr className="border-b border-border">
+                <tr className="border-b-2 border-foreground">
                   <th className="t-label w-10 px-4 py-2.5 text-start">#</th>
                   <th className="t-label px-4 py-2.5 text-start">{t("apiKeys.keys.prefix")}</th>
                   <th className="t-label px-4 py-2.5 text-start">{t("apiKeys.keys.created")}</th>
@@ -256,7 +271,7 @@ function KeysTab() {
             </table>
           </div>
         )}
-      </div>
+      </Panel>
     </div>
   );
 }
@@ -279,7 +294,7 @@ function PlanCard({
   const { t } = useTranslation("apiKeys");
   const price = plan.priceCents === 0 ? t("apiKeys.usage.freePrice") : money(plan.priceCents);
   return (
-    <div className={cn("flex flex-col gap-3 p-4 sm:flex-row sm:items-center", isCurrent && "bg-primary/5")}>
+    <div className={cn("flex flex-col gap-3 py-4 sm:flex-row sm:items-center", isCurrent && "bg-primary/5")}>
       <Serial tone={isCurrent ? "primary" : "muted"} className="shrink-0">
         {String(index + 1).padStart(2, "0")}
       </Serial>
@@ -357,56 +372,53 @@ function UsageTab() {
   const pct = u.includedPairs > 0 ? Math.min(100, (u.pairs / u.includedPairs) * 100) : 0;
   const rate = money(u.ratePer1000Cents);
 
-  return (
-    <div className="space-y-6">
-      {/* Statement heading */}
-      <div>
-        <h2 className="t-label text-foreground">{t("apiKeys.usage.heading")}</h2>
-        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t("apiKeys.usage.description")}</p>
-      </div>
-
-      {u.atLimit && (
-        <div className="flex items-center gap-2 rounded-lg border border-warning/45 bg-warning/10 p-4 text-sm font-medium text-foreground">
-          <TriangleAlert className="h-4 w-4 shrink-0 text-warning" />
-          {t("apiKeys.usage.atLimitWarning")}
-        </div>
-      )}
-
-      {/* Metered readings — margin-label statement lines */}
-      <FieldSheet>
-        <Field label={t("apiKeys.usage.period")} align="center">
-          <span className="font-mono text-sm tabular-nums text-foreground">{u.period}</span>
-        </Field>
-        <Field label={t("apiKeys.usage.plan")} align="center">
-          <span className="text-sm font-semibold text-foreground">{u.apiPlanName}</span>
-        </Field>
-        <Reading
-          label={t("apiKeys.usage.calls")}
-          value={u.calls.toLocaleString()}
-          sub={t("apiKeys.usage.callsDesc")}
-        />
-        <Reading
-          label={t("apiKeys.usage.pairs")}
-          value={u.pairs.toLocaleString()}
-          sub={t("apiKeys.usage.pairsDesc")}
-          accent="text-primary"
-        />
-        <Reading
-          label={t("apiKeys.usage.overage")}
-          value={u.overagePairs.toLocaleString()}
-          sub={t("apiKeys.usage.overageDesc")}
-          accent={u.overagePairs > 0 ? "text-warning" : "text-foreground"}
-        />
-        <Reading
-          label={t("apiKeys.usage.estCost")}
+  const usageRows: Array<{ label: ReactNode; value: ReactNode }> = [
+    { label: t("apiKeys.usage.period"), value: u.period },
+    { label: t("apiKeys.usage.plan"), value: u.apiPlanName },
+    {
+      label: t("apiKeys.usage.calls"),
+      value: <UsageValue value={u.calls.toLocaleString()} sub={t("apiKeys.usage.callsDesc")} />,
+    },
+    {
+      label: t("apiKeys.usage.pairs"),
+      value: <UsageValue value={u.pairs.toLocaleString()} sub={t("apiKeys.usage.pairsDesc")} />,
+    },
+    {
+      label: t("apiKeys.usage.overage"),
+      value: (
+        <UsageValue value={u.overagePairs.toLocaleString()} sub={t("apiKeys.usage.overageDesc")} warn={u.overagePairs > 0} />
+      ),
+    },
+    {
+      label: t("apiKeys.usage.estCost"),
+      value: (
+        <UsageValue
           value={money(u.estimatedCostCents)}
           sub={t("apiKeys.usage.estCostDesc", { rate })}
-          accent={u.estimatedCostCents > 0 ? "text-warning" : "text-success"}
+          warn={u.estimatedCostCents > 0}
         />
-      </FieldSheet>
+      ),
+    },
+  ];
 
-      {/* Allowance meter */}
-      <Panel label={t("apiKeys.usage.included")}>
+  return (
+    <div className="space-y-12">
+      {/* Statement — metered readings as a ruled §-section spec-sheet */}
+      <Panel bare marker="§" label={t("apiKeys.usage.heading")}>
+        <p className="mb-5 max-w-2xl text-sm text-muted-foreground">{t("apiKeys.usage.description")}</p>
+
+        {u.atLimit && (
+          <div className="mb-5 flex items-center gap-2 rounded-lg border border-warning/45 bg-warning/10 p-4 text-sm font-medium text-foreground">
+            <TriangleAlert className="h-4 w-4 shrink-0 text-warning" />
+            {t("apiKeys.usage.atLimitWarning")}
+          </div>
+        )}
+
+        <SpecList rows={usageRows} />
+      </Panel>
+
+      {/* Allowance meter — a framed figure */}
+      <Figure n={1} label={t("apiKeys.usage.included")}>
         <div className="mb-1 flex items-center justify-between text-sm">
           <span className="text-muted-foreground">{t("apiKeys.usage.includedDesc")}</span>
           <span className="font-mono tabular-nums text-foreground">
@@ -422,12 +434,13 @@ function UsageTab() {
         <p className="mt-2 text-xs text-muted-foreground">
           {t("apiKeys.usage.remaining", { n: u.remainingIncluded.toLocaleString() })}
         </p>
-      </Panel>
+      </Figure>
 
-      {/* Plans — ruled ledger with case numbers */}
+      {/* Plans — a ruled §-ledger with case numbers */}
       <Panel
+        bare
+        marker="§"
         label={t("apiKeys.usage.plansTitle")}
-        bodyClassName="p-0"
         actions={
           u.apiPlan !== "api_free" ? (
             <Button variant="outline" size="sm" className="gap-1.5" disabled={busy === "portal"} onClick={() => void manage()}>
@@ -437,14 +450,14 @@ function UsageTab() {
           ) : undefined
         }
       >
-        <p className="px-5 pt-4 text-xs text-muted-foreground">{t("apiKeys.usage.plansDesc")}</p>
-        <div className="mt-3 divide-y divide-border border-t border-border">
+        <p className="mb-3 text-xs text-muted-foreground">{t("apiKeys.usage.plansDesc")}</p>
+        <div className="divide-y divide-border border-t border-border">
           {data.plans.map((p, i) => (
             <PlanCard key={p.code} plan={p} index={i} isCurrent={p.code === u.apiPlan} busy={busy} onSubscribe={(c) => void subscribe(c)} />
           ))}
         </div>
+        <p className="mt-4 text-xs text-muted-foreground">{t("apiKeys.usage.estimateNote")}</p>
       </Panel>
-      <p className="text-xs text-muted-foreground">{t("apiKeys.usage.estimateNote")}</p>
     </div>
   );
 }
@@ -453,7 +466,7 @@ function UsageTab() {
 
 function DocSection({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <Panel label={title}>
+    <Panel bare marker="§" label={title}>
       <div className="space-y-2 text-sm leading-relaxed text-muted-foreground">{children}</div>
     </Panel>
   );
@@ -514,23 +527,26 @@ if r.status_code == 422:  # verdict == "fail"
   const copy = t("apiKeys.keys.copy");
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-12">
       <p className="text-sm text-muted-foreground">{t("apiKeys.docs.intro")}</p>
 
-      {/* Spec header — the contract at a glance */}
-      <FieldSheet>
-        <Field label="Base URL" align="center">
-          <Mono>{ORIGIN}/api/v1</Mono>
-        </Field>
-        <Field label="Auth" align="center">
-          <span className="text-sm">
-            <Mono>Authorization: Bearer</Mono> or <Mono>X-API-Key</Mono>
-          </span>
-        </Field>
-        <Field label="Format" align="center">
-          <span className="font-mono text-sm text-foreground">JSON · UTF-8</span>
-        </Field>
-      </FieldSheet>
+      {/* The contract at a glance — a ruled spec sheet */}
+      <Panel bare marker="§" label="Interface">
+        <SpecList
+          rows={[
+            { label: "Base URL", value: <Mono>{ORIGIN}/api/v1</Mono> },
+            {
+              label: "Auth",
+              value: (
+                <span className="text-sm normal-case">
+                  <Mono>Authorization: Bearer</Mono> or <Mono>X-API-Key</Mono>
+                </span>
+              ),
+            },
+            { label: "Format", value: <span className="text-sm text-foreground">JSON · UTF-8</span> },
+          ]}
+        />
+      </Panel>
 
       <DocSection title="Base URL & authentication">
         <p>
@@ -604,14 +620,14 @@ X-API-Key: csk_xxxxxxxx.YOUR_SECRET`} copyLabel={copy} />
         </p>
       </DocSection>
 
-      <DocSection title="Examples">
-        <p className="text-xs font-semibold text-foreground">cURL</p>
-        <CodeBlock code={checkExample} copyLabel={copy} />
-        <p className="text-xs font-semibold text-foreground">GitHub Actions (fail on violation)</p>
-        <CodeBlock code={ghExample} copyLabel={copy} />
-        <p className="text-xs font-semibold text-foreground">Python</p>
-        <CodeBlock code={pyExample} copyLabel={copy} />
-      </DocSection>
+      {/* Worked examples — each code specimen mounted as a numbered exhibit */}
+      <Panel bare marker="§" label="Examples">
+        <div className="space-y-4">
+          <Exhibit n={1} label="cURL" code={checkExample} copyLabel={copy} />
+          <Exhibit n={2} label="GitHub Actions — fail on violation" code={ghExample} copyLabel={copy} />
+          <Exhibit n={3} label="Python" code={pyExample} copyLabel={copy} />
+        </div>
+      </Panel>
     </div>
   );
 }
@@ -627,7 +643,7 @@ function DocTable({ head, rows }: { head: string[]; rows: string[][] }) {
         <thead>
           <tr>
             {head.map((h) => (
-              <th key={h} className="border-b border-border bg-muted/50 px-3 py-2 text-start font-semibold text-foreground">
+              <th key={h} className="border-b-2 border-foreground px-3 py-2 text-start font-mono text-[11px] font-semibold uppercase tracking-wide text-foreground">
                 {h}
               </th>
             ))}
@@ -691,7 +707,7 @@ export default function ApiKeys() {
               className={cn(
                 "-mb-px flex items-center gap-2 border-b-2 px-4 py-2.5 font-mono text-[11px] uppercase tracking-wide transition-colors",
                 active
-                  ? "border-primary text-primary"
+                  ? "border-primary text-foreground"
                   : "border-transparent text-muted-foreground hover:text-foreground",
               )}
             >

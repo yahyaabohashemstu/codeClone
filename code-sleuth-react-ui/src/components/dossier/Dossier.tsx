@@ -47,21 +47,27 @@ export function Masthead({
   className?: string;
 }) {
   return (
-    <header className={cn("border-b border-border pb-5", className)}>
+    <header className={cn("border-b-2 border-foreground pb-5", className)}>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           {kicker != null && (
             <div className="t-label flex items-center gap-2.5">
-              <span className="h-px w-6 bg-primary" />
+              <span className="h-px w-8 bg-primary" />
               {kicker}
             </div>
           )}
-          <h1 className="mt-2.5 t-h2">{title}</h1>
-          {description != null && <p className="mt-1.5 max-w-[64ch] t-body">{description}</p>}
+          {/* Editorial case-file title: large fluid display, heavy rule beneath. */}
+          <h1
+            className="mt-3 font-display font-bold leading-[1.05] tracking-[-0.02em] text-foreground"
+            style={{ fontSize: "clamp(1.7rem, 3.2vw, 2.5rem)" }}
+          >
+            {title}
+          </h1>
+          {description != null && <p className="mt-2 max-w-[64ch] t-body">{description}</p>}
         </div>
         {actions != null && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
       </div>
-      {meta != null && meta.length > 0 && <MetaStrip items={meta} className="mt-4" />}
+      {meta != null && meta.length > 0 && <MetaStrip items={meta} className="mt-5" />}
     </header>
   );
 }
@@ -97,25 +103,62 @@ export function FieldSheet({ children, className }: { children: React.ReactNode;
   return <div className={cn("rounded-lg border border-border bg-card px-5 sm:px-6", className)}>{children}</div>;
 }
 
-/** A flat dossier panel with an optional ruled, mono-labelled header. Border, never shadow. */
+/**
+ * A dossier panel. Two modes:
+ *  - default: a flat bordered CARD (border, never shadow) with a small mono header.
+ *  - `bare`: a ruled editorial SECTION — a heavy §-rule header and content flowing
+ *    on the page, no box. Use `bare` for primary page sections so the page reads as
+ *    a printed case file rather than a stack of cards. `marker` prints a §/serial.
+ */
 export function Panel({
   label,
   actions,
   children,
   bodyClassName,
   className,
+  bare = false,
+  marker,
 }: {
   label?: React.ReactNode;
   actions?: React.ReactNode;
   children: React.ReactNode;
   bodyClassName?: string;
   className?: string;
+  bare?: boolean;
+  marker?: React.ReactNode;
 }) {
+  if (bare) {
+    return (
+      <section className={className}>
+        {(label != null || actions != null) && (
+          <div className="mb-5 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b-2 border-foreground pb-2.5">
+            {label != null ? (
+              <h2 className="font-display text-sm font-bold uppercase tracking-[0.2em] text-foreground">
+                {marker != null && <span className="text-muted-foreground">{marker} </span>}
+                {label}
+              </h2>
+            ) : (
+              <span />
+            )}
+            {actions != null && <div className="flex items-center gap-2">{actions}</div>}
+          </div>
+        )}
+        <div className={bodyClassName}>{children}</div>
+      </section>
+    );
+  }
   return (
     <section className={cn("overflow-hidden rounded-lg border border-border bg-card", className)}>
       {(label != null || actions != null) && (
         <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3">
-          {label != null ? <h2 className="t-label text-foreground">{label}</h2> : <span />}
+          {label != null ? (
+            <h2 className="t-label text-foreground">
+              {marker != null && <span className="text-muted-foreground">{marker} </span>}
+              {label}
+            </h2>
+          ) : (
+            <span />
+          )}
           {actions != null && <div className="flex items-center gap-2">{actions}</div>}
         </div>
       )}
@@ -142,7 +185,7 @@ export function Figure({
     <figure className={cn("overflow-hidden rounded-lg border border-border bg-card", className)}>
       <figcaption className="flex items-center justify-between gap-3 border-b border-border px-4 py-2.5">
         <span className="t-label flex items-center gap-2 text-foreground">
-          {n != null && <span className="text-primary">{`FIG.${String(n).padStart(2, "0")}`}</span>}
+          {n != null && <span className="text-muted-foreground">{`FIG.${String(n).padStart(2, "0")}`}</span>}
           {label}
         </span>
         {actions != null && <div className="flex items-center gap-2">{actions}</div>}
@@ -158,11 +201,60 @@ export function Serial({ children, tone = "muted", className }: { children: Reac
     <span
       className={cn(
         "inline-flex h-6 min-w-6 items-center justify-center rounded-sm border px-1.5 font-mono text-[11px] font-bold tabular-nums",
-        tone === "primary" ? "border-primary/40 bg-primary/10 text-primary" : "border-border text-muted-foreground",
+        tone === "primary" ? "border-primary/50 bg-primary/10 text-foreground" : "border-border text-muted-foreground",
         className,
       )}
     >
       {children}
     </span>
+  );
+}
+
+/**
+ * A ruled editorial section header — an optional §/serial marker + a mono title,
+ * an optional right-aligned reading, all sitting under a HEAVY 2px rule. This is
+ * the case-file section break that carries the editorial voice inside a page.
+ */
+export function SectionHead({
+  marker,
+  title,
+  aside,
+  className,
+}: {
+  marker?: React.ReactNode;
+  title: React.ReactNode;
+  aside?: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("mb-6 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b-2 border-foreground pb-2.5", className)}>
+      <h2 className="font-display text-sm font-bold uppercase tracking-[0.2em] text-foreground">
+        {marker != null && <span className="text-muted-foreground">{marker} </span>}
+        {title}
+      </h2>
+      {aside != null && (
+        <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{aside}</span>
+      )}
+    </div>
+  );
+}
+
+/** A vertical spec sheet: ruled mono label/value rows — the evidence-file reading. */
+export function SpecList({
+  rows,
+  className,
+}: {
+  rows: Array<{ label: React.ReactNode; value: React.ReactNode }>;
+  className?: string;
+}) {
+  return (
+    <dl className={cn("divide-y divide-border", className)}>
+      {rows.map((row, i) => (
+        <div key={i} className="flex items-baseline justify-between gap-4 py-2.5">
+          <dt className="font-mono text-[11px] uppercase leading-tight tracking-[0.1em] text-muted-foreground">{row.label}</dt>
+          <dd className="font-mono text-sm font-semibold tabular-nums text-foreground">{row.value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }

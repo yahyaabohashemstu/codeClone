@@ -81,6 +81,10 @@
     --destructive: 8 64% 42%;          /* oxblood — high similarity / flagged */
     --destructive-foreground: 44 42% 96%;
 
+    /* Second-exhibit identity tone — warm terracotta, distinct from the amber
+       signal and the oxblood alarm. Used for the "other side" AST graph. */
+    --accent-suspect: 16 58% 46%;
+
     --border: 38 17% 82%;
     --input: 38 17% 85%;
     --ring: 34 92% 46%;
@@ -104,6 +108,18 @@
     --code-surface-foreground: 30 14% 16%;
     --code-surface-border: 38 17% 84%;
 
+    /* Categorical chart palette — warm, on-paper hues (not the raw indigo/cyan
+       neon). For SEMANTIC similarity bands use --success/--warning/--destructive. */
+    --chart-1: 34 92% 46%;   /* amber (primary) */
+    --chart-2: 16 58% 46%;   /* terracotta */
+    --chart-3: 130 32% 33%;  /* olive */
+    --chart-4: 30 9% 45%;    /* warm slate */
+    --chart-5: 200 24% 42%;  /* muted steel */
+
+    /* Fixed dark "ink" rail — the auth brand panel is always dark in both
+       themes (defined once in :root, not overridden by .dark). */
+    --auth-ink: 30 14% 10%;
+
     /* Flat by default — one hairline shadow, reserved for true overlays. */
     --card-shadow-rest: 0 1px 2px hsl(30 24% 18% / 0.05);
     --card-shadow-hover: 0 2px 8px hsl(30 24% 18% / 0.09);
@@ -116,8 +132,8 @@
     --shadow-glow-md: none;
     --shadow-glow-lg: none;
 
-    /* Brand gradient retired to a solid Signal Indigo. Kept as a no-op alias
-       so existing var(--gradient-brand) fills render flat, not gradient. */
+    /* Brand gradient retired to a solid amber. Kept as a no-op alias so
+       existing var(--gradient-brand) fills render flat, not gradient. */
     --gradient-brand: hsl(var(--primary));
 
     /* Radius scale — sharp; over-rounding retired */
@@ -214,6 +230,8 @@
     --destructive: 8 66% 52%;
     --destructive-foreground: 44 30% 94%;
 
+    --accent-suspect: 16 66% 58%;
+
     --border: 30 9% 19%;
     --input: 30 9% 17%;
     --ring: 38 95% 54%;
@@ -234,6 +252,12 @@
     --code-surface: 30 14% 6%;
     --code-surface-foreground: 42 18% 82%;
     --code-surface-border: 30 9% 18%;
+
+    --chart-1: 38 95% 54%;
+    --chart-2: 16 66% 58%;
+    --chart-3: 128 34% 46%;
+    --chart-4: 38 10% 58%;
+    --chart-5: 200 30% 58%;
 
     --card-shadow-rest: 0 1px 2px hsl(0 0% 0% / 0.4);
     --card-shadow-hover: 0 2px 10px hsl(0 0% 0% / 0.55);
@@ -267,7 +291,8 @@
   html[lang="ar"] .t-h4,
   html[lang="ar"] .t-h5,
   html[lang="ar"] .t-label,
-  html[lang="ar"] .t-stat {
+  html[lang="ar"] .t-stat,
+  html[lang="ar"] .font-display {
     font-family: var(--font-arabic);
   }
 
@@ -305,6 +330,31 @@
   ::selection {
     background: hsl(var(--primary) / 0.3);
     color: hsl(var(--foreground));
+  }
+
+  /* Global reduced-motion contract (DESIGN.md §6). One declaration honours the
+     user's OS setting for every animation and transition in the app: entrances,
+     skeleton pulses, infinite spinners, hover/width/transform tweens, and the
+     smooth-scroll. Individual components no longer need their own guard. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-delay: 0ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      transition-delay: 0ms !important;
+      scroll-behavior: auto !important;
+    }
+
+    /* "Working" loops resolve to a static indicator rather than spinning. */
+    .animate-spin,
+    .animate-pulse,
+    .animate-ping,
+    .animate-bounce {
+      animation: none !important;
+    }
   }
 }
 
@@ -401,10 +451,11 @@
     border: 1px solid hsl(var(--border));
   }
 
-  /* Sidebar link active — full tint fill, no side-stripe. */
+  /* Sidebar link active — amber tint fill + ink label (legible), amber carried
+     by the icon/dot, not the text. No side-stripe. */
   .nav-link-active {
     background: hsl(var(--primary) / 0.12);
-    color: hsl(var(--primary));
+    color: hsl(var(--foreground));
     font-weight: 600;
   }
 
@@ -439,15 +490,15 @@
     background: hsl(var(--primary));
   }
 
-  /* Chat bubbles */
+  /* Chat bubbles — sharp dossier radius, not blobby. */
   .chat-bubble-user {
-    @apply rounded-2xl rounded-br-sm px-4 py-2.5 text-sm max-w-[80%];
+    @apply rounded-lg rounded-br-sm px-4 py-2.5 text-sm max-w-[80%];
     background: hsl(var(--primary));
     color: hsl(var(--primary-foreground));
   }
 
   .chat-bubble-ai {
-    @apply rounded-2xl rounded-bl-sm px-4 py-2.5 text-sm max-w-[80%];
+    @apply rounded-lg rounded-bl-sm px-4 py-2.5 text-sm max-w-[80%];
     background: hsl(var(--muted));
     color: hsl(var(--foreground));
     border: 1px solid hsl(var(--border) / 0.6);
@@ -458,11 +509,11 @@
     @apply pb-6 mb-6 border-b border-border/40;
   }
 
-  /* Skeleton shimmer */
+  /* Skeleton — flat muted fill with a quiet pulse. (No 200% sweep gradient:
+     it never animated, since only animate-pulse was applied.) */
   .skeleton {
     @apply animate-pulse rounded-md;
-    background: linear-gradient(90deg, hsl(var(--muted)) 0%, hsl(var(--surface-3)) 50%, hsl(var(--muted)) 100%);
-    background-size: 200% 100%;
+    background: hsl(var(--muted));
   }
 }
 
@@ -502,9 +553,8 @@
   .ast-graph-surface {
     height: 560px;
     width: 100%;
-    background:
-      radial-gradient(circle at top, hsl(var(--primary) / 0.06), transparent 32%),
-      linear-gradient(180deg, hsl(var(--surface-1)), hsl(var(--surface-2)));
+    /* Flat paper surface — no radial glow, no tonal gradient. */
+    background: hsl(var(--surface-1));
   }
 
   .ast-flow-canvas {
@@ -549,6 +599,9 @@
     background: transparent;
   }
 
+  /* Flat dossier node: solid card fill + hairline, no glass, no glow. Node
+     tone (amber / suspect) and selection border are applied inline by AstNode
+     so they track the token themes; this class owns layout + resting surface. */
   .ast-flow-label-card {
     width: 100%;
     min-height: 28px;
@@ -556,29 +609,18 @@
     align-items: center;
     justify-content: center;
     padding: 6px 10px;
-    border-radius: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    background: linear-gradient(180deg, rgba(33, 39, 57, 0.98), rgba(17, 21, 31, 0.98));
-    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
-  }
-
-  .ast-flow-node-primary .ast-flow-label-card {
-    border-color: rgba(137, 145, 255, 0.52);
-    background: linear-gradient(180deg, rgba(63, 72, 112, 0.96), rgba(24, 28, 42, 0.98));
-  }
-
-  .ast-flow-node-accent .ast-flow-label-card {
-    border-color: rgba(76, 220, 243, 0.5);
-    background: linear-gradient(180deg, rgba(26, 74, 84, 0.96), rgba(14, 27, 31, 0.98));
+    border-radius: var(--radius-md);
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--card));
   }
 
   .ast-flow-compact-label {
     width: 100%;
     font-size: 11px;
     line-height: 1.2;
-    font-weight: 700;
+    font-weight: 600;
     text-align: center;
-    color: rgba(246, 248, 255, 0.98);
+    color: hsl(var(--foreground));
     text-transform: none;
     overflow-wrap: anywhere;
     word-break: break-word;
@@ -588,134 +630,25 @@
     overflow: hidden;
   }
 
+  /* Node marker — solid token dot, no coloured glow ring. AstNode sets the
+     amber / suspect fill inline; this is the neutral resting fallback. */
   .ast-flow-compact-dot {
     width: 14px;
     height: 14px;
     flex: 0 0 auto;
     border-radius: 9999px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    background: #6d7cff;
-    box-shadow: 0 0 0 3px rgba(109, 124, 255, 0.12);
-  }
-
-  .ast-flow-node-primary .ast-flow-compact-dot {
-    background: #7c72ff;
-    box-shadow: 0 0 0 3px rgba(124, 114, 255, 0.14);
-  }
-
-  .ast-flow-node-accent .ast-flow-compact-dot {
-    background: #22d3ee;
-    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.14);
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--muted-foreground));
   }
 
   .ast-flow-node-root .ast-flow-compact-dot {
     width: 16px;
     height: 16px;
-    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.06), 0 0 0 7px rgba(124, 114, 255, 0.14);
   }
 
-  .ast-flow-node-accent.ast-flow-node-root .ast-flow-compact-dot {
-    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.06), 0 0 0 7px rgba(34, 211, 238, 0.14);
-  }
-
-  .ast-flow-node-selected .ast-flow-label-card {
-    transform: translateY(-1px) scale(1.02);
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 18px 38px rgba(15, 23, 42, 0.24);
-  }
-
-  .ast-flow-node-primary.ast-flow-node-selected .ast-flow-label-card {
-    border-color: rgba(202, 208, 255, 0.98);
-    box-shadow:
-      0 0 0 1px rgba(124, 114, 255, 0.66),
-      0 0 0 3px rgba(124, 114, 255, 0.18),
-      0 0 28px rgba(124, 114, 255, 0.46),
-      0 18px 38px rgba(124, 114, 255, 0.3);
-  }
-
-  .ast-flow-node-accent.ast-flow-node-selected .ast-flow-label-card {
-    border-color: rgba(174, 247, 255, 0.98);
-    box-shadow:
-      0 0 0 1px rgba(34, 211, 238, 0.64),
-      0 0 0 3px rgba(34, 211, 238, 0.16),
-      0 0 28px rgba(34, 211, 238, 0.4),
-      0 18px 38px rgba(34, 211, 238, 0.26);
-  }
-
-  .ast-flow-node-selected .ast-flow-compact-dot {
-    transform: scale(1.18);
-  }
-
-  .ast-flow-node-selected .ast-flow-compact-label {
-    color: rgba(255, 255, 255, 1);
-  }
-
-  .ast-flow-node-in-path .ast-flow-label-card {
-    transform: translateY(-1px) scale(1.014);
-    box-shadow:
-      0 0 0 1px rgba(255, 255, 255, 0.1),
-      0 0 0 2px rgba(255, 255, 255, 0.04),
-      0 0 32px rgba(124, 114, 255, 0.28),
-      0 16px 34px rgba(15, 23, 42, 0.22);
-  }
-
-  .ast-flow-node-primary.ast-flow-node-in-path .ast-flow-label-card {
-    border-color: rgba(192, 198, 255, 0.98);
-    box-shadow:
-      0 0 0 1px rgba(124, 114, 255, 0.56),
-      0 0 0 3px rgba(124, 114, 255, 0.14),
-      0 0 34px rgba(124, 114, 255, 0.4),
-      0 18px 36px rgba(124, 114, 255, 0.24);
-  }
-
-  .ast-flow-node-accent.ast-flow-node-in-path .ast-flow-label-card {
-    border-color: rgba(168, 247, 255, 0.98);
-    box-shadow:
-      0 0 0 1px rgba(34, 211, 238, 0.52),
-      0 0 0 3px rgba(34, 211, 238, 0.14),
-      0 0 34px rgba(34, 211, 238, 0.34),
-      0 18px 36px rgba(34, 211, 238, 0.22);
-  }
-
-  .ast-flow-node-in-path .ast-flow-compact-dot {
-    transform: scale(1.14);
-  }
-
-  .ast-flow-node-in-path .ast-flow-compact-label {
-    color: rgba(255, 255, 255, 1);
-    text-shadow: 0 0 12px rgba(255, 255, 255, 0.16);
-  }
-
-  .ast-flow-node-primary.ast-flow-node-in-path .ast-flow-compact-dot {
-    box-shadow:
-      0 0 0 5px rgba(124, 114, 255, 0.32),
-      0 0 0 10px rgba(124, 114, 255, 0.08),
-      0 0 24px rgba(124, 114, 255, 0.56);
-  }
-
-  .ast-flow-node-accent.ast-flow-node-in-path .ast-flow-compact-dot {
-    box-shadow:
-      0 0 0 5px rgba(34, 211, 238, 0.28),
-      0 0 0 10px rgba(34, 211, 238, 0.08),
-      0 0 24px rgba(34, 211, 238, 0.46);
-  }
-
-  .ast-flow-node-terminal-path .ast-flow-label-card {
-    transform: translateY(-1px) scale(1.03);
-  }
-
-  .ast-flow-node-primary.ast-flow-node-selected .ast-flow-compact-dot {
-    box-shadow:
-      0 0 0 5px rgba(124, 114, 255, 0.36),
-      0 0 0 11px rgba(124, 114, 255, 0.1),
-      0 0 28px rgba(124, 114, 255, 0.62);
-  }
-
-  .ast-flow-node-accent.ast-flow-node-selected .ast-flow-compact-dot {
-    box-shadow:
-      0 0 0 5px rgba(34, 211, 238, 0.32),
-      0 0 0 11px rgba(34, 211, 238, 0.1),
-      0 0 28px rgba(34, 211, 238, 0.5);
-  }
+  /* Selection & ancestry-path emphasis is carried by the inline border colour
+     AstNode already sets (amber / suspect) — no transform, no neon box-shadow,
+     no white text. Keeps the graph calm and reduced-motion friendly. */
 
   .ast-flow-handle {
     width: 6px;
@@ -736,28 +669,20 @@
     bottom: auto !important;
   }
 
+  /* Edge highlight = stroke colour + width only (set inline by the component).
+     The neon drop-shadow glow filters are retired. */
   .ast-flow-canvas .react-flow__edge-path {
     stroke-linecap: round;
     stroke-linejoin: round;
-    transition: opacity 180ms ease, stroke-width 180ms ease, filter 180ms ease;
+    transition: opacity 180ms ease, stroke-width 180ms ease;
   }
 
-  .ast-flow-canvas .react-flow__edge.ast-flow-edge-highlighted .react-flow__edge-path {
-    filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.26));
-  }
-
-  .ast-flow-canvas .react-flow__edge.ast-flow-edge-highlighted-primary .react-flow__edge-path {
-    filter: drop-shadow(0 0 12px rgba(124, 114, 255, 0.72)) drop-shadow(0 0 24px rgba(124, 114, 255, 0.46));
-  }
-
-  .ast-flow-canvas .react-flow__edge.ast-flow-edge-highlighted-accent .react-flow__edge-path {
-    filter: drop-shadow(0 0 12px rgba(34, 211, 238, 0.68)) drop-shadow(0 0 24px rgba(34, 211, 238, 0.42));
-  }
-
+  /* Node-detail panel — solid dossier surfaces, hairline structure, sharp
+     radius. No glass gradients, no over-rounding, no neon dots. */
   .ast-node-detail-panel {
-    border: 1px solid hsl(var(--border) / 0.55);
-    background: linear-gradient(180deg, hsl(var(--surface-1) / 0.92), hsl(var(--surface-2) / 0.96));
-    border-radius: 1rem;
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--card));
+    border-radius: var(--radius);
     padding: 1rem;
   }
 
@@ -765,9 +690,9 @@
     display: flex;
     align-items: center;
     gap: 0.875rem;
-    border: 1px dashed hsl(var(--border) / 0.55);
-    background: hsl(var(--surface-1) / 0.5);
-    border-radius: 1rem;
+    border: 1px dashed hsl(var(--border));
+    background: hsl(var(--surface-1));
+    border-radius: var(--radius);
     padding: 1rem;
   }
 
@@ -778,16 +703,16 @@
     flex: 0 0 auto;
     align-items: center;
     justify-content: center;
-    border-radius: 0.85rem;
-    border: 1px solid hsl(var(--border) / 0.6);
-    background: hsl(var(--background) / 0.6);
+    border-radius: var(--radius-md);
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--surface-2));
     color: hsl(var(--primary));
   }
 
   .ast-node-detail-card {
-    border: 1px solid hsl(var(--border) / 0.55);
-    background: hsl(var(--background) / 0.34);
-    border-radius: 0.85rem;
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--surface-1));
+    border-radius: var(--radius-md);
     padding: 0.8rem 0.9rem;
   }
 
@@ -796,7 +721,7 @@
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: hsl(var(--muted-foreground) / 0.78);
+    color: hsl(var(--muted-foreground));
   }
 
   .ast-node-detail-value {
@@ -812,17 +737,14 @@
     height: 0.7rem;
     width: 0.7rem;
     border-radius: 9999px;
-    box-shadow: 0 0 0 4px transparent;
   }
 
   .ast-node-detail-dot.is-primary {
-    background: #7c72ff;
-    box-shadow: 0 0 0 4px rgba(124, 114, 255, 0.16);
+    background: hsl(var(--primary));
   }
 
   .ast-node-detail-dot.is-accent {
-    background: #22d3ee;
-    box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.14);
+    background: hsl(var(--accent-suspect));
   }
 
   .analysis-markdown {
@@ -837,8 +759,17 @@
   .analysis-markdown h2,
   .analysis-markdown h3 {
     color: hsl(var(--foreground));
+    font-family: var(--font-display);
     font-weight: 700;
     line-height: 1.3;
+  }
+
+  /* JetBrains Mono has no Arabic glyphs — keep report headings in the Arabic
+     face under RTL so the mono display voice never mangles Arabic script. */
+  html[lang="ar"] .analysis-markdown h1,
+  html[lang="ar"] .analysis-markdown h2,
+  html[lang="ar"] .analysis-markdown h3 {
+    font-family: var(--font-arabic);
   }
 
   .analysis-markdown h1 {
@@ -885,14 +816,15 @@
   .analysis-markdown code {
     border: 1px solid hsl(var(--border) / 0.6);
     background: hsl(var(--surface-1));
-    border-radius: 0.5rem;
+    border-radius: var(--radius-sm);
     padding: 0.1rem 0.35rem;
     color: hsl(var(--foreground));
     font-size: 0.85em;
   }
 
   .analysis-markdown pre {
-    @apply scrollbar-thin overflow-x-auto rounded-xl border p-4;
+    @apply scrollbar-thin overflow-x-auto border p-4;
+    border-radius: var(--radius);
     border-color: hsl(var(--border) / 0.7);
     background: hsl(var(--code-surface));
     color: hsl(var(--code-surface-foreground));
@@ -909,7 +841,7 @@
     width: 100%;
     border-collapse: collapse;
     overflow: hidden;
-    border-radius: 1rem;
+    border-radius: var(--radius);
     border: 1px solid hsl(var(--border) / 0.6);
   }
 
@@ -941,7 +873,7 @@
     border: 1px solid hsl(var(--primary) / 0.25);
     background: hsl(var(--primary) / 0.05);
     padding: 0.85rem 1rem;
-    border-radius: 0.75rem;
+    border-radius: var(--radius);
     color: hsl(var(--foreground));
   }
 }

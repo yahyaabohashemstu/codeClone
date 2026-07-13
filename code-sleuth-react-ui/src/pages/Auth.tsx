@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowRight, AtSign, CheckCircle2, Eye, EyeOff, Lock, UserRound } from "lucide-react";
+import { AtSign, CheckCircle2, Eye, EyeOff, Lock, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
@@ -163,28 +163,25 @@ const Auth = () => {
 
   return (
     <div
-      className="mx-auto grid w-full max-w-6xl overflow-hidden rounded-2xl border border-border bg-card md:grid-cols-2"
+      className="mx-auto grid w-full max-w-6xl overflow-hidden rounded-lg border border-border bg-card md:grid-cols-2"
       style={{ minHeight: "640px", boxShadow: "var(--card-shadow-rest)" }}
     >
-      {/* ── Brand side (dark panel) ── */}
+      {/* ── Brand side (fixed dark ink rail) ── */}
       <section
         className="relative flex flex-col justify-between overflow-hidden p-10 text-white"
-        style={{ background: "hsl(30 12% 8%)" }}
+        style={{ background: "hsl(var(--auth-ink))" }}
       >
         <div className="relative">
           <div className="flex items-center gap-3">
-            <div
-              className="flex h-10 w-10 items-center justify-center rounded-[10px] overflow-hidden"
-              style={{ background: "var(--gradient-brand)" }}
-            >
+            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-md bg-primary">
               <img src="/brand/logo.png" alt="Clone Lens" className="h-10 w-10 object-contain" />
             </div>
-            <span className="text-[18px] font-extrabold tracking-tight">Clone Lens</span>
+            <span className="font-display text-lg font-bold tracking-tight">Clone Lens</span>
           </div>
 
           <h2
-            className="mt-10 text-4xl font-extrabold leading-[1.1]"
-            style={{ letterSpacing: "-0.025em" }}
+            className="mt-10 font-display font-bold leading-[1.06] tracking-[-0.015em]"
+            style={{ fontSize: "clamp(1.9rem, 3vw, 2.6rem)" }}
           >
             {t("auth.welcomeTitle")}
           </h2>
@@ -193,9 +190,10 @@ const Auth = () => {
           </p>
         </div>
 
+        {/* Highlighted evidence — hairline + amber tint, no 3px side-stripe. */}
         <div
-          className="relative mt-10 rounded-lg border-l-[3px] border-primary p-5 text-sm leading-[1.6]"
-          style={{ background: "rgba(255,255,255,0.05)" }}
+          className="relative mt-10 rounded-lg border border-primary/25 p-5 text-sm leading-[1.6]"
+          style={{ background: "hsl(var(--primary) / 0.08)" }}
         >
           {t("auth.quote")}
           <div className="mt-2 text-xs not-italic text-white/60">— {t("auth.quoteCite")}</div>
@@ -209,7 +207,7 @@ const Auth = () => {
           {t("auth.secureAccess")}
         </div>
 
-        <h3 className="text-2xl font-bold tracking-tight" style={{ letterSpacing: "-0.015em" }}>
+        <h3 className="t-h3">
           {headingTitle}
         </h3>
         <p className="mt-1.5 mb-6 text-sm text-muted-foreground">{headingDescription}</p>
@@ -246,7 +244,7 @@ const Auth = () => {
             type="button"
             onClick={() => void handleResendVerification()}
             disabled={isSubmitting}
-            className="mb-4 text-sm text-primary hover:underline disabled:opacity-50"
+            className="mb-4 text-sm text-foreground underline underline-offset-2 hover:opacity-70 disabled:opacity-50"
           >
             {isSubmitting ? t("auth.resending") : t("auth.resendVerification")}
           </button>
@@ -356,7 +354,7 @@ const Auth = () => {
                 <button
                   type="button"
                   onClick={() => switchMode("forgot")}
-                  className={cn("mt-2 text-xs text-primary hover:underline", isRTL ? "float-left" : "float-right")}
+                  className={cn("mt-2 text-xs text-foreground underline underline-offset-2 hover:opacity-70", isRTL ? "float-left" : "float-right")}
                 >
                   {t("auth.forgotPassword")}
                 </button>
@@ -367,36 +365,32 @@ const Auth = () => {
           <Button
             type="submit"
             disabled={isSubmitting}
-            className="mt-2 h-11 w-full gap-2 text-white"
-            style={{ background: "var(--gradient-brand)", boxShadow: "var(--glow-shadow-sm)" }}
+            className="mt-2 h-11 w-full gap-2"
           >
             {isSubmitting ? (
               <span className="flex items-center gap-2">
-                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary-foreground/40 border-t-primary-foreground" />
                 {submittingLabel}
               </span>
             ) : (
-              <>
-                {submitLabel}
-                <ArrowRight className="h-4 w-4" />
-              </>
+              submitLabel
             )}
           </Button>
         </form>
 
         <div className="mt-5 text-center text-sm text-muted-foreground">
           {mode === "signin" && (
-            <button type="button" onClick={() => switchMode("signup")} className="text-primary hover:underline">
+            <button type="button" onClick={() => switchMode("signup")} className="text-foreground underline underline-offset-2 hover:opacity-70">
               {t("auth.signupCta")}
             </button>
           )}
           {mode === "signup" && (
-            <button type="button" onClick={() => switchMode("signin")} className="text-primary hover:underline">
+            <button type="button" onClick={() => switchMode("signin")} className="text-foreground underline underline-offset-2 hover:opacity-70">
               {t("auth.loginCta")}
             </button>
           )}
           {(mode === "forgot" || mode === "twofa") && (
-            <button type="button" onClick={() => switchMode("signin")} className="text-primary hover:underline">
+            <button type="button" onClick={() => switchMode("signin")} className="text-foreground underline underline-offset-2 hover:opacity-70">
               {t("auth.backToLogin")}
             </button>
           )}

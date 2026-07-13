@@ -32,10 +32,12 @@ function severityBadge(severity: HistorySummary["severity"]) {
   return "badge-success";
 }
 
+// The calibrated similarity scale (DESIGN §2): green <50 / amber 50–79 / red ≥80.
+// Used for the score BAR fill; the number itself stays neutral ink so small
+// amber text never falls below AA on paper.
 function scoreColor(score: number): string {
-  if (score >= 75) return "hsl(var(--destructive))";
-  if (score >= 50) return "hsl(14 85% 38%)";
-  if (score >= 25) return "hsl(var(--warning))";
+  if (score >= 80) return "hsl(var(--destructive))";
+  if (score >= 50) return "hsl(var(--warning))";
   return "hsl(var(--success))";
 }
 
@@ -331,7 +333,7 @@ const History = () => {
               className={cn(
                 "border-e border-border px-3 font-mono text-[11px] uppercase tracking-wide transition-colors last:border-e-0",
                 sortBy === mode
-                  ? "bg-primary/10 text-primary"
+                  ? "bg-primary/10 font-semibold text-foreground"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
@@ -358,29 +360,29 @@ const History = () => {
           <div className="overflow-x-auto scrollbar-thin">
             <table className="w-full min-w-[980px] text-sm">
               <thead>
-                <tr className="bg-muted">
-                  <th className={cn("w-12 border-b border-border px-4 py-2.5 font-mono text-[11px] font-semibold text-muted-foreground", isRTL ? "text-right" : "text-left")}>
+                <tr>
+                  <th className={cn("w-12 border-b-2 border-foreground px-4 py-2.5 font-mono text-[11px] font-semibold text-muted-foreground", isRTL ? "text-right" : "text-left")}>
                     #
                   </th>
-                  <th className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
+                  <th className={cn("border-b-2 border-foreground px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
                     {t("history.table.sourceA")}
                   </th>
-                  <th className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
+                  <th className={cn("border-b-2 border-foreground px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
                     {t("history.table.sourceB")}
                   </th>
-                  <th className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
+                  <th className={cn("border-b-2 border-foreground px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
                     {t("history.table.language")}
                   </th>
-                  <th className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
+                  <th className={cn("border-b-2 border-foreground px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
                     {t("history.table.score")}
                   </th>
-                  <th className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
+                  <th className={cn("border-b-2 border-foreground px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
                     {t("history.table.severity")}
                   </th>
-                  <th className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
+                  <th className={cn("border-b-2 border-foreground px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
                     {t("history.table.date")}
                   </th>
-                  <th className={cn("border-b border-border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-left" : "text-right")}>
+                  <th className={cn("border-b-2 border-foreground px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-left" : "text-right")}>
                     {t("history.table.actions")}
                   </th>
                 </tr>
@@ -403,7 +405,7 @@ const History = () => {
                         <span className="truncate font-mono text-xs text-foreground">{item.sourceB}</span>
                       </td>
                       <td className="px-4 py-3 align-middle">
-                        <span className="inline-flex items-center rounded-sm border border-primary/25 bg-primary/10 px-2 py-0.5 font-mono text-[11px] font-medium text-primary">
+                        <span className="inline-flex items-center rounded-sm border border-primary/25 bg-primary/10 px-2 py-0.5 font-mono text-[11px] font-medium text-foreground">
                           {getProgrammingLanguageLabel(item.language)}
                         </span>
                       </td>
@@ -418,10 +420,7 @@ const History = () => {
                               style={{ width: `${score}%`, background: scoreColor(score) }}
                             />
                           </span>
-                          <span
-                            className="text-sm font-semibold tabular-nums"
-                            style={{ fontFamily: "var(--font-mono)", color: scoreColor(score) }}
-                          >
+                          <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
                             {score.toFixed(1)}%
                           </span>
                         </div>
@@ -442,7 +441,7 @@ const History = () => {
                             className="h-8 w-8 text-muted-foreground hover:text-foreground"
                             onClick={() => void openPreview(item)}
                             disabled={isBusy}
-                            aria-label="View details"
+                            aria-label={t("buttons.viewDetails")}
                           >
                             <Info className="h-3.5 w-3.5" />
                           </Button>
@@ -452,7 +451,7 @@ const History = () => {
                             className="h-8 w-8 text-muted-foreground hover:text-foreground"
                             onClick={() => void openInResults(item)}
                             disabled={isBusy}
-                            aria-label="Open results"
+                            aria-label={t("buttons.viewResults")}
                           >
                             <ExternalLink className="h-3.5 w-3.5" />
                           </Button>
@@ -462,7 +461,7 @@ const History = () => {
                             className="h-8 w-8 text-muted-foreground hover:text-foreground"
                             onClick={() => void rerunAnalysis(item)}
                             disabled={isBusy}
-                            aria-label="Rerun analysis"
+                            aria-label={t("buttons.rerun")}
                           >
                             <RefreshCw className="h-3.5 w-3.5" />
                           </Button>
@@ -472,7 +471,7 @@ const History = () => {
                             className="h-8 w-8 text-muted-foreground hover:text-foreground"
                             onClick={() => void exportAnalysis(item)}
                             disabled={isBusy}
-                            aria-label="Download"
+                            aria-label={t("buttons.download")}
                           >
                             <Download className="h-3.5 w-3.5" />
                           </Button>
@@ -482,7 +481,7 @@ const History = () => {
                             className="h-8 w-8 text-muted-foreground hover:text-destructive"
                             onClick={() => confirmDelete(item)}
                             disabled={isBusy}
-                            aria-label="Delete"
+                            aria-label={t("buttons.delete")}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>

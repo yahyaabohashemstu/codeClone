@@ -18,6 +18,10 @@ export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
   const { isRTL } = useLanguage();
   const { t } = useTranslation("common");
 
+  // Show the modifier that matches the user's platform, not a hardcoded ⌘.
+  const isMac = typeof navigator !== "undefined" && /mac|iphone|ipad/i.test(navigator.userAgent);
+  const shortcutHint = isMac ? "⌘K" : "Ctrl K";
+
   const routeTitle = t(`routes.${location.pathname}`, { defaultValue: t("header.workspace") });
 
   const handleLogout = async () => {
@@ -72,10 +76,9 @@ export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
           type="button"
           onClick={() => navigate("/history")}
           className={cn(
-            "relative hidden h-9 items-center gap-2 rounded-md border border-transparent bg-muted/40 px-3 text-xs transition-colors hover:border-border hover:bg-muted/70 lg:flex",
+            "relative hidden h-9 w-80 items-center gap-2 rounded-md border border-transparent bg-muted/40 px-3 text-xs transition-colors hover:border-border hover:bg-muted/70 lg:flex",
             isRTL ? "mr-auto" : "ml-auto",
           )}
-          style={{ width: "320px" }}
           aria-label={t("header.historySearch")}
           title={t("header.historySearch")}
         >
@@ -87,7 +90,7 @@ export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
               isRTL ? "mr-auto" : "ml-auto",
             )}
           >
-            ⌘K
+            {shortcutHint}
           </kbd>
         </button>
       </div>
@@ -109,10 +112,7 @@ export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
 
         {isAuthenticated ? (
           <div className={cn("hidden items-center gap-2 md:flex", isRTL ? "mr-3" : "ml-3")}>
-            <div
-              className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5"
-              style={{ fontSize: "0.72rem" }}
-            >
+            <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-[11px]">
               {/* Avatar */}
               <span
                 className="flex h-6 w-6 items-center justify-center rounded-full bg-primary font-mono text-[10px] font-bold text-primary-foreground"

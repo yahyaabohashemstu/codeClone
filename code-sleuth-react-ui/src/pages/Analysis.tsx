@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Masthead, FieldSheet, Field, Serial } from "@/components/dossier/Dossier";
+import { Masthead, Serial } from "@/components/dossier/Dossier";
 import { useAnalysis } from "@/context/AnalysisContext";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -164,7 +164,7 @@ function ExhibitPanel({
             {t("analysis.ready")}
           </span>
         ) : (
-          <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground/60">
+          <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
             {t("analysis.empty", { defaultValue: "empty" })}
           </span>
         )}
@@ -182,7 +182,7 @@ function ExhibitPanel({
               onClick={() => setMethod(method.id)}
               className={cn(
                 "flex-1 border-e border-border py-2 text-center font-mono text-[11px] uppercase tracking-wide transition-colors last:border-e-0",
-                active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                active ? "bg-primary/10 font-semibold text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
             >
               <Icon className="mx-auto mb-1 h-3.5 w-3.5" />
@@ -205,7 +205,7 @@ function ExhibitPanel({
             {source.code && (
               <div
                 className={cn(
-                  "absolute bottom-2 font-mono text-[10px] text-muted-foreground/60",
+                  "absolute bottom-2 font-mono text-[10px] text-muted-foreground",
                   isRTL ? "left-3" : "right-3",
                 )}
               >
@@ -276,7 +276,7 @@ function ExhibitPanel({
               onChange={(event) => onChange({ ...source, excelRow: event.target.value })}
               placeholder="1"
               className={cn(
-                "h-8 w-20 rounded-sm border border-border bg-card px-2 font-mono text-foreground focus:border-primary/60 focus:outline-none",
+                "input-focus h-8 w-20 rounded-sm border border-border bg-card px-2 font-mono text-foreground",
                 isRTL ? "mr-auto text-right" : "ml-auto",
               )}
             />
@@ -387,30 +387,28 @@ const Analysis = () => {
             value: bothReady ? (
               <span className="text-success">READY</span>
             ) : (
-              <span className="text-warning">DRAFT · {readyCount}/2</span>
+              <span className="rounded-sm bg-warning/20 px-1.5 py-0.5 text-foreground">DRAFT · {readyCount}/2</span>
             ),
           },
-          { label: "AUTOSAVE", value: "ON" },
         ]}
+        actions={
+          <label className="flex items-center gap-2.5">
+            <span className="t-label text-muted-foreground">{t("analysis.language")}</span>
+            <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+              <SelectTrigger className="h-9 w-[176px] rounded-sm border-border bg-card font-mono text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {languageOptions.map((option) => (
+                  <SelectItem key={option} value={option} className="font-mono text-sm">
+                    {getProgrammingLanguageLabel(option)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>
+        }
       />
-
-      {/* Case parameters — margin-label fields */}
-      <FieldSheet>
-        <Field label={t("analysis.language")} align="center">
-          <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-            <SelectTrigger className="h-9 w-full max-w-[220px] rounded-sm border-border bg-card font-mono text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {languageOptions.map((option) => (
-                <SelectItem key={option} value={option} className="font-mono text-sm">
-                  {getProgrammingLanguageLabel(option)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-      </FieldSheet>
 
       {errorMessage && (
         <div
@@ -422,10 +420,19 @@ const Analysis = () => {
         </div>
       )}
 
-      {/* Two exhibits, A vs B */}
-      <div className="grid gap-5 xl:grid-cols-2">
-        <ExhibitPanel label="A" source={sourceA} onChange={setSourceA} />
-        <ExhibitPanel label="B" source={sourceB} onChange={setSourceB} />
+      {/* Pairwise specimens — A vs B framed as the case exhibits, joined by a central seam */}
+      <div>
+        <div className="flex items-baseline justify-between gap-4 border-b border-border pb-2">
+          <span className="t-label text-muted-foreground">{t("home.pairwise", { ns: "common", defaultValue: "Pairwise" })}</span>
+          <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">A · B</span>
+        </div>
+        <div className="mt-5 grid items-stretch gap-5 xl:grid-cols-[1fr_auto_1fr]">
+          <ExhibitPanel label="A" source={sourceA} onChange={setSourceA} />
+          <div className="flex items-center justify-center" aria-hidden>
+            <span className="rounded-sm bg-primary px-2.5 py-1.5 font-display text-xs font-bold text-primary-foreground">vs</span>
+          </div>
+          <ExhibitPanel label="B" source={sourceB} onChange={setSourceB} />
+        </div>
       </div>
 
       {/* Engine capabilities — collapsed spec list */}
@@ -440,18 +447,14 @@ const Analysis = () => {
         </button>
 
         {showAdvanced && (
-          <dl className="mt-3 grid grid-cols-1 gap-x-8 overflow-hidden rounded-lg border border-border bg-card sm:grid-cols-2">
-            {CAPABILITY_KEYS.map((key, i) => (
+          <dl className="mt-3 grid gap-x-10 overflow-hidden rounded-lg border border-border bg-card px-5 py-1 sm:grid-cols-2">
+            {CAPABILITY_KEYS.map((key) => (
               <div
                 key={key}
-                className={cn(
-                  "flex items-center gap-2.5 border-border px-4 py-2.5 text-xs",
-                  i % 2 === 0 && "sm:border-e",
-                  i < CAPABILITY_KEYS.length - 2 && "border-b",
-                )}
+                className="flex items-center gap-2.5 border-b border-border/70 py-2.5 text-xs last:border-b-0"
               >
                 <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-success" />
-                <dt className="text-muted-foreground">{t(`analysis.${key}`)}</dt>
+                <dt className="font-mono text-muted-foreground">{t(`analysis.${key}`)}</dt>
               </div>
             ))}
           </dl>
@@ -459,17 +462,17 @@ const Analysis = () => {
       </div>
 
       {/* Run footer — mono status line + actions */}
-      <div className="sticky bottom-0 flex flex-col gap-3 rounded-lg border border-border bg-card/95 p-4 backdrop-blur-sm lg:flex-row lg:items-center lg:justify-between">
+      <div className="sticky bottom-0 flex flex-col gap-3 rounded-lg border border-border bg-card p-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0 font-mono text-[11px] text-muted-foreground">
           {isAnalyzing && analysisProgress ? (
             <div className="flex items-center gap-3">
-              <span className="uppercase tracking-wide text-primary">
+              <span className="uppercase tracking-wide text-foreground">
                 {localizeRuntimeMessage(analysisProgress.stage)}
                 {progressPercent !== null && <span className="tabular-nums"> · {progressPercent}%</span>}
               </span>
               <div className="h-1 w-40 overflow-hidden rounded-sm bg-muted">
                 <div
-                  className="h-full bg-primary transition-all duration-500"
+                  className="h-full bg-primary transition-[width] duration-500"
                   style={{ width: `${progressPercent ?? 20}%` }}
                 />
               </div>

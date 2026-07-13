@@ -44,13 +44,13 @@ export function MainLayout({ children }: MainLayoutProps) {
         onCollapse={() => setIsSidebarCollapsed((current) => !current)}
       />
       <div
-        className={`flex flex-1 flex-col transition-all duration-300 ${
+        className={`flex flex-1 flex-col transition-[padding] duration-300 ${
           isRTL ? (isSidebarCollapsed ? "md:pr-16" : "md:pr-60") : isSidebarCollapsed ? "md:pl-16" : "md:pl-60"
         }`}
       >
         <Header toggleSidebar={() => setIsSidebarOpen((current) => !current)} />
         <main className="mx-auto flex-1 w-full max-w-[1480px] px-4 py-6 md:px-6 lg:px-8">{children}</main>
-        <footer className="border-t border-border/30 px-6 py-4 text-center text-xs text-muted-foreground/50">
+        <footer className="border-t border-border/30 px-6 py-4 text-center text-xs text-muted-foreground">
           <div>{t("footer.fullCopyright")}</div>
           <div className="mt-1 flex justify-center gap-3">
             <Link to="/terms" className="hover:text-foreground">{t("footer.terms", { defaultValue: "Terms" })}</Link>

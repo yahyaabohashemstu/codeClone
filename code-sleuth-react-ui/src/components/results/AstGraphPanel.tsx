@@ -19,15 +19,16 @@ import { Cpu, Maximize2, MousePointerClick, ZoomIn, ZoomOut } from "lucide-react
 type GraphTone = "primary" | "accent";
 
 // Warm two-tone coding: primary side = amber (the one accent), suspect side =
-// oxblood. Token-based so it tracks light/dark. Replaces the old indigo/cyan neon.
+// terracotta. Both fully token-based (--primary / --accent-suspect) so they
+// track light/dark. Replaces the old hardcoded indigo/cyan neon.
 function getGraphToneColor(color: GraphTone) {
-  return color === "primary" ? "hsl(var(--primary))" : "hsl(8 60% 46%)";
+  return color === "primary" ? "hsl(var(--primary))" : "hsl(var(--accent-suspect))";
 }
 
 function getGraphEdgePalette(color: GraphTone) {
   return color === "primary"
     ? { base: "hsl(var(--primary) / 0.38)", highlighted: "hsl(var(--primary))" }
-    : { base: "hsl(8 60% 46% / 0.38)", highlighted: "hsl(8 60% 46%)" };
+    : { base: "hsl(var(--accent-suspect) / 0.38)", highlighted: "hsl(var(--accent-suspect))" };
 }
 
 type RawPoint = [number, number] | null | undefined;
@@ -315,10 +316,10 @@ function buildTreeLayout(
 }
 
 const AstNode = memo(({ data, selected }: NodeProps<AstFlowNode>) => {
-  // The .ast-flow-* CSS still paints a dark-navy card with neon fills/glows.
-  // We keep those classes for layout/sizing but override the colors inline
-  // (inline wins over class) so nodes read as flat warm ink + amber accent
-  // with no neon glow, in both light and dark themes.
+  // The .ast-flow-* CSS now paints a flat token surface (no neon, no glow).
+  // We still set node tone (amber / suspect) and the selection/path border
+  // inline so a node's emphasis tracks the live theme tokens directly, in
+  // both light and dark.
   const toneColor = getGraphToneColor(data.tone);
   const isEmphasized = selected || data.isPathTerminal;
   const cardStyle: CSSProperties = {
@@ -405,7 +406,7 @@ function GraphExplorer({
                     style={{ background: getGraphToneColor(selectedNode.tone), boxShadow: "none" }}
                   />
                   <span className="text-sm font-semibold text-foreground">{selectedNode.label}</span>
-                  <span className={selectedNode.isRoot ? "badge-success" : "badge-info"}>
+                  <span className="badge-info">
                     {selectedNode.isRoot ? t("results.astGraph.rootNode") : t("results.astGraph.nestedNode")}
                   </span>
                 </div>

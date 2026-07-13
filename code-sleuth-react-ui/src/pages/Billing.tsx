@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { AlertCircle, CheckCircle2, Loader2, Settings, Zap } from "lucide-react";
+import { AlertCircle, CheckCircle2, Infinity as InfinityIcon, Loader2, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Masthead, FieldSheet, Field, Panel, Serial } from "@/components/dossier/Dossier";
+import { PageError } from "@/components/common/PageError";
+import { Masthead, Panel, Serial, SpecList } from "@/components/dossier/Dossier";
 import {
   getBillingSummary,
   getPlans,
@@ -25,17 +26,24 @@ const Billing = () => {
   const [loading, setLoading] = useState(true);
   const [checkingOut, setCheckingOut] = useState<string | null>(null);
   const [openingPortal, setOpeningPortal] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(() => {
+    setLoading(true);
+    setLoadError(false);
     Promise.all([getBillingSummary(), getPlans()])
       .then(([s, p]) => {
         setSummary(s);
         setPlans(p.plans);
         setBillingEnabled(p.billingEnabled);
       })
-      .catch(() => undefined)
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   // Handle the return from Stripe Checkout (?status=success|cancel).
   useEffect(() => {
@@ -92,10 +100,15 @@ const Billing = () => {
 
   if (loading) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      <div className="flex min-h-[40vh] items-center justify-center" role="status" aria-live="polite">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" aria-hidden />
+        <span className="sr-only">{t("status.loading", { defaultValue: "Loading" })}</span>
       </div>
     );
+  }
+
+  if (loadError) {
+    return <PageError onRetry={load} />;
   }
 
   const usagePct =
@@ -130,7 +143,7 @@ const Billing = () => {
         {
           label: "USAGE",
           value: summary.unlimited ? (
-            <span className="text-primary">∞</span>
+            <span className="text-foreground">∞</span>
           ) : (
             <span className={cn(overQuota && "text-destructive")}>
               {summary.used}/{summary.limit}
@@ -141,7 +154,7 @@ const Billing = () => {
     : undefined;
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-10 animate-fade-in">
       <Masthead
         kicker={t("nav.billing")}
         title={t("billing.title")}
@@ -167,40 +180,81 @@ const Billing = () => {
         }
       />
 
-      {/* Account statement — margin-label fields */}
+      {/* Account statement — a ruled spec-sheet of the current subscription's readings */}
       {summary && (
-        <FieldSheet>
-          <Field label={t("billing.currentPlan")} align="center">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <span className="t-h4 font-mono">{summary.planName}</span>
-              <span className="badge-success">{summary.status}</span>
-            </div>
-          </Field>
+        <Panel bare marker="§" label={t("billing.currentPlan")}>
+          <div className="grid gap-x-12 gap-y-6 md:grid-cols-2">
+            {/* Left column — the statement readings as a mono spec-list */}
+            <SpecList
+              rows={[
+                {
+                  label: t("billing.currentPlan"),
+                  value: (
+                    <span className="inline-flex items-center gap-2">
+                      {summary.planName}
+                      <span className="badge-success">{summary.status}</span>
+                    </span>
+                  ),
+                },
+                {
+                  label: t("billing.period", { defaultValue: "Billing period" }),
+                  value: summary.period,
+                },
+                ...(renewsOn
+                  ? [
+                      {
+                        label: t("billing.renewsOn", { defaultValue: "renews" }),
+                        value: renewsOn,
+                      },
+                    ]
+                  : []),
+                {
+                  label: t("billing.usageThisMonth"),
+                  value: summary.unlimited ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <InfinityIcon className="h-3.5 w-3.5 text-primary" aria-hidden />
+                      {t("billing.unlimited")}
+                    </span>
+                  ) : (
+                    <span className={cn(overQuota && "text-destructive")}>
+                      {summary.used}
+                      <span className="text-muted-foreground"> / {summary.limit}</span>
+                    </span>
+                  ),
+                },
+              ]}
+            />
 
-          <Field label={t("billing.usageThisMonth")}>
-            {summary.unlimited ? (
-              <div className="flex items-center gap-1.5 font-mono text-lg font-semibold text-foreground">
-                <Zap className="h-4 w-4 text-primary" /> {t("billing.unlimited")}
-              </div>
-            ) : (
-              <div className="max-w-sm">
-                <div className="flex items-baseline gap-2 font-mono tabular-nums">
-                  <span className="text-2xl font-semibold text-foreground">{summary.used}</span>
-                  <span className="text-sm text-muted-foreground">
-                    {t("billing.of")} {summary.limit}
-                  </span>
+            {/* Right column — the usage meter reading (a bar, not a card) */}
+            {!summary.unlimited && (
+              <div className="self-center">
+                <div className="flex items-baseline justify-between gap-2 font-mono tabular-nums">
+                  <span className="t-label pt-0">{t("billing.usageThisMonth")}</span>
                   <span
                     className={cn(
-                      "ms-auto text-sm font-semibold",
+                      "text-sm font-semibold",
                       overQuota ? "text-destructive" : "text-muted-foreground",
                     )}
                   >
                     {usagePct}%
                   </span>
                 </div>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-sm bg-muted">
+                <div className="mt-2 flex items-baseline gap-2 font-mono tabular-nums">
+                  <span className="text-2xl font-semibold text-foreground">{summary.used}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {t("billing.of")} {summary.limit}
+                  </span>
+                </div>
+                <div
+                  className="mt-2 h-1.5 overflow-hidden rounded-sm bg-muted"
+                  role="progressbar"
+                  aria-valuenow={usagePct}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={t("billing.usageThisMonth")}
+                >
                   <div
-                    className={cn("h-full transition-all", overQuota ? "bg-destructive" : "bg-primary")}
+                    className={cn("h-full transition-[width]", overQuota ? "bg-destructive" : "bg-primary")}
                     style={{ width: `${usagePct}%` }}
                   />
                 </div>
@@ -211,41 +265,32 @@ const Billing = () => {
                 )}
               </div>
             )}
-          </Field>
-
-          <Field
-            label={t("billing.period", { defaultValue: "Billing period" })}
-            align="center"
-          >
-            <div className="font-mono text-sm text-foreground">
-              {summary.period}
-              {renewsOn && (
-                <span className="ms-2 text-muted-foreground">
-                  {t("billing.renewsOn", { defaultValue: "renews" })} {renewsOn}
-                </span>
-              )}
-            </div>
-          </Field>
-        </FieldSheet>
+          </div>
+        </Panel>
       )}
 
       {!billingEnabled && (
-        <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/5 p-3 text-sm text-warning">
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+        <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-foreground">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
           <span>{t("billing.billingDisabled")}</span>
         </div>
       )}
 
       {/* Plans — a comparison ledger, one ruled row per tier */}
-      <Panel label={t("billing.availablePlans")} bodyClassName="p-0">
+      <Panel bare marker="§" label={t("billing.availablePlans")}>
+        {plans.length === 0 ? (
+          <div className="py-6 text-sm text-muted-foreground">
+            {t("billing.noPlans", { defaultValue: "No plans are available right now." })}
+          </div>
+        ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-start text-sm">
             <thead>
-              <tr className="border-b border-border t-label [&>th]:px-5 [&>th]:py-2.5 [&>th]:text-start [&>th]:font-normal">
+              <tr className="border-b-2 border-foreground t-label [&>th]:px-5 [&>th]:py-2.5 [&>th]:text-start [&>th]:font-normal [&>th:first-child]:ps-0 [&>th:last-child]:pe-0">
                 <th className="w-10">#</th>
                 <th>{t("billing.colTier", { defaultValue: "Tier" })}</th>
                 <th>{t("billing.colPrice", { defaultValue: "Price" })}</th>
-                <th>{t("billing.usageThisMonth")}</th>
+                <th>{t("billing.colQuota", { defaultValue: "Monthly quota" })}</th>
                 <th className="text-end" />
               </tr>
             </thead>
@@ -257,7 +302,10 @@ const Billing = () => {
                 return (
                   <tr
                     key={plan.code}
-                    className={cn("[&>td]:px-5 [&>td]:py-4 [&>td]:align-middle", isCurrent && "bg-primary/5")}
+                    className={cn(
+                      "[&>td]:px-5 [&>td]:py-4 [&>td]:align-middle [&>td:first-child]:ps-0 [&>td:last-child]:pe-0",
+                      isCurrent && "bg-primary/5",
+                    )}
                   >
                     <td>
                       <Serial tone={isCurrent ? "primary" : "muted"}>{i + 1}</Serial>
@@ -267,7 +315,7 @@ const Billing = () => {
                         <span className="t-h4 font-mono">{plan.name}</span>
                         {isCurrent && (
                           <span className="badge-success flex items-center gap-1">
-                            <CheckCircle2 className="h-3 w-3" /> {t("billing.current")}
+                            <CheckCircle2 className="h-3 w-3" aria-hidden /> {t("billing.current")}
                           </span>
                         )}
                       </div>
@@ -296,11 +344,15 @@ const Billing = () => {
                             onClick={() => handleChoose(plan.code)}
                             disabled={checkingOut === plan.code}
                             className="h-9 gap-2"
+                            aria-label={t("billing.choose")}
                           >
                             {checkingOut === plan.code ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                                {t("billing.choose")}
+                              </>
                             ) : (
-                              <>{t("billing.choose")}</>
+                              t("billing.choose")
                             )}
                           </Button>
                         ) : (
@@ -318,6 +370,7 @@ const Billing = () => {
             </tbody>
           </table>
         </div>
+        )}
       </Panel>
     </div>
   );

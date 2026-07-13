@@ -20,7 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Masthead, Panel, Field, Figure, Serial } from "@/components/dossier/Dossier";
+import { Masthead, Panel, Field, Serial, SpecList } from "@/components/dossier/Dossier";
 import { useLanguage } from "@/context/LanguageContext";
 import {
   getCase,
@@ -202,7 +202,7 @@ export default function CaseDetail() {
   ];
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-6" dir={isRTL ? "rtl" : "ltr"}>
+    <div className="mx-auto max-w-5xl space-y-10 p-6" dir={isRTL ? "rtl" : "ltr"}>
       {/* Back — mono file-return line */}
       <button
         type="button"
@@ -261,16 +261,33 @@ export default function CaseDetail() {
         }
       />
 
-      {/* FIG.01 — confidence assessment: dominant ring + margin-label metric ledger */}
-      <Figure
-        n={1}
-        label={t("enterprise.caseDetail.confidence")}
-        actions={
-          <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-            {t("enterprise.caseDetail.cloneType")}: {caseData.cloneType}
-          </span>
-        }
-      >
+      {/* Case record — the file header as a ruled mono spec sheet */}
+      <Panel bare marker="§" label={t("enterprise.caseDetail.caseId", { defaultValue: "Case record" })}>
+        <SpecList
+          rows={[
+            { label: t("enterprise.caseDetail.cloneType"), value: caseData.cloneType },
+            { label: t("enterprise.caseDetail.confidence"), value: `${confidence}%` },
+            { label: t("enterprise.caseDetail.similarity"), value: `${Math.round(match.similarityScore)}%` },
+            {
+              label: t("enterprise.caseDetail.status"),
+              value: (
+                <span className={STATUS_BADGE[caseData.status]}>{t(`enterprise.status.${caseData.status}`)}</span>
+              ),
+            },
+            {
+              label: t("enterprise.caseDetail.severity"),
+              value: (
+                <span className={cn("capitalize", SEVERITY_BADGE[caseData.severity])}>
+                  {t(`enterprise.severity.${caseData.severity}`)}
+                </span>
+              ),
+            },
+          ]}
+        />
+      </Panel>
+
+      {/* Match analysis — the confidence ruling: dominant ring + margin-label metric ledger */}
+      <Panel bare marker="§" label={t("enterprise.caseDetail.confidence")}>
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
           {/* Score ring — the assertive, dominant element */}
           <div className="flex shrink-0 flex-col items-center gap-1">
@@ -330,7 +347,7 @@ export default function CaseDetail() {
             <span className="t-label">{t("enterprise.caseDetail.confidence")}</span>
           </div>
 
-          {/* Metric breakdown — signature margin-label field rows */}
+          {/* Metric breakdown — signature margin-label field rows; ink numerals, colour on the bar */}
           <div className="min-w-0 flex-1">
             {metrics.map(({ label, value }) => {
               const pct = Math.round(value);
@@ -338,11 +355,14 @@ export default function CaseDetail() {
                 <Field key={label} label={label} align="center">
                   <div className="flex items-center gap-4">
                     <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted" dir="ltr">
-                      <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${pct}%`, backgroundColor: metricColor(pct) }}
+                      />
                     </div>
                     <span
-                      className="w-14 shrink-0 text-end font-mono text-lg font-semibold tabular-nums"
-                      style={{ letterSpacing: "-0.01em", color: metricColor(pct) }}
+                      className="w-14 shrink-0 text-end font-mono text-lg font-semibold tabular-nums text-foreground"
+                      style={{ letterSpacing: "-0.01em" }}
                     >
                       {pct}%
                     </span>
@@ -352,20 +372,20 @@ export default function CaseDetail() {
             })}
           </div>
         </div>
-      </Figure>
+      </Panel>
 
-      {/* Exhibits — the two artifacts as numbered, margin-labelled evidence sheets */}
-      <div className="grid gap-5 xl:grid-cols-2">
+      {/* Exhibits — the two artifacts as numbered, margin-labelled evidence sheets (ruled, not boxed) */}
+      <div className="grid gap-x-12 gap-y-10 md:grid-cols-2">
         {exhibits.map(({ mark, label, artifact }) => (
           <Panel
             key={mark}
+            bare
             label={
               <span className="flex items-center gap-2">
                 <Serial tone="primary">{mark}</Serial>
                 {label}
               </span>
             }
-            bodyClassName="px-5 sm:px-6 py-0"
           >
             <Field label={t("enterprise.caseDetail.path")}>
               <span className="break-all font-mono text-sm text-foreground" dir="ltr">
@@ -407,16 +427,16 @@ export default function CaseDetail() {
         ))}
       </div>
 
-      {/* Evidence — a ruled exhibit ledger, one bordered container with serialised rows */}
-      <Panel label={t("enterprise.caseDetail.evidenceSection")} bodyClassName="p-0">
+      {/* Evidence — a ruled §-section exhibit ledger with serialised hairline rows */}
+      <Panel bare marker="§" label={t("enterprise.caseDetail.evidenceSection")}>
         {caseData.evidence.length === 0 ? (
-          <p className="px-5 py-4 t-sm text-muted-foreground">{t("enterprise.caseDetail.noEvidence")}</p>
+          <p className="t-sm text-muted-foreground">{t("enterprise.caseDetail.noEvidence")}</p>
         ) : (
           <div className="divide-y divide-border">
             {caseData.evidence.map((ev, i) => (
-              <div key={ev.id} className="flex items-center gap-3 px-5 py-3">
+              <div key={ev.id} className="flex items-center gap-3 py-3">
                 <Serial>{String(i + 1).padStart(2, "0")}</Serial>
-                <span className="inline-flex items-center rounded-sm border border-primary/25 bg-primary/10 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-primary">
+                <span className="inline-flex items-center rounded-sm border border-primary/40 bg-primary/10 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-foreground">
                   {ev.evidenceType}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{ev.title}</span>
@@ -426,23 +446,8 @@ export default function CaseDetail() {
         )}
       </Panel>
 
-      {/* Disposition — current ruling as margin-label fields, review controls in the header */}
-      <Panel
-        label={t("enterprise.caseDetail.matchSection", { defaultValue: "Disposition" })}
-        actions={
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => setUpdateOpen(true)} className="gap-1.5">
-              <RefreshCw className="h-3.5 w-3.5" />
-              {t("enterprise.caseDetail.updateCase")}
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setFeedbackOpen(true)} className="gap-1.5">
-              <MessageSquare className="h-3.5 w-3.5" />
-              {t("enterprise.caseDetail.submitFeedback")}
-            </Button>
-          </div>
-        }
-        bodyClassName="px-5 sm:px-6 py-0"
-      >
+      {/* Disposition — current ruling as margin-label fields (ruled §-section, read-only) */}
+      <Panel bare marker="§" label={t("enterprise.caseDetail.matchSection", { defaultValue: "Disposition" })}>
         <Field label={t("enterprise.caseDetail.statusLabel")} align="center">
           <span className={STATUS_BADGE[caseData.status]}>{t(`enterprise.status.${caseData.status}`)}</span>
         </Field>
@@ -456,6 +461,20 @@ export default function CaseDetail() {
             {caseData.resolutionNotes?.trim() ? caseData.resolutionNotes : EM_DASH}
           </span>
         </Field>
+      </Panel>
+
+      {/* Review actions — the one interactive control block, kept as a distinct card */}
+      <Panel label={t("enterprise.caseDetail.reviewActions", { defaultValue: "Review actions" })}>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => setUpdateOpen(true)} className="gap-1.5">
+            <RefreshCw className="h-3.5 w-3.5" />
+            {t("enterprise.caseDetail.updateCase")}
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setFeedbackOpen(true)} className="gap-1.5">
+            <MessageSquare className="h-3.5 w-3.5" />
+            {t("enterprise.caseDetail.submitFeedback")}
+          </Button>
+        </div>
       </Panel>
 
       {/* Update Case Dialog */}

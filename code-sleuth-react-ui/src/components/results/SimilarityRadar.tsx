@@ -38,10 +38,14 @@ interface CustomDotProps {
 function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: { subject: string; value: number } }> }) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
+  // Colour the value by the SAME calibrated band as the dot (green/amber/red),
+  // never a flat amber that contradicts the marker.
+  const rangeColor =
+    d.value >= 80 ? "hsl(var(--destructive))" : d.value >= 50 ? "hsl(var(--warning))" : "hsl(var(--success))";
   return (
-    <div className="rounded-xl border border-border/60 bg-card px-3 py-2 text-xs shadow-lg">
+    <div className="rounded-lg border border-border bg-card px-3 py-2 text-xs">
       <p className="font-semibold text-foreground">{d.subject}</p>
-      <p className="mt-0.5 text-primary">{d.value.toFixed(2)}%</p>
+      <p className="mt-0.5 font-mono font-semibold tabular-nums" style={{ color: rangeColor }}>{d.value.toFixed(2)}%</p>
     </div>
   );
 }

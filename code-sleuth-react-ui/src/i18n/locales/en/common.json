@@ -63,6 +63,7 @@
     "viewResults": "View Results",
     "download": "Download",
     "create": "Create",
+    "rerun": "Rerun analysis",
     "viewDetails": "View details",
     "goHome": "Go to Home",
     "backToAnalysis": "Back to Analysis",
@@ -102,7 +103,7 @@
   },
   "footer": {
     "copyright": "Clone Lens Analysis Platform",
-    "fullCopyright": "© 2026 Clone Lens — Intelligent Code Analysis Platform",
+    "fullCopyright": "© 2026 Clone Lens — code similarity analysis",
     "terms": "Terms",
     "privacy": "Privacy",
     "status": "Status"
@@ -134,7 +135,7 @@
     "backHome": "Return to Home"
   },
   "home": {
-    "badge": "AI-Powered Code Intelligence Platform",
+    "badge": "Multi-signal clone detection",
     "titlePrefix": "Detect code similarity",
     "titleHighlight": "with precision",
     "description": "Compare two code sources across token, AST, clone-type, metrics, and AI analysis dimensions, then move through a structured review workflow built for serious technical inspection.",
@@ -160,9 +161,9 @@
       "yes": "Yes",
       "awaiting": "Awaiting"
     },
-    "featuresTitle": "Everything you need for code analysis",
-    "featuresDescription": "A complete React-powered analytical workspace backed by the real comparison engine, not mock data.",
-    "ctaTitle": "Ready to analyze your code?",
+    "featuresTitle": "Five similarity signals, one review verdict",
+    "featuresDescription": "A working analytical surface driven by the real comparison engine — every figure on screen comes from your two sources.",
+    "ctaTitle": "Queue a pairwise comparison",
     "ctaDescription": "Paste two snippets or upload files, ZIP projects, and spreadsheet rows to launch a complete similarity review in seconds.",
     "ctaSignedIn": "Run Your First Analysis",
     "ctaSignedOut": "Open the Workspace",
@@ -176,7 +177,7 @@
         "description": "Lines of code, cyclomatic complexity, function count, and maintainability indicators."
       },
       {
-        "title": "AI-Powered Insights",
+        "title": "Grounded AI report",
         "description": "Contextual reports and grounded follow-up chat built from the actual comparison output."
       },
       {
@@ -184,8 +185,8 @@
         "description": "Classify exact, renamed, near-miss, reordered, and semantic clone types with clear labeling."
       },
       {
-        "title": "Fast & Reliable",
-        "description": "Optimized pipeline with charting, graph generation, session history, and AI follow-up support."
+        "title": "Charts, graphs & history",
+        "description": "Similarity charts, AST graphs, and a saved session history you can reopen and rerun."
       },
       {
         "title": "File + ZIP + Excel",
@@ -195,7 +196,7 @@
   },
   "analytics": {
     "title": "Analytics Dashboard",
-    "description": "A comprehensive view of your activity and usage patterns on the platform.",
+    "description": "Your analysis activity and usage over the last 30 days.",
     "totalAnalyses": "Total Analyses",
     "totalDesc": "Comparisons performed",
     "languages": "Languages Used",
@@ -215,7 +216,7 @@
     "language": "Language",
     "analyses": "analyses",
     "loadError": "Failed to load analytics.",
-    "eyebrow": "Figures report",
+    "eyebrow": "Usage figures",
     "last7Days": "Last 7 days"
   },
   "platform": "Analysis Platform",
@@ -280,6 +281,13 @@
   },
   "chat": {
     "eyebrow": "Grounded consultation",
+    "groundingTitle": "Grounding on file",
+    "specCase": "Case reference",
+    "specLanguage": "Language",
+    "specGrounding": "Grounding",
+    "groundingAttached": "Attached",
+    "groundingUnsaved": "Unsaved",
+    "transcriptTitle": "Consultation transcript",
     "exhibitA": "Exhibit A",
     "exhibitB": "Exhibit B",
     "loading": "Loading the latest analysis context…",
@@ -314,7 +322,8 @@
     "period": "Billing period",
     "renewsOn": "renews",
     "colTier": "Tier",
-    "colPrice": "Price"
+    "colPrice": "Price",
+    "colQuota": "Monthly quota"
   },
   "settings": {
     "title": "Settings",

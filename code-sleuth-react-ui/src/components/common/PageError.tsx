@@ -18,7 +18,7 @@ export function PageError({ message, onRetry }: PageErrorProps) {
     >
       <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center max-w-md">
         <AlertTriangle className="mx-auto h-8 w-8 text-destructive mb-3" />
-        <h2 className="text-lg font-semibold text-destructive mb-2">
+        <h2 className="font-display text-lg font-semibold text-destructive mb-2">
           {t("status.error")}
         </h2>
         <p className="text-sm text-muted-foreground mb-4">{displayMessage}</p>
