@@ -42,7 +42,7 @@ export function CookieConsent() {
       <div className="mx-auto flex max-w-5xl flex-col items-center gap-3 sm:flex-row sm:justify-between">
         <p className="t-sm">
           {t("cookies.text", { defaultValue: "We use a strictly-necessary session cookie for sign-in and store your preferences locally." })}{" "}
-          <Link to="/privacy" className="font-medium text-foreground underline underline-offset-2 hover:opacity-70">
+          <Link to="/privacy" className="text-primary hover:underline">
             {t("cookies.learn", { defaultValue: "Privacy Policy" })}
           </Link>
         </p>

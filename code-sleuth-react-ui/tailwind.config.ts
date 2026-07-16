@@ -20,8 +20,8 @@ export default {
 		extend: {
 			fontFamily: {
 				sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-				mono: ['JetBrains Mono', 'Fira Code', 'Cascadia Code', 'monospace'],
-				display: ['JetBrains Mono', 'Fira Code', 'ui-monospace', 'monospace'],
+				mono: ['JetBrains Mono', 'Fira Code', 'Cascadia Code', 'IBM Plex Sans Arabic', 'monospace'],
+				display: ['JetBrains Mono', 'Fira Code', 'IBM Plex Sans Arabic', 'ui-monospace', 'monospace'],
 			},
 			colors: {
 				border: 'hsl(var(--border))',
@@ -57,14 +57,6 @@ export default {
 					DEFAULT: 'hsl(var(--warning))',
 					foreground: 'hsl(var(--warning-foreground))'
 				},
-				'accent-suspect': 'hsl(var(--accent-suspect))',
-				chart: {
-					'1': 'hsl(var(--chart-1))',
-					'2': 'hsl(var(--chart-2))',
-					'3': 'hsl(var(--chart-3))',
-					'4': 'hsl(var(--chart-4))',
-					'5': 'hsl(var(--chart-5))',
-				},
 				popover: {
 					DEFAULT: 'hsl(var(--popover))',
 					foreground: 'hsl(var(--popover-foreground))'
@@ -84,12 +76,15 @@ export default {
 					ring: 'hsl(var(--sidebar-ring))'
 				},
 			},
+			// Single-sourced from the --radius-* custom properties in index.css so
+			// the utility classes match the canonical scale exactly (sm 2px, md 3px,
+			// lg 5.6px, xl 8px, 2xl 10px) — no drift between spec and rendered value.
 			borderRadius: {
-				lg: 'var(--radius)',
-				md: 'calc(var(--radius) - 2px)',
-				sm: 'calc(var(--radius) - 4px)',
-				xl: '0.5rem',
-				'2xl': '0.625rem',
+				lg: 'var(--radius-lg)',
+				md: 'var(--radius-md)',
+				sm: 'var(--radius-sm)',
+				xl: 'var(--radius-xl)',
+				'2xl': 'var(--radius-2xl)'
 			},
 			keyframes: {
 				'accordion-down': {
@@ -100,8 +95,8 @@ export default {
 					from: { height: 'var(--radix-accordion-content-height)' },
 					to: { height: '0' }
 				},
-				/* Quiet, opacity-only entrance — no upward slide. Structural
-				   content should appear, not perform. */
+				// Entrances are opacity-only — no translate/scale travel. A quiet
+				// instrument does not slide its panels in (No fade-up-on-scroll).
 				'fade-in': {
 					from: { opacity: '0' },
 					to: { opacity: '1' }
@@ -110,7 +105,7 @@ export default {
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out',
-				'fade-in': 'fade-in 0.24s ease-out',
+				'fade-in': 'fade-in 0.25s ease-out',
 			},
 		}
 	},

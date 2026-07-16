@@ -32,20 +32,25 @@ function shortLabel(name: string, lang: "en" | "ar"): string {
 interface CustomDotProps {
   cx?: number;
   cy?: number;
+  index?: number;
   payload?: { value: number };
 }
 
 function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: { subject: string; value: number } }> }) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
-  // Colour the value by the SAME calibrated band as the dot (green/amber/red),
-  // never a flat amber that contradicts the marker.
-  const rangeColor =
-    d.value >= 80 ? "hsl(var(--destructive))" : d.value >= 50 ? "hsl(var(--warning))" : "hsl(var(--success))";
+  // Value color follows the semantic band (matches the dot thresholds below),
+  // not the amber signal — the number is measured data, not a brand accent.
+  const valueColor =
+    d.value >= 80
+      ? "text-destructive"
+      : d.value >= 50
+      ? "text-warning"
+      : "text-success";
   return (
     <div className="rounded-lg border border-border bg-card px-3 py-2 text-xs">
       <p className="font-semibold text-foreground">{d.subject}</p>
-      <p className="mt-0.5 font-mono font-semibold tabular-nums" style={{ color: rangeColor }}>{d.value.toFixed(2)}%</p>
+      <p className={`mt-0.5 font-mono tabular-nums ${valueColor}`}>{d.value.toFixed(2)}%</p>
     </div>
   );
 }
@@ -99,7 +104,7 @@ export function SimilarityRadar({ items }: { items: SimilarityItem[] }) {
               fillOpacity={0.18}
               strokeWidth={2}
               dot={(props: CustomDotProps) => {
-                const { cx = 0, cy = 0, payload } = props;
+                const { cx = 0, cy = 0, index = 0, payload } = props;
                 const v = payload?.value ?? 0;
                 const color =
                   v >= 80
@@ -107,7 +112,9 @@ export function SimilarityRadar({ items }: { items: SimilarityItem[] }) {
                     : v >= 50
                     ? "hsl(var(--warning))"
                     : "hsl(var(--success))";
-                return <circle key={`dot-${cx}-${cy}`} cx={cx} cy={cy} r={4} fill={color} stroke="hsl(var(--card))" strokeWidth={1.5} />;
+                // Key on the axis index — two dimensions can share coordinates, so a
+                // cx/cy-only key collides (React duplicate-key warning).
+                return <circle key={`dot-${index}`} cx={cx} cy={cy} r={4} fill={color} stroke="hsl(var(--card))" strokeWidth={1.5} />;
               }}
             />
             <Tooltip content={<CustomTooltip />} />

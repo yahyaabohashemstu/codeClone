@@ -3,8 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
-  ArrowRight,
-  CheckCircle2,
   ChevronDown,
   ChevronUp,
   Code2,
@@ -23,7 +21,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Masthead, Serial } from "@/components/dossier/Dossier";
+import {
+  Masthead,
+  FieldSheet,
+  Field,
+  Serial,
+  MetaStrip,
+  StatusTag,
+  Tag,
+  Meter,
+  Panel,
+  IndexRow,
+  Notice,
+} from "@/components/dossier/Dossier";
 import { useAnalysis } from "@/context/AnalysisContext";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -92,6 +102,30 @@ function sourceReady(source: SourceState) {
   return Boolean(source.code.trim() || getSelectedFile(source));
 }
 
+/** Human-readable byte size for the forensic size readings. */
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Live measurement of one source: line count (pasted only) and byte weight. */
+function sourceMetrics(source: SourceState): { lines: number | null; bytes: number | null } {
+  if (source.method === "paste") {
+    if (!source.code.trim()) return { lines: null, bytes: null };
+    return { lines: source.code.split("\n").length, bytes: new Blob([source.code]).size };
+  }
+  const file = getSelectedFile(source);
+  return { lines: null, bytes: file ? file.size : null };
+}
+
+/** Compact readout string for a source measurement ("42 L · 1.2 KB" / "1.2 KB" / "—"). */
+function metricReadout(metrics: { lines: number | null; bytes: number | null }): string {
+  if (metrics.bytes == null) return "—";
+  const size = formatBytes(metrics.bytes);
+  return metrics.lines != null ? `${metrics.lines} L · ${size}` : size;
+}
+
 const METHOD_ICONS: Record<InputMethod, typeof Code2> = {
   paste: Code2,
   file: FileCode,
@@ -111,7 +145,6 @@ function ExhibitPanel({
   onChange: (next: SourceState) => void;
 }) {
   const { t } = useTranslation("analysis");
-  const { isRTL } = useLanguage();
 
   const inputMethods = INPUT_METHOD_IDS.map((id) => ({
     id,
@@ -154,24 +187,21 @@ function ExhibitPanel({
 
   return (
     <section className="overflow-hidden rounded-lg border border-border bg-card">
-      {/* Exhibit header — serial marker + label + status */}
+      {/* Exhibit header — serial marker + label + status stamp */}
       <div className="flex items-center gap-3 border-b border-border px-4 py-2.5">
         <Serial tone={isReady ? "primary" : "muted"}>{label}</Serial>
         <h2 className="t-label flex-1 text-foreground">{t("analysis.sourceTitle", { label })}</h2>
-        {isReady ? (
-          <span className="badge-success">
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            {t("analysis.ready")}
-          </span>
-        ) : (
-          <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-            {t("analysis.empty", { defaultValue: "empty" })}
-          </span>
-        )}
+        <StatusTag tone={isReady ? "ok" : "muted"}>
+          {isReady ? t("analysis.meta.ready") : t("analysis.empty", { defaultValue: "empty" })}
+        </StatusTag>
       </div>
 
       {/* Segmented mono method control — an instrument switch, not four cards */}
-      <div className="flex border-b border-border">
+      <div
+        className="flex border-b border-border"
+        role="group"
+        aria-label={t("analysis.methodGroupLabel", { label, defaultValue: `Input method for source ${label}` })}
+      >
         {inputMethods.map((method) => {
           const Icon = method.icon;
           const active = source.method === method.id;
@@ -179,10 +209,11 @@ function ExhibitPanel({
             <button
               key={method.id}
               type="button"
+              aria-pressed={active}
               onClick={() => setMethod(method.id)}
               className={cn(
                 "flex-1 border-e border-border py-2 text-center font-mono text-[11px] uppercase tracking-wide transition-colors last:border-e-0",
-                active ? "bg-primary/10 font-semibold text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                active ? "bg-primary/10 font-semibold text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
             >
               <Icon className="mx-auto mb-1 h-3.5 w-3.5" />
@@ -203,12 +234,7 @@ function ExhibitPanel({
               className="code-surface min-h-[280px] resize-y p-4 text-xs leading-relaxed placeholder:text-muted-foreground/40"
             />
             {source.code && (
-              <div
-                className={cn(
-                  "absolute bottom-2 font-mono text-[10px] text-muted-foreground",
-                  isRTL ? "left-3" : "right-3",
-                )}
-              >
+              <div className="absolute bottom-2 end-3 font-mono text-[10px] text-muted-foreground">
                 {source.code.split("\n").length} {t("analysis.lines")}
               </div>
             )}
@@ -216,7 +242,7 @@ function ExhibitPanel({
         )}
 
         {source.method !== "paste" && (
-          <label className="flex cursor-pointer flex-col items-center gap-3 rounded-md border border-dashed border-border p-8 transition-colors hover:border-primary/60 hover:bg-primary/5">
+          <label className="flex cursor-pointer items-start gap-3 rounded-md border border-dashed border-border p-4 transition-colors hover:border-primary/60 hover:bg-primary/5">
             <input
               type="file"
               className="hidden"
@@ -238,22 +264,26 @@ function ExhibitPanel({
                 setFile(key, nextFile);
               }}
             />
-            <div className="text-muted-foreground">
-              {source.method === "file" && <FileCode className="h-7 w-7" />}
-              {source.method === "zip" && <FileArchive className="h-7 w-7" />}
-              {source.method === "excel" && <FileSpreadsheet className="h-7 w-7" />}
-            </div>
+            <span className="mt-0.5 shrink-0 text-muted-foreground">
+              {source.method === "file" && <FileCode className="h-5 w-5" />}
+              {source.method === "zip" && <FileArchive className="h-5 w-5" />}
+              {source.method === "excel" && <FileSpreadsheet className="h-5 w-5" />}
+            </span>
             {selectedFile ? (
-              <div className="text-center">
-                <p className="max-w-[260px] truncate font-mono text-sm font-semibold text-foreground">
-                  {selectedFile.name}
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="t-label">{t("analysis.fileLabel", { defaultValue: "File" })}</span>
+                  <StatusTag tone="ok">{t("analysis.meta.ready")}</StatusTag>
+                </div>
+                <p className="mt-1 truncate font-mono text-sm font-semibold text-foreground">{selectedFile.name}</p>
+                <p className="mt-0.5 font-mono text-xs tabular-nums text-muted-foreground">
+                  {formatBytes(selectedFile.size)}
                 </p>
-                <p className="mt-0.5 text-xs text-success">{t("analysis.ready")}</p>
               </div>
             ) : (
-              <div className="text-center">
-                <p className="text-sm font-semibold text-foreground">{t("analysis.clickOrDrop")}</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
+              <div className="min-w-0 flex-1">
+                <div className="t-label text-foreground">{t("analysis.clickOrDrop")}</div>
+                <p className="mt-1 text-xs text-muted-foreground">
                   {source.method === "file"
                     ? t("analysis.codeFiles")
                     : source.method === "zip"
@@ -275,10 +305,7 @@ function ExhibitPanel({
               value={source.excelRow}
               onChange={(event) => onChange({ ...source, excelRow: event.target.value })}
               placeholder="1"
-              className={cn(
-                "input-focus h-8 w-20 rounded-sm border border-border bg-card px-2 font-mono text-foreground",
-                isRTL ? "mr-auto text-right" : "ml-auto",
-              )}
+              className="input-focus ms-auto h-8 w-20 rounded-sm border border-border bg-card px-2 font-mono text-foreground"
             />
           </div>
         )}
@@ -315,6 +342,9 @@ const Analysis = () => {
 
   const readyCount = (sourceReady(sourceA) ? 1 : 0) + (sourceReady(sourceB) ? 1 : 0);
   const bothReady = readyCount === 2;
+
+  const metricsA = sourceMetrics(sourceA);
+  const metricsB = sourceMetrics(sourceB);
 
   const buildFormData = () => {
     const formData = new FormData();
@@ -381,65 +411,101 @@ const Analysis = () => {
         title={t("analysis.title")}
         description={t("analysis.subtitle")}
         meta={[
-          { label: "MODE", value: "PAIRWISE" },
+          { label: t("analysis.meta.mode"), value: t("analysis.meta.pairwise") },
           {
-            label: "STATUS",
+            label: t("analysis.meta.status"),
             value: bothReady ? (
-              <span className="text-success">READY</span>
+              <StatusTag tone="ok">{t("analysis.meta.ready")}</StatusTag>
             ) : (
-              <span className="rounded-sm bg-warning/20 px-1.5 py-0.5 text-foreground">DRAFT · {readyCount}/2</span>
+              <StatusTag tone="warn">
+                {t("analysis.meta.draft")} · {readyCount}/2
+              </StatusTag>
             ),
           },
+          { label: t("analysis.meta.autosave"), value: t("analysis.meta.on") },
         ]}
-        actions={
-          <label className="flex items-center gap-2.5">
-            <span className="t-label text-muted-foreground">{t("analysis.language")}</span>
-            <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-              <SelectTrigger className="h-9 w-[176px] rounded-sm border-border bg-card font-mono text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {languageOptions.map((option) => (
-                  <SelectItem key={option} value={option} className="font-mono text-sm">
-                    {getProgrammingLanguageLabel(option)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
-        }
       />
 
+      {/* Case parameters — a real spec sheet of margin-label fields */}
+      <FieldSheet>
+        <Field label={t("analysis.language")} align="center">
+          <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+            <SelectTrigger className="h-9 w-full max-w-[220px] rounded-sm border-border bg-card font-mono text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {languageOptions.map((option) => (
+                <SelectItem key={option} value={option} className="font-mono text-sm">
+                  {getProgrammingLanguageLabel(option)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field label={t("analysis.params.comparator", { defaultValue: "Comparator" })} align="center">
+          <span className="font-mono text-sm tabular-nums text-foreground">SRC.A ⇄ SRC.B</span>
+        </Field>
+        <Field label={t("analysis.params.method", { defaultValue: "Method" })} align="center">
+          <span className="font-mono text-sm uppercase tracking-wide text-muted-foreground">
+            {`A · ${sourceA.method}`}
+            <span className="px-2 text-border">/</span>
+            {`B · ${sourceB.method}`}
+          </span>
+        </Field>
+        <Field label={t("analysis.params.case", { defaultValue: "Case" })} align="center">
+          <Tag tone="signal">{t("analysis.meta.pairwise")}</Tag>
+        </Field>
+      </FieldSheet>
+
       {errorMessage && (
-        <div
-          className="flex items-start gap-3 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"
-          role="alert"
-        >
-          <Info className="mt-0.5 h-4 w-4 shrink-0" />
-          {errorMessage}
+        <div role="alert" aria-live="assertive">
+          <Notice tone="danger">{errorMessage}</Notice>
         </div>
       )}
 
-      {/* Pairwise specimens — A vs B framed as the case exhibits, joined by a central seam */}
-      <div>
-        <div className="flex items-baseline justify-between gap-4 border-b border-border pb-2">
-          <span className="t-label text-muted-foreground">{t("home.pairwise", { ns: "common", defaultValue: "Pairwise" })}</span>
-          <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">A · B</span>
+      {/* Live comparator readout — a dense instrument strip, not stat tiles */}
+      <MetaStrip
+        className="border-y border-border bg-muted/20 px-4 py-3"
+        items={[
+          { label: "SRC.A", value: metricReadout(metricsA) },
+          { label: "SRC.B", value: metricReadout(metricsB) },
+          {
+            label: t("analysis.meta.ready"),
+            value: (
+              <StatusTag tone={bothReady ? "ok" : "warn"}>
+                {readyCount}/2
+              </StatusTag>
+            ),
+          },
+          { label: t("analysis.language"), value: getProgrammingLanguageLabel(selectedLanguage) },
+        ]}
+      />
+
+      {/* Two exhibits on the examination bench — framed either side of a live
+          A ⇄ B comparator axis, the way a case file pins two specimens for review. */}
+      <div className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1fr)_2.75rem_minmax(0,1fr)]">
+        <ExhibitPanel label="A" source={sourceA} onChange={setSourceA} />
+
+        {/* Comparator axis — a hairline run through an amber ⇄ node (vertical on wide,
+            horizontal when the exhibits stack) */}
+        <div className="flex items-center justify-center gap-3 xl:flex-col xl:gap-0" aria-hidden="true">
+          <span className="h-px flex-1 bg-border xl:h-auto xl:w-px" />
+          <span className="my-0 flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border border-primary/40 bg-primary/10 font-mono text-base font-bold text-primary xl:my-3">
+            ⇄
+          </span>
+          <span className="h-px flex-1 bg-border xl:h-auto xl:w-px" />
         </div>
-        <div className="mt-5 grid items-stretch gap-5 xl:grid-cols-[1fr_auto_1fr]">
-          <ExhibitPanel label="A" source={sourceA} onChange={setSourceA} />
-          <div className="flex items-center justify-center" aria-hidden>
-            <span className="rounded-sm bg-primary px-2.5 py-1.5 font-display text-xs font-bold text-primary-foreground">vs</span>
-          </div>
-          <ExhibitPanel label="B" source={sourceB} onChange={setSourceB} />
-        </div>
+
+        <ExhibitPanel label="B" source={sourceB} onChange={setSourceB} />
       </div>
 
-      {/* Engine capabilities — collapsed spec list */}
+      {/* Engine capabilities — a numbered module index, not a green checklist */}
       <div>
         <button
           type="button"
           onClick={() => setShowAdvanced((current) => !current)}
+          aria-expanded={showAdvanced}
+          aria-controls="engine-modules"
           className="flex items-center gap-2 font-mono text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
         >
           {showAdvanced ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
@@ -447,21 +513,34 @@ const Analysis = () => {
         </button>
 
         {showAdvanced && (
-          <dl className="mt-3 grid gap-x-10 overflow-hidden rounded-lg border border-border bg-card px-5 py-1 sm:grid-cols-2">
-            {CAPABILITY_KEYS.map((key) => (
-              <div
-                key={key}
-                className="flex items-center gap-2.5 border-b border-border/70 py-2.5 text-xs last:border-b-0"
-              >
-                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-success" />
-                <dt className="font-mono text-muted-foreground">{t(`analysis.${key}`)}</dt>
-              </div>
-            ))}
-          </dl>
+          <div id="engine-modules">
+            <Panel
+              label={t("analysis.engine.label", { defaultValue: "Engine modules" })}
+              actions={
+                <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                  {CAPABILITY_KEYS.length}
+                </span>
+              }
+              bodyClassName="p-0"
+              className="mt-3"
+            >
+              <ul className="divide-y divide-border">
+                {CAPABILITY_KEYS.map((key, i) => (
+                  <li key={key}>
+                    <IndexRow
+                      serial={<Serial>{String(i + 1).padStart(2, "0")}</Serial>}
+                      title={t(`analysis.${key}`)}
+                      meta={<StatusTag tone="signal">{t("analysis.engine.online", { defaultValue: "Online" })}</StatusTag>}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </Panel>
+          </div>
         )}
       </div>
 
-      {/* Run footer — mono status line + actions */}
+      {/* Run footer — mono status line + semantic progress meter + actions */}
       <div className="sticky bottom-0 flex flex-col gap-3 rounded-lg border border-border bg-card p-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0 font-mono text-[11px] text-muted-foreground">
           {isAnalyzing && analysisProgress ? (
@@ -470,12 +549,12 @@ const Analysis = () => {
                 {localizeRuntimeMessage(analysisProgress.stage)}
                 {progressPercent !== null && <span className="tabular-nums"> · {progressPercent}%</span>}
               </span>
-              <div className="h-1 w-40 overflow-hidden rounded-sm bg-muted">
-                <div
-                  className="h-full bg-primary transition-[width] duration-500"
-                  style={{ width: `${progressPercent ?? 20}%` }}
-                />
-              </div>
+              <Meter
+                value={progressPercent ?? 20}
+                tone="primary"
+                className="w-40"
+                ariaLabel={localizeRuntimeMessage(analysisProgress.stage)}
+              />
             </div>
           ) : (
             <span className="uppercase tracking-wide">{t("analysis.autoSave")}</span>
@@ -498,10 +577,7 @@ const Analysis = () => {
                 {t("analysis.analyzing")}
               </span>
             ) : (
-              <>
-                {t("analysis.submit")}
-                <ArrowRight className="h-4 w-4" />
-              </>
+              t("analysis.submit")
             )}
           </Button>
         </div>

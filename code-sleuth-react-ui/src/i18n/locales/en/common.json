@@ -63,7 +63,6 @@
     "viewResults": "View Results",
     "download": "Download",
     "create": "Create",
-    "rerun": "Rerun analysis",
     "viewDetails": "View details",
     "goHome": "Go to Home",
     "backToAnalysis": "Back to Analysis",
@@ -103,7 +102,7 @@
   },
   "footer": {
     "copyright": "Clone Lens Analysis Platform",
-    "fullCopyright": "© 2026 Clone Lens — code similarity analysis",
+    "fullCopyright": "© 2026 Clone Lens — Intelligent Code Analysis Platform",
     "terms": "Terms",
     "privacy": "Privacy",
     "status": "Status"
@@ -131,11 +130,14 @@
   "notFound": {
     "title": "404",
     "heading": "Page Not Found",
+    "caseLabel": "Not found",
+    "status": "No matching record",
+    "exhibit": "Page not found",
     "description": "The page you are looking for doesn't exist or has been moved.",
     "backHome": "Return to Home"
   },
   "home": {
-    "badge": "Multi-signal clone detection",
+    "badge": "Multi-signal code similarity",
     "titlePrefix": "Detect code similarity",
     "titleHighlight": "with precision",
     "description": "Compare two code sources across token, AST, clone-type, metrics, and AI analysis dimensions, then move through a structured review workflow built for serious technical inspection.",
@@ -146,8 +148,8 @@
     "dropHint": "or browse · .py .js .java .cpp",
     "pairwise": "Pairwise",
     "pasteCode": "Paste code",
-    "exhibitA": "Exhibit A",
-    "exhibitB": "Exhibit B",
+    "exhibitA": "Source A",
+    "exhibitB": "Source B",
     "trustSignals": [
       "History-aware workflow",
       "AST graphs included",
@@ -161,9 +163,9 @@
       "yes": "Yes",
       "awaiting": "Awaiting"
     },
-    "featuresTitle": "Five similarity signals, one review verdict",
-    "featuresDescription": "A working analytical surface driven by the real comparison engine — every figure on screen comes from your two sources.",
-    "ctaTitle": "Queue a pairwise comparison",
+    "featuresTitle": "What the workspace covers",
+    "featuresDescription": "A complete React-powered analytical workspace backed by the real comparison engine, not mock data.",
+    "ctaTitle": "Compare your first pair",
     "ctaDescription": "Paste two snippets or upload files, ZIP projects, and spreadsheet rows to launch a complete similarity review in seconds.",
     "ctaSignedIn": "Run Your First Analysis",
     "ctaSignedOut": "Open the Workspace",
@@ -177,7 +179,7 @@
         "description": "Lines of code, cyclomatic complexity, function count, and maintainability indicators."
       },
       {
-        "title": "Grounded AI report",
+        "title": "Grounded AI review",
         "description": "Contextual reports and grounded follow-up chat built from the actual comparison output."
       },
       {
@@ -186,7 +188,7 @@
       },
       {
         "title": "Charts, graphs & history",
-        "description": "Similarity charts, AST graphs, and a saved session history you can reopen and rerun."
+        "description": "Similarity charts, AST graphs, and a session history you can revisit and re-run."
       },
       {
         "title": "File + ZIP + Excel",
@@ -196,7 +198,7 @@
   },
   "analytics": {
     "title": "Analytics Dashboard",
-    "description": "Your analysis activity and usage over the last 30 days.",
+    "description": "A comprehensive view of your activity and usage patterns on the platform.",
     "totalAnalyses": "Total Analyses",
     "totalDesc": "Comparisons performed",
     "languages": "Languages Used",
@@ -229,7 +231,7 @@
   "history": {
     "pageTitle": "Analysis History",
     "pageDescription": "Browse, search, reopen, rerun, export, or delete previous analysis sessions.",
-    "eyebrow": "Case register",
+    "eyebrow": "Past analyses",
     "stats": {
       "totalAnalyses": "Total Analyses",
       "highSimilarity": "High Similarity",
@@ -261,6 +263,13 @@
     "previewTitle": "Analysis Preview #{{id}}",
     "openFullResults": "Open Full Results",
     "loadingPreview": "Loading preview…",
+    "actions": {
+      "viewDetails": "View details",
+      "openResults": "Open results",
+      "rerun": "Rerun analysis",
+      "download": "Download",
+      "delete": "Delete"
+    },
     "exportSections": {
       "analysisId": "Analysis ID",
       "language": "Language",
@@ -280,22 +289,19 @@
     }
   },
   "chat": {
-    "eyebrow": "Grounded consultation",
-    "groundingTitle": "Grounding on file",
-    "specCase": "Case reference",
-    "specLanguage": "Language",
-    "specGrounding": "Grounding",
-    "groundingAttached": "Attached",
-    "groundingUnsaved": "Unsaved",
-    "transcriptTitle": "Consultation transcript",
-    "exhibitA": "Exhibit A",
-    "exhibitB": "Exhibit B",
+    "eyebrow": "Grounded chat",
+    "exhibitA": "Source A",
+    "exhibitB": "Source B",
     "loading": "Loading the latest analysis context…",
     "noContextTitle": "No active analysis context",
     "noContextDescription": "Run or reopen an analysis first so the AI chat can ground its answers in real comparison data.",
     "openHistory": "Open History",
     "pageTitle": "AI Analysis Chat",
-    "pageDescription": "Ask grounded follow-up questions about the current analysis result and receive context-aware answers."
+    "pageDescription": "Ask grounded follow-up questions about the current analysis result and receive context-aware answers.",
+    "modeConsult": "CONSULT",
+    "modeGrounded": "GROUNDED",
+    "groundingNone": "NONE",
+    "statusNoContext": "NO CONTEXT"
   },
   "billing": {
     "title": "Plan & Usage",
@@ -321,9 +327,18 @@
     "checkoutCanceled": "Checkout canceled. No changes were made.",
     "period": "Billing period",
     "renewsOn": "renews",
+    "resets": "Resets",
+    "analysesLeft": "Analyses left",
+    "systemNotice": "System notice",
     "colTier": "Tier",
     "colPrice": "Price",
-    "colQuota": "Monthly quota"
+    "colQuota": "Analyses / mo",
+    "colPerAnalysis": "Per analysis",
+    "loading": "Loading billing details…",
+    "loadError": "Couldn't load billing details. Please try again.",
+    "retry": "Retry",
+    "noPlans": "No plans are available right now.",
+    "processing": "Processing…"
   },
   "settings": {
     "title": "Settings",
@@ -501,6 +516,9 @@
     "confirmSuspend": "Suspend this account? The user is signed out and blocked from signing in.",
     "actionDone": "Done",
     "actionFailed": "Action failed",
+    "confirmTitle": "Confirm action",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
     "actualRevenueTitle": "Actual revenue (Stripe ledger)",
     "actualRevenue": "Collected (net)",
     "grossPaid": "Gross paid",

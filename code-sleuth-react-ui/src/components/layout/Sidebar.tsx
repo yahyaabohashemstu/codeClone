@@ -112,7 +112,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
                   "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150",
                   collapsed ? "justify-center px-2.5" : "",
                   active
-                    ? "bg-primary/12 text-foreground"
+                    ? "nav-link-active"
                     : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                 )}
               >
@@ -157,7 +157,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
                     "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150",
                     collapsed ? "justify-center px-2.5" : "",
                     active
-                      ? "bg-primary/12 text-foreground"
+                      ? "nav-link-active"
                       : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                   )}
                 >
@@ -221,14 +221,13 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
             size="icon"
             className={cn("h-8 w-full text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground", collapsed ? "" : "justify-end pr-3")}
             onClick={onCollapse}
-            aria-label={t("nav.toggleSidebar", { defaultValue: t("nav.collapse") })}
-            title={t("nav.toggleSidebar", { defaultValue: t("nav.collapse") })}
+            aria-label={collapsed ? t("nav.expand") : t("nav.collapse")}
           >
             {collapsed ? (
               isRTL ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />
             ) : (
               <>
-                <span className={cn("text-xs text-sidebar-foreground", isRTL ? "ml-1" : "mr-1")}>{t("nav.collapse")}</span>
+                <span className={cn("text-xs text-sidebar-foreground/60", isRTL ? "ml-1" : "mr-1")}>{t("nav.collapse")}</span>
                 {isRTL ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
               </>
             )}

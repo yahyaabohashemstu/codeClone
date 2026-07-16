@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Notice, Panel } from "@/components/dossier/Dossier";
 import { useAuth } from "@/context/AuthContext";
 
 type Status = "verifying" | "ok" | "error";
@@ -53,58 +53,70 @@ const VerifyEmail = () => {
     : "";
 
   return (
-    <div className="mx-auto max-w-md rounded-lg border border-border bg-card p-10 text-center">
-      <div className="mb-4 flex justify-center">
-        {status === "verifying" && <Loader2 className="h-9 w-9 animate-spin text-primary" />}
-        {status === "ok" && <CheckCircle2 className="h-9 w-9 text-success" />}
-        {status === "error" && <XCircle className="h-9 w-9 text-destructive" />}
-      </div>
-      <h1 className="t-h3">{title}</h1>
-      {description && <p className="mt-2 t-body">{description}</p>}
+    <div className="mx-auto max-w-md py-4">
+      <Panel bodyClassName="p-6 sm:p-8">
+        <h1 className="t-h3">{title}</h1>
 
-      {status === "error" && (
-        <div className="mt-6 text-start">
-          {resendState === "sent" ? (
-            <div
-              className="flex items-start gap-2 rounded-md border border-success/30 bg-success/10 px-4 py-3 text-sm text-success"
-              role="status"
-            >
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>{t("auth.resendSent")}</span>
+        {status === "verifying" && (
+          <div className="mt-4 flex items-center gap-2.5 font-mono text-xs uppercase tracking-wider text-muted-foreground">
+            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            {t("auth.verifyingTitle")}
+          </div>
+        )}
+
+        {status === "ok" && (
+          <Notice tone="success" className="mt-4">
+            {description}
+          </Notice>
+        )}
+
+        {status === "error" && (
+          <>
+            <Notice tone="danger" className="mt-4">
+              {description}
+            </Notice>
+
+            <div className="mt-6">
+              {resendState === "sent" ? (
+                <div role="status">
+                  <Notice tone="success">{t("auth.resendSent")}</Notice>
+                </div>
+              ) : (
+                <>
+                  <label htmlFor="resend-email" className="mb-1.5 block text-sm font-medium text-foreground">
+                    {t("auth.resendPrompt")}
+                  </label>
+                  <Input
+                    id="resend-email"
+                    type="email"
+                    dir="ltr"
+                    placeholder={t("auth.emailPlaceholder")}
+                    value={resendEmail}
+                    autoComplete="email"
+                    onChange={(e) => setResendEmail(e.target.value)}
+                    className="h-10"
+                  />
+                  <Button
+                    type="button"
+                    onClick={() => void handleResend()}
+                    disabled={resendState === "sending" || !resendEmail.trim()}
+                    variant="outline"
+                    className="mt-3 h-10 w-full"
+                  >
+                    {resendState === "sending" ? t("auth.resending") : t("auth.resendVerification")}
+                  </Button>
+                </>
+              )}
             </div>
-          ) : (
-            <>
-              <label className="mb-1.5 block text-sm font-medium text-foreground">
-                {t("auth.resendPrompt")}
-              </label>
-              <Input
-                type="email"
-                dir="ltr"
-                placeholder={t("auth.emailPlaceholder")}
-                value={resendEmail}
-                autoComplete="email"
-                onChange={(e) => setResendEmail(e.target.value)}
-                className="h-10"
-              />
-              <Button
-                type="button"
-                onClick={() => void handleResend()}
-                disabled={resendState === "sending" || !resendEmail.trim()}
-                variant="outline"
-                className="mt-3 h-10 w-full"
-              >
-                {resendState === "sending" ? t("auth.resending") : t("auth.resendVerification")}
-              </Button>
-            </>
-          )}
-        </div>
-      )}
+          </>
+        )}
 
-      {status !== "verifying" && (
-        <Button asChild className="mt-6 h-10 w-full gap-2">
-          <Link to="/login">{t("auth.backToLogin")}</Link>
-        </Button>
-      )}
+        {status !== "verifying" && (
+          <Button asChild className="mt-6 h-10 w-full">
+            <Link to="/login">{t("auth.backToLogin")}</Link>
+          </Button>
+        )}
+      </Panel>
     </div>
   );
 };

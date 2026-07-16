@@ -3,8 +3,6 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   Download,
   ExternalLink,
-  Filter,
-  History as HistoryIcon,
   Info,
   Plus,
   RefreshCw,
@@ -13,7 +11,19 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Masthead, Serial } from "@/components/dossier/Dossier";
+import {
+  Masthead,
+  Serial,
+  Ledger,
+  LedgerHead,
+  LedgerRow,
+  LedgerCell,
+  LedgerFooter,
+  LedgerEmpty,
+  ScoreMeter,
+  StatusTag,
+  Tag,
+} from "@/components/dossier/Dossier";
 import { apiFetch } from "@/lib/api";
 import { downloadText } from "@/lib/download";
 import { useAnalysis } from "@/context/AnalysisContext";
@@ -24,27 +34,18 @@ import { cn } from "@/lib/utils";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { PageLoader } from "@/components/common/PageLoader";
 import { PageError } from "@/components/common/PageError";
-import { EmptyState } from "@/components/common/EmptyState";
 
-function severityBadge(severity: HistorySummary["severity"]) {
-  if (severity === "high") return "badge-error";
-  if (severity === "moderate") return "badge-warning";
-  return "badge-success";
-}
-
-// The calibrated similarity scale (DESIGN §2): green <50 / amber 50–79 / red ≥80.
-// Used for the score BAR fill; the number itself stays neutral ink so small
-// amber text never falls below AA on paper.
-function scoreColor(score: number): string {
-  if (score >= 80) return "hsl(var(--destructive))";
-  if (score >= 50) return "hsl(var(--warning))";
-  return "hsl(var(--success))";
+// Severity → shared StatusTag tone (colour encodes state only).
+function severityTone(severity: HistorySummary["severity"]): "danger" | "warning" | "success" {
+  if (severity === "high") return "danger";
+  if (severity === "moderate") return "warning";
+  return "success";
 }
 
 const History = () => {
   const navigate = useNavigate();
   const { rerunById, loadById } = useAnalysis();
-  const { isRTL, formatNumber, formatDate, localizeRuntimeMessage, getProgrammingLanguageLabel } = useLanguage();
+  const { formatNumber, formatDate, localizeRuntimeMessage, getProgrammingLanguageLabel } = useLanguage();
   const { t } = useTranslation("common");
   const [historyData, setHistoryData] = useState<HistoryResponse | null>(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -283,21 +284,18 @@ const History = () => {
       {/* Register controls — a compact mono filter strip, ruled not boxed */}
       <div className="flex flex-wrap items-center gap-2 border-y border-border py-3">
         <div className="relative min-w-48 flex-1">
-          <Search className={cn("pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground", isRTL ? "right-3" : "left-3")} />
+          <Search className="pointer-events-none absolute start-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder={t("history.searchPlaceholder")}
-            className={cn(
-              "h-9 w-full rounded-sm border border-border bg-card py-2 font-mono text-xs placeholder:text-muted-foreground/50 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20",
-              isRTL ? "pl-3 pr-9 text-right" : "pl-9 pr-3",
-            )}
+            className="h-9 w-full rounded-sm border border-border bg-card ps-9 pe-3 py-2 text-start font-mono text-xs placeholder:text-muted-foreground/50 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
 
         <div className="flex h-9 items-center gap-2 rounded-sm border border-border bg-card px-3">
-          <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70">{t("history.table.language")}</span>
           <select
             value={filterLanguage}
             onChange={(event) => setFilterLanguage(event.target.value)}
@@ -333,7 +331,7 @@ const History = () => {
               className={cn(
                 "border-e border-border px-3 font-mono text-[11px] uppercase tracking-wide transition-colors last:border-e-0",
                 sortBy === mode
-                  ? "bg-primary/10 font-semibold text-foreground"
+                  ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
@@ -341,160 +339,114 @@ const History = () => {
             </button>
           ))}
         </div>
-
-        <span className={cn("font-mono text-xs tabular-nums text-muted-foreground", isRTL ? "mr-1" : "ml-1")}>
-          {formatNumber(filteredItems.length)} / {formatNumber(items.length)}
-        </span>
       </div>
 
-      {filteredItems.length === 0 ? (
-        <EmptyState
-          icon={HistoryIcon}
-          title={t("history.noAnalysesFound")}
-          description={items.length === 0 ? t("history.noAnalysesYet") : t("history.adjustFilters")}
-          actionLabel={t("buttons.runAnalysis")}
-          onAction={() => navigate("/analysis")}
+      {/* Exhibit ledger — one ruled register; Serial flags flagged rows, ScoreMeter carries the band. */}
+      <Ledger columns="2.75rem minmax(0,1fr) minmax(0,1fr) 6.5rem 11rem 6.5rem 9.5rem 10rem">
+        <LedgerHead
+          cells={[
+            "#",
+            t("history.table.sourceA"),
+            t("history.table.sourceB"),
+            t("history.table.language"),
+            t("history.table.score"),
+            t("history.table.severity"),
+            t("history.table.date"),
+            t("history.table.actions"),
+          ]}
+          aligns={["start", "start", "start", "start", "start", "start", "start", "end"]}
         />
-      ) : (
-        <div className="overflow-hidden rounded-lg border border-border bg-card">
-          <div className="overflow-x-auto scrollbar-thin">
-            <table className="w-full min-w-[980px] text-sm">
-              <thead>
-                <tr>
-                  <th className={cn("w-12 border-b-2 border-foreground px-4 py-2.5 font-mono text-[11px] font-semibold text-muted-foreground", isRTL ? "text-right" : "text-left")}>
-                    #
-                  </th>
-                  <th className={cn("border-b-2 border-foreground px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
-                    {t("history.table.sourceA")}
-                  </th>
-                  <th className={cn("border-b-2 border-foreground px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
-                    {t("history.table.sourceB")}
-                  </th>
-                  <th className={cn("border-b-2 border-foreground px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
-                    {t("history.table.language")}
-                  </th>
-                  <th className={cn("border-b-2 border-foreground px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
-                    {t("history.table.score")}
-                  </th>
-                  <th className={cn("border-b-2 border-foreground px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
-                    {t("history.table.severity")}
-                  </th>
-                  <th className={cn("border-b-2 border-foreground px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
-                    {t("history.table.date")}
-                  </th>
-                  <th className={cn("border-b-2 border-foreground px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-left" : "text-right")}>
-                    {t("history.table.actions")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredItems.map((item, index) => {
-                  const score = item.similarity;
-                  return (
-                    <tr
-                      key={item.id}
-                      className="border-b border-border/40 transition-colors last:border-b-0 hover:bg-muted/30"
+        {filteredItems.length === 0 ? (
+          <LedgerEmpty>{items.length === 0 ? t("history.noAnalysesYet") : t("history.adjustFilters")}</LedgerEmpty>
+        ) : (
+          filteredItems.map((item, index) => {
+            const flagged = item.severity === "high" || item.similarity >= 80;
+            return (
+              <LedgerRow key={item.id}>
+                <LedgerCell>
+                  <Serial tone={flagged ? "primary" : "muted"}>{formatNumber(index + 1)}</Serial>
+                </LedgerCell>
+                <LedgerCell>
+                  <span className="block truncate font-mono text-xs text-foreground">{item.sourceA}</span>
+                </LedgerCell>
+                <LedgerCell>
+                  <span className="block truncate font-mono text-xs text-foreground">{item.sourceB}</span>
+                </LedgerCell>
+                <LedgerCell>
+                  <Tag tone="neutral">{getProgrammingLanguageLabel(item.language)}</Tag>
+                </LedgerCell>
+                <LedgerCell>
+                  <ScoreMeter value={item.similarity} />
+                </LedgerCell>
+                <LedgerCell>
+                  <StatusTag tone={severityTone(item.severity)}>{severityLabel(item.severity)}</StatusTag>
+                </LedgerCell>
+                <LedgerCell mono className="text-xs text-muted-foreground">
+                  {getDisplayDate(item)}
+                </LedgerCell>
+                <LedgerCell align="end">
+                  <div className="flex items-center justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      onClick={() => void openPreview(item)}
+                      disabled={isBusy}
+                      aria-label={t("history.actions.viewDetails")}
                     >
-                      <td className="px-4 py-3 align-middle">
-                        <Serial>{formatNumber(index + 1)}</Serial>
-                      </td>
-                      <td className="max-w-[200px] px-4 py-3 align-middle">
-                        <span className="truncate font-mono text-xs text-foreground">{item.sourceA}</span>
-                      </td>
-                      <td className="max-w-[200px] px-4 py-3 align-middle">
-                        <span className="truncate font-mono text-xs text-foreground">{item.sourceB}</span>
-                      </td>
-                      <td className="px-4 py-3 align-middle">
-                        <span className="inline-flex items-center rounded-sm border border-primary/25 bg-primary/10 px-2 py-0.5 font-mono text-[11px] font-medium text-foreground">
-                          {getProgrammingLanguageLabel(item.language)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 align-middle">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="h-1.5 w-14 overflow-hidden rounded-sm"
-                            style={{ background: "hsl(var(--muted))" }}
-                          >
-                            <span
-                              className="block h-full"
-                              style={{ width: `${score}%`, background: scoreColor(score) }}
-                            />
-                          </span>
-                          <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
-                            {score.toFixed(1)}%
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 align-middle">
-                        <span className={cn(severityBadge(item.severity), "capitalize")}>
-                          {severityLabel(item.severity)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 align-middle text-xs text-muted-foreground">
-                        {getDisplayDate(item)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className={cn("flex items-center gap-1", isRTL ? "justify-start" : "justify-end")}>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                            onClick={() => void openPreview(item)}
-                            disabled={isBusy}
-                            aria-label={t("buttons.viewDetails")}
-                          >
-                            <Info className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                            onClick={() => void openInResults(item)}
-                            disabled={isBusy}
-                            aria-label={t("buttons.viewResults")}
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                            onClick={() => void rerunAnalysis(item)}
-                            disabled={isBusy}
-                            aria-label={t("buttons.rerun")}
-                          >
-                            <RefreshCw className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                            onClick={() => void exportAnalysis(item)}
-                            disabled={isBusy}
-                            aria-label={t("buttons.download")}
-                          >
-                            <Download className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                            onClick={() => confirmDelete(item)}
-                            disabled={isBusy}
-                            aria-label={t("buttons.delete")}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+                      <Info className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      onClick={() => void openInResults(item)}
+                      disabled={isBusy}
+                      aria-label={t("history.actions.openResults")}
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      onClick={() => void rerunAnalysis(item)}
+                      disabled={isBusy}
+                      aria-label={t("history.actions.rerun")}
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      onClick={() => void exportAnalysis(item)}
+                      disabled={isBusy}
+                      aria-label={t("history.actions.download")}
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={() => confirmDelete(item)}
+                      disabled={isBusy}
+                      aria-label={t("history.actions.delete")}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </LedgerCell>
+              </LedgerRow>
+            );
+          })
+        )}
+        <LedgerFooter
+          left={t("history.showing", { defaultValue: "Showing" })}
+          right={`${formatNumber(filteredItems.length)} / ${formatNumber(items.length)}`}
+        />
+      </Ledger>
 
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent className="max-w-md border-border bg-card text-foreground">

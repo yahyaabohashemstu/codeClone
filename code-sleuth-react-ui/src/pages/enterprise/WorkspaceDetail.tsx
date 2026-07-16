@@ -1,21 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useEffect, useMemo, useState, type ComponentProps, type ReactNode } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   AlertCircle,
   ArrowLeft,
   ChevronRight,
   Copy,
-  FileSearch,
-  GitBranch,
   KeyRound,
   Loader2,
   Play,
   Plus,
   RefreshCw,
   Search,
-  ShieldAlert,
-  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,7 +23,25 @@ import {
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Masthead, FieldSheet, Field, Panel, Serial, SpecList } from "@/components/dossier/Dossier";
+import {
+  Masthead,
+  FieldSheet,
+  Field,
+  Serial,
+  Tag,
+  StatusTag,
+  ScoreMeter,
+  Verdict,
+  Ledger,
+  LedgerHead,
+  LedgerRow,
+  LedgerCell,
+  LedgerFooter,
+  LedgerEmpty,
+  LedgerFault,
+  LedgerSkeleton,
+  Notice,
+} from "@/components/dossier/Dossier";
 import { useLanguage } from "@/context/LanguageContext";
 import {
   addMember,
@@ -51,35 +65,76 @@ import { cn } from "@/lib/utils";
 
 type Tab = "repositories" | "cases" | "members";
 
-const STATUS_META: Record<string, { cls: string }> = {
-  open:            { cls: "bg-accent/15 text-accent border-accent/30" },
-  in_review:       { cls: "bg-warning/15 text-foreground border-warning/30" },
-  confirmed_clone: { cls: "bg-destructive/15 text-destructive border-destructive/30" },
-  false_positive:  { cls: "bg-muted text-muted-foreground border-border/60" },
-  resolved:        { cls: "bg-success/15 text-success border-success/30" },
-  dismissed:       { cls: "bg-muted text-muted-foreground border-border/60" },
+// Semantic tone — colour encodes standing/disposition only, consumed by the Dossier
+// Tag / StatusTag so a status or role never renders a bespoke colour twice.
+type StampTone = ComponentProps<typeof StatusTag>["tone"];
+
+const STATUS_TONE: Record<string, StampTone> = {
+  open: "primary",
+  in_review: "warning",
+  confirmed_clone: "danger",
+  false_positive: "muted",
+  resolved: "success",
+  dismissed: "muted",
 };
 
-const SEV_META: Record<string, { cls: string }> = {
-  critical: { cls: "bg-destructive/15 text-destructive border-destructive/30" },
-  high:     { cls: "bg-warning/15 text-foreground border-warning/30" },
-  medium:   { cls: "bg-warning/12 text-foreground border-warning/25" },
-  low:      { cls: "bg-accent/15 text-accent border-accent/30" },
+const ROLE_TONE: Record<string, StampTone> = {
+  owner: "primary",
+  admin: "danger",
+  manager: "warning",
+  reviewer: "accent",
+  student: "muted",
 };
 
-const ROLE_CLS: Record<string, string> = {
-  owner:    "bg-primary/15 text-primary border-primary/25",
-  admin:    "bg-destructive/15 text-destructive border-destructive/25",
-  manager:  "bg-warning/15 text-foreground border-warning/25",
-  reviewer: "bg-accent/15 text-accent border-accent/25",
-  student:  "bg-muted text-muted-foreground border-border/60",
+// Severity → a compact triage dot in the case gutter (colour = meaning).
+const SEVERITY_DOT: Record<string, string> = {
+  critical: "bg-destructive",
+  high: "bg-warning",
+  medium: "bg-warning/70",
+  low: "bg-muted-foreground/50",
 };
 
-const PROVIDER_ICON: Record<string, string> = {
-  github: "GH",
-  gitlab: "GL",
-  local:  "LO",
-};
+// One grid-template per ledger — drives head + every row so columns never drift.
+const REPO_COLS = "3.5rem minmax(0,1fr) 6rem 6.5rem 6.5rem 7.5rem";
+const CASE_COLS = "5rem minmax(14rem,1.4fr) 9.5rem 6.5rem 7rem 8rem 3.5rem";
+const MEMBER_COLS = "4rem minmax(0,1fr) 9rem 7rem";
+
+// A logical path drawn as a muted directory + a foreground basename, kept LTR.
+function PathText({ path, className }: { path: string; className?: string }) {
+  const idx = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+  const dir = idx >= 0 ? path.slice(0, idx + 1) : "";
+  const base = idx >= 0 ? path.slice(idx + 1) : path;
+  return (
+    <span dir="ltr" title={path} className={cn("min-w-0 truncate font-mono text-xs", className)}>
+      {dir && <span className="text-muted-foreground/55">{dir}</span>}
+      <span className="text-foreground">{base}</span>
+    </span>
+  );
+}
+
+// The clone pair, read as one line: exhibit A → exhibit B, amber arrow between.
+function PathPair({ a, b }: { a: string; b: string }) {
+  return (
+    <div dir="ltr" className="flex min-w-0 items-center gap-2">
+      <PathText path={a} className="flex-1" />
+      <span className="shrink-0 font-mono text-muted-foreground/60" aria-hidden="true">→</span>
+      <PathText path={b} className="flex-1" />
+    </div>
+  );
+}
+
+// A ruled, mono-labelled section header with room for one action on the trailing edge.
+function TabHeader({ label, action }: { label: ReactNode; action?: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-2.5">
+      <div className="flex items-center gap-2.5">
+        <span className="h-px w-6 bg-primary" aria-hidden="true" />
+        <h2 className="t-label text-foreground">{label}</h2>
+      </div>
+      {action != null && <div className="flex flex-wrap items-center gap-3">{action}</div>}
+    </div>
+  );
+}
 
 export default function WorkspaceDetail() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
@@ -96,6 +151,8 @@ export default function WorkspaceDetail() {
   const [members, setMembers] = useState<WorkspaceMembership[]>([]);
   const [loadingTab, setLoadingTab] = useState(false);
   const [tabError, setTabError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const reloadTab = () => setReloadKey((k) => k + 1);
 
   const [scanning, setScanningId] = useState<number | null>(null);
   const [caseSearch, setCaseSearch] = useState("");
@@ -144,7 +201,7 @@ export default function WorkspaceDetail() {
     loaders[activeTab]()
       .catch((e) => setTabError(e?.message ?? "Error"))
       .finally(() => setLoadingTab(false));
-  }, [wsId, activeTab]);
+  }, [wsId, activeTab, reloadKey]);
 
   const handleTriggerScan = async (repoId: number) => {
     setScanningId(repoId);
@@ -312,12 +369,6 @@ export default function WorkspaceDetail() {
     });
   }, [cases, caseSearch]);
 
-  const scoreColor = (score: number): string => {
-    if (score >= 80) return "hsl(var(--destructive))";
-    if (score >= 40) return "hsl(var(--warning))";
-    return "hsl(var(--muted-foreground))";
-  };
-
   // Live case-file readings for the masthead — folds the old stat-card row in.
   const meta = [
     { label: "SERIAL", value: `WS-${wsId}` },
@@ -351,27 +402,11 @@ export default function WorkspaceDetail() {
 
       {/* Workspace dossier masthead — identity + live readings, not a boxed hero */}
       <Masthead
-        kicker={t("enterprise.workspaceDetail.dossierKicker", { defaultValue: "Workspace dossier" })}
+        kicker={t("enterprise.workspaceDetail.dossierKicker", { defaultValue: "Workspace" })}
         title={workspace?.name ?? `#${wsId}`}
         description={workspace?.description || undefined}
         meta={meta}
       />
-
-      {/* Workspace case-file record — a ruled spec sheet, not a boxed hero */}
-      {workspace && (
-        <Panel bare marker="§" label={t("enterprise.workspaceDetail.caseFile", { defaultValue: "Case file" })}>
-          <SpecList
-            rows={[
-              { label: t("enterprise.workspaceDetail.specSlug", { defaultValue: "Slug" }), value: <span dir="ltr">{workspace.slug}</span> },
-              { label: t("enterprise.workspaceDetail.specRegion", { defaultValue: "Storage region" }), value: workspace.storageRegion },
-              { label: t("enterprise.workspaceDetail.specSimilarity", { defaultValue: "Similarity threshold" }), value: `${threshold}%` },
-              { label: t("enterprise.workspaceDetail.specSemantic", { defaultValue: "Semantic threshold" }), value: `${Math.round(workspace.semanticThreshold * 100)}%` },
-              { label: t("enterprise.workspaceDetail.specRole", { defaultValue: "Your role" }), value: workspace.membership ? <span className="capitalize">{workspace.membership.role}</span> : "—" },
-              { label: t("enterprise.workspaceDetail.specCreated", { defaultValue: "Opened" }), value: workspace.createdAt ? new Date(workspace.createdAt).toLocaleDateString() : "—" },
-            ]}
-          />
-        </Panel>
-      )}
 
       {/* Tabs — mono ledger selectors with live counts */}
       <div className="border-b border-border">
@@ -400,58 +435,71 @@ export default function WorkspaceDetail() {
         </nav>
       </div>
 
-      {/* Tab content */}
-      {loadingTab ? (
-        <div className="flex items-center justify-center gap-2 rounded-lg border border-border bg-card py-16 text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-        </div>
-      ) : tabError ? (
-        <div className="flex items-center justify-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 py-12 text-destructive">
-          <AlertCircle className="h-4 w-4" />
-          {tabError}
-        </div>
-      ) : (
-        <>
-          {/* Repositories tab — a ruled repository ledger flowing on the page */}
-          {activeTab === "repositories" && (
-            <Panel
-              bare
-              marker="§"
-              label={t("enterprise.workspaceDetail.repositories")}
-              actions={
-                <Button size="sm" className="h-8 gap-1.5" onClick={() => setRepoOpen(true)}>
-                  <Plus className="h-3.5 w-3.5" />
-                  {t("enterprise.workspaceDetail.addRepo")}
-                </Button>
-              }
-            >
-              {repos.length === 0 ? (
-                <div className="flex flex-col items-center gap-3 py-14 text-center">
-                  <GitBranch className="h-5 w-5 text-muted-foreground" />
-                  <p className="t-sm">{t("enterprise.workspaceDetail.noRepos")}</p>
+      {/* Tab content — each register is a ruled Ledger; loading / fault / empty
+          states sit left-anchored beneath a constant head, per the Dossier kit */}
+      {activeTab === "repositories" && (
+        <section className="space-y-3">
+          <TabHeader
+            label={t("enterprise.workspaceDetail.repositories")}
+            action={
+              <Button size="sm" className="h-8 gap-1.5" onClick={() => setRepoOpen(true)}>
+                <Plus className="h-3.5 w-3.5" />
+                {t("enterprise.workspaceDetail.addRepo")}
+              </Button>
+            }
+          />
+          <Ledger columns={REPO_COLS}>
+            <LedgerHead
+              cells={[
+                "#",
+                t("enterprise.workspaceDetail.colRepo", { defaultValue: "Repository" }),
+                t("enterprise.workspaceDetail.colProvider", { defaultValue: "Provider" }),
+                t("enterprise.workspaceDetail.colBranch", { defaultValue: "Branch" }),
+                t("enterprise.workspaceDetail.colRegion", { defaultValue: "Region" }),
+                "",
+              ]}
+              aligns={["start", "start", "start", "start", "start", "end"]}
+            />
+            {loadingTab ? (
+              <LedgerSkeleton rows={4} />
+            ) : tabError ? (
+              <LedgerFault onRetry={reloadTab} retryLabel={t("enterprise.common.retry", { defaultValue: "Retry" })}>
+                {tabError}
+              </LedgerFault>
+            ) : repos.length === 0 ? (
+              <LedgerEmpty>
+                <span className="inline-flex flex-wrap items-center gap-3">
+                  <span>{t("enterprise.workspaceDetail.noRepos")}</span>
                   <Button size="sm" variant="outline" onClick={() => setRepoOpen(true)} className="gap-2">
-                    <Plus className="h-3.5 w-3.5" />{t("enterprise.workspaceDetail.addRepo")}
+                    <Plus className="h-3.5 w-3.5" />
+                    {t("enterprise.workspaceDetail.addRepo")}
                   </Button>
-                </div>
-              ) : (
-                <div className="divide-y divide-border">
-                  {repos.map((repo, i) => (
-                    <div key={repo.id} className="flex items-center gap-4 py-3.5">
+                </span>
+              </LedgerEmpty>
+            ) : (
+              <>
+                {repos.map((repo, i) => (
+                  <LedgerRow key={repo.id}>
+                    <LedgerCell>
                       <Serial>{`R${String(i + 1).padStart(2, "0")}`}</Serial>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-foreground">{repo.name}</p>
-                        <p className="font-mono text-xs text-muted-foreground">
-                          <span className="text-foreground/70">{PROVIDER_ICON[repo.provider] ?? "??"}</span>
-                          {" · "}
-                          {repo.defaultBranch ?? "main"}
-                          {" · "}
-                          {repo.declaredRegion}
-                        </p>
-                      </div>
+                    </LedgerCell>
+                    <LedgerCell className="truncate text-sm font-medium text-foreground">
+                      {repo.name}
+                    </LedgerCell>
+                    <LedgerCell>
+                      <Tag>{repo.provider}</Tag>
+                    </LedgerCell>
+                    <LedgerCell mono className="text-xs text-muted-foreground">
+                      <span dir="ltr" className="block truncate">{repo.defaultBranch ?? "main"}</span>
+                    </LedgerCell>
+                    <LedgerCell mono className="text-xs text-muted-foreground">
+                      {repo.declaredRegion}
+                    </LedgerCell>
+                    <LedgerCell align="end">
                       <Button
                         size="sm"
                         variant="outline"
-                        className="shrink-0 gap-1.5"
+                        className="h-8 gap-1.5"
                         disabled={scanning === repo.id}
                         onClick={() => handleTriggerScan(repo.id)}
                       >
@@ -462,196 +510,163 @@ export default function WorkspaceDetail() {
                         )}
                         {scanning === repo.id ? t("enterprise.workspaceDetail.scanning") : t("enterprise.workspaceDetail.scan")}
                       </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Panel>
-          )}
+                    </LedgerCell>
+                  </LedgerRow>
+                ))}
+                <LedgerFooter right={`${repos.length} RECORDS`} />
+              </>
+            )}
+          </Ledger>
+        </section>
+      )}
 
-          {/* Cases tab — a ruled case ledger under a heavy §-rule */}
-          {activeTab === "cases" && (
-            <Panel
-              bare
-              marker="§"
-              label={t("enterprise.workspaceDetail.cases")}
-              actions={
-                <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                  {t("enterprise.workspaceDetail.showing", { defaultValue: "Showing" })} {filteredCases.length} / {cases.length}
-                </span>
-              }
-            >
-              {/* Filter row — flush to the page, no card fill */}
-              <div className="mb-4">
-                <div className="relative max-w-sm">
-                  <Search className={cn("pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground", isRTL ? "right-3" : "left-3")} />
-                  <Input
-                    value={caseSearch}
-                    onChange={(e) => setCaseSearch(e.target.value)}
-                    placeholder={t("enterprise.workspaceDetail.searchCases", { defaultValue: "Filter by path, student, or case ID…" })}
-                    className={cn("h-8 bg-card text-sm", isRTL ? "pr-8" : "pl-8")}
-                  />
-                </div>
+      {activeTab === "cases" && (
+        <section className="space-y-3">
+          <TabHeader
+            label={t("enterprise.workspaceDetail.cases")}
+            action={
+              <div className="relative w-full sm:w-72">
+                <Search className="pointer-events-none absolute start-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={caseSearch}
+                  onChange={(e) => setCaseSearch(e.target.value)}
+                  placeholder={t("enterprise.workspaceDetail.searchCases", { defaultValue: "Filter by path, student, or case ID…" })}
+                  aria-label={t("enterprise.workspaceDetail.searchCases", { defaultValue: "Filter by path, student, or case ID…" })}
+                  className="h-9 bg-card font-mono text-xs ps-9"
+                />
               </div>
+            }
+          />
+          <Ledger columns={CASE_COLS}>
+            <LedgerHead
+              cells={[
+                t("enterprise.workspaceDetail.colCase", { defaultValue: "Case" }),
+                t("enterprise.workspaceDetail.colPair", { defaultValue: "Artifacts" }),
+                t("enterprise.workspaceDetail.colScore", { defaultValue: "Score" }),
+                t("enterprise.workspaceDetail.colVerdict", { defaultValue: "Verdict" }),
+                t("enterprise.workspaceDetail.colType", { defaultValue: "Clone type" }),
+                t("enterprise.workspaceDetail.colStatus", { defaultValue: "Status" }),
+                "",
+              ]}
+              aligns={["start", "start", "end", "start", "start", "start", "end"]}
+            />
+            {loadingTab ? (
+              <LedgerSkeleton rows={5} />
+            ) : tabError ? (
+              <LedgerFault onRetry={reloadTab} retryLabel={t("enterprise.common.retry", { defaultValue: "Retry" })}>
+                {tabError}
+              </LedgerFault>
+            ) : filteredCases.length === 0 ? (
+              <LedgerEmpty>{t("enterprise.workspaceDetail.noCases")}</LedgerEmpty>
+            ) : (
+              <>
+                {filteredCases.map((c) => {
+                  const pathA = c.match?.artifactA?.logicalPath ?? "—";
+                  const pathB = c.match?.artifactB?.logicalPath ?? "—";
+                  const score = Math.round(c.confidenceScore);
+                  return (
+                    <LedgerRow key={c.id} to={`/enterprise/cases/${c.id}`}>
+                      <LedgerCell>
+                        <div className="flex items-center gap-2">
+                          <span
+                            role="img"
+                            aria-label={c.severity}
+                            title={c.severity}
+                            className={cn("h-2 w-2 shrink-0 rounded-full", SEVERITY_DOT[c.severity] ?? "bg-muted")}
+                          />
+                          <Serial tone={c.status === "confirmed_clone" ? "primary" : "muted"}>
+                            C-{c.id}
+                          </Serial>
+                        </div>
+                      </LedgerCell>
+                      <LedgerCell>
+                        <PathPair a={pathA} b={pathB} />
+                      </LedgerCell>
+                      <LedgerCell align="end">
+                        <ScoreMeter value={score} />
+                      </LedgerCell>
+                      <LedgerCell>
+                        <Verdict score={score} />
+                      </LedgerCell>
+                      <LedgerCell>
+                        <Tag>{c.cloneType.replace(/_/g, " ")}</Tag>
+                      </LedgerCell>
+                      <LedgerCell>
+                        <StatusTag tone={STATUS_TONE[c.status] ?? "muted"}>
+                          {t(`enterprise.status.${c.status}`, { defaultValue: c.status })}
+                        </StatusTag>
+                      </LedgerCell>
+                      <LedgerCell align="end">
+                        <span className="inline-flex items-center text-primary">
+                          <span className="sr-only">{t("enterprise.workspaceDetail.viewCase")}</span>
+                          <ChevronRight className={cn("h-4 w-4", isRTL && "rotate-180")} aria-hidden />
+                        </span>
+                      </LedgerCell>
+                    </LedgerRow>
+                  );
+                })}
+                <LedgerFooter
+                  left={t("enterprise.workspaceDetail.showing", { defaultValue: "Showing" })}
+                  right={`${filteredCases.length} / ${cases.length}`}
+                />
+              </>
+            )}
+          </Ledger>
+        </section>
+      )}
 
-              {filteredCases.length === 0 ? (
-                <div className="flex flex-col items-center gap-3 py-14 text-center">
-                  <FileSearch className="h-5 w-5 text-muted-foreground" />
-                  <p className="t-sm">{t("enterprise.workspaceDetail.noCases")}</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto scrollbar-thin">
-                  <table className="w-full min-w-[820px] text-sm">
-                    <thead>
-                      <tr>
-                        {[
-                          t("enterprise.workspaceDetail.colCase", { defaultValue: "Case" }),
-                          t("enterprise.workspaceDetail.colPair", { defaultValue: "Pair" }),
-                          t("enterprise.workspaceDetail.colScore", { defaultValue: "Score" }),
-                          t("enterprise.workspaceDetail.colType", { defaultValue: "Clone type" }),
-                          t("enterprise.workspaceDetail.colStatus", { defaultValue: "Status" }),
-                        ].map((h) => (
-                          <th
-                            key={h}
-                            className={cn(
-                              "border-b-2 border-foreground px-4 py-2.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-muted-foreground",
-                              isRTL ? "text-right" : "text-left",
-                            )}
-                          >
-                            {h}
-                          </th>
-                        ))}
-                        <th className={cn("border-b-2 border-foreground px-4 py-2.5", isRTL ? "text-left" : "text-right")}>
-                          &nbsp;
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredCases.map((c) => {
-                        const sm = STATUS_META[c.status] ?? STATUS_META.open;
-                        const sv = SEV_META[c.severity] ?? SEV_META.medium;
-                        const pathA = c.match?.artifactA?.logicalPath ?? "—";
-                        const pathB = c.match?.artifactB?.logicalPath ?? "—";
-                        const score = Math.round(c.confidenceScore);
-                        const initA = pathA.split(/[/\\]/).pop()?.slice(0, 2).toUpperCase() ?? "A";
-                        const initB = pathB.split(/[/\\]/).pop()?.slice(0, 2).toUpperCase() ?? "B";
-                        return (
-                          <tr
-                            key={c.id}
-                            className="border-b border-border/40 transition-colors last:border-b-0 hover:bg-muted/30"
-                          >
-                            <td className="px-4 py-3 align-middle">
-                              <Serial>{`C${c.id}`}</Serial>
-                            </td>
-                            <td className="px-4 py-3 align-middle">
-                              <div className="flex items-center gap-2 text-xs">
-                                <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border bg-muted font-mono text-[10px] font-semibold text-muted-foreground">
-                                  {initA}
-                                </span>
-                                <span className="max-w-[120px] truncate font-mono text-foreground">{pathA.split(/[/\\]/).pop()}</span>
-                                <span className="text-muted-foreground">×</span>
-                                <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-primary/30 bg-primary/10 font-mono text-[10px] font-semibold text-primary">
-                                  {initB}
-                                </span>
-                                <span className="max-w-[120px] truncate font-mono text-foreground">{pathB.split(/[/\\]/).pop()}</span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 align-middle">
-                              <div className="flex items-center gap-2">
-                                <span className="h-1.5 w-14 overflow-hidden rounded-sm bg-muted">
-                                  <span
-                                    className="block h-full"
-                                    style={{ width: `${score}%`, background: scoreColor(score) }}
-                                  />
-                                </span>
-                                <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
-                                  {score}%
-                                </span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 align-middle">
-                              <span className="inline-flex items-center rounded-md border border-border bg-muted px-2 py-0.5 font-mono text-[11px] font-medium text-muted-foreground">
-                                {c.cloneType.replace(/_/g, " ")}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 align-middle">
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                <span className={cn("inline-flex items-center rounded-md border px-2 py-0.5 font-mono text-[11px] font-semibold capitalize", sv.cls)}>
-                                  {c.severity}
-                                </span>
-                                <span className={cn("inline-flex items-center rounded-md border px-2 py-0.5 font-mono text-[11px] font-semibold", sm.cls)}>
-                                  {t(`enterprise.status.${c.status}`, { defaultValue: c.status })}
-                                </span>
-                              </div>
-                            </td>
-                            <td className={cn("px-4 py-3 align-middle", isRTL ? "text-left" : "text-right")}>
-                              <Link
-                                to={`/enterprise/cases/${c.id}`}
-                                className="inline-flex items-center gap-1 text-xs font-medium text-foreground underline underline-offset-2 hover:opacity-70"
-                              >
-                                {t("enterprise.workspaceDetail.viewCase")}
-                                <ChevronRight className={cn("h-3 w-3", isRTL && "rotate-180")} />
-                              </Link>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </Panel>
-          )}
-
-          {/* Members tab — a ruled roster ledger flowing on the page */}
-          {activeTab === "members" && (
-            <Panel
-              bare
-              marker="§"
-              label={t("enterprise.workspaceDetail.members")}
-              actions={
-                <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => setMemberOpen(true)}>
-                  <Plus className="h-3.5 w-3.5" />
-                  {t("enterprise.workspaceDetail.addMember")}
-                </Button>
-              }
-            >
-              {members.length === 0 ? (
-                <div className="flex flex-col items-center gap-3 py-14 text-center">
-                  <Users className="h-5 w-5 text-muted-foreground" />
-                  <p className="t-sm">{t("enterprise.workspaceDetail.noMembers")}</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-border">
-                  {members.map((m) => (
-                    <div key={m.id} className="flex items-center gap-4 py-3">
+      {activeTab === "members" && (
+        <section className="space-y-3">
+          <TabHeader
+            label={t("enterprise.workspaceDetail.members")}
+            action={
+              <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => setMemberOpen(true)}>
+                <Plus className="h-3.5 w-3.5" />
+                {t("enterprise.workspaceDetail.addMember")}
+              </Button>
+            }
+          />
+          <Ledger columns={MEMBER_COLS}>
+            <LedgerHead
+              cells={[
+                "#",
+                t("enterprise.workspaceDetail.colUser", { defaultValue: "User" }),
+                t("enterprise.workspaceDetail.colLastActive", { defaultValue: "Last active" }),
+                t("enterprise.workspaceDetail.colRole", { defaultValue: "Role" }),
+              ]}
+            />
+            {loadingTab ? (
+              <LedgerSkeleton rows={4} />
+            ) : tabError ? (
+              <LedgerFault onRetry={reloadTab} retryLabel={t("enterprise.common.retry", { defaultValue: "Retry" })}>
+                {tabError}
+              </LedgerFault>
+            ) : members.length === 0 ? (
+              <LedgerEmpty>{t("enterprise.workspaceDetail.noMembers")}</LedgerEmpty>
+            ) : (
+              <>
+                {members.map((m) => (
+                  <LedgerRow key={m.id}>
+                    <LedgerCell>
                       <Serial>{m.legacyUserId}</Serial>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-foreground">
-                          {t("enterprise.workspaceDetail.userHash", { defaultValue: "User #" })}
-                          <span className="font-mono">{m.legacyUserId}</span>
-                        </p>
-                        {m.lastActiveAt && (
-                          <p className="font-mono text-xs text-muted-foreground">
-                            {new Date(m.lastActiveAt).toLocaleDateString()}
-                          </p>
-                        )}
-                      </div>
-                      <span
-                        className={cn(
-                          "rounded-md border px-2 py-0.5 font-mono text-[10px] font-semibold capitalize",
-                          ROLE_CLS[m.role] ?? "bg-muted text-muted-foreground border-border/60",
-                        )}
-                      >
-                        {m.role}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Panel>
-          )}
-        </>
+                    </LedgerCell>
+                    <LedgerCell className="text-sm font-medium text-foreground">
+                      {t("enterprise.workspaceDetail.userHash", { defaultValue: "User #" })}
+                      <span className="font-mono">{m.legacyUserId}</span>
+                    </LedgerCell>
+                    <LedgerCell mono className="text-xs text-muted-foreground">
+                      {m.lastActiveAt ? new Date(m.lastActiveAt).toLocaleDateString() : "—"}
+                    </LedgerCell>
+                    <LedgerCell>
+                      <Tag tone={ROLE_TONE[m.role] ?? "muted"}>{m.role}</Tag>
+                    </LedgerCell>
+                  </LedgerRow>
+                ))}
+                <LedgerFooter right={`${members.length} RECORDS`} />
+              </>
+            )}
+          </Ledger>
+        </section>
       )}
 
       {/* Create repository dialog — margin-label fields */}
@@ -732,7 +747,7 @@ export default function WorkspaceDetail() {
                 onClick={handleCreateRepo}
                 disabled={creatingRepo || !repoName.trim()}
               >
-                {creatingRepo && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+                {creatingRepo && <Loader2 className="me-2 h-3.5 w-3.5 animate-spin" />}
                 {t("enterprise.workspaceDetail.addRepo")}
               </Button>
             </div>
@@ -750,10 +765,7 @@ export default function WorkspaceDetail() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
-            <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs">
-              <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-              <span className="text-foreground">{t("enterprise.workspaceDetail.secretsIntro")}</span>
-            </div>
+            <Notice tone="warning">{t("enterprise.workspaceDetail.secretsIntro")}</Notice>
 
             <FieldSheet>
               {([
@@ -832,7 +844,7 @@ export default function WorkspaceDetail() {
                 onClick={handleAddMember}
                 disabled={addingMember || !memberUserId.trim()}
               >
-                {addingMember && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+                {addingMember && <Loader2 className="me-2 h-3.5 w-3.5 animate-spin" />}
                 {t("enterprise.workspaceDetail.addMember")}
               </Button>
             </div>

@@ -25,8 +25,7 @@ function lineClass(type: DiffBlock["type"], side: "a" | "b") {
   if (type === "equal") return "bg-transparent";
   if (type === "delete") return side === "a" ? "bg-destructive/10" : "bg-muted/20";
   if (type === "insert") return side === "b" ? "bg-success/10" : "bg-muted/20";
-  // replace — both sides tinted warning to match the legend swatch; the accent
-  // (amber --primary) is never spent on data rows.
+  // replace — both sides share the review-band amber, matching the legend
   return "bg-warning/10";
 }
 
@@ -210,14 +209,14 @@ export function DiffViewer({
         {/* Column headers (kept outside the scroll area so they stay put). */}
         <div className="grid grid-cols-1 border-b border-border/40 md:grid-cols-2 md:divide-x md:divide-border/40">
           <div className="bg-card px-3 py-2">
-            <span className="flex items-center gap-1.5 font-mono text-xs font-semibold text-foreground">
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-primary">
               <span className="h-2 w-2 rounded-full bg-primary" />
               {labelA}
             </span>
           </div>
           <div className="hidden bg-card px-3 py-2 md:block">
-            <span className="flex items-center gap-1.5 font-mono text-xs font-semibold text-foreground">
-              <span className="h-2 w-2 rounded-full bg-accent-suspect" />
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+              <span className="h-2 w-2 rounded-full bg-muted-foreground" />
               {labelB}
             </span>
           </div>

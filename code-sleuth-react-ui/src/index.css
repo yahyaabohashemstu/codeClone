@@ -50,98 +50,73 @@
   :root {
     color-scheme: light;
 
-    /* Evidence Dossier — warm paper & ink, a single ink-navy signal, forensic mono voice */
-    --background: 42 30% 95%;          /* warm paper */
-    --foreground: 30 14% 13%;          /* warm ink */
+    /* Instrument — calibrated light: cool grey-white canvas, slate ink, a single
+       trustworthy indigo-blue accent, refined semantic states. A precision tool. */
+    --background: 220 24% 98%;         /* cool near-white canvas */
+    --foreground: 222 34% 11%;         /* near-black slate ink */
 
-    --card: 40 36% 97%;
-    --card-foreground: 30 14% 13%;
+    --card: 0 0% 100%;                 /* crisp white surfaces on the cool canvas */
+    --card-foreground: 222 34% 11%;
 
-    --popover: 40 36% 98%;
-    --popover-foreground: 30 14% 13%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 34% 11%;
 
-    --primary: 214 60% 34%;            /* ink navy (Prussian) — the one signal colour */
-    --primary-foreground: 44 40% 96%;  /* near-white paper on navy (7.6:1) */
+    --primary: 230 78% 58%;            /* calibrated indigo-blue — the one signal */
+    --primary-foreground: 0 0% 100%;   /* white on the blue */
 
-    --secondary: 40 22% 90%;
-    --secondary-foreground: 30 14% 22%;
+    --secondary: 220 24% 95%;
+    --secondary-foreground: 222 26% 24%;
 
-    --muted: 40 20% 91%;
-    --muted-foreground: 34 9% 37%;
+    --muted: 220 22% 95%;
+    --muted-foreground: 218 12% 42%;   /* slate — AA on white and canvas */
 
-    --accent: 40 24% 88%;              /* warm neutral hover tint */
-    --accent-foreground: 30 14% 20%;
+    --accent: 220 26% 94%;             /* cool neutral hover tint */
+    --accent-foreground: 222 26% 22%;
 
-    --success: 130 32% 33%;            /* muted olive — low similarity / safe */
-    --success-foreground: 44 42% 96%;
+    --success: 152 55% 38%;            /* refined green — low similarity / safe */
+    --success-foreground: 0 0% 100%;
 
-    --warning: 38 92% 45%;             /* amber — needs review */
-    --warning-foreground: 32 34% 10%;
+    --warning: 36 84% 45%;             /* amber — needs review */
+    --warning-foreground: 222 40% 10%;
 
-    --destructive: 8 64% 42%;          /* oxblood — high similarity / flagged */
-    --destructive-foreground: 44 42% 96%;
+    --destructive: 4 68% 53%;          /* red — high similarity / flagged */
+    --destructive-foreground: 0 0% 100%;
 
-    /* Second-exhibit identity tone — warm terracotta, distinct from the amber
-       signal and the oxblood alarm. Used for the "other side" AST graph. */
-    --accent-suspect: 16 58% 46%;
+    --border: 220 20% 90%;
+    --input: 220 20% 88%;
+    --ring: 230 78% 58%;
 
-    --border: 38 17% 82%;
-    --input: 38 17% 85%;
-    --ring: 214 60% 34%;
+    --radius: 0.75rem;                 /* modern, refined — cards */
 
-    --radius: 0.35rem;                 /* sharp, technical — not rounded-blob */
+    --sidebar-background: 220 26% 98%;
+    --sidebar-foreground: 218 12% 40%;
+    --sidebar-primary: 230 78% 58%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 26% 94%;
+    --sidebar-accent-foreground: 222 26% 22%;
+    --sidebar-border: 220 20% 91%;
+    --sidebar-ring: 230 78% 58%;
 
-    --sidebar-background: 42 30% 96%;
-    --sidebar-foreground: 34 10% 33%;
-    --sidebar-primary: 214 60% 34%;
-    --sidebar-primary-foreground: 44 40% 96%;
-    --sidebar-accent: 40 24% 90%;
-    --sidebar-accent-foreground: 30 14% 22%;
-    --sidebar-border: 38 17% 86%;
-    --sidebar-ring: 214 60% 34%;
+    --surface-1: 0 0% 100%;
+    --surface-2: 220 24% 97%;
+    --surface-3: 220 22% 94%;
 
-    --surface-1: 40 36% 97%;
-    --surface-2: 42 28% 94%;
-    --surface-3: 40 20% 90%;
+    --code-surface: 222 28% 97%;
+    --code-surface-foreground: 222 30% 20%;
+    --code-surface-border: 220 20% 90%;
 
-    --code-surface: 40 30% 96%;
-    --code-surface-foreground: 30 14% 16%;
-    --code-surface-border: 38 17% 84%;
-
-    /* Categorical chart palette — warm, on-paper hues (not the raw indigo/cyan
-       neon). For SEMANTIC similarity bands use --success/--warning/--destructive. */
-    --chart-1: 214 60% 34%;  /* ink navy (primary) */
-    --chart-2: 16 58% 46%;   /* terracotta */
-    --chart-3: 130 32% 33%;  /* olive */
-    --chart-4: 30 9% 45%;    /* warm slate */
-    --chart-5: 284 22% 54%;  /* muted plum — kept clear of the navy primary */
-
-    /* Fixed dark "ink" rail — the auth brand panel is always dark in both
-       themes (defined once in :root, not overridden by .dark). */
-    --auth-ink: 30 14% 10%;
-
-    /* Flat by default — one hairline shadow, reserved for true overlays. */
-    --card-shadow-rest: 0 1px 2px hsl(30 24% 18% / 0.05);
-    --card-shadow-hover: 0 2px 8px hsl(30 24% 18% / 0.09);
-    /* Glow shadows retired to none — kept as no-op aliases so the existing
-       var(--*-glow-*) call sites across the app resolve to a flat surface.
-       See DESIGN.md "The No-Glow Rule". */
-    --glow-shadow-sm: none;
-    --glow-shadow-md: none;
-    --shadow-glow-sm: none;
-    --shadow-glow-md: none;
-    --shadow-glow-lg: none;
-
-    /* Brand gradient retired to a solid amber. Kept as a no-op alias so
-       existing var(--gradient-brand) fills render flat, not gradient. */
+    /* Flat by default — soft cool neutral shadows, reserved for true overlays. */
+    --card-shadow-rest: 0 1px 2px hsl(222 30% 12% / 0.05);
+    --card-shadow-hover: 0 6px 20px -6px hsl(222 30% 12% / 0.14);
+    /* Legacy brand-fill alias — resolves to the solid accent (no gradient). */
     --gradient-brand: hsl(var(--primary));
 
-    /* Radius scale — sharp; over-rounding retired */
-    --radius-sm: 2px;
-    --radius-md: 3px;
-    --radius-lg: var(--radius);
-    --radius-xl: 0.5rem;
-    --radius-2xl: 0.625rem;
+    /* Radius scale — modern, refined (not over-rounded, not razor-sharp) */
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: var(--radius);        /* 12px — cards, panels, inputs */
+    --radius-xl: 14px;
+    --radius-2xl: 18px;
     --radius-full: 9999px;
 
     /* Spatial scale (4-pt grid) */
@@ -164,14 +139,17 @@
     --dur-base: 200ms;
     --dur-slow: 300ms;
 
-    /* Typography: font stacks. Mono is promoted to the brand DISPLAY voice —
-       a code-forensics tool that speaks in monospace reads as authored. */
-    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-    --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
-    --font-display: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+    /* Typography: font stacks. Instrument voice — a refined SANS (Inter) carries
+       display + body; monospace is reserved for code, labels, and numerals (the
+       precision data). 'IBM Plex Sans Arabic' rides every stack as the per-glyph
+       Arabic fallback so headings/labels never tofu under RTL. */
+    --font-sans: 'Inter', 'IBM Plex Sans Arabic', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'IBM Plex Sans Arabic', monospace;
+    --font-display: 'Inter', 'IBM Plex Sans Arabic', system-ui, -apple-system, sans-serif;
     --font-arabic: 'IBM Plex Sans Arabic', 'Inter', system-ui, sans-serif;
 
     /* Typography: scale */
+    --fs-display: clamp(3rem, 7vw, 6.5rem);   /* fluid case-file hero — Home only */
     --fs-hero: 4.5rem;
     --fs-h1: 3rem;
     --fs-h2: 2rem;
@@ -199,70 +177,61 @@
   .dark {
     color-scheme: dark;
 
-    /* Ink & Ember — warm near-black ground, amber signal */
-    --background: 30 12% 8%;
-    --foreground: 42 22% 88%;
+    /* Signal — focused dark lab: matte charcoal ground, cool bright-blue signal,
+       controlled contrast (never neon/glow). The dark mode of Instrument. */
+    --background: 224 20% 7%;          /* matte charcoal */
+    --foreground: 220 24% 92%;
 
-    --card: 30 12% 11%;
-    --card-foreground: 42 22% 88%;
+    --card: 223 18% 12%;
+    --card-foreground: 220 24% 92%;
 
-    --popover: 30 12% 10%;
-    --popover-foreground: 42 22% 88%;
+    --popover: 223 18% 13%;
+    --popover-foreground: 220 24% 92%;
 
-    --primary: 210 72% 64%;
-    --primary-foreground: 214 45% 12%;
+    --primary: 216 90% 62%;            /* cool bright blue */
+    --primary-foreground: 216 60% 9%;  /* dark ink on the blue (high contrast) */
 
-    --secondary: 30 10% 17%;
-    --secondary-foreground: 42 16% 78%;
+    --secondary: 222 14% 16%;
+    --secondary-foreground: 220 18% 80%;
 
-    --muted: 30 9% 15%;
-    --muted-foreground: 38 10% 58%;
+    --muted: 222 14% 14%;
+    --muted-foreground: 220 12% 62%;
 
-    --accent: 30 10% 19%;
-    --accent-foreground: 42 20% 84%;
+    --accent: 222 14% 18%;
+    --accent-foreground: 220 20% 84%;
 
-    --success: 128 34% 46%;
-    --success-foreground: 30 22% 8%;
+    --success: 153 58% 50%;
+    --success-foreground: 224 40% 8%;
 
-    --warning: 40 92% 54%;
-    --warning-foreground: 32 40% 8%;
+    --warning: 37 82% 58%;
+    --warning-foreground: 224 44% 8%;
 
-    --destructive: 8 66% 52%;
-    --destructive-foreground: 44 30% 94%;
+    --destructive: 359 84% 67%;
+    --destructive-foreground: 0 0% 100%;
 
-    --accent-suspect: 16 66% 58%;
+    --border: 222 14% 20%;
+    --input: 222 14% 18%;
+    --ring: 216 90% 62%;
 
-    --border: 30 9% 19%;
-    --input: 30 9% 17%;
-    --ring: 210 72% 64%;
+    --sidebar-background: 224 22% 6%;
+    --sidebar-foreground: 220 12% 60%;
+    --sidebar-primary: 216 90% 62%;
+    --sidebar-primary-foreground: 216 60% 9%;
+    --sidebar-accent: 222 14% 15%;
+    --sidebar-accent-foreground: 220 20% 84%;
+    --sidebar-border: 222 14% 16%;
+    --sidebar-ring: 216 90% 62%;
 
-    --sidebar-background: 30 12% 7%;
-    --sidebar-foreground: 38 10% 60%;
-    --sidebar-primary: 210 72% 64%;
-    --sidebar-primary-foreground: 214 45% 12%;
-    --sidebar-accent: 30 10% 15%;
-    --sidebar-accent-foreground: 42 20% 84%;
-    --sidebar-border: 30 9% 15%;
-    --sidebar-ring: 210 72% 64%;
+    --surface-1: 223 18% 12%;
+    --surface-2: 222 16% 15%;
+    --surface-3: 222 14% 18%;
 
-    --surface-1: 30 12% 10%;
-    --surface-2: 30 11% 13%;
-    --surface-3: 30 10% 16%;
+    --code-surface: 224 24% 6%;
+    --code-surface-foreground: 220 18% 84%;
+    --code-surface-border: 222 14% 18%;
 
-    --code-surface: 30 14% 6%;
-    --code-surface-foreground: 42 18% 82%;
-    --code-surface-border: 30 9% 18%;
-
-    --chart-1: 210 72% 64%;
-    --chart-2: 16 66% 58%;
-    --chart-3: 128 34% 46%;
-    --chart-4: 38 10% 58%;
-    --chart-5: 284 30% 66%;
-
-    --card-shadow-rest: 0 1px 2px hsl(0 0% 0% / 0.4);
-    --card-shadow-hover: 0 2px 10px hsl(0 0% 0% / 0.55);
-    --glow-shadow-sm: none;
-    --glow-shadow-md: none;
+    --card-shadow-rest: 0 1px 2px hsl(0 0% 0% / 0.45);
+    --card-shadow-hover: 0 8px 24px -6px hsl(0 0% 0% / 0.6);
   }
 }
 
@@ -284,6 +253,7 @@
 
   /* The mono display voice is Latin-only (JetBrains Mono has no Arabic glyphs).
      Under Arabic, headings/labels/stats keep the proper Arabic typeface. */
+  html[lang="ar"] .t-display,
   html[lang="ar"] .t-hero,
   html[lang="ar"] .t-h1,
   html[lang="ar"] .t-h2,
@@ -291,8 +261,7 @@
   html[lang="ar"] .t-h4,
   html[lang="ar"] .t-h5,
   html[lang="ar"] .t-label,
-  html[lang="ar"] .t-stat,
-  html[lang="ar"] .font-display {
+  html[lang="ar"] .t-stat {
     font-family: var(--font-arabic);
   }
 
@@ -332,28 +301,17 @@
     color: hsl(var(--foreground));
   }
 
-  /* Global reduced-motion contract (DESIGN.md §6). One declaration honours the
-     user's OS setting for every animation and transition in the app: entrances,
-     skeleton pulses, infinite spinners, hover/width/transform tweens, and the
-     smooth-scroll. Individual components no longer need their own guard. */
+  /* Honour the OS "reduce motion" setting everywhere: entrances, spinners, and
+     transitions collapse to near-instant with no travel. A genuine
+     reduced-motion alternative (DESIGN.md §6), applied once at the base layer. */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
     *::after {
       animation-duration: 0.001ms !important;
-      animation-delay: 0ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.001ms !important;
-      transition-delay: 0ms !important;
       scroll-behavior: auto !important;
-    }
-
-    /* "Working" loops resolve to a static indicator rather than spinning. */
-    .animate-spin,
-    .animate-pulse,
-    .animate-ping,
-    .animate-bounce {
-      animation: none !important;
     }
   }
 }
@@ -451,11 +409,10 @@
     border: 1px solid hsl(var(--border));
   }
 
-  /* Sidebar link active — amber tint fill + ink label (legible), amber carried
-     by the icon/dot, not the text. No side-stripe. */
+  /* Sidebar link active — full tint fill, no side-stripe. */
   .nav-link-active {
     background: hsl(var(--primary) / 0.12);
-    color: hsl(var(--foreground));
+    color: hsl(var(--primary));
     font-weight: 600;
   }
 
@@ -471,7 +428,7 @@
 
   /* Drop zone */
   .drop-zone {
-    @apply rounded-xl border-2 border-dashed border-border/50 bg-muted/20 transition-all duration-200;
+    @apply rounded-lg border-2 border-dashed border-border/50 bg-muted/20 transition-colors duration-200;
   }
 
   .drop-zone:hover,
@@ -490,7 +447,7 @@
     background: hsl(var(--primary));
   }
 
-  /* Chat bubbles — sharp dossier radius, not blobby. */
+  /* Chat bubbles */
   .chat-bubble-user {
     @apply rounded-lg rounded-br-sm px-4 py-2.5 text-sm max-w-[80%];
     background: hsl(var(--primary));
@@ -509,11 +466,11 @@
     @apply pb-6 mb-6 border-b border-border/40;
   }
 
-  /* Skeleton — flat muted fill with a quiet pulse. (No 200% sweep gradient:
-     it never animated, since only animate-pulse was applied.) */
+  /* Skeleton shimmer */
   .skeleton {
     @apply animate-pulse rounded-md;
-    background: hsl(var(--muted));
+    background: linear-gradient(90deg, hsl(var(--muted)) 0%, hsl(var(--surface-3)) 50%, hsl(var(--muted)) 100%);
+    background-size: 200% 100%;
   }
 }
 
@@ -534,17 +491,9 @@
   .t-body { font-size: var(--fs-body); font-weight: var(--fw-regular); line-height: var(--lh-body); color: hsl(var(--muted-foreground)); }
   .t-sm   { font-size: var(--fs-sm);   font-weight: var(--fw-regular); line-height: 1.55; color: hsl(var(--muted-foreground)); }
   .t-xs   { font-size: var(--fs-xs);   font-weight: var(--fw-medium);  line-height: 1.45; color: hsl(var(--muted-foreground)); }
-  .t-label{ font-family: var(--font-display); font-size: var(--fs-xs); font-weight: var(--fw-semibold); letter-spacing: 0.08em; text-transform: uppercase; color: hsl(var(--muted-foreground)); }
+  .t-label{ font-family: var(--font-mono); font-size: var(--fs-xs); font-weight: var(--fw-semibold); letter-spacing: 0.08em; text-transform: uppercase; color: hsl(var(--muted-foreground)); }
   .t-mono { font-family: var(--font-mono); font-size: var(--fs-sm); line-height: var(--lh-code); }
-  .t-stat { font-family: var(--font-display); font-size: var(--fs-h1); font-weight: var(--fw-bold); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
-
-  .shadow-glow-sm {
-    box-shadow: var(--glow-shadow-sm);
-  }
-
-  .shadow-glow-md {
-    box-shadow: var(--glow-shadow-md);
-  }
+  .t-stat { font-family: var(--font-mono); font-size: var(--fs-h1); font-weight: var(--fw-bold); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 
   .graph-empty-state {
     @apply flex min-h-[320px] flex-col items-center justify-center px-6 py-8 text-center;
@@ -553,8 +502,7 @@
   .ast-graph-surface {
     height: 560px;
     width: 100%;
-    /* Flat paper surface — no radial glow, no tonal gradient. */
-    background: hsl(var(--surface-1));
+    background: linear-gradient(180deg, hsl(var(--surface-1)), hsl(var(--surface-2)));
   }
 
   .ast-flow-canvas {
@@ -599,9 +547,9 @@
     background: transparent;
   }
 
-  /* Flat dossier node: solid card fill + hairline, no glass, no glow. Node
-     tone (navy / suspect) and selection border are applied inline by AstNode
-     so they track the token themes; this class owns layout + resting surface. */
+  /* Flat dossier node cards. Colour (tone) + emphasis border are driven inline
+     by AstGraphPanel's AstNode, so these are the neutral defaults: solid card
+     fill, 1px hairline, sharp radius, no gradient, no glow. */
   .ast-flow-label-card {
     width: 100%;
     min-height: 28px;
@@ -609,7 +557,7 @@
     align-items: center;
     justify-content: center;
     padding: 6px 10px;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius);
     border: 1px solid hsl(var(--border));
     background: hsl(var(--card));
   }
@@ -630,8 +578,6 @@
     overflow: hidden;
   }
 
-  /* Node marker — solid token dot, no coloured glow ring. AstNode sets the
-     navy / suspect fill inline; this is the neutral resting fallback. */
   .ast-flow-compact-dot {
     width: 14px;
     height: 14px;
@@ -646,9 +592,27 @@
     height: 16px;
   }
 
-  /* Selection & ancestry-path emphasis is carried by the inline border colour
-     AstNode already sets (navy / suspect) — no transform, no neon box-shadow,
-     no white text. Keeps the graph calm and reduced-motion friendly. */
+  /* Selection / ancestry emphasis is carried by a subtle scale + the inline
+     tone border set by AstNode — never a glow. */
+  .ast-flow-node-selected .ast-flow-label-card {
+    transform: translateY(-1px) scale(1.02);
+  }
+
+  .ast-flow-node-selected .ast-flow-compact-dot {
+    transform: scale(1.18);
+  }
+
+  .ast-flow-node-in-path .ast-flow-label-card {
+    transform: translateY(-1px) scale(1.014);
+  }
+
+  .ast-flow-node-in-path .ast-flow-compact-dot {
+    transform: scale(1.14);
+  }
+
+  .ast-flow-node-terminal-path .ast-flow-label-card {
+    transform: translateY(-1px) scale(1.03);
+  }
 
   .ast-flow-handle {
     width: 6px;
@@ -669,16 +633,12 @@
     bottom: auto !important;
   }
 
-  /* Edge highlight = stroke colour + width only (set inline by the component).
-     The neon drop-shadow glow filters are retired. */
   .ast-flow-canvas .react-flow__edge-path {
     stroke-linecap: round;
     stroke-linejoin: round;
     transition: opacity 180ms ease, stroke-width 180ms ease;
   }
 
-  /* Node-detail panel — solid dossier surfaces, hairline structure, sharp
-     radius. No glass gradients, no over-rounding, no neon dots. */
   .ast-node-detail-panel {
     border: 1px solid hsl(var(--border));
     background: hsl(var(--card));
@@ -744,7 +704,7 @@
   }
 
   .ast-node-detail-dot.is-accent {
-    background: hsl(var(--accent-suspect));
+    background: hsl(var(--muted-foreground));
   }
 
   .analysis-markdown {
@@ -759,17 +719,8 @@
   .analysis-markdown h2,
   .analysis-markdown h3 {
     color: hsl(var(--foreground));
-    font-family: var(--font-display);
     font-weight: 700;
     line-height: 1.3;
-  }
-
-  /* JetBrains Mono has no Arabic glyphs — keep report headings in the Arabic
-     face under RTL so the mono display voice never mangles Arabic script. */
-  html[lang="ar"] .analysis-markdown h1,
-  html[lang="ar"] .analysis-markdown h2,
-  html[lang="ar"] .analysis-markdown h3 {
-    font-family: var(--font-arabic);
   }
 
   .analysis-markdown h1 {
@@ -823,8 +774,7 @@
   }
 
   .analysis-markdown pre {
-    @apply scrollbar-thin overflow-x-auto border p-4;
-    border-radius: var(--radius);
+    @apply scrollbar-thin overflow-x-auto rounded-lg border p-4;
     border-color: hsl(var(--border) / 0.7);
     background: hsl(var(--code-surface));
     color: hsl(var(--code-surface-foreground));
@@ -875,5 +825,119 @@
     padding: 0.85rem 1rem;
     border-radius: var(--radius);
     color: hsl(var(--foreground));
+  }
+}
+
+@layer utilities {
+  /* ───────────────────────────────────────────────────────────────────────
+     Signature register — the bolder Evidence-Dossier identity.
+     Authored, printerly texture and type only; never glow / gradient / glass.
+     Used by the core-flow surfaces (Home, Analysis, Results) to give the
+     forensic instrument a larger, more singular presence.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  /* Fluid case-file display — the one place type is allowed to scale with the
+     viewport (Home hero only). The product shell keeps the fixed t-h* scale. */
+  .t-display {
+    font-family: var(--font-display);
+    font-size: var(--fs-display);
+    font-weight: var(--fw-bold);
+    line-height: 0.98;
+    letter-spacing: -0.03em;
+  }
+
+  /* Engineering graph-paper — the analytic ground of a lab notebook. A coarse
+     hairline grid, drawn from the border token so it tracks light/dark and any
+     scoped context (e.g. .ink-panel). Deliberately faint: texture, not pattern. */
+  .paper-grid {
+    background-image:
+      linear-gradient(hsl(var(--border) / 0.35) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--border) / 0.35) 1px, transparent 1px);
+    background-size: 2.5rem 2.5rem;
+    background-position: center;
+  }
+
+  .paper-grid-fine {
+    background-image:
+      linear-gradient(hsl(var(--border) / 0.45) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--border) / 0.45) 1px, transparent 1px);
+    background-size: 0.75rem 0.75rem;
+    background-position: center;
+  }
+
+  /* A scoped ink-&-ember slab — a deliberate dark forensic band that keeps its
+     dark palette in BOTH global themes. Re-declares the core tokens locally, so
+     every token-driven child (buttons, tags, rules, the amber signal, ledgers)
+     inverts automatically inside it. The bold hero ground. */
+  .ink-panel {
+    color-scheme: dark;
+    --background: 224 20% 11%;         /* raised charcoal — a dark cover band on the
+                                          light canvas, and a RAISED slab in dark mode */
+    --foreground: 220 24% 93%;
+    --card: 223 18% 15%;
+    --card-foreground: 220 24% 93%;
+    --popover: 223 18% 15%;
+    --popover-foreground: 220 24% 93%;
+    --muted: 222 14% 18%;
+    --muted-foreground: 220 12% 66%;
+    --secondary: 222 14% 20%;
+    --secondary-foreground: 220 18% 82%;
+    --accent: 222 14% 22%;
+    --border: 222 14% 26%;
+    --input: 222 14% 24%;
+    --primary: 216 92% 64%;
+    --primary-foreground: 216 60% 9%;
+    --ring: 216 92% 64%;
+    --success: 153 58% 52%;
+    --warning: 37 82% 60%;
+    --destructive: 359 84% 68%;
+    --surface-1: 223 18% 15%;
+    --surface-2: 222 16% 18%;
+    --surface-3: 222 14% 21%;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+
+  /* Printer's corner registration ticks — L-marks that frame a live exhibit.
+     Amber, hairline, RTL-aware. Add to a `position: relative` box. */
+  .tick-frame::before,
+  .tick-frame::after {
+    content: "";
+    position: absolute;
+    width: 11px;
+    height: 11px;
+    border-color: hsl(var(--primary));
+    border-style: solid;
+    pointer-events: none;
+  }
+
+  .tick-frame::before {
+    top: -1px;
+    inset-inline-start: -1px;
+    border-width: 1px 0 0 1px;
+  }
+
+  .tick-frame::after {
+    bottom: -1px;
+    inset-inline-end: -1px;
+    border-width: 0 1px 1px 0;
+  }
+
+  /* A rotated printer's stamp — mono, bordered, ink. For "case open"/"filed"
+     accents. Kept upright under reduced-motion-agnostic transforms (static). */
+  .stamp {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border: 1px solid hsl(var(--primary) / 0.28);
+    background: hsl(var(--primary) / 0.08);
+    color: hsl(var(--primary));
+    border-radius: var(--radius-sm);
+    padding: 0.25rem 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
   }
 }

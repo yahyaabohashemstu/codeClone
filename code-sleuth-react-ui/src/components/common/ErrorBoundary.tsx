@@ -40,7 +40,7 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 p-8" role="alert">
           <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center max-w-md">
-            <h2 className="font-display text-lg font-semibold text-destructive mb-2">
+            <h2 className="t-h4 text-destructive mb-2">
               {isArabic ? "حدث خطأ غير متوقع" : "Something went wrong"}
             </h2>
             <p className="text-sm text-muted-foreground mb-4">

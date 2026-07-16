@@ -89,7 +89,7 @@
       "colType": "Clone type",
       "colStatus": "Status",
       "userHash": "User #",
-      "dossierKicker": "Workspace dossier"
+      "dossierKicker": "Workspace"
     },
     "cases": {
       "title": "Review Cases",
@@ -104,6 +104,7 @@
       "noCases": "No cases match the current filter.",
       "errorMsg": "Failed to load cases",
       "eyebrow": "Review queue",
+      "filterLabel": "Filter cases",
       "showing": "Showing",
       "colCase": "Case",
       "colPaths": "Artifacts",
@@ -113,7 +114,9 @@
     },
     "caseDetail": {
       "back": "Back",
-      "caseId": "Case ID",
+      "caseId": "Case",
+      "exhibits": "Sources",
+      "artifact": "Source",
       "status": "Status",
       "severity": "Severity",
       "cloneType": "Clone Type",

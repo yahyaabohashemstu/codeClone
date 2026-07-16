@@ -1,13 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  AlertCircle,
-  ChevronRight,
-  Folder,
-  Loader2,
-  Plus,
-} from "lucide-react";
+import { ChevronRight, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,7 +12,23 @@ import {
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Masthead, FieldSheet, Field, Serial, SectionHead, SpecList } from "@/components/dossier/Dossier";
+import {
+  Masthead,
+  FieldSheet,
+  Field,
+  Serial,
+  MetaStrip,
+  Meter,
+  Tag,
+  Ledger,
+  LedgerHead,
+  LedgerRow,
+  LedgerCell,
+  LedgerFooter,
+  LedgerEmpty,
+  LedgerFault,
+  LedgerSkeleton,
+} from "@/components/dossier/Dossier";
 import { useLanguage } from "@/context/LanguageContext";
 import { createOrganization, createWorkspace, listOrganizations, listWorkspaces } from "@/lib/enterpriseApi";
 import type { EnterpriseWorkspace } from "@/types/enterprise";
@@ -27,12 +36,19 @@ import { cn } from "@/lib/utils";
 
 const REGIONS = ["global", "us-east", "us-west", "eu-west", "eu-central", "ap-southeast", "me-central"];
 
-const ROLE_BADGE: Record<string, string> = {
-  owner: "bg-primary/15 text-primary border-primary/30",
-  admin: "bg-destructive/15 text-destructive border-destructive/30",
-  manager: "bg-warning/15 text-foreground border-warning/30",
-  reviewer: "bg-accent/15 text-accent border-accent/30",
-  student: "bg-muted text-muted-foreground border-border",
+// The register ledger's single grid template — drives head, rows, footer alike.
+const LEDGER_COLS = "3rem minmax(0,1fr) 9.5rem 7rem 6.5rem 1.5rem";
+
+// Membership role → a NEUTRAL categorical tag tone. Role is a category, not a
+// state, severity, or similarity band, so it never borrows --primary/--warning/
+// --destructive/--success — those stay reserved for real action/state signals.
+// Elevated roles read in foreground ink (accent); member roles in muted ink.
+const ROLE_TONE: Record<string, "accent" | "muted"> = {
+  owner: "accent",
+  admin: "accent",
+  manager: "accent",
+  reviewer: "muted",
+  student: "muted",
 };
 
 export default function Workspaces() {
@@ -50,30 +66,33 @@ export default function Workspaces() {
   const [wsRegion, setWsRegion] = useState("global");
   const [creating, setCreating] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     setLoading(true);
+    setError(null);
     listWorkspaces()
       .then(setWorkspaces)
       .catch((e) => setError(e?.message ?? t("enterprise.workspaces.errorMsg")))
       .finally(() => setLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const regionCount = useMemo(
     () => new Set(workspaces.map((ws) => ws.storageRegion)).size,
     [workspaces],
   );
 
-  const meanThreshold = useMemo(() => {
+  // Median default threshold across the register — a distribution reading for the footer.
+  const medianThreshold = useMemo(() => {
     if (workspaces.length === 0) return 0;
-    const sum = workspaces.reduce((acc, ws) => acc + ws.defaultSimilarityThreshold, 0);
-    return Math.round((sum / workspaces.length) * 100);
+    const vals = workspaces
+      .map((ws) => Math.round(ws.defaultSimilarityThreshold * 100))
+      .sort((a, b) => a - b);
+    const mid = Math.floor(vals.length / 2);
+    return vals.length % 2 ? vals[mid] : Math.round((vals[mid - 1] + vals[mid]) / 2);
   }, [workspaces]);
-
-  const roleCount = useMemo(
-    () => new Set(workspaces.map((ws) => ws.membership?.role).filter(Boolean)).size,
-    [workspaces],
-  );
 
   const handleCreate = async () => {
     if (!wsName.trim()) return;
@@ -190,7 +209,7 @@ export default function Workspaces() {
           {
             label: "STATUS",
             value: loading ? (
-              <span className="rounded-sm bg-warning/20 px-1.5 py-0.5 text-foreground">SYNC</span>
+              <span className="text-warning">SYNC</span>
             ) : error ? (
               <span className="text-destructive">ERROR</span>
             ) : (
@@ -200,72 +219,74 @@ export default function Workspaces() {
         ]}
       />
 
-      {/* Registry — ruled §-section ledger + marginalia summary */}
-      <div className="mt-10 grid gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,1fr)_15rem]">
-        <div className="min-w-0">
-          <SectionHead
-            marker="§"
-            title={t("enterprise.workspaces.registry", { defaultValue: "Registry" })}
-            aside={
-              loading
-                ? "SYNC"
-                : error
-                  ? "ERROR"
-                  : `Nº ${String(workspaces.length).padStart(3, "0")}`
-            }
+      {/* Case register — a titled, ruled ledger (never a bare card of rows) */}
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-2.5">
+          <div className="flex items-center gap-2.5">
+            <span className="h-px w-6 bg-primary" aria-hidden="true" />
+            <h2 className="t-label text-foreground">{t("enterprise.workspaces.title")}</h2>
+          </div>
+          <MetaStrip
+            items={[
+              {
+                label: "RECORDS",
+                value: <span className="tabular-nums">{loading ? "…" : workspaces.length}</span>,
+              },
+            ]}
+          />
+        </div>
+
+        <Ledger columns={LEDGER_COLS}>
+          <LedgerHead
+            cells={[
+              "#",
+              t("enterprise.workspaces.title"),
+              t("enterprise.workspaces.threshold"),
+              t("enterprise.workspaces.region"),
+              t("enterprise.workspaces.yourRole"),
+              "",
+            ]}
           />
 
           {loading ? (
-            <div className="flex items-center gap-2 border-b border-border py-16 font-mono text-xs uppercase tracking-wide text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              {t("enterprise.common.loading")}
-            </div>
+            <LedgerSkeleton rows={5} />
           ) : error ? (
-            <div className="flex items-center gap-2 border-s-2 border-destructive bg-destructive/5 px-4 py-5 text-sm text-destructive">
-              <AlertCircle className="h-4 w-4 shrink-0" />
+            <LedgerFault
+              onRetry={load}
+              retryLabel={t("enterprise.common.retry", { defaultValue: "Retry" })}
+            >
               {error}
-            </div>
+            </LedgerFault>
           ) : workspaces.length === 0 ? (
-            <div className="flex flex-col items-start gap-4 border-b border-border py-14">
-              <div className="flex items-center gap-2.5 text-muted-foreground">
-                <Folder className="h-5 w-5" />
-                <span className="font-mono text-xs uppercase tracking-[0.14em]">
-                  {t("enterprise.workspaces.noWorkspaces")}
-                </span>
-              </div>
-              <Button onClick={() => setCreateOpen(true)} size="sm" className="gap-2">
-                <Plus className="h-3.5 w-3.5" />
-                {t("enterprise.workspaces.create")}
-              </Button>
-            </div>
+            <LedgerEmpty>
+              <span className="inline-flex flex-wrap items-center gap-3">
+                <span>{t("enterprise.workspaces.noWorkspaces")}</span>
+                <Button onClick={() => setCreateOpen(true)} size="sm" className="gap-2">
+                  <Plus className="h-3.5 w-3.5" />
+                  {t("enterprise.workspaces.create")}
+                </Button>
+              </span>
+            </LedgerEmpty>
           ) : (
-            <div className="overflow-x-auto">
-              {/* Ledger column header — heavy foreground rule, no fill */}
-              <div className="hidden items-center gap-4 border-b-2 border-foreground pb-2 sm:grid sm:grid-cols-[2.75rem_minmax(0,1fr)_6.5rem_7rem_6rem_1.25rem]">
-                <span className="t-label">#</span>
-                <span className="t-label">{t("enterprise.workspaces.title")}</span>
-                <span className="t-label">{t("enterprise.workspaces.threshold")}</span>
-                <span className="t-label">{t("enterprise.workspaces.region")}</span>
-                <span className="t-label">{t("enterprise.workspaces.yourRole")}</span>
-                <span />
-              </div>
-
-              {/* Ledger rows — hairline separated */}
-              <div className="divide-y divide-border">
-                {workspaces.map((ws) => (
-                  <Link
+            <>
+              {workspaces.map((ws) => {
+                const pct = Math.round(ws.defaultSimilarityThreshold * 100);
+                return (
+                  <LedgerRow
                     key={ws.id}
                     to={`/enterprise/workspaces/${ws.id}`}
-                    className="group grid grid-cols-1 gap-x-4 gap-y-2.5 py-4 transition-colors hover:bg-muted/40 sm:grid-cols-[2.75rem_minmax(0,1fr)_6.5rem_7rem_6rem_1.25rem] sm:items-center"
+                    className="group"
                   >
                     {/* Serial / case number */}
-                    <Serial tone="muted" className="group-hover:border-primary/40 group-hover:text-foreground">
-                      {ws.id}
-                    </Serial>
+                    <LedgerCell>
+                      <Serial tone="muted" className="group-hover:border-primary/40 group-hover:text-primary">
+                        {ws.id}
+                      </Serial>
+                    </LedgerCell>
 
                     {/* Name + description */}
-                    <div className="min-w-0">
-                      <h3 className="truncate t-h5 transition-colors group-hover:text-foreground">
+                    <LedgerCell>
+                      <h3 className="truncate t-h5 transition-colors group-hover:text-primary">
                         {ws.name}
                       </h3>
                       {ws.description && (
@@ -273,77 +294,69 @@ export default function Workspaces() {
                           {ws.description}
                         </p>
                       )}
-                    </div>
+                    </LedgerCell>
 
-                    {/* Threshold */}
-                    <div className="font-mono text-sm tabular-nums text-foreground">
-                      <span className="t-label me-2 sm:hidden">{t("enterprise.workspaces.threshold")}</span>
-                      {Math.round(ws.defaultSimilarityThreshold * 100)}%
-                    </div>
+                    {/* Threshold — reading + band-coloured meter */}
+                    <LedgerCell>
+                      <div className="flex items-center gap-2">
+                        <span className="w-9 shrink-0 font-mono text-sm tabular-nums text-foreground">
+                          {pct}%
+                        </span>
+                        <Meter
+                          value={pct}
+                          tone="auto"
+                          className="h-2 flex-1"
+                          ariaLabel={`${t("enterprise.workspaces.threshold")} ${pct}%`}
+                        />
+                      </div>
+                    </LedgerCell>
 
                     {/* Region */}
-                    <div className="font-mono text-xs text-muted-foreground">
-                      <span className="t-label me-2 sm:hidden">{t("enterprise.workspaces.region")}</span>
+                    <LedgerCell mono className="text-xs text-muted-foreground">
                       {ws.storageRegion}
-                    </div>
+                    </LedgerCell>
 
                     {/* Role */}
-                    <div>
+                    <LedgerCell>
                       {ws.membership && (
-                        <span
-                          className={cn(
-                            "inline-flex rounded-sm border px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider",
-                            ROLE_BADGE[ws.membership.role] ?? "bg-muted text-muted-foreground border-border",
-                          )}
-                        >
+                        <Tag tone={ROLE_TONE[ws.membership.role] ?? "muted"}>
                           {ws.membership.role}
-                        </span>
+                        </Tag>
                       )}
-                    </div>
+                    </LedgerCell>
 
-                    {/* Chevron */}
-                    <ChevronRight
-                      className={cn(
-                        "hidden h-4 w-4 justify-self-end text-muted-foreground transition-colors group-hover:text-foreground sm:block",
-                        isRTL && "rotate-180",
-                      )}
-                    />
-                  </Link>
-                ))}
-              </div>
-            </div>
+                    {/* Cross-reference chevron */}
+                    <LedgerCell align="end">
+                      <ChevronRight
+                        className={cn(
+                          "h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary",
+                          isRTL && "rotate-180",
+                        )}
+                      />
+                    </LedgerCell>
+                  </LedgerRow>
+                );
+              })}
+
+              <LedgerFooter
+                left={
+                  <span className="inline-flex flex-wrap items-center gap-x-5 gap-y-1">
+                    <span>
+                      {t("enterprise.workspaces.region")}{" "}
+                      <span className="font-semibold tabular-nums text-foreground">{regionCount}</span>
+                    </span>
+                    <span>
+                      MEDIAN{" "}
+                      <span className="font-semibold tabular-nums text-foreground">{medianThreshold}%</span>
+                    </span>
+                  </span>
+                }
+                right={`${workspaces.length} RECORDS`}
+              />
+            </>
           )}
-        </div>
-
-        {/* Marginalia — registry summary spec sheet, ruled like a case index */}
-        {!loading && !error && workspaces.length > 0 && (
-          <aside className="lg:border-s lg:border-border lg:ps-8">
-            <div className="t-label mb-2.5 text-muted-foreground">
-              {t("enterprise.workspaces.summary", { defaultValue: "Summary" })}
-            </div>
-            <SpecList
-              rows={[
-                {
-                  label: t("enterprise.workspaces.registered", { defaultValue: "Registered" }),
-                  value: workspaces.length,
-                },
-                {
-                  label: t("enterprise.workspaces.region", { defaultValue: "Region" }),
-                  value: regionCount,
-                },
-                {
-                  label: t("enterprise.workspaces.yourRole", { defaultValue: "Roles" }),
-                  value: roleCount,
-                },
-                {
-                  label: t("enterprise.workspaces.threshold", { defaultValue: "Threshold" }),
-                  value: `${meanThreshold}%`,
-                },
-              ]}
-            />
-          </aside>
-        )}
-      </div>
+        </Ledger>
+      </section>
     </div>
   );
 }

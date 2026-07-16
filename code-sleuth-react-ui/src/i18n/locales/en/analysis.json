@@ -21,6 +21,7 @@
     },
     "pastePlaceholder": "// Paste Source {{label}} code here...\nfunction example() {\n  return \"Hello\";\n}",
     "clickOrDrop": "Click or drop a file here",
+    "fileLabel": "File",
     "ready": "Ready for analysis",
     "codeFiles": "Source code files such as .py, .java, .js, .ts, .go",
     "zipArchive": "ZIP archive of a source repository or project folder",
@@ -33,6 +34,15 @@
       "provide": "Provide Sources",
       "run": "Run Analysis",
       "inspect": "Inspect Results"
+    },
+    "params": {
+      "comparator": "Comparator",
+      "method": "Method",
+      "case": "Case"
+    },
+    "engine": {
+      "label": "Engine modules",
+      "online": "Online"
     },
     "capabilities": {
       "toggle": "Analysis capabilities included in this run",
@@ -52,6 +62,15 @@
     "analysisCouldNotBeCompleted": "Analysis could not be completed.",
     "analysisFailed": "Analysis failed.",
     "eyebrow": "Pairwise analysis",
-    "empty": "empty"
+    "empty": "empty",
+    "meta": {
+      "mode": "Mode",
+      "pairwise": "PAIRWISE",
+      "status": "Status",
+      "ready": "READY",
+      "draft": "DRAFT",
+      "autosave": "Autosave",
+      "on": "ON"
+    }
   }
 }

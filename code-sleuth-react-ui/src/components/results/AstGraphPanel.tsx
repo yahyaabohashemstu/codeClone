@@ -14,21 +14,24 @@ import "@xyflow/react/dist/style.css";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { Notice, StatusTag } from "@/components/dossier/Dossier";
 import { Cpu, Maximize2, MousePointerClick, ZoomIn, ZoomOut } from "lucide-react";
 
 type GraphTone = "primary" | "accent";
 
-// Two-tone coding: primary side = ink navy (the one accent), suspect side =
-// terracotta. Both fully token-based (--primary / --accent-suspect) so they
-// track light/dark. Replaces the old hardcoded indigo/cyan neon.
+// Evidence-Dossier two-tone: the primary side reads in the one signal colour
+// (amber); the compared side reads in neutral slate ink. Both are tokens, so
+// they track light/dark and never spend a second decorative hue — amber stays
+// the one signal, slate stays neutral. (Replaces the old indigo/cyan neon and
+// the hardcoded oxblood that did not adapt to dark mode.)
 function getGraphToneColor(color: GraphTone) {
-  return color === "primary" ? "hsl(var(--primary))" : "hsl(var(--accent-suspect))";
+  return color === "primary" ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))";
 }
 
 function getGraphEdgePalette(color: GraphTone) {
   return color === "primary"
     ? { base: "hsl(var(--primary) / 0.38)", highlighted: "hsl(var(--primary))" }
-    : { base: "hsl(var(--accent-suspect) / 0.38)", highlighted: "hsl(var(--accent-suspect))" };
+    : { base: "hsl(var(--muted-foreground) / 0.42)", highlighted: "hsl(var(--foreground))" };
 }
 
 type RawPoint = [number, number] | null | undefined;
@@ -316,10 +319,10 @@ function buildTreeLayout(
 }
 
 const AstNode = memo(({ data, selected }: NodeProps<AstFlowNode>) => {
-  // The .ast-flow-* CSS now paints a flat token surface (no neon, no glow).
-  // We still set node tone (navy / suspect) and the selection/path border
-  // inline so a node's emphasis tracks the live theme tokens directly, in
-  // both light and dark.
+  // The .ast-flow-* CSS is flat (solid card, hairline, sharp radius, no glow).
+  // We set the per-node TONE colour inline — amber for the primary side, slate
+  // for the compared side — plus the emphasis border, so each node carries its
+  // side's colour while staying flat in both light and dark themes.
   const toneColor = getGraphToneColor(data.tone);
   const isEmphasized = selected || data.isPathTerminal;
   const cardStyle: CSSProperties = {
@@ -406,9 +409,9 @@ function GraphExplorer({
                     style={{ background: getGraphToneColor(selectedNode.tone), boxShadow: "none" }}
                   />
                   <span className="text-sm font-semibold text-foreground">{selectedNode.label}</span>
-                  <span className="badge-info">
+                  <StatusTag tone={selectedNode.isRoot ? "primary" : "muted"}>
                     {selectedNode.isRoot ? t("results.astGraph.rootNode") : t("results.astGraph.nestedNode")}
-                  </span>
+                  </StatusTag>
                 </div>
                 <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">
                   {selectedNode.isRoot
@@ -801,13 +804,9 @@ export function AstGraphPanel({ title, color, elements }: AstGraphPanelProps) {
         </div>
 
         {!flowGraph.nodes.length ? (
-          <div className="graph-empty-state">
-            <Cpu className="mb-3 h-8 w-8 text-muted-foreground/40" />
-            <h4 className="text-sm font-medium text-foreground">{t("results.astGraph.noGraphTitle")}</h4>
-            <p className="mt-1 max-w-sm text-center text-xs text-muted-foreground">
-              {t("results.astGraph.noGraphDescription")}
-            </p>
-          </div>
+          <Notice tone="info" label={t("results.astGraph.noGraphTitle")}>
+            {t("results.astGraph.noGraphDescription")}
+          </Notice>
         ) : (
           <GraphExplorer
             color={color}

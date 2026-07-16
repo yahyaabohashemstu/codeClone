@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -10,12 +9,12 @@ import {
   CheckCircle2,
   ChevronLeft,
   Code2,
-  Cpu,
   Download,
   FileText,
   MessageSquare,
   RefreshCw,
-  ShieldCheck,
+  ScrollText,
+  Share2,
   ShieldAlert,
   TrendingUp,
   Diff,
@@ -32,7 +31,7 @@ import { MetricsComparison } from "@/components/results/MetricsComparison";
 import { PdfExportDialog } from "@/components/results/PdfExportDialog";
 import { SimilarityRadar } from "@/components/results/SimilarityRadar";
 import { StructuredReport } from "@/components/results/StructuredReport";
-import { Masthead, FieldSheet, Field, Panel, Figure, Serial, SectionHead } from "@/components/dossier/Dossier";
+import { Masthead, FieldSheet, Field, Panel, Figure, Serial, Tag, Register, Notice } from "@/components/dossier/Dossier";
 import { useAnalysis } from "@/context/AnalysisContext";
 import { useLanguage } from "@/context/LanguageContext";
 import type { AnalysisResult, CloneItem, SimilarityItem } from "@/types/api";
@@ -46,7 +45,7 @@ function getTabs(t: TFunction): Array<{ id: ResultTab; label: string; icon: type
   return [
     { id: "overview", label: t("results.tabs.overview"), icon: BarChart3 },
     { id: "diff", label: t("results.tabs.diff"), icon: Diff },
-    { id: "graphs", label: t("results.tabs.graphs"), icon: Cpu },
+    { id: "graphs", label: t("results.tabs.graphs"), icon: Share2 },
     { id: "metrics", label: t("results.tabs.metrics"), icon: TrendingUp },
     { id: "quality", label: t("results.tabs.quality"), icon: ShieldAlert },
     { id: "report", label: t("results.tabs.report"), icon: FileText },
@@ -252,13 +251,14 @@ function SimilarityBars({ items }: { items: SimilarityItem[] }) {
       <div className="divide-y divide-border">
         {items.map((item) => {
           const barTone = item.value >= 80 ? "bg-destructive" : item.value >= 50 ? "bg-warning" : "bg-success";
+          const valueTone = item.value >= 80 ? "text-destructive" : item.value >= 50 ? "text-warning" : "text-success";
           return (
             <div key={item.name} className="flex items-center gap-4 py-2.5">
               <span className="min-w-0 flex-1 truncate text-sm text-foreground">{translateSimilarityName(item.name, t)}</span>
               <div className="metric-bar-track hidden w-28 shrink-0 sm:block lg:w-48">
                 <div className={cn("h-full rounded-full transition-all duration-700", barTone)} style={{ width: `${item.value}%` }} />
               </div>
-              <span className="w-16 shrink-0 text-end font-mono text-sm font-bold tabular-nums text-foreground">
+              <span className={cn("w-16 shrink-0 text-end font-mono text-sm font-bold tabular-nums", valueTone)}>
                 {formatSimilarityValue(item)}
               </span>
             </div>
@@ -401,27 +401,27 @@ function CloneDetection({ items }: { items: CloneItem[] }) {
               <Serial tone={item.detected ? "primary" : "muted"}>{String(index + 1).padStart(2, "0")}</Serial>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                  <h4 className="text-sm font-semibold text-foreground">
+                  <h4 className={cn("text-sm font-semibold", item.detected ? "text-warning" : "text-foreground")}>
                     {translateCloneName(item.name, t)}
                   </h4>
-                  <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                  <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/70">
                     {meta.family}
                   </span>
                   <span
                     className={cn(
-                      "ms-auto inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 font-mono text-[11px] font-bold uppercase tracking-[0.14em]",
-                      item.detected ? "bg-warning/20 text-foreground" : "text-muted-foreground",
+                      "ms-auto inline-flex items-center gap-1 font-mono text-[11px] font-bold uppercase tracking-[0.14em]",
+                      item.detected ? "text-warning" : "text-muted-foreground/60",
                     )}
                   >
-                    {item.detected ? <AlertTriangle className="h-3 w-3 text-warning" /> : <CheckCircle2 className="h-3 w-3 text-success" />}
+                    {item.detected ? <AlertTriangle className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
                     {item.detected ? t("results.cloneTypes.detected") : t("results.cloneTypes.notDetected")}
                   </span>
                 </div>
 
                 <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{meta.summary}</p>
 
-                <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-                  <span className="font-semibold text-foreground">
+                <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground/85">
+                  <span className={cn("font-semibold", item.detected ? "text-warning" : "text-foreground/85")}>
                     {item.detected ? t("results.cloneTypes.interpretation") : t("results.cloneTypes.reading")}
                   </span>{" "}
                   {item.detected ? meta.detectedMeaning : meta.absentMeaning}
@@ -456,7 +456,7 @@ function CodeComparisonPanel({
 
   return (
     <div className="space-y-4 p-5">
-      <p className="font-mono text-[11px] leading-relaxed text-muted-foreground/80">{resolvedDescription}</p>
+      <p className="text-xs leading-relaxed text-muted-foreground">{resolvedDescription}</p>
 
       {/* Two numbered exhibits — ruled headers with serial markers, code kept LTR */}
       <div className="grid gap-5 xl:grid-cols-2">
@@ -552,52 +552,17 @@ const qualitySeverityMeta: Record<
     label: "Style",
     icon: FileText,
     badgeClass: "badge-info",
-    iconClass: "border-primary/25 bg-primary/10 text-primary",
-    cardClass: "border-primary/16 bg-primary/[0.04]",
+    iconClass: "border-border bg-muted text-muted-foreground",
+    cardClass: "border-border bg-muted/40",
   },
   info: {
     label: "Info",
     icon: TrendingUp,
     badgeClass: "badge-info",
-    iconClass: "border-accent/25 bg-accent/10 text-accent",
+    iconClass: "border-accent/25 bg-accent/10 text-muted-foreground",
     cardClass: "border-accent/16 bg-accent/[0.04]",
   },
 };
-
-// Amber/red/ink tint for the small severity glyph on a finding row. Colour lives
-// on the icon (allowed) — never on the paper text, which stays ink.
-const severityIconClass: Record<QualitySeverity, string> = {
-  critical: "text-destructive",
-  warning: "text-warning",
-  style: "text-primary",
-  info: "text-muted-foreground",
-};
-
-// A ruled ledger row: mono label + optional note in the main column, a bold ink
-// (or tone-coloured) figure in the value column. Replaces the stat-card grids.
-function QualityLedgerRow({
-  label,
-  value,
-  note,
-  valueClass,
-}: {
-  label: ReactNode;
-  value: ReactNode;
-  note?: ReactNode;
-  valueClass?: string;
-}) {
-  return (
-    <div className="grid grid-cols-[1fr_auto] items-baseline gap-x-4 py-3">
-      <div className="min-w-0">
-        <dt className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{label}</dt>
-        {note != null && <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground/80">{note}</p>}
-      </div>
-      <dd className={cn("shrink-0 text-end font-mono text-lg font-bold tabular-nums text-foreground", valueClass)}>
-        {value}
-      </dd>
-    </div>
-  );
-}
 
 function getQualitySeverity(rawType: string): QualitySeverity {
   const normalized = rawType.trim().toLowerCase();
@@ -736,7 +701,7 @@ function getQualityToneMeta(statusTone: QualityReport["statusTone"], t: TFunctio
       containerClass: "border-success/20 bg-success/[0.04]",
       scoreClass: "text-success",
       label: t("results.quality.statusTone.excellent"),
-      icon: ShieldCheck,
+      icon: CheckCircle2,
     };
   }
   if (statusTone === "healthy") {
@@ -787,7 +752,6 @@ function QualitySourceCard({
   const { t } = useTranslation("results");
   const totalFindings = report.issues.length;
   const toneMeta = getQualityToneMeta(report.statusTone, t);
-  const ToneIcon = toneMeta.icon;
   const topIssues = report.issues.slice(0, 8);
   const severityLabels: Record<QualitySeverity, string> = {
     critical: t("results.quality.severityLabels.critical"),
@@ -797,132 +761,121 @@ function QualitySourceCard({
   };
 
   return (
-    <Panel
-      bodyClassName="p-0"
-      label={
-        <span className="flex items-center gap-2">
-          <span className={cn("h-2.5 w-2.5 rounded-full", accentClass)} />
-          {title}
-        </span>
-      }
-      actions={<span className={toneMeta.badgeClass}>{toneMeta.label}</span>}
-    >
-      {/* Verdict readout + the score as the exhibit figure */}
-      <div className="flex flex-col gap-4 border-b border-border px-5 py-5 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-foreground">{report.headline}</p>
-          <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted-foreground">{report.summary}</p>
-        </div>
-        <div className="flex shrink-0 items-center gap-3 sm:flex-col sm:items-end sm:gap-1 sm:text-end">
-          <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/75">
-            <ToneIcon className={cn("h-3.5 w-3.5", toneMeta.scoreClass)} />
-            {t("results.quality.qualityScore")}
-          </span>
-          <span className="font-mono text-4xl font-bold leading-none tabular-nums text-foreground">
-            {report.score !== null ? report.score.toFixed(1) : "\u2014"}
-          </span>
-          <p className="text-[11px] leading-relaxed text-muted-foreground">
-            {report.ratingLine
-              ? t("results.quality.derivedFromPylint")
-              : t("results.quality.basedOnTextual")}
-          </p>
+    <div className={cn("card-premium overflow-hidden border", toneMeta.containerClass)}>
+      <div className="border-b border-border/50 px-5 py-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={cn("h-2.5 w-2.5 rounded-full", accentClass)} />
+              <h3 className="t-h5 text-foreground">{title}</h3>
+              <span className={toneMeta.badgeClass}>{toneMeta.label}</span>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">{report.headline}</p>
+              <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted-foreground">{report.summary}</p>
+            </div>
+          </div>
+
+          <Field label={t("results.quality.qualityScore")} className="lg:min-w-[220px]">
+            <div className={cn("t-stat text-4xl", toneMeta.scoreClass)}>
+              {report.score !== null ? report.score.toFixed(1) : "\u2014"}
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {report.ratingLine
+                ? t("results.quality.derivedFromPylint")
+                : t("results.quality.basedOnTextual")}
+            </p>
+          </Field>
         </div>
       </div>
 
-      {/* Severity ledger \u2014 ruled mono rows instead of a stat-card grid */}
-      <dl className="divide-y divide-border border-b border-border px-5">
-        <QualityLedgerRow
-          label={t("results.quality.findings")}
-          note={t("results.quality.findingsDesc")}
-          value={totalFindings}
-        />
-        <QualityLedgerRow
-          label={t("results.quality.critical")}
-          note={t("results.quality.criticalDesc")}
-          value={report.counts.critical}
-          valueClass={report.counts.critical > 0 ? "text-destructive" : undefined}
-        />
-        <QualityLedgerRow
-          label={t("results.quality.warnings")}
-          note={t("results.quality.warningsDesc")}
-          value={report.counts.warning + report.counts.style}
-        />
-        <QualityLedgerRow
-          label={t("results.quality.dominantSignals")}
-          note={t("results.quality.dominantSignalsDesc")}
-          value={
-            <span className="text-sm font-semibold text-foreground">
-              {report.dominantSymbols.length
-                ? report.dominantSymbols.join(" \u2022 ")
-                : t("results.quality.noRepeatedRule")}
-            </span>
-          }
-        />
-      </dl>
+      <div className="border-b border-border/50 px-5">
+        <Field label={t("results.quality.findings")}>
+          <div className="t-stat text-2xl text-foreground">{totalFindings}</div>
+          <p className="mt-1 text-xs text-muted-foreground">{t("results.quality.findingsDesc")}</p>
+        </Field>
+        <Field label={t("results.quality.critical")}>
+          <div className="t-stat text-2xl text-destructive">{report.counts.critical}</div>
+          <p className="mt-1 text-xs text-muted-foreground">{t("results.quality.criticalDesc")}</p>
+        </Field>
+        <Field label={t("results.quality.warnings")}>
+          <div className="t-stat text-2xl text-warning">{report.counts.warning + report.counts.style}</div>
+          <p className="mt-1 text-xs text-muted-foreground">{t("results.quality.warningsDesc")}</p>
+        </Field>
+        <Field label={t("results.quality.dominantSignals")}>
+          <p className="text-sm font-semibold text-foreground">
+            {report.dominantSymbols.length ? report.dominantSymbols.join(" \u2022 ") : t("results.quality.noRepeatedRule")}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">{t("results.quality.dominantSignalsDesc")}</p>
+        </Field>
+      </div>
 
-      <div className="px-5 py-5">
+      <div className="p-5">
         {topIssues.length > 0 ? (
-          <>
-            <SectionHead
-              marker="§"
-              title={t("results.quality.priorityFindings")}
-              aside={<span className="tabular-nums">{`${topIssues.length}/${totalFindings}`}</span>}
-              className="mb-4"
-            />
-            <ol className="divide-y divide-border">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <ScrollText className="h-4 w-4 text-primary" />
+              <h4 className="t-label text-foreground">{t("results.quality.priorityFindings")}</h4>
+            </div>
+            <div className="space-y-3">
               {topIssues.map((issue, index) => {
                 const meta = qualitySeverityMeta[issue.severity];
                 const IssueIcon = meta.icon;
                 return (
-                  <li
-                    key={`${issue.symbol ?? issue.message}-${index}`}
-                    className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 py-4 first:pt-0"
-                  >
-                    <Serial tone={issue.severity === "critical" ? "primary" : "muted"}>
-                      {String(index + 1).padStart(2, "0")}
-                    </Serial>
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <IssueIcon className={cn("h-3.5 w-3.5", severityIconClass[issue.severity])} />
-                        <span className={meta.badgeClass}>{severityLabels[issue.severity]}</span>
-                        {issue.symbol && <span className="badge-info">{issue.symbol}</span>}
-                        {(issue.line !== null || issue.column !== null) && (
-                          <span className="rounded-sm border border-border bg-background px-2 py-0.5 font-mono text-[11px] tabular-nums text-muted-foreground">
-                            {issue.line !== null ? t("results.quality.line", { line: issue.line }) : t("results.quality.lineEmpty")}
-                            {issue.column !== null ? t("results.quality.column", { column: issue.column }) : ""}
-                          </span>
-                        )}
+                  <div key={`${issue.symbol ?? issue.message}-${index}`} className={cn("rounded-2xl border p-4 transition-all duration-200", meta.cardClass)}>
+                    <div className="flex items-start gap-3">
+                      <div className={cn("mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border", meta.iconClass)}>
+                        <IssueIcon className="h-4 w-4" />
                       </div>
-                      <p className="mt-2 text-sm font-medium leading-relaxed text-foreground">{issue.message}</p>
-                      <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground/85">
-                        {t("results.quality.reportedByLinter")}{" "}
-                        <span className="font-semibold text-foreground/85">{issue.rawType}</span>.
-                      </p>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={meta.badgeClass}>{severityLabels[issue.severity]}</span>
+                          {issue.symbol && <span className="badge-info">{issue.symbol}</span>}
+                          {(issue.line !== null || issue.column !== null) && (
+                            <Tag tone="neutral">
+                              {issue.line !== null ? t("results.quality.line", { line: issue.line }) : t("results.quality.lineEmpty")}
+                              {issue.column !== null ? t("results.quality.column", { column: issue.column }) : ""}
+                            </Tag>
+                          )}
+                        </div>
+                        <p className="mt-2 text-sm font-medium leading-relaxed text-foreground">{issue.message}</p>
+                        <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground/85">
+                          {t("results.quality.reportedByLinter")}{" "}
+                          <span className="font-semibold text-foreground/85">{issue.rawType}</span>.
+                        </p>
+                      </div>
                     </div>
-                  </li>
+                  </div>
                 );
               })}
-            </ol>
-          </>
+            </div>
+          </div>
         ) : (
-          <div className="border-s-2 border-success ps-4">
-            <p className="text-sm font-semibold text-foreground">{t("results.quality.noStructuredFindings")}</p>
-            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-              {report.generalNotes[0] || t("results.quality.noStructuredFindingsDesc")}
-            </p>
+          <div className="rounded-2xl border border-success/18 bg-success/[0.05] p-5">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-success/20 bg-success/10 text-success">
+                <CheckCircle2 className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">{t("results.quality.noStructuredFindings")}</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  {report.generalNotes[0] || t("results.quality.noStructuredFindingsDesc")}
+                </p>
+              </div>
+            </div>
           </div>
         )}
 
         {(report.generalNotes.length > 0 || report.text) && (
-          <details className="mt-4 overflow-hidden rounded-sm border border-border bg-background">
+          <details className="mt-4 overflow-hidden rounded-2xl border border-border/50 bg-background/35">
             <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-foreground">
               {t("results.quality.rawDiagnosticReport")}
             </summary>
-            <div className="border-t border-border px-4 py-4">
+            <div className="border-t border-border/40 px-4 py-4">
               {report.generalNotes.length > 0 && (
                 <div className="mb-3 space-y-2">
                   {report.generalNotes.map((note, index) => (
-                    <div key={`${note}-${index}`} className="rounded-sm border border-border bg-muted/10 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+                    <div key={`${note}-${index}`} className="rounded-xl border border-border/40 bg-muted/10 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
                       {note}
                     </div>
                   ))}
@@ -935,7 +888,7 @@ function QualitySourceCard({
           </details>
         )}
       </div>
-    </Panel>
+    </div>
   );
 }
 
@@ -981,51 +934,42 @@ function QualityPanel({ result }: { result: AnalysisResult }) {
   })[0];
 
   return (
-    <div className="space-y-10">
-      {/* Intelligence brief \u2014 a ruled \u00a7-section, not a tinted card; the three
-          aggregates read as a mono spec ledger. */}
-      <Panel
-        bare
-        marker="§"
-        label={t("results.quality.intelligence")}
-        actions={
-          <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-            {t("results.quality.linterDriven")}
-          </span>
-        }
-      >
-        <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-          {t("results.quality.description")}
-        </p>
-        <dl className="mt-6 divide-y divide-border border-y border-border">
-          <QualityLedgerRow
-            label={t("results.quality.totalFindings")}
-            note={t("results.quality.totalFindingsDesc")}
-            value={totalFindings}
-          />
-          <QualityLedgerRow
-            label={t("results.quality.averageScore")}
-            note={t("results.quality.averageScoreDesc")}
-            value={averageScore !== null ? averageScore.toFixed(1) : "\u2014"}
-            valueClass={
-              averageScore !== null && averageScore >= 7
-                ? "text-success"
-                : averageScore !== null && averageScore < 5
-                  ? "text-destructive"
-                  : undefined
-            }
-          />
-          <QualityLedgerRow
-            label={t("results.quality.healthierSource")}
-            note={
-              healthierSource.report.score !== null
-                ? t("results.quality.healthierScoreDesc", { score: healthierSource.report.score.toFixed(1) })
-                : t("results.quality.healthierIssueDesc")
-            }
-            value={<span className="text-sm font-semibold text-foreground">{healthierSource.title}</span>}
-          />
-        </dl>
-      </Panel>
+    <div className="space-y-5">
+      <div className="card-premium overflow-hidden">
+        <div className="grid gap-5 p-5 lg:grid-cols-[1.3fr_0.7fr]">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="badge-info">{t("results.quality.intelligence")}</span>
+              <span className="badge-info">{t("results.quality.linterDriven")}</span>
+            </div>
+            <h3 className="mt-3 t-h4 text-foreground">{t("results.quality.headline")}</h3>
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+              {t("results.quality.description")}
+            </p>
+          </div>
+
+          <div>
+            <Field label={t("results.quality.totalFindings")}>
+              <div className="t-stat text-3xl text-foreground">{totalFindings}</div>
+              <p className="mt-1 text-xs text-muted-foreground">{t("results.quality.totalFindingsDesc")}</p>
+            </Field>
+            <Field label={t("results.quality.averageScore")}>
+              <div className={cn("t-stat text-3xl", averageScore !== null && averageScore >= 7 ? "text-success" : averageScore !== null && averageScore >= 5 ? "text-warning" : averageScore !== null ? "text-destructive" : "text-foreground")}>
+                {averageScore !== null ? averageScore.toFixed(1) : "\u2014"}
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">{t("results.quality.averageScoreDesc")}</p>
+            </Field>
+            <Field label={t("results.quality.healthierSource")}>
+              <p className="text-sm font-semibold text-foreground">{healthierSource.title}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {healthierSource.report.score !== null
+                  ? t("results.quality.healthierScoreDesc", { score: healthierSource.report.score.toFixed(1) })
+                  : t("results.quality.healthierIssueDesc")}
+              </p>
+            </Field>
+          </div>
+        </div>
+      </div>
 
       <div className="grid gap-5 xl:grid-cols-2">
         {sourceReports.map((source) => (
@@ -1044,9 +988,8 @@ function QualityPanel({ result }: { result: AnalysisResult }) {
 function PanelErrorFallback() {
   const { t } = useTranslation("results");
   return (
-    <div className="card-premium p-8 text-center" role="alert">
-      <AlertTriangle className="mx-auto mb-3 h-6 w-6 text-destructive" />
-      <p className="text-sm font-medium text-foreground">{t("results.panelError")}</p>
+    <div role="alert">
+      <Notice tone="danger">{t("results.panelError")}</Notice>
     </div>
   );
 }
@@ -1171,13 +1114,9 @@ const Results = () => {
     const emptyStateDescription = error || t("results.emptyDescription");
 
     return (
-      <div
-        className="mx-auto max-w-2xl rounded-lg border border-border bg-card p-10 text-center"
-        style={{ boxShadow: "var(--card-shadow-rest)" }}
-      >
-        <h2 className="t-h3">{emptyStateTitle}</h2>
-        <p className="mx-auto mt-3 max-w-md t-body">{emptyStateDescription}</p>
-        <div className="mt-6 flex justify-center gap-3">
+      <Panel label={emptyStateTitle} className="max-w-2xl">
+        <p className="t-body">{emptyStateDescription}</p>
+        <div className="mt-6 flex flex-wrap gap-3">
           <Button asChild className="h-10 gap-2">
             <Link to="/analysis">{t("results.startAnalysis")}</Link>
           </Button>
@@ -1185,7 +1124,7 @@ const Results = () => {
             <Link to="/history">{t("results.openHistory")}</Link>
           </Button>
         </div>
-      </div>
+      </Panel>
     );
   }
 
@@ -1225,10 +1164,11 @@ const Results = () => {
       {/* CASE FILE — score ring as the exhibit, verdict readout as a mono meta strip */}
       <section className="space-y-5">
         <div className="flex flex-col gap-6 border-b border-border pb-6 lg:flex-row lg:items-start">
-          {/* Score ring — the dominant piece of evidence */}
-          <div className="relative h-32 w-32 shrink-0">
+          {/* Score dial — the dominant instrument, seated in a lightly gridded bezel */}
+          <div className="relative h-40 w-40 shrink-0 self-center lg:self-start">
+            <div className="paper-grid-fine pointer-events-none absolute inset-0 rounded-full opacity-40" aria-hidden="true" />
             <svg
-              className="h-full w-full -rotate-90"
+              className="relative h-full w-full -rotate-90"
               viewBox="0 0 128 128"
               role="img"
               aria-label={t("results.ring.aria", { score: overallScoreLabel, band: scoreTone.label })}
@@ -1248,10 +1188,7 @@ const Results = () => {
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span
-                className="font-mono text-[2.125rem] font-bold leading-none tabular-nums text-foreground"
-                style={{ letterSpacing: "-0.04em" }}
-              >
+              <span className={cn("t-stat text-[2.75rem]", scoreTone.color)}>
                 {overallScoreLabel}
               </span>
               <span
@@ -1279,8 +1216,8 @@ const Results = () => {
               </>
             }
             meta={[
-              { label: "SIMILARITY", value: <span className="font-semibold text-foreground">{overallScoreLabel}%</span> },
-              { label: "VERDICT", value: <span className={scoreTone.badge}>{scoreTone.label}</span> },
+              { label: "SIMILARITY", value: <span className={scoreTone.color}>{overallScoreLabel}%</span> },
+              { label: "VERDICT", value: <span className={scoreTone.color}>{scoreTone.label}</span> },
               {
                 label: "CONFIDENCE",
                 value: (
@@ -1291,17 +1228,16 @@ const Results = () => {
                       total: confidence.deterministicTotal,
                     })}
                   >
-                    <ShieldCheck className="h-3.5 w-3.5" />
                     {confidenceLabel}
                     {confidence.advisory && (
-                      <span className="ms-1 rounded-sm bg-warning/20 px-1.5 py-0.5 text-foreground">{t("results.confidence.advisoryTag")}</span>
+                      <span className="text-warning">· {t("results.confidence.advisoryTag")}</span>
                     )}
                   </span>
                 ),
               },
               { label: "LANG", value: getProgrammingLanguageLabel(result.language) },
               ...(result.saved_analysis_id
-                ? [{ label: "CASE", value: `#${result.saved_analysis_id}` }]
+                ? [{ label: "ID", value: `#${result.saved_analysis_id}` }]
                 : []),
             ]}
             actions={
@@ -1316,7 +1252,7 @@ const Results = () => {
                   className="h-9 gap-2"
                   onClick={() => setActiveTab("chat")}
                 >
-                  <MessageSquare className="h-4 w-4" />
+                  <ScrollText className="h-4 w-4" />
                   {t("results.askAnalyst", { defaultValue: "Ask analyst" })}
                 </Button>
               </>
@@ -1324,36 +1260,63 @@ const Results = () => {
           />
         </div>
 
-        {/* Threshold legend — the scale the verdict is read against, plus the CI gate */}
-        <div
-          className="flex flex-wrap items-center gap-1.5"
-          role="group"
-          aria-label={t("results.legend.aria")}
-        >
-          {(
-            [
-              { key: "low", range: "< 50", token: "success" },
-              { key: "moderate", range: "50–79", token: "warning" },
-              { key: "high", range: "≥ 80", token: "destructive" },
-            ] as const
-          ).map((seg) => {
-            const isActive = band === seg.key;
-            return (
+        {/* Calibrated scale — the instrument face the verdict is read against, with a
+            live ticker at the current reading. The 0–100 axis stays LTR inside RTL,
+            like code and data. */}
+        <div className="space-y-3">
+          <div dir="ltr" className="select-none">
+            <div className="relative">
+              <div className="flex h-2.5 w-full overflow-hidden rounded-sm">
+                <span className="bg-success" style={{ width: "50%" }} />
+                <span className="bg-warning" style={{ width: "30%" }} />
+                <span className="bg-destructive" style={{ width: "20%" }} />
+              </div>
+              {/* current reading ticker */}
               <span
-                key={seg.key}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px]",
-                  isActive ? "border-current font-semibold" : "border-border text-muted-foreground",
-                )}
-                style={isActive ? { color: `hsl(var(--${seg.token}))` } : undefined}
-              >
-                <span className="h-2 w-2 rounded-full" style={{ background: `hsl(var(--${seg.token}))` }} />
-                {t(`results.legend.${seg.key}`)}
-                <span className="font-mono tabular-nums opacity-80">{seg.range}</span>
-              </span>
-            );
-          })}
-          <span className="text-[11px] text-muted-foreground">{t("results.legend.gateNote")}</span>
+                className="absolute -top-1.5 h-[1.375rem] w-[3px] -translate-x-1/2 rounded-[1px] bg-foreground shadow-[0_0_0_2px_hsl(var(--card))]"
+                style={{ left: `${Math.max(0, Math.min(100, overallScore))}%` }}
+                aria-hidden="true"
+              />
+            </div>
+            <div className="relative mt-1.5 h-3 font-mono text-[10px] tabular-nums text-muted-foreground">
+              <span className="absolute left-0">0</span>
+              <span className="absolute left-1/2 -translate-x-1/2">50</span>
+              <span className="absolute left-[80%] -translate-x-1/2">80</span>
+              <span className="absolute right-0">100</span>
+            </div>
+          </div>
+
+          {/* Localized band legend + the CI-gate note */}
+          <div
+            className="flex flex-wrap items-center gap-1.5"
+            role="group"
+            aria-label={t("results.legend.aria")}
+          >
+            {(
+              [
+                { key: "low", range: "< 50", token: "success" },
+                { key: "moderate", range: "50–79", token: "warning" },
+                { key: "high", range: "≥ 80", token: "destructive" },
+              ] as const
+            ).map((seg) => {
+              const isActive = band === seg.key;
+              return (
+                <span
+                  key={seg.key}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-sm border px-2 py-0.5 font-mono text-[11px] uppercase tracking-wide",
+                    isActive ? "border-current font-semibold" : "border-border text-muted-foreground",
+                  )}
+                  style={isActive ? { color: `hsl(var(--${seg.token}))` } : undefined}
+                >
+                  <span className="h-2 w-2 rounded-full" style={{ background: `hsl(var(--${seg.token}))` }} />
+                  {t(`results.legend.${seg.key}`)}
+                  <span className="tabular-nums opacity-80">{seg.range}</span>
+                </span>
+              );
+            })}
+            <span className="text-[11px] text-muted-foreground">{t("results.legend.gateNote")}</span>
+          </div>
         </div>
 
         {/* Utility strip — case handling actions, read as a mono row */}
@@ -1415,7 +1378,7 @@ const Results = () => {
               <TabsTrigger
                 key={tab.id}
                 value={tab.id}
-                className="-mb-px flex items-center gap-2 whitespace-nowrap rounded-none border-b-2 border-transparent bg-transparent px-4 py-3 text-sm font-medium text-muted-foreground shadow-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-0 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                className="-mb-px flex items-center gap-2 whitespace-nowrap rounded-none border-b-2 border-transparent bg-transparent px-4 py-3 text-sm font-medium text-muted-foreground shadow-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-0 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-primary data-[state=active]:shadow-none"
               >
                 <Icon className="h-4 w-4" />
                 {tab.label}
@@ -1433,28 +1396,14 @@ const Results = () => {
               <p className="text-sm text-muted-foreground">
                 {t("results.drivers.combinedDrivenBy", { score: overallScoreLabel })}
               </p>
-              <div className="mt-2.5 flex flex-wrap gap-2">
-                {drivers.map((driver) => {
-                  const driverColor =
-                    driver.value >= 80
-                      ? "hsl(var(--destructive))"
-                      : driver.value >= 50
-                        ? "hsl(var(--warning))"
-                        : "hsl(var(--success))";
-                  return (
-                    <button
-                      key={driver.name}
-                      type="button"
-                      onClick={() => setActiveTab(signalToTab(driver.name))}
-                      className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-card px-2.5 py-0.5 text-xs font-medium transition-colors hover:border-primary/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                    >
-                      <span className="h-1.5 w-1.5 rounded-full" style={{ background: driverColor }} />
-                      {translateSimilarityName(driver.name, t)}
-                      <span className="font-mono tabular-nums text-muted-foreground">{Math.round(driver.value)}%</span>
-                    </button>
-                  );
-                })}
-              </div>
+              <Register
+                className="mt-2.5"
+                items={drivers.map((driver) => ({
+                  value: driver.name,
+                  label: `${translateSimilarityName(driver.name, t)} ${Math.round(driver.value)}%`,
+                }))}
+                onSelect={(value) => setActiveTab(signalToTab(value))}
+              />
             </Field>
             <Field label={t("results.drivers.families")}>
               <p className="text-sm text-foreground/90">{getCloneFocus(result.clone_items, t)}</p>

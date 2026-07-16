@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { AtSign, CheckCircle2, Eye, EyeOff, Lock, UserRound } from "lucide-react";
+import { AtSign, Eye, EyeOff, Lock, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Notice } from "@/components/dossier/Dossier";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
-import { cn } from "@/lib/utils";
 
 type Mode = "signin" | "signup" | "forgot" | "twofa";
 
@@ -14,7 +14,7 @@ const Auth = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { login, signup, requestPasswordReset, complete2faLogin, resendVerification } = useAuth();
-  const { isRTL, localizeRuntimeMessage } = useLanguage();
+  const { localizeRuntimeMessage } = useLanguage();
   const { t } = useTranslation("auth");
   const [mode, setMode] = useState<Mode>("signin");
   const [showPassword, setShowPassword] = useState(false);
@@ -164,46 +164,51 @@ const Auth = () => {
   return (
     <div
       className="mx-auto grid w-full max-w-6xl overflow-hidden rounded-lg border border-border bg-card md:grid-cols-2"
-      style={{ minHeight: "640px", boxShadow: "var(--card-shadow-rest)" }}
+      style={{ minHeight: "640px" }}
     >
-      {/* ── Brand side (fixed dark ink rail) ── */}
-      <section
-        className="relative flex flex-col justify-between overflow-hidden p-10 text-white"
-        style={{ background: "hsl(var(--auth-ink))" }}
-      >
+      {/* ── Brand side — the ink-&-ember cover, matching the Home hero ── */}
+      <section className="ink-panel relative flex flex-col justify-between overflow-hidden p-10">
+        <div className="paper-grid pointer-events-none absolute inset-0 opacity-70" aria-hidden="true" />
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute -top-6 select-none font-mono text-[8rem] font-bold leading-none tracking-tighter text-foreground/[0.04] end-4"
+        >
+          CL
+        </span>
+
         <div className="relative">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-md bg-primary">
               <img src="/brand/logo.png" alt="Clone Lens" className="h-10 w-10 object-contain" />
             </div>
-            <span className="font-display text-lg font-bold tracking-tight">Clone Lens</span>
+            <span className="font-display text-lg font-bold tracking-tight text-foreground">Clone Lens</span>
           </div>
 
-          <h2
-            className="mt-10 font-display font-bold leading-[1.06] tracking-[-0.015em]"
-            style={{ fontSize: "clamp(1.9rem, 3vw, 2.6rem)" }}
-          >
-            {t("auth.welcomeTitle")}
-          </h2>
-          <p className="mt-4 max-w-[40ch] text-sm leading-[1.6] text-white/70">
-            {t("auth.welcomeSubtitle")}
-          </p>
+          <div className="mt-8 flex flex-wrap items-center gap-2.5">
+            {["AST", "Fingerprint", "Neural"].map((s) => (
+              <span key={s} className="stamp">
+                {s}
+              </span>
+            ))}
+          </div>
+
+          <h2 className="mt-6 t-h1 text-foreground [overflow-wrap:anywhere]">{t("auth.welcomeTitle")}</h2>
+          <p className="mt-4 max-w-[42ch] leading-relaxed text-muted-foreground">{t("auth.welcomeSubtitle")}</p>
         </div>
 
-        {/* Highlighted evidence — hairline + amber tint, no 3px side-stripe. */}
-        <div
-          className="relative mt-10 rounded-lg border border-primary/25 p-5 text-sm leading-[1.6]"
-          style={{ background: "hsl(var(--primary) / 0.08)" }}
-        >
-          {t("auth.quote")}
-          <div className="mt-2 text-xs not-italic text-white/60">— {t("auth.quoteCite")}</div>
+        {/* chain-of-custody note — an accent-edge card, not a filled box */}
+        <div className="relative mt-10 flex overflow-hidden rounded-lg border border-border bg-card">
+          <span className="w-0.5 shrink-0 bg-primary" aria-hidden="true" />
+          <div className="px-5 py-4 text-sm leading-relaxed text-muted-foreground">
+            {t("auth.quote")}
+            <div className="mt-2 t-label text-foreground/80">{t("auth.quoteCite")}</div>
+          </div>
         </div>
       </section>
 
       {/* ── Form side ── */}
       <section className="flex flex-col justify-center p-10">
         <div className="mb-6 flex items-center justify-end gap-2 text-xs text-muted-foreground">
-          <Lock className="h-3.5 w-3.5" />
           {t("auth.secureAccess")}
         </div>
 
@@ -213,30 +218,13 @@ const Auth = () => {
         <p className="mt-1.5 mb-6 text-sm text-muted-foreground">{headingDescription}</p>
 
         {error && (
-          <div
-            className="mb-4 rounded-md border px-4 py-3 text-sm"
-            style={{
-              borderColor: "hsl(var(--destructive) / 0.25)",
-              background: "hsl(var(--destructive) / 0.06)",
-              color: "hsl(var(--destructive))",
-            }}
-            role="alert"
-          >
-            {error}
+          <div role="alert" className="mb-4">
+            <Notice tone="danger">{error}</Notice>
           </div>
         )}
         {notice && (
-          <div
-            className="mb-4 flex items-start gap-2 rounded-md border px-4 py-3 text-sm"
-            style={{
-              borderColor: "hsl(var(--success) / 0.3)",
-              background: "hsl(var(--success) / 0.08)",
-              color: "hsl(var(--success))",
-            }}
-            role="status"
-          >
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{notice}</span>
+          <div role="status" className="mb-4">
+            <Notice tone="success">{notice}</Notice>
           </div>
         )}
         {pendingVerifyEmail && mode === "signup" && (
@@ -244,7 +232,7 @@ const Auth = () => {
             type="button"
             onClick={() => void handleResendVerification()}
             disabled={isSubmitting}
-            className="mb-4 text-sm text-foreground underline underline-offset-2 hover:opacity-70 disabled:opacity-50"
+            className="mb-4 text-sm text-primary hover:underline disabled:opacity-50"
           >
             {isSubmitting ? t("auth.resending") : t("auth.resendVerification")}
           </button>
@@ -275,19 +263,14 @@ const Auth = () => {
                 {mode === "signin" ? t("auth.identifier") : t("auth.username")}
               </label>
               <div className="relative">
-                <UserRound
-                  className={cn(
-                    "absolute top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground",
-                    isRTL ? "right-3" : "left-3",
-                  )}
-                />
+                <UserRound className="absolute top-1/2 start-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   type="text"
                   placeholder={mode === "signin" ? t("auth.identifierPlaceholder") : t("auth.usernamePlaceholder")}
                   value={username}
                   autoComplete="username"
                   onChange={(e) => setUsername(e.target.value)}
-                  className={cn("h-10", isRTL ? "pr-10 text-right" : "pl-10")}
+                  className="h-10 ps-10 text-start"
                 />
               </div>
             </div>
@@ -299,12 +282,7 @@ const Auth = () => {
                 {t("auth.email")}
               </label>
               <div className="relative">
-                <AtSign
-                  className={cn(
-                    "absolute top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground",
-                    isRTL ? "right-3" : "left-3",
-                  )}
-                />
+                <AtSign className="absolute top-1/2 start-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   type="email"
                   placeholder={t("auth.emailPlaceholder")}
@@ -312,7 +290,7 @@ const Auth = () => {
                   autoComplete="email"
                   dir="ltr"
                   onChange={(e) => setEmail(e.target.value)}
-                  className={cn("h-10", isRTL ? "pr-10 text-right" : "pl-10")}
+                  className="h-10 ps-10 text-start"
                 />
               </div>
             </div>
@@ -324,27 +302,19 @@ const Auth = () => {
                 {t("auth.password")}
               </label>
               <div className="relative">
-                <Lock
-                  className={cn(
-                    "absolute top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground",
-                    isRTL ? "right-3" : "left-3",
-                  )}
-                />
+                <Lock className="absolute top-1/2 start-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   type={showPassword ? "text" : "password"}
                   placeholder={t("auth.passwordPlaceholder")}
                   value={password}
                   autoComplete={mode === "signup" ? "new-password" : "current-password"}
                   onChange={(e) => setPassword(e.target.value)}
-                  className={cn("h-10", isRTL ? "pr-10 pl-10 text-right" : "pl-10 pr-10")}
+                  className="h-10 ps-10 pe-10 text-start"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className={cn(
-                    "absolute top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground",
-                    isRTL ? "left-3" : "right-3",
-                  )}
+                  className="absolute top-1/2 end-3 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -354,7 +324,7 @@ const Auth = () => {
                 <button
                   type="button"
                   onClick={() => switchMode("forgot")}
-                  className={cn("mt-2 text-xs text-foreground underline underline-offset-2 hover:opacity-70", isRTL ? "float-left" : "float-right")}
+                  className="mt-2 float-end text-xs text-primary hover:underline"
                 >
                   {t("auth.forgotPassword")}
                 </button>
@@ -369,7 +339,7 @@ const Auth = () => {
           >
             {isSubmitting ? (
               <span className="flex items-center gap-2">
-                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary-foreground/40 border-t-primary-foreground" />
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current/40 border-t-current" />
                 {submittingLabel}
               </span>
             ) : (
@@ -380,24 +350,24 @@ const Auth = () => {
 
         <div className="mt-5 text-center text-sm text-muted-foreground">
           {mode === "signin" && (
-            <button type="button" onClick={() => switchMode("signup")} className="text-foreground underline underline-offset-2 hover:opacity-70">
+            <button type="button" onClick={() => switchMode("signup")} className="text-primary hover:underline">
               {t("auth.signupCta")}
             </button>
           )}
           {mode === "signup" && (
-            <button type="button" onClick={() => switchMode("signin")} className="text-foreground underline underline-offset-2 hover:opacity-70">
+            <button type="button" onClick={() => switchMode("signin")} className="text-primary hover:underline">
               {t("auth.loginCta")}
             </button>
           )}
           {(mode === "forgot" || mode === "twofa") && (
-            <button type="button" onClick={() => switchMode("signin")} className="text-foreground underline underline-offset-2 hover:opacity-70">
+            <button type="button" onClick={() => switchMode("signin")} className="text-primary hover:underline">
               {t("auth.backToLogin")}
             </button>
           )}
         </div>
 
         <div
-          className="my-5 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground"
+          className="my-5 flex items-center gap-3 t-label"
           aria-hidden
         >
           <span className="h-px flex-1 bg-border" />

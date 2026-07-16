@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { Masthead, SectionRule } from "@/components/dossier/Dossier";
 
 // NOTE: This is a starting template — review and adapt with legal counsel and
 // insert your company/jurisdiction details before going live.
@@ -42,43 +43,40 @@ const sections = [
 
 const Terms = () => (
   <div className="mx-auto max-w-3xl py-4">
-    <div className="t-label flex items-center gap-2.5">
-      <span className="h-px w-6 bg-primary" />
-      Legal
-    </div>
-    <h1 className="t-h2 mt-3">Terms of Service</h1>
-    <p className="t-sm mt-1 font-mono text-muted-foreground">Last updated: (set on publish)</p>
+    <Masthead
+      kicker="Legal"
+      title="Terms of Service"
+      meta={[{ label: "Updated", value: "(set on publish)" }]}
+    />
 
-    <dl className="mt-8 divide-y divide-border border-y border-border">
+    <div className="mt-8 max-w-[72ch] space-y-8">
       {sections.map((s) => (
-        <div key={s.n} className="grid grid-cols-[auto_1fr] gap-x-4 py-5 sm:gap-x-6">
-          <dt className="t-label pt-0.5 text-muted-foreground">{s.n}</dt>
-          <dd>
-            <h2 className="t-h4">{s.title}</h2>
-            <p className="t-body mt-2">{s.body}</p>
-          </dd>
-        </div>
+        <section key={s.n}>
+          <SectionRule n={s.n}>{s.title}</SectionRule>
+          <p className="t-body">{s.body}</p>
+        </section>
       ))}
-      <div className="grid grid-cols-[auto_1fr] gap-x-4 py-5 sm:gap-x-6">
-        <dt className="t-label pt-0.5 text-muted-foreground">08</dt>
-        <dd>
-          <h2 className="t-h4">Contact</h2>
-          <p className="t-body mt-2">
-            Questions about these Terms: (insert contact email). See also our{" "}
-            <Link to="/privacy" className="text-foreground underline underline-offset-2 hover:opacity-70">
-              Privacy Policy
-            </Link>
-            .
-          </p>
-        </dd>
-      </div>
-    </dl>
 
-    <p className="mt-8">
-      <Link to="/" className="text-foreground underline underline-offset-2 hover:opacity-70">
-        ← Home
+      <section>
+        <SectionRule n="08">Contact</SectionRule>
+        <p className="t-body">
+          Questions about these Terms: (insert contact email). See also our{" "}
+          <Link to="/privacy" className="text-primary hover:underline">
+            Privacy Policy
+          </Link>
+          .
+        </p>
+      </section>
+    </div>
+
+    <div className="mt-10 border-t border-border pt-6">
+      <Link
+        to="/"
+        className="font-mono text-xs font-semibold uppercase tracking-wider text-primary hover:underline"
+      >
+        Home
       </Link>
-    </p>
+    </div>
   </div>
 );
 

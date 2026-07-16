@@ -68,7 +68,7 @@
     },
     "docs": {
       "heading": "API documentation",
-      "intro": "How to call the Clone Lens public API from a script, CI pipeline, or service."
+      "intro": "Call the Clone Lens public API from a script, CI pipeline, or service."
     }
   }
 }

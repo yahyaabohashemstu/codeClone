@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Activity, DollarSign, Gauge, Loader2, Lock, ShieldCheck, Users,
-} from "lucide-react";
+import { Loader2, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -12,8 +10,13 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Masthead, Panel, Figure, Serial, SpecList } from "@/components/dossier/Dossier";
+import {
+  Masthead, Panel, Figure, Serial, Field, FieldSheet, MetaStrip, Reading,
+  StatusTag, Meter, SectionRule, Notice,
+  Ledger, LedgerHead, LedgerRow, LedgerCell, LedgerFooter, LedgerEmpty,
+} from "@/components/dossier/Dossier";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/context/LanguageContext";
 import * as api from "@/lib/adminApi";
 
 const PLANS = ["free", "pro", "team"];
@@ -26,79 +29,95 @@ const fmtDateTime = (iso?: string | null) => (iso ? new Date(iso).toLocaleString
 const TABS = ["overview", "users", "revenue", "usage", "activity", "security"] as const;
 type Tab = (typeof TABS)[number];
 
-const TAB_ICON: Record<Tab, typeof Users> = {
-  overview: Activity, users: Users, revenue: DollarSign,
-  usage: Gauge, activity: Activity, security: ShieldCheck,
+// ── semantic tone maps — colour encodes state only ──────────────────────────
+
+type SemTone = "ok" | "warning" | "danger" | "muted";
+
+/** Subscription status → semantic stamp tone. */
+const subStatusTone = (s: string): SemTone =>
+  s === "active" ? "ok" : s === "past_due" ? "warning" : s === "canceled" ? "danger" : "muted";
+
+/** Failed-login count → escalating tone. */
+const failedTone = (n: number): SemTone => (n >= 5 ? "danger" : n >= 1 ? "warning" : "muted");
+
+/** Payment status → semantic tone. */
+const paymentTone = (s: string): SemTone => {
+  const v = s.toLowerCase();
+  if (v.includes("refund")) return "warning";
+  if (v.includes("fail") || v.includes("cancel") || v.includes("dispute")) return "danger";
+  if (v.includes("paid") || v.includes("succe") || v.includes("complete")) return "ok";
+  return "muted";
 };
+
+/** Usage % → ink colour for a mono reading (near/over quota). */
+const usageInk = (pct: number | null): string =>
+  pct == null ? "" : pct >= 100 ? "text-destructive" : pct >= 80 ? "text-warning" : "";
+
+/** A real-signal count rendered as a StatusTag: the number is the content, the
+ *  colour is the state — quiet (muted) at zero, escalating when the signal fires.
+ *  This is the calibrated way to read locked accounts, failed logins, past-due
+ *  subs and over-quota users — an alarm stamp, not a bare coloured number. */
+const signalTag = (n: number, hot: Exclude<SemTone, "muted"> = "warning") => (
+  <StatusTag tone={n > 0 ? hot : "muted"}>{n.toLocaleString()}</StatusTag>
+);
 
 // ── small presentational helpers ────────────────────────────────────────────
 
-/** Borderless titled group used inside the drawer — grouped by whitespace +
- *  1px dividers instead of nesting boxes-in-boxes. */
+/** Ruled §-divider heading for a drawer section (was the boxed `Group`). */
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="py-5 first:pt-0">
-      <h3 className="t-label mb-2.5">{title}</h3>
+    <section className="pt-6 first:pt-0">
+      <SectionRule tick>{title}</SectionRule>
       {children}
     </section>
   );
 }
 
-/** The case ledger for key figures: a ruled mono label:value reading laid out as
- *  a two-column index, NOT a row of raised stat cards. Any `sub` caveat is folded
- *  in beside its value as a muted annotation so no datum is lost. */
-function MetricLedger({
+/** A spec band: numbers sit in a single bordered grid separated by hairlines,
+ *  not one raised card per metric. The gap-px over a border-tinted background
+ *  paints clean 1px rules even when the row wraps. */
+function StatBand({
   items,
   className,
 }: {
-  items: { label: React.ReactNode; value: React.ReactNode; sub?: React.ReactNode }[];
+  items: { label: string; value: React.ReactNode; sub?: string; tag?: React.ReactNode }[];
   className?: string;
 }) {
-  const rows = items.map((it) => ({
-    label: it.label,
-    value:
-      it.sub != null ? (
-        <span className="inline-flex items-baseline gap-2">
-          {it.value}
-          <span className="text-[11px] font-normal text-muted-foreground">{it.sub}</span>
-        </span>
-      ) : (
-        it.value
-      ),
-  }));
-  const mid = Math.ceil(rows.length / 2);
   return (
-    <div className={cn("grid sm:grid-cols-2", className)}>
-      <SpecList rows={rows.slice(0, mid)} className="sm:pe-12" />
-      {rows.length > mid && (
-        <SpecList rows={rows.slice(mid)} className="sm:border-s sm:border-border sm:ps-12" />
-      )}
-    </div>
+    <dl className={cn("grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border md:grid-cols-4", className)}>
+      {items.map((it) => (
+        <div key={it.label} className="bg-card p-4">
+          <dt className="t-label">{it.label}</dt>
+          <dd className="mt-1.5 font-mono text-2xl font-semibold tracking-tight tabular-nums text-foreground">{it.value}</dd>
+          {it.tag != null && <dd className="mt-2">{it.tag}</dd>}
+          {it.sub && <dd className="mt-1 text-xs text-muted-foreground">{it.sub}</dd>}
+        </div>
+      ))}
+    </dl>
   );
 }
 
-/** A terse mono reading for a figure caption gutter, e.g. "1,204 users". */
-function Reading({ n, unit }: { n: number; unit: string }) {
+/** A margin-label spec row inside a FieldSheet (was `DetailRow`). */
+function DetailRow({ label, value }: { label: React.ReactNode; value: React.ReactNode }) {
   return (
-    <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-      <span className="font-semibold text-foreground">{n.toLocaleString()}</span> {unit}
-    </span>
+    <Field label={label} align="center" className="py-3">
+      <div className="text-sm text-foreground">{value}</div>
+    </Field>
   );
 }
 
+/** Horizontal distribution readout: mono label + band meter + tabular count. */
 function Bars({ items }: { items: { label: string; count: number }[] }) {
   const { t } = useTranslation("common");
   const max = Math.max(1, ...items.map((i) => i.count));
   if (!items.length) return <div className="text-sm text-muted-foreground">{t("admin.noData")}</div>;
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       {items.map((i) => (
         <div key={i.label} className="flex items-center gap-3 text-sm">
-          <div className="w-28 shrink-0 truncate font-mono text-xs text-muted-foreground">{i.label}</div>
-          <div className="h-2 flex-1 overflow-hidden rounded-sm bg-muted">
-            <div className="h-full rounded-sm bg-primary" style={{ width: `${(i.count / max) * 100}%` }} />
-          </div>
-          <div className="w-12 shrink-0 text-end font-mono tabular-nums">{i.count}</div>
+          <div className="w-28 shrink-0 truncate font-mono text-xs uppercase tracking-wide text-muted-foreground">{i.label}</div>
+          <Meter value={i.count} max={max} tone="primary" className="flex-1" ariaLabel={i.label} />
+          <div className="w-12 shrink-0 text-end font-mono tabular-nums">{i.count.toLocaleString()}</div>
         </div>
       ))}
     </div>
@@ -106,14 +125,20 @@ function Bars({ items }: { items: { label: string; count: number }[] }) {
 }
 
 function Spinner() {
-  return <div className="flex min-h-[30vh] items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+  const { t } = useTranslation("common");
+  return (
+    <div className="flex min-h-[30vh] items-center justify-center" role="status">
+      <Loader2 className="h-6 w-6 animate-spin text-primary" aria-hidden="true" />
+      <span className="sr-only">{t("admin.loading", { defaultValue: "Loading…" })}</span>
+    </div>
+  );
 }
 
 function LoadError({ onRetry }: { onRetry: () => void }) {
   const { t } = useTranslation("common");
   return (
-    <div className="flex min-h-[30vh] flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
-      <span>{t("admin.loadError")}</span>
+    <div className="space-y-3">
+      <Notice tone="danger">{t("admin.loadError")}</Notice>
       <Button variant="outline" size="sm" onClick={onRetry}>{t("admin.retry")}</Button>
     </div>
   );
@@ -142,69 +167,77 @@ function OverviewTab() {
   const { data: m, error, reload } = useLoad(() => api.getAdminMetrics());
   if (error) return <LoadError onRetry={reload} />;
   if (!m) return <Spinner />;
+  const apiPlanTotal = Object.values(m.apiPlanCounts).reduce((s, c) => s + c, 0);
   return (
-    <div className="space-y-12">
-      <Panel bare marker="§" label={t("admin.census", { defaultValue: "Census" })}>
-        <MetricLedger
+    <div className="space-y-6">
+      {/* Census — the soft counts read as a mono document-header line, not a tile grid */}
+      <Panel label={t("admin.tabs.overview")}>
+        <MetaStrip
+          className="gap-x-8 gap-y-3"
           items={[
-            { label: t("admin.totalUsers"), value: m.totalUsers },
-            { label: t("admin.totalAnalyses"), value: m.totalAnalyses },
-            { label: t("admin.verified"), value: m.verifiedUsers, sub: `${m.unverifiedUsers} ${t("admin.unverified")}` },
-            { label: t("admin.twofa"), value: m.twofaUsers },
-            { label: t("admin.admins"), value: m.adminUsers },
-            { label: t("admin.locked"), value: m.lockedUsers },
-            { label: t("admin.failedLogins24h"), value: m.failedLogins24h },
-            { label: t("admin.estMrr"), value: money(m.estimatedMrrCents), sub: t("admin.estimatedNote") },
+            { label: t("admin.totalUsers"), value: m.totalUsers.toLocaleString() },
+            { label: t("admin.totalAnalyses"), value: m.totalAnalyses.toLocaleString() },
+            { label: t("admin.verified"), value: `${m.verifiedUsers.toLocaleString()} · ${m.unverifiedUsers.toLocaleString()} ${t("admin.unverified")}` },
+            { label: t("admin.twofa"), value: m.twofaUsers.toLocaleString() },
+            { label: t("admin.admins"), value: m.adminUsers.toLocaleString() },
+            { label: t("admin.estMrr"), value: money(m.estimatedMrrCents) },
           ]}
         />
       </Panel>
 
-      <Panel bare marker="§" label={t("admin.planDistribution", { defaultValue: "Plan distribution" })}>
-        <div className="grid gap-5 md:grid-cols-2">
-          <Figure n={1} label={t("admin.planMix")} actions={<Reading n={m.totalUsers} unit={t("admin.users")} />}>
-            <Bars items={PLANS.map((p) => ({ label: p, count: m.planCounts[p] ?? 0 }))} />
-          </Figure>
-          <Figure
-            n={2}
-            label={t("admin.apiPlanMix")}
-            actions={<Reading n={Object.values(m.apiPlanCounts).reduce((s, c) => s + c, 0)} unit={t("admin.users")} />}
-          >
-            <Bars items={Object.entries(m.apiPlanCounts).map(([label, count]) => ({ label, count }))} />
-          </Figure>
-        </div>
-      </Panel>
+      {/* The two security signals get their own weight, amber ink + an alarm stamp when hot */}
+      <StatBand
+        className="md:grid-cols-2"
+        items={[
+          {
+            label: t("admin.locked"),
+            value: <span className={m.lockedUsers > 0 ? "text-warning" : undefined}>{m.lockedUsers.toLocaleString()}</span>,
+            tag: m.lockedUsers > 0 ? <StatusTag tone="warning">{t("admin.locked")}</StatusTag> : undefined,
+          },
+          {
+            label: t("admin.failedLogins24h"),
+            value: <span className={m.failedLogins24h > 0 ? "text-warning" : undefined}>{m.failedLogins24h.toLocaleString()}</span>,
+            tag: m.failedLogins24h > 0 ? <StatusTag tone="warning">{t("admin.failedLogins")}</StatusTag> : undefined,
+          },
+        ]}
+      />
 
-      <Panel bare marker="§" label={t("admin.newSignups")}>
-        <MetricLedger
-          items={[
-            { label: t("admin.today"), value: m.signups.today },
-            { label: t("admin.days7"), value: m.signups.last7d },
-            { label: t("admin.days30"), value: m.signups.last30d },
-          ]}
-        />
-      </Panel>
+      <div className="grid gap-5 md:grid-cols-2">
+        <Figure n={1} label={t("admin.planMix")} actions={<Reading label={t("admin.users")} value={m.totalUsers.toLocaleString()} />}>
+          <Bars items={PLANS.map((p) => ({ label: p, count: m.planCounts[p] ?? 0 }))} />
+        </Figure>
+        <Figure n={2} label={t("admin.apiPlanMix")} actions={<Reading label={t("admin.users")} value={apiPlanTotal.toLocaleString()} />}>
+          <Bars items={Object.entries(m.apiPlanCounts).map(([label, count]) => ({ label, count }))} />
+        </Figure>
+      </div>
+
+      {/* Signups fold into one margin-labelled Field as a mono reading line */}
+      <FieldSheet>
+        <Field label={t("admin.newSignups")}>
+          <MetaStrip
+            className="gap-x-8"
+            items={[
+              { label: t("admin.today"), value: m.signups.today.toLocaleString() },
+              { label: t("admin.days7"), value: m.signups.last7d.toLocaleString() },
+              { label: t("admin.days30"), value: m.signups.last30d.toLocaleString() },
+            ]}
+          />
+        </Field>
+      </FieldSheet>
     </div>
   );
 }
 
-// ── User detail modal ───────────────────────────────────────────────────────
-
-function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex justify-between gap-4 py-1.5 text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="text-end font-medium text-foreground">{value}</span>
-    </div>
-  );
-}
+// ── User detail drawer ──────────────────────────────────────────────────────
 
 function UserDetailModal({ userId, onClose, onChanged }: { userId: number; onClose: () => void; onChanged?: () => void }) {
   const { t } = useTranslation("common");
+  const { isRTL } = useLanguage();
   const [d, setD] = useState<api.AdminUserDetail | null>(null);
   const [audit, setAudit] = useState<api.AuditRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
-  const [confirm, setConfirm] = useState<{ message: string; run: () => Promise<void> } | null>(null);
+  const [confirm, setConfirm] = useState<{ message: string; destructive?: boolean; run: () => void } | null>(null);
 
   const load = useCallback(() => {
     setError(false);
@@ -213,13 +246,13 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: number; onClo
   }, [userId]);
   useEffect(() => { load(); }, [load]);
 
-  const executeAction = async (fn: () => Promise<void>, closeAfter?: boolean) => {
+  const perform = async (fn: () => Promise<void>, opts: { closeAfter?: boolean }) => {
     setBusy(true);
     try {
       await fn();
       toast.success(t("admin.actionDone"));
       onChanged?.();
-      if (closeAfter) { onClose(); return; }
+      if (opts.closeAfter) { onClose(); return; }
       load();
     } catch {
       toast.error(t("admin.actionFailed"));
@@ -228,52 +261,86 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: number; onClo
     }
   };
 
-  // Destructive actions route through an accessible AlertDialog rather than the
-  // native window.confirm (which has no focus trap / a11y semantics / theming).
-  const runAction = (fn: () => Promise<void>, opts: { confirm?: string; closeAfter?: boolean } = {}) => {
+  // Destructive/irreversible actions route through an AlertDialog confirmation
+  // (a real focus-trapped dialog) instead of the browser's window.confirm.
+  const runAction = (
+    fn: () => Promise<void>,
+    opts: { confirm?: string; destructive?: boolean; closeAfter?: boolean } = {},
+  ) => {
     if (opts.confirm) {
-      setConfirm({ message: opts.confirm, run: () => executeAction(fn, opts.closeAfter) });
+      setConfirm({
+        message: opts.confirm,
+        destructive: opts.destructive,
+        run: () => {
+          setConfirm(null);
+          void perform(fn, opts);
+        },
+      });
       return;
     }
-    void executeAction(fn, opts.closeAfter);
+    void perform(fn, opts);
   };
 
   const quota = d?.quota as { used?: number; limit?: number; unlimited?: boolean } | undefined;
   const apiSpend = d ? (d.apiUsage.monthlyPriceCents + d.apiUsage.estimatedCostCents) : 0;
 
   return (
-    <Sheet open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
-        <SheetHeader className="mb-4">
-          <SheetTitle className="t-h3">{t("admin.userDetail")}</SheetTitle>
-        </SheetHeader>
-        {error ? <LoadError onRetry={load} /> : !d ? <Spinner /> : (
-          <div className="divide-y divide-border">
+    <>
+      <Sheet open onOpenChange={(o) => { if (!o) onClose(); }}>
+        <SheetContent
+          side={isRTL ? "left" : "right"}
+          aria-describedby={undefined}
+          className="w-full overflow-y-auto border-s border-border bg-card p-6 sm:max-w-xl"
+        >
+          <SheetHeader className="mb-4 space-y-0 text-start">
+            <SheetTitle className="t-h3">{t("admin.userDetail")}</SheetTitle>
+          </SheetHeader>
+          {error ? <LoadError onRetry={load} /> : !d ? <Spinner /> : (
+          <div className="space-y-2">
             <Group title={t("admin.identity")}>
-              <DetailRow label="ID" value={<span className="font-mono">{d.user.id}</span>} />
-              <DetailRow label={t("admin.username")} value={<>{d.user.username}{d.user.isAdmin && <span className="ms-1 text-muted-foreground">★</span>}{!d.user.active && <span className="ms-2 text-xs text-destructive">{t("admin.suspended")}</span>}</>} />
-              <DetailRow label={t("admin.email")} value={d.user.email || "—"} />
-              <DetailRow label={t("admin.verified")} value={d.user.emailVerified ? "✓" : "—"} />
-              <DetailRow label={t("admin.twofa")} value={d.user.twofaEnabled ? "✓" : "—"} />
-              <DetailRow label={t("admin.created")} value={fmtDate(d.user.createdAt)} />
-              <DetailRow label={t("admin.lastLogin")} value={fmtDateTime(d.user.lastLoginAt)} />
-              <DetailRow label={t("admin.failedLogins")} value={<span className="font-mono tabular-nums">{d.user.failedLoginCount}</span>} />
-              <DetailRow label={t("admin.locked")} value={d.user.locked ? fmtDateTime(d.user.lockedUntil) : "—"} />
-              <DetailRow label={t("admin.sessionVersion")} value={<span className="font-mono tabular-nums">{d.user.sessionVersion}</span>} />
+              <FieldSheet>
+                <DetailRow label="ID" value={<span className="font-mono tabular-nums">{d.user.id}</span>} />
+                <DetailRow
+                  label={t("admin.username")}
+                  value={
+                    <span className="inline-flex flex-wrap items-center gap-2">
+                      <span className="font-medium">{d.user.username}</span>
+                      {d.user.isAdmin && <span className="text-primary" aria-hidden="true">★</span>}
+                      {!d.user.active && <StatusTag tone="danger">{t("admin.suspended")}</StatusTag>}
+                    </span>
+                  }
+                />
+                <DetailRow label={t("admin.email")} value={d.user.email || "—"} />
+                <DetailRow label={t("admin.verified")} value={d.user.emailVerified ? <StatusTag tone="ok">✓</StatusTag> : "—"} />
+                <DetailRow label={t("admin.twofa")} value={d.user.twofaEnabled ? <StatusTag tone="ok">✓</StatusTag> : "—"} />
+                <DetailRow label={t("admin.created")} value={<span className="font-mono tabular-nums">{fmtDate(d.user.createdAt)}</span>} />
+                <DetailRow label={t("admin.lastLogin")} value={<span className="font-mono tabular-nums">{fmtDateTime(d.user.lastLoginAt)}</span>} />
+                <DetailRow
+                  label={t("admin.failedLogins")}
+                  value={<span className={cn("font-mono tabular-nums", d.user.failedLoginCount >= 5 ? "text-destructive" : d.user.failedLoginCount >= 1 ? "text-warning" : "")}>{d.user.failedLoginCount}</span>}
+                />
+                <DetailRow label={t("admin.locked")} value={d.user.locked ? <span className="font-mono tabular-nums text-warning">{fmtDateTime(d.user.lockedUntil)}</span> : "—"} />
+                <DetailRow label={t("admin.sessionVersion")} value={<span className="font-mono tabular-nums">{d.user.sessionVersion}</span>} />
+              </FieldSheet>
             </Group>
+
             <Group title={t("admin.planSpend")}>
-              <DetailRow label={t("admin.plan")} value={`${d.subscription.plan} (${d.subscription.status})`} />
-              <div className="flex items-center justify-between gap-4 py-1.5 text-sm">
-                <span className="text-muted-foreground">{t("admin.apiPlanLabel")}</span>
-                <Select value={d.apiUsage.apiPlan} onValueChange={(v) => void runAction(() => api.setUserApiPlan(userId, v))}>
-                  <SelectTrigger className="h-8 w-36"><SelectValue /></SelectTrigger>
-                  <SelectContent>{api.API_PLAN_CODES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <DetailRow label={t("admin.estMonthlySpend")} value={<span className="font-mono">{money(apiSpend)}</span>} />
-              <DetailRow label={t("admin.lifetimePaid")} value={<span className="font-mono">{money(d.lifetimePaidCents)}</span>} />
-              <DetailRow label={t("admin.renewsOn")} value={fmtDate(d.subscription.currentPeriodEnd)} />
-              <DetailRow label={t("admin.stripeCustomer")} value={<span className="font-mono text-xs">{d.subscription.stripeCustomerId || "—"}</span>} />
+              <FieldSheet>
+                <DetailRow
+                  label={t("admin.plan")}
+                  value={<span className="inline-flex items-center gap-2"><span className="font-mono">{d.subscription.plan}</span><StatusTag tone={subStatusTone(d.subscription.status)}>{d.subscription.status}</StatusTag></span>}
+                />
+                <Field label={t("admin.apiPlanLabel")} align="center" className="py-3">
+                  <Select value={d.apiUsage.apiPlan} onValueChange={(v) => void runAction(() => api.setUserApiPlan(userId, v))}>
+                    <SelectTrigger className="h-8 w-36"><SelectValue /></SelectTrigger>
+                    <SelectContent>{api.API_PLAN_CODES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                  </Select>
+                </Field>
+                <DetailRow label={t("admin.estMonthlySpend")} value={<span className="font-mono">{money(apiSpend)}</span>} />
+                <DetailRow label={t("admin.lifetimePaid")} value={<span className="font-mono">{money(d.lifetimePaidCents)}</span>} />
+                <DetailRow label={t("admin.renewsOn")} value={<span className="font-mono tabular-nums">{fmtDate(d.subscription.currentPeriodEnd)}</span>} />
+                <DetailRow label={t("admin.stripeCustomer")} value={<span className="font-mono text-xs">{d.subscription.stripeCustomerId || "—"}</span>} />
+              </FieldSheet>
             </Group>
 
             <Group title={t("admin.actions")}>
@@ -304,79 +371,111 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: number; onClo
                 <Button
                   variant="outline" size="sm" disabled={busy}
                   className="border-destructive/40 text-destructive hover:bg-destructive/10"
-                  onClick={() => void runAction(() => api.deleteUser(userId), { confirm: t("admin.confirmDelete"), closeAfter: true })}
+                  onClick={() => void runAction(() => api.deleteUser(userId), { confirm: t("admin.confirmDelete"), destructive: true, closeAfter: true })}
                 >
                   {t("admin.deleteUser")}
                 </Button>
               </div>
             </Group>
+
             <Group title={t("admin.consumption")}>
-              <DetailRow label={t("admin.usage")} value={<span className="font-mono tabular-nums">{quota?.unlimited ? "∞" : `${quota?.used ?? 0} / ${quota?.limit ?? 0}`}</span>} />
-              <DetailRow label={t("admin.apiCalls")} value={<span className="font-mono tabular-nums">{d.apiUsage.calls}</span>} />
-              <DetailRow label={t("admin.apiPairs")} value={<span className="font-mono tabular-nums">{d.apiUsage.pairs}</span>} />
-              <DetailRow label={t("admin.analyses")} value={<span className="font-mono tabular-nums">{d.activity.analysesCount}</span>} />
-              <DetailRow label={t("admin.lastAnalysis")} value={fmtDateTime(d.activity.lastAnalysisAt)} />
-              <DetailRow label={t("admin.avgSimilarity")} value={<span className="font-mono tabular-nums">{d.activity.avgSimilarity ?? "—"}</span>} />
+              <FieldSheet>
+                <DetailRow label={t("admin.usage")} value={<span className="font-mono tabular-nums">{quota?.unlimited ? "∞" : `${quota?.used ?? 0} / ${quota?.limit ?? 0}`}</span>} />
+                <DetailRow label={t("admin.apiCalls")} value={<span className="font-mono tabular-nums">{d.apiUsage.calls}</span>} />
+                <DetailRow label={t("admin.apiPairs")} value={<span className="font-mono tabular-nums">{d.apiUsage.pairs}</span>} />
+                <DetailRow label={t("admin.analyses")} value={<span className="font-mono tabular-nums">{d.activity.analysesCount}</span>} />
+                <DetailRow label={t("admin.lastAnalysis")} value={<span className="font-mono tabular-nums">{fmtDateTime(d.activity.lastAnalysisAt)}</span>} />
+                <DetailRow label={t("admin.avgSimilarity")} value={<span className="font-mono tabular-nums">{d.activity.avgSimilarity ?? "—"}</span>} />
+              </FieldSheet>
             </Group>
+
             <Group title={t("admin.payments")}>
-              {d.payments.length === 0 ? <div className="text-sm text-muted-foreground">{t("admin.noPayments")}</div> : (
-                <div className="divide-y divide-border text-sm">
-                  {d.payments.map((p) => (
-                    <div key={p.id} className="flex justify-between py-1.5">
-                      <span className="font-mono">{money(p.netCents)} <span className="ms-1 text-xs text-muted-foreground">{p.status} · {p.product}</span></span>
-                      <span className="text-muted-foreground">{fmtDate(p.paidAt || p.createdAt)}</span>
-                    </div>
+              {d.payments.length === 0 ? (
+                <Notice tone="info">{t("admin.noPayments")}</Notice>
+              ) : (
+                <Ledger columns="1.75rem minmax(0,1fr) auto">
+                  <LedgerHead cells={["#", t("admin.payments"), t("admin.when")]} aligns={["start", "start", "end"]} />
+                  {d.payments.map((p, i) => (
+                    <LedgerRow key={p.id}>
+                      <LedgerCell><Serial>{i + 1}</Serial></LedgerCell>
+                      <LedgerCell>
+                        <span className="font-mono tabular-nums">{money(p.netCents)}</span>
+                        <StatusTag tone={paymentTone(p.status)} className="ms-2">{p.status}</StatusTag>
+                        <span className="ms-1 text-xs text-muted-foreground">{p.product}</span>
+                      </LedgerCell>
+                      <LedgerCell align="end" mono className="text-xs text-muted-foreground">{fmtDate(p.paidAt || p.createdAt)}</LedgerCell>
+                    </LedgerRow>
                   ))}
-                </div>
+                </Ledger>
               )}
             </Group>
+
             <Group title={t("admin.apiKeys")}>
-              {d.apiKeys.length === 0 ? <div className="text-sm text-muted-foreground">{t("admin.noKeys")}</div> : (
-                <div className="divide-y divide-border text-sm">
-                  {d.apiKeys.map((k) => (
-                    <div key={k.id} className="flex justify-between py-1.5">
-                      <span className="font-mono">{k.prefix}{k.revoked && <span className="ms-2 text-destructive">revoked</span>}</span>
-                      <span className="text-muted-foreground">{fmtDate(k.lastUsedAt)}</span>
-                    </div>
+              {d.apiKeys.length === 0 ? (
+                <Notice tone="info">{t("admin.noKeys")}</Notice>
+              ) : (
+                <Ledger columns="1.75rem minmax(0,1fr) auto">
+                  <LedgerHead cells={["#", t("admin.apiKeys"), t("admin.lastActive")]} aligns={["start", "start", "end"]} />
+                  {d.apiKeys.map((k, i) => (
+                    <LedgerRow key={k.id}>
+                      <LedgerCell><Serial>{i + 1}</Serial></LedgerCell>
+                      <LedgerCell>
+                        <span className="font-mono">{k.prefix}</span>
+                        {k.revoked && <StatusTag tone="danger" className="ms-2">{t("admin.revokedKeys")}</StatusTag>}
+                      </LedgerCell>
+                      <LedgerCell align="end" mono className="text-xs text-muted-foreground">{fmtDate(k.lastUsedAt)}</LedgerCell>
+                    </LedgerRow>
                   ))}
-                </div>
+                </Ledger>
               )}
             </Group>
+
             <Group title={t("admin.securityHistory")}>
-              {audit.length === 0 ? <div className="text-sm text-muted-foreground">{t("admin.noData")}</div> : (
-                <div className="divide-y divide-border text-sm">
-                  {audit.map((a) => (
-                    <div key={a.id} className="flex justify-between py-1.5">
-                      <span className="font-mono text-xs">{a.action}</span>
-                      <span className="text-muted-foreground">{fmtDateTime(a.createdAt)}</span>
-                    </div>
+              {audit.length === 0 ? (
+                <Notice tone="info">{t("admin.noData")}</Notice>
+              ) : (
+                <Ledger columns="1.75rem minmax(0,1fr) auto">
+                  <LedgerHead cells={["#", t("admin.action"), t("admin.when")]} aligns={["start", "start", "end"]} />
+                  {audit.map((a, i) => (
+                    <LedgerRow key={a.id}>
+                      <LedgerCell><Serial>{i + 1}</Serial></LedgerCell>
+                      <LedgerCell><span className="font-mono text-xs text-foreground">{a.action}</span></LedgerCell>
+                      <LedgerCell align="end" mono className="text-xs text-muted-foreground">{fmtDateTime(a.createdAt)}</LedgerCell>
+                    </LedgerRow>
                   ))}
-                </div>
+                </Ledger>
               )}
             </Group>
           </div>
-        )}
-      </SheetContent>
+          )}
+        </SheetContent>
+      </Sheet>
 
-      <AlertDialog open={confirm !== null} onOpenChange={(open) => { if (!open) setConfirm(null); }}>
+      <AlertDialog open={confirm !== null} onOpenChange={(o) => { if (!o) setConfirm(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("admin.confirmTitle", { defaultValue: t("admin.userDetail") })}</AlertDialogTitle>
+            <AlertDialogTitle>{t("admin.confirmTitle")}</AlertDialogTitle>
             <AlertDialogDescription>{confirm?.message}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t("admin.cancel", { defaultValue: "Cancel" })}</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { const pending = confirm; setConfirm(null); void pending?.run(); }}>
-              {t("admin.confirm", { defaultValue: "Confirm" })}
+            <AlertDialogCancel>{t("admin.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              className={cn(confirm?.destructive && "bg-destructive text-destructive-foreground hover:bg-destructive/90")}
+              onClick={() => confirm?.run()}
+            >
+              {t("admin.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Sheet>
+    </>
   );
 }
 
 // ── Users tab ───────────────────────────────────────────────────────────────
+
+const USERS_COLUMNS =
+  "2.5rem minmax(7rem,1.3fr) minmax(0,1.6fr) 3.25rem 3.25rem 6.5rem 6.5rem 6.5rem 6.5rem";
 
 function UsersTab() {
   const { t } = useTranslation("common");
@@ -416,13 +515,13 @@ function UsersTab() {
   const perPage = data?.perPage ?? 25;
   const total = data?.total ?? 0;
   const maxPage = Math.max(1, Math.ceil(total / perPage));
+  const rows = data?.items ?? [];
 
   return (
     <div className="space-y-4">
       <Panel
-        bare
-        marker="§"
         label={t("admin.users")}
+        bodyClassName="p-0"
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <form onSubmit={(e) => { e.preventDefault(); setPage(1); setSearch(q); }} className="min-w-[180px]">
@@ -450,48 +549,50 @@ function UsersTab() {
           </div>
         }
       >
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b-2 border-foreground text-start t-label">
-                <th className="w-px px-4 py-2.5 text-start">#</th>
-                <th className="px-4 py-2.5 text-start">{t("admin.username")}</th>
-                <th className="px-4 py-2.5 text-start">{t("admin.email")}</th>
-                <th className="px-4 py-2.5 text-start">{t("admin.verified")}</th>
-                <th className="px-4 py-2.5 text-start">{t("admin.twofa")}</th>
-                <th className="px-4 py-2.5 text-start">{t("admin.status")}</th>
-                <th className="px-4 py-2.5 text-start">{t("admin.usage")}</th>
-                <th className="px-4 py-2.5 text-start">{t("admin.lastActive")}</th>
-                <th className="px-4 py-2.5 text-start">{t("admin.plan")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(data?.items ?? []).map((u, i) => (
-                <tr key={u.id} className="cursor-pointer border-b border-border/50 last:border-b-0 hover:bg-muted/40" onClick={() => setDetailId(u.id)}>
-                  <td className="px-4 py-2 align-middle"><Serial tone={u.locked ? "primary" : "muted"}>{(page - 1) * perPage + i + 1}</Serial></td>
-                  <td className="px-4 py-2 font-medium text-foreground">{u.username}{u.isAdmin && <span className="ms-1 text-xs text-muted-foreground">★</span>}{u.locked && <Lock className="ms-1 inline h-3 w-3 text-destructive" />}</td>
-                  <td className="px-4 py-2 text-muted-foreground">{u.email || "—"}</td>
-                  <td className="px-4 py-2">{u.emailVerified ? "✓" : "—"}</td>
-                  <td className="px-4 py-2">{u.twofaEnabled ? "✓" : "—"}</td>
-                  <td className="px-4 py-2 font-mono text-xs uppercase tracking-wide text-muted-foreground">{u.status}</td>
-                  <td className="px-4 py-2 font-mono tabular-nums">{u.usagePct === null ? "∞" : `${u.usageUsed}/${u.usageLimit}`}</td>
-                  <td className="px-4 py-2 text-muted-foreground">{u.lastActive ? fmtDate(u.lastActive) : t("admin.never")}</td>
-                  <td className="px-4 py-2" onClick={(e) => e.stopPropagation()}>
-                    <Select value={u.plan} onValueChange={(v) => changePlan(u.id, v)}>
-                      <SelectTrigger className="h-8 w-24"><SelectValue /></SelectTrigger>
-                      <SelectContent>{PLANS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </td>
-                </tr>
-              ))}
-              {data && data.items.length === 0 && (
-                <tr><td colSpan={9} className="py-6 text-center text-muted-foreground">{t("admin.noUsers")}</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <Ledger columns={USERS_COLUMNS} className="rounded-none border-0 bg-transparent">
+          <LedgerHead
+            cells={["#", t("admin.username"), t("admin.email"), t("admin.verified"), t("admin.twofa"), t("admin.status"), t("admin.usage"), t("admin.lastActive"), t("admin.plan")]}
+            aligns={["start", "start", "start", "start", "start", "start", "end", "start", "start"]}
+          />
+          {rows.map((u, i) => (
+            <LedgerRow key={u.id} className="hover:bg-muted/40">
+              <LedgerCell><Serial tone={u.locked ? "primary" : "muted"}>{(page - 1) * perPage + i + 1}</Serial></LedgerCell>
+              <LedgerCell>
+                <button
+                  type="button"
+                  onClick={() => setDetailId(u.id)}
+                  className="inline-flex items-center gap-1 text-start font-medium text-foreground hover:text-primary hover:underline"
+                >
+                  {u.username}
+                  {u.isAdmin && <span className="text-xs text-primary" aria-hidden="true">★</span>}
+                  {u.locked && (
+                    <>
+                      <Lock className="h-3 w-3 text-destructive" aria-hidden="true" />
+                      <span className="sr-only">{t("admin.locked")}</span>
+                    </>
+                  )}
+                </button>
+              </LedgerCell>
+              <LedgerCell className="truncate text-muted-foreground">{u.email || "—"}</LedgerCell>
+              <LedgerCell>{u.emailVerified ? "✓" : "—"}</LedgerCell>
+              <LedgerCell>{u.twofaEnabled ? "✓" : "—"}</LedgerCell>
+              <LedgerCell><StatusTag tone={subStatusTone(u.status)}>{u.status}</StatusTag></LedgerCell>
+              <LedgerCell align="end" mono>
+                <span className={usageInk(u.usagePct)}>{u.usagePct === null ? "∞" : `${u.usageUsed}/${u.usageLimit}`}</span>
+              </LedgerCell>
+              <LedgerCell className="text-muted-foreground">{u.lastActive ? fmtDate(u.lastActive) : t("admin.never")}</LedgerCell>
+              <LedgerCell>
+                <Select value={u.plan} onValueChange={(v) => changePlan(u.id, v)}>
+                  <SelectTrigger className="h-8 w-24"><SelectValue /></SelectTrigger>
+                  <SelectContent>{PLANS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                </Select>
+              </LedgerCell>
+            </LedgerRow>
+          ))}
+          {data && rows.length === 0 && <LedgerEmpty>{t("admin.noUsers")}</LedgerEmpty>}
+        </Ledger>
         <div className="flex items-center justify-between border-t border-border px-4 py-3 font-mono text-xs text-muted-foreground">
-          <span className="tabular-nums">{t("admin.showing")} {data?.items.length ?? 0} {t("admin.of")} {total}</span>
+          <span className="tabular-nums">{t("admin.showing")} {rows.length} {t("admin.of")} {total}</span>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>{t("admin.prev")}</Button>
             <span className="px-2 py-1 tabular-nums">{page}/{maxPage}</span>
@@ -512,61 +613,70 @@ function RevenueTab() {
   const { data: r, error, reload } = useLoad(() => api.getAdminRevenue());
   if (error) return <LoadError onRetry={reload} />;
   if (!r) return <Spinner />;
-  const planTable = (rows: api.AdminRevenue["basePlans"], title: string) => (
-    <Panel bare marker="§" label={title}>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead><tr className="border-b-2 border-foreground t-label">
-            <th className="w-px pb-2 pe-4 text-start">#</th>
-            <th className="pb-2 pe-4 text-start">{t("admin.plan")}</th>
-            <th className="pb-2 pe-4 text-start">{t("admin.subscribers")}</th>
-            <th className="pb-2 pe-4 text-start">{t("admin.price")}</th>
-            <th className="pb-2 pe-4 text-start">{t("admin.monthly")}</th>
-          </tr></thead>
-          <tbody>
-            {rows.map((p, i) => (
-              <tr key={p.code} className="border-b border-border/50 last:border-b-0">
-                <td className="py-2 pe-4 align-middle"><Serial>{i + 1}</Serial></td>
-                <td className="py-2 pe-4 font-medium">{p.name}</td>
-                <td className="py-2 pe-4 font-mono tabular-nums">{p.subscribers}</td>
-                <td className="py-2 pe-4 font-mono">{money(p.priceCents)}</td>
-                <td className="py-2 pe-4 font-mono font-semibold">{money(p.monthlyCents)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Panel>
-  );
-  return (
-    <div className="space-y-12">
-      <Panel bare marker="§" label={t("admin.estimates", { defaultValue: "Estimated" })}>
-        <div className="mb-5 inline-flex rounded-sm bg-warning/20 px-2 py-1 font-mono text-[11px] uppercase tracking-[0.12em] text-foreground">{t("admin.estimatedNote")}</div>
-        <MetricLedger
-          items={[
-            { label: t("admin.estMrr"), value: money(r.estimatedMrrCents) },
-            { label: t("admin.usageRevenue"), value: money(r.estimatedUsageRevenueCents) },
-            { label: t("admin.pastDue"), value: r.pastDue },
-            { label: t("admin.canceled"), value: r.canceled },
-          ]}
-        />
+  const planLedger = (rows: api.AdminRevenue["basePlans"], title: string) => {
+    const subs = rows.reduce((s, p) => s + p.subscribers, 0);
+    const monthly = rows.reduce((s, p) => s + p.monthlyCents, 0);
+    return (
+      <Panel label={title} bodyClassName="p-0">
+        <Ledger columns="2.5rem minmax(0,1fr) 6rem 6rem 7rem" className="rounded-none border-0 bg-transparent">
+          <LedgerHead
+            cells={["#", t("admin.plan"), t("admin.subscribers"), t("admin.price"), t("admin.monthly")]}
+            aligns={["start", "start", "end", "end", "end"]}
+          />
+          {rows.map((p, i) => (
+            <LedgerRow key={p.code}>
+              <LedgerCell><Serial>{i + 1}</Serial></LedgerCell>
+              <LedgerCell className="font-medium">{p.name}</LedgerCell>
+              <LedgerCell align="end" mono>{p.subscribers}</LedgerCell>
+              <LedgerCell align="end" mono>{money(p.priceCents)}</LedgerCell>
+              <LedgerCell align="end" mono className="font-semibold text-foreground">{money(p.monthlyCents)}</LedgerCell>
+            </LedgerRow>
+          ))}
+          <LedgerFooter left={`${t("admin.subscribers")} · ${subs.toLocaleString()}`} right={`Σ ${money(monthly)}`} />
+        </Ledger>
       </Panel>
-      <Panel bare marker="§" label={t("admin.actualRevenueTitle")}>
+    );
+  };
+  return (
+    <div className="space-y-6">
+      <Notice tone="warning">{t("admin.estimatedNote")}</Notice>
+      <StatBand
+        className="md:grid-cols-2"
+        items={[
+          { label: t("admin.estMrr"), value: money(r.estimatedMrrCents) },
+          { label: t("admin.usageRevenue"), value: money(r.estimatedUsageRevenueCents) },
+        ]}
+      />
+      <MetaStrip
+        className="px-1"
+        items={[
+          { label: t("admin.pastDue"), value: signalTag(r.pastDue, "warning") },
+          { label: t("admin.canceled"), value: signalTag(r.canceled, "danger") },
+        ]}
+      />
+
+      <section className="space-y-3">
+        <SectionRule tick>{t("admin.actualRevenueTitle")}</SectionRule>
         {r.paymentsCount === 0 ? (
-          <div className="text-sm text-muted-foreground">{t("admin.ledgerEmpty")}</div>
+          <Notice tone="info">{t("admin.ledgerEmpty")}</Notice>
         ) : (
-          <MetricLedger
+          <StatBand
             items={[
               { label: t("admin.actualRevenue"), value: money(r.actualCollectedCents) },
               { label: t("admin.grossPaid"), value: money(r.grossPaidCents) },
               { label: t("admin.refunds"), value: money(r.refundsCents) },
-              { label: t("admin.failedPayments"), value: r.failedPaymentsCount, sub: money(r.failedPaymentsCents) },
+              {
+                label: t("admin.failedPayments"),
+                value: r.failedPaymentsCount,
+                sub: money(r.failedPaymentsCents),
+                tag: r.failedPaymentsCount > 0 ? <StatusTag tone="danger">{t("admin.failedPayments")}</StatusTag> : undefined,
+              },
             ]}
           />
         )}
-      </Panel>
-      {planTable(r.basePlans, t("admin.perPlan"))}
-      {planTable(r.apiPlans, t("admin.apiRevenue"))}
+      </section>
+      {planLedger(r.basePlans, t("admin.perPlan"))}
+      {planLedger(r.apiPlans, t("admin.apiRevenue"))}
     </div>
   );
 }
@@ -579,47 +689,47 @@ function UsageTab() {
   if (error) return <LoadError onRetry={reload} />;
   if (!u) return <Spinner />;
   return (
-    <div className="space-y-12">
-      <Panel bare marker="§" label={t("admin.usageSummary", { defaultValue: "Period usage" })}>
-        <MetricLedger
+    <div className="space-y-6">
+      {/* period is pulled out of the tile grid into the panel header; counts read as a strip */}
+      <Panel label={t("admin.tabs.usage")} actions={<Reading label={t("admin.period")} value={u.period} tone="primary" />}>
+        <MetaStrip
+          className="gap-x-8 gap-y-3"
           items={[
-            { label: t("admin.period"), value: u.period },
-            { label: t("admin.interactiveAnalyses"), value: u.interactiveAnalyses },
-            { label: t("admin.apiCalls"), value: u.apiCalls },
-            { label: t("admin.apiPairs"), value: u.apiPairs },
-            { label: t("admin.overQuota"), value: u.overQuotaUsers, sub: `${u.nearQuotaUsers} ${t("admin.nearQuota")}` },
+            { label: t("admin.interactiveAnalyses"), value: u.interactiveAnalyses.toLocaleString() },
+            { label: t("admin.apiCalls"), value: u.apiCalls.toLocaleString() },
+            { label: t("admin.apiPairs"), value: u.apiPairs.toLocaleString() },
+            { label: t("admin.overQuota"), value: signalTag(u.overQuotaUsers, "danger") },
+            { label: t("admin.nearQuota"), value: signalTag(u.nearQuotaUsers, "warning") },
           ]}
         />
       </Panel>
+
       <div className="grid gap-5 md:grid-cols-2">
         <Figure n={1} label={t("admin.topInteractive")}>
           {u.topInteractive.length === 0 ? <div className="text-sm text-muted-foreground">{t("admin.noData")}</div> : (
             <Bars items={u.topInteractive.map((x) => ({ label: x.username, count: x.analyses }))} />
           )}
         </Figure>
-        <Panel bare marker="§" label={t("admin.topApi")}>
-          {u.topApi.length === 0 ? <div className="text-sm text-muted-foreground">{t("admin.noData")}</div> : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead><tr className="border-b-2 border-foreground t-label">
-                  <th className="w-px pb-2 pe-4 text-start">#</th>
-                  <th className="pb-2 pe-4 text-start">{t("admin.username")}</th>
-                  <th className="pb-2 pe-4 text-start">{t("admin.calls")}</th>
-                  <th className="pb-2 pe-4 text-start">{t("admin.pairs")}</th>
-                </tr></thead>
-                <tbody>
-                  {u.topApi.map((x, i) => (
-                    <tr key={x.userId} className="border-b border-border/50 last:border-b-0">
-                      <td className="py-2 pe-4 align-middle"><Serial>{i + 1}</Serial></td>
-                      <td className="py-2 pe-4">{x.username}</td>
-                      <td className="py-2 pe-4 font-mono tabular-nums">{x.calls}</td>
-                      <td className="py-2 pe-4 font-mono tabular-nums">{x.pairs}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+        <Panel label={t("admin.topApi")} bodyClassName="p-0">
+          <Ledger columns="2.5rem minmax(0,1fr) 5rem 5rem" className="rounded-none border-0 bg-transparent">
+            <LedgerHead cells={["#", t("admin.username"), t("admin.calls"), t("admin.pairs")]} aligns={["start", "start", "end", "end"]} />
+            {u.topApi.map((x, i) => (
+              <LedgerRow key={x.userId}>
+                <LedgerCell><Serial tone={i === 0 ? "primary" : "muted"}>{i + 1}</Serial></LedgerCell>
+                <LedgerCell>{x.username}</LedgerCell>
+                <LedgerCell align="end" mono>{x.calls.toLocaleString()}</LedgerCell>
+                <LedgerCell align="end" mono>{x.pairs.toLocaleString()}</LedgerCell>
+              </LedgerRow>
+            ))}
+            {u.topApi.length === 0 ? (
+              <LedgerEmpty>{t("admin.noData")}</LedgerEmpty>
+            ) : (
+              <LedgerFooter
+                left={`${t("admin.calls")} / ${t("admin.pairs")}`}
+                right={`Σ ${u.topApi.reduce((s, x) => s + x.calls, 0).toLocaleString()} / ${u.topApi.reduce((s, x) => s + x.pairs, 0).toLocaleString()}`}
+              />
+            )}
+          </Ledger>
         </Panel>
       </div>
       <div className="font-mono text-xs text-muted-foreground">{u.note}</div>
@@ -643,24 +753,20 @@ function ActivityTab() {
     </span>
   );
   return (
-    <div className="space-y-12">
-      <Panel bare marker="§" label={t("admin.timeSeries", { defaultValue: "Daily activity" })}>
-        <div className="grid gap-5 md:grid-cols-3">
-          <Figure n={1} label={t("admin.signupsPerDay")} actions={total(sum(a.signupsPerDay))}><Bars items={asBars(a.signupsPerDay)} /></Figure>
-          <Figure n={2} label={t("admin.analysesPerDay")} actions={total(sum(a.analysesPerDay))}><Bars items={asBars(a.analysesPerDay)} /></Figure>
-          <Figure n={3} label={t("admin.dau")} actions={total(sum(a.activeUsersPerDay))}><Bars items={asBars(a.activeUsersPerDay)} /></Figure>
-        </div>
-      </Panel>
-      <Panel bare marker="§" label={t("admin.distributions", { defaultValue: "Distributions" })}>
-        <div className="grid gap-5 md:grid-cols-2">
-          <Figure n={4} label={t("admin.languageMix")} actions={total(sum(dist.languages.map((l) => ({ count: l.count }))))}>
-            <Bars items={dist.languages.map((l) => ({ label: l.language, count: l.count }))} />
-          </Figure>
-          <Figure n={5} label={t("admin.similarityMix")} actions={total(sum(dist.similarity.map((s) => ({ count: s.count }))))}>
-            <Bars items={dist.similarity.map((s) => ({ label: s.range, count: s.count }))} />
-          </Figure>
-        </div>
-      </Panel>
+    <div className="space-y-5">
+      <div className="grid gap-5 md:grid-cols-3">
+        <Figure n={1} label={t("admin.signupsPerDay")} actions={total(sum(a.signupsPerDay))}><Bars items={asBars(a.signupsPerDay)} /></Figure>
+        <Figure n={2} label={t("admin.analysesPerDay")} actions={total(sum(a.analysesPerDay))}><Bars items={asBars(a.analysesPerDay)} /></Figure>
+        <Figure n={3} label={t("admin.dau")} actions={total(sum(a.activeUsersPerDay))}><Bars items={asBars(a.activeUsersPerDay)} /></Figure>
+      </div>
+      <div className="grid gap-5 md:grid-cols-2">
+        <Figure n={4} label={t("admin.languageMix")} actions={total(sum(dist.languages.map((l) => ({ count: l.count }))))}>
+          <Bars items={dist.languages.map((l) => ({ label: l.language, count: l.count }))} />
+        </Figure>
+        <Figure n={5} label={t("admin.similarityMix")} actions={total(sum(dist.similarity.map((s) => ({ count: s.count }))))}>
+          <Bars items={dist.similarity.map((s) => ({ label: s.range, count: s.count }))} />
+        </Figure>
+      </div>
     </div>
   );
 }
@@ -673,54 +779,57 @@ function SecurityTab() {
   if (error) return <LoadError onRetry={reload} />;
   if (!s) return <Spinner />;
   return (
-    <div className="space-y-12">
-      <Panel bare marker="§" label={t("admin.securitySummary", { defaultValue: "Security posture" })}>
-        <MetricLedger
+    <div className="space-y-6">
+      <Panel label={t("admin.tabs.security")}>
+        <MetaStrip
+          className="gap-x-8 gap-y-3"
           items={[
-            { label: t("admin.locked"), value: s.lockedCount },
-            { label: t("admin.failedLogins24h"), value: s.failedLogins24h },
-            { label: t("admin.twofa"), value: s.twofaUsers },
-            { label: t("admin.dormantKeys"), value: s.dormantApiKeys },
-            { label: t("admin.revokedKeys"), value: s.revokedApiKeys },
+            { label: t("admin.locked"), value: signalTag(s.lockedCount, "warning") },
+            { label: t("admin.failedLogins24h"), value: signalTag(s.failedLogins24h, "warning") },
+            { label: t("admin.twofa"), value: s.twofaUsers.toLocaleString() },
+            { label: t("admin.dormantKeys"), value: s.dormantApiKeys.toLocaleString() },
+            { label: t("admin.revokedKeys"), value: s.revokedApiKeys.toLocaleString() },
           ]}
         />
       </Panel>
-      <Panel bare marker="§" label={t("admin.lockedAccounts")}>
-        {s.lockedAccounts.length === 0 ? <div className="text-sm text-muted-foreground">{t("admin.noLocked")}</div> : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead><tr className="border-b-2 border-foreground t-label">
-                <th className="w-px pb-2 pe-4 text-start">#</th>
-                <th className="pb-2 pe-4 text-start">{t("admin.username")}</th>
-                <th className="pb-2 pe-4 text-start">{t("admin.failedLogins")}</th>
-                <th className="pb-2 pe-4 text-start">{t("admin.lockedUntil")}</th>
-              </tr></thead>
-              <tbody>
-                {s.lockedAccounts.map((a, i) => (
-                  <tr key={a.id} className="border-b border-border/50 last:border-b-0">
-                    <td className="py-2 pe-4 align-middle"><Serial tone="primary">{i + 1}</Serial></td>
-                    <td className="py-2 pe-4">{a.username}</td>
-                    <td className="py-2 pe-4 font-mono tabular-nums">{a.failedLoginCount}</td>
-                    <td className="py-2 pe-4 text-muted-foreground">{fmtDateTime(a.lockedUntil)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+
+      <Panel label={t("admin.lockedAccounts")} bodyClassName="p-0">
+        <Ledger columns="2.5rem minmax(0,1fr) 7rem minmax(0,1fr)" className="rounded-none border-0 bg-transparent">
+          <LedgerHead cells={["#", t("admin.username"), t("admin.failedLogins"), t("admin.lockedUntil")]} aligns={["start", "start", "end", "end"]} />
+          {s.lockedAccounts.map((a, i) => (
+            <LedgerRow key={a.id}>
+              <LedgerCell><Serial tone="primary">{i + 1}</Serial></LedgerCell>
+              <LedgerCell className="font-medium">{a.username}</LedgerCell>
+              <LedgerCell align="end"><StatusTag tone={failedTone(a.failedLoginCount)}>{a.failedLoginCount}</StatusTag></LedgerCell>
+              <LedgerCell align="end" mono className="text-xs text-muted-foreground">{fmtDateTime(a.lockedUntil)}</LedgerCell>
+            </LedgerRow>
+          ))}
+          {s.lockedAccounts.length === 0 ? (
+            <LedgerEmpty>{t("admin.noLocked")}</LedgerEmpty>
+          ) : (
+            <LedgerFooter
+              left={`${s.lockedAccounts.length} ${t("admin.lockedAccounts")}`}
+              right={`Σ ${s.lockedAccounts.reduce((sum, a) => sum + a.failedLoginCount, 0).toLocaleString()}`}
+            />
+          )}
+        </Ledger>
       </Panel>
-      <Panel bare marker="§" label={t("admin.adminActions")}>
-        {s.recentAdminActions.length === 0 ? <div className="text-sm text-muted-foreground">{t("admin.noData")}</div> : (
-          <ol className="divide-y divide-border text-sm">
-            {s.recentAdminActions.map((a, i) => (
-              <li key={a.id} className="flex items-center gap-3 py-2.5">
-                <Serial>{i + 1}</Serial>
-                <span className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">{a.action}{a.detail ? <span className="text-muted-foreground"> · {a.detail}</span> : null}</span>
-                <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">{fmtDateTime(a.createdAt)}</span>
-              </li>
-            ))}
-          </ol>
-        )}
+
+      <Panel label={t("admin.adminActions")} bodyClassName="p-0">
+        <Ledger columns="2.5rem minmax(0,1fr) auto" className="rounded-none border-0 bg-transparent">
+          <LedgerHead cells={["#", t("admin.action"), t("admin.when")]} aligns={["start", "start", "end"]} />
+          {s.recentAdminActions.map((a, i) => (
+            <LedgerRow key={a.id}>
+              <LedgerCell><Serial>{i + 1}</Serial></LedgerCell>
+              <LedgerCell className="truncate">
+                <span className="font-mono text-xs text-foreground">{a.action}</span>
+                {a.detail ? <span className="font-mono text-xs text-muted-foreground"> · {a.detail}</span> : null}
+              </LedgerCell>
+              <LedgerCell align="end" mono className="text-xs text-muted-foreground">{fmtDateTime(a.createdAt)}</LedgerCell>
+            </LedgerRow>
+          ))}
+          {s.recentAdminActions.length === 0 && <LedgerEmpty>{t("admin.noData")}</LedgerEmpty>}
+        </Ledger>
       </Panel>
     </div>
   );
@@ -740,11 +849,7 @@ const Admin = () => {
     { label: t("admin.verified"), value: m ? m.verifiedUsers.toLocaleString() : "—" },
     {
       label: t("admin.locked"),
-      value: m ? (
-        <span className={m.lockedUsers > 0 ? "font-semibold text-foreground" : undefined}>{m.lockedUsers.toLocaleString()}</span>
-      ) : (
-        "—"
-      ),
+      value: m ? signalTag(m.lockedUsers, "warning") : "—",
     },
   ];
 
@@ -755,12 +860,13 @@ const Admin = () => {
         title={t("admin.title")}
         description={t("admin.subtitle")}
         meta={meta}
+        actions={<span className="stamp">{t("admin.classification", { defaultValue: "Restricted" })}</span>}
       />
 
-      {/* Console section switch — mono, ruled, like a log filter rail */}
+      {/* Console section switch — a mono, ruled section index: NN + label, not
+          metaphor icons, so the rail reads like a case-file table of contents */}
       <div className="flex flex-wrap gap-1 border-b border-border" role="tablist">
-        {TABS.map((tb) => {
-          const Icon = TAB_ICON[tb];
+        {TABS.map((tb, i) => {
           const active = tab === tb;
           return (
             <button
@@ -770,10 +876,12 @@ const Admin = () => {
               onClick={() => setTab(tb)}
               className={cn(
                 "flex items-center gap-2 border-b-2 px-4 py-2 font-mono text-xs uppercase tracking-wide transition-colors",
-                active ? "border-primary font-semibold text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
+                active ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground",
               )}
             >
-              <Icon className="h-3.5 w-3.5" />
+              <span className={cn("text-[10px] tabular-nums", active ? "text-primary" : "text-muted-foreground/50")} aria-hidden="true">
+                {String(i + 1).padStart(2, "0")}
+              </span>
               {t(`admin.tabs.${tb}`)}
             </button>
           );

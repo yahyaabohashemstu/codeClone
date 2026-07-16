@@ -16,8 +16,8 @@ const RISK_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
 const RISK_STYLES: Record<string, { color: string; bg: string }> = {
   critical: { color: "text-destructive", bg: "bg-destructive/10 border-destructive/30" },
   high: { color: "text-destructive", bg: "bg-destructive/10 border-destructive/30" },
-  moderate: { color: "text-foreground", bg: "bg-warning/10 border-warning/30" },
-  low: { color: "text-success", bg: "bg-success/10 border-success/30" },
+  moderate: { color: "text-warning", bg: "bg-warning/10 border-warning/30" },
+  low: { color: "text-muted-foreground", bg: "bg-muted/50 border-border" },
   none: { color: "text-success", bg: "bg-success/10 border-success/30" },
 };
 
@@ -33,7 +33,7 @@ const SEV_DOTS: Record<string, string> = {
   critical: "bg-destructive",
   high: "bg-destructive",
   medium: "bg-warning",
-  low: "bg-success",
+  low: "bg-muted-foreground",
   info: "bg-muted-foreground",
 };
 
@@ -57,7 +57,7 @@ export function StructuredReport({ data }: { data: StructuredReportType }) {
   return (
     <div className="space-y-4" dir={isRTL ? "rtl" : "ltr"}>
       {/* Risk Badge + Verdict */}
-      <div className={cn("flex items-start gap-3 rounded-lg border p-4", riskStyle.bg)}>
+      <div className={cn("flex items-start gap-3 rounded-xl border p-4", riskStyle.bg)}>
         <RiskIcon className={cn("mt-0.5 h-5 w-5 shrink-0", riskStyle.color)} />
         <div className="min-w-0">
           <p className={cn("text-xs font-semibold uppercase tracking-wide", riskStyle.color)}>
@@ -89,7 +89,7 @@ export function StructuredReport({ data }: { data: StructuredReportType }) {
             <AlertTriangle className="h-4 w-4 text-primary" />
             {t("results.structured.findings")}
             {data.findings?.length > 0 && (
-              <span className="ml-auto rounded-sm bg-primary/15 px-2 py-0.5 font-display text-[10px] font-semibold text-foreground">
+              <span className="ml-auto rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
                 {data.findings.length}
               </span>
             )}
@@ -105,7 +105,7 @@ export function StructuredReport({ data }: { data: StructuredReportType }) {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium text-foreground">{f.title}</span>
-                    <span className="rounded-sm border border-border px-1.5 py-0.5 font-display text-[10px] font-semibold uppercase text-muted-foreground">
+                    <span className="rounded-full border border-current px-1.5 py-0.5 text-[10px] font-semibold opacity-70" style={{ color: "inherit" }}>
                       {t(sevLabelKey)}
                     </span>
                   </div>

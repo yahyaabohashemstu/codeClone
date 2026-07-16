@@ -10,6 +10,9 @@ import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { cn } from "@/lib/utils";
 
+// The ⌘ glyph only reads on macOS; Windows/Linux users press Ctrl.
+const IS_MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
+
 export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -17,10 +20,6 @@ export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
   const { isAuthenticated, user, logout } = useAuth();
   const { isRTL } = useLanguage();
   const { t } = useTranslation("common");
-
-  // Show the modifier that matches the user's platform, not a hardcoded ⌘.
-  const isMac = typeof navigator !== "undefined" && /mac|iphone|ipad/i.test(navigator.userAgent);
-  const shortcutHint = isMac ? "⌘K" : "Ctrl K";
 
   const routeTitle = t(`routes.${location.pathname}`, { defaultValue: t("header.workspace") });
 
@@ -90,7 +89,7 @@ export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
               isRTL ? "mr-auto" : "ml-auto",
             )}
           >
-            {shortcutHint}
+            {IS_MAC ? "⌘K" : "Ctrl K"}
           </kbd>
         </button>
       </div>

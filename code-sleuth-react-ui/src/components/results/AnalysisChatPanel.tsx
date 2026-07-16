@@ -1,10 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Clock, Link2, MessageSquare, ScanSearch, Send, User } from "lucide-react";
+import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 import { useLanguage } from "@/context/LanguageContext";
-import { cn } from "@/lib/utils";
+import {
+  Panel,
+  MetaStrip,
+  StatusTag,
+  Serial,
+  Field,
+  Transcript,
+  TranscriptTurn,
+} from "@/components/dossier/Dossier";
 
 interface ChatMessage {
   id: string;
@@ -136,97 +144,122 @@ export function AnalysisChatPanel({
     }
   };
 
+  const speakerFor = (role: ChatMessage["role"]) =>
+    role === "assistant" ? t("results.chat.speakerAssistant") : t("results.chat.speakerUser");
+
   return (
-    <div className="card-premium flex h-[620px] flex-col overflow-hidden">
-      <div className="flex items-center gap-2 border-b border-border/50 px-5 py-4">
-        <MessageSquare className="h-4 w-4 text-primary" />
-        <div>
-          <h3 className="font-display text-sm font-semibold text-foreground">{t("results.chat.title")}</h3>
-          <p className="mt-1 text-xs text-muted-foreground">{t("results.chat.description")}</p>
-        </div>
-        {grounded && (
-          <span className="ml-auto badge-success">
-            <Link2 className="h-3 w-3" />
-            {t("results.chat.grounded")}
-          </span>
-        )}
-      </div>
+    <div className="space-y-4">
+      {/* Document header line: the state of the record at a glance, in instrument voice. */}
+      <MetaStrip
+        items={[
+          {
+            label: t("results.chat.grounding"),
+            value: (
+              <span className={grounded ? "text-success" : "text-muted-foreground"}>
+                {grounded ? t("results.chat.groundingLive") : t("results.chat.groundingNone")}
+              </span>
+            ),
+          },
+          { label: t("results.chat.turns"), value: messages.length },
+          { label: t("results.chat.mode"), value: t("results.chat.modeValue") },
+        ]}
+      />
 
-      <div className="flex-1 space-y-4 overflow-y-auto p-4 scrollbar-thin">
-        {messages.map((message) => (
-          <div key={message.id} className={cn("flex gap-3", message.role === "user" ? "justify-end" : "justify-start")}>
-            {message.role === "assistant" && (
-              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/12">
-                <ScanSearch className="h-4 w-4 text-primary" />
-              </div>
+      <Panel
+        label={t("results.chat.record")}
+        actions={
+          <StatusTag tone={grounded ? "ok" : "warn"}>
+            {grounded ? t("results.chat.statusGrounded") : t("results.chat.statusUngrounded")}
+          </StatusTag>
+        }
+        bodyClassName="flex h-[620px] flex-col p-0"
+      >
+        {/* The examination log — margin-labelled turns, no bubbles or avatars. */}
+        <div className="scrollbar-thin flex-1 overflow-y-auto">
+          <Transcript className="px-5 pb-2">
+            {messages.map((message, i) => (
+              <TranscriptTurn
+                key={message.id}
+                role={message.role}
+                serial={<Serial tone={message.role === "assistant" ? "primary" : "muted"}>{String(i + 1).padStart(2, "0")}</Serial>}
+                speaker={speakerFor(message.role)}
+                time={message.time}
+              >
+                {message.content}
+              </TranscriptTurn>
+            ))}
+
+            {isSending && (
+              <TranscriptTurn
+                role="assistant"
+                serial={<Serial tone="primary">··</Serial>}
+                speaker={t("results.chat.speakerAssistant")}
+              >
+                <span className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.12em] text-muted-foreground">
+                  {t("results.chat.examining")}
+                  <span className="inline-flex items-center gap-1" aria-hidden="true">
+                    <span className="h-1 w-1 animate-bounce rounded-full bg-primary/60 motion-reduce:animate-none" style={{ animationDelay: "0ms" }} />
+                    <span className="h-1 w-1 animate-bounce rounded-full bg-primary/60 motion-reduce:animate-none" style={{ animationDelay: "150ms" }} />
+                    <span className="h-1 w-1 animate-bounce rounded-full bg-primary/60 motion-reduce:animate-none" style={{ animationDelay: "300ms" }} />
+                  </span>
+                </span>
+              </TranscriptTurn>
             )}
 
-            <div className="max-w-[82%] space-y-1">
-              <div className={message.role === "user" ? "chat-bubble-user" : "chat-bubble-ai"}>
-                <div className="whitespace-pre-wrap leading-relaxed">{message.content}</div>
-              </div>
-              <div className={cn("flex items-center gap-1 text-[10px] text-muted-foreground", message.role === "user" ? "justify-end" : "justify-start")}>
-                <Clock className="h-2.5 w-2.5" />
-                {message.time}
-              </div>
-            </div>
-
-            {message.role === "user" && (
-              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
-                <User className="h-4 w-4 text-muted-foreground" />
-              </div>
-            )}
-          </div>
-        ))}
-
-        {isSending && (
-          <div className="flex gap-3 justify-start">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/12">
-              <ScanSearch className="h-4 w-4 text-primary" />
-            </div>
-            <div className="chat-bubble-ai flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/50" style={{ animationDelay: "0ms" }} />
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/50" style={{ animationDelay: "150ms" }} />
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/50" style={{ animationDelay: "300ms" }} />
-            </div>
-          </div>
-        )}
-
-        <div ref={bottomRef} />
-      </div>
-
-      <div className="border-t border-border/50 px-4 py-3">
-        <div className="mb-3 flex flex-wrap gap-2">
-          {suggestions.map((suggestion) => (
-            <button
-              key={suggestion}
-              type="button"
-              onClick={() => void sendMessage(suggestion)}
-              className="rounded-md border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"
-            >
-              {suggestion}
-            </button>
-          ))}
+            <div ref={bottomRef} />
+          </Transcript>
         </div>
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                void sendMessage();
-              }
-            }}
-            placeholder={t("results.chat.placeholder")}
-            className="input-focus h-11 flex-1 rounded-md border border-border bg-card px-4 text-sm text-foreground placeholder:text-muted-foreground/40"
-          />
-          <Button size="icon" className="h-11 w-11 rounded-md" onClick={() => void sendMessage()} disabled={!input.trim() || isSending}>
-            <Send className="h-4 w-4" />
-          </Button>
+
+        {/* Composer: a ruled index of stock queries, then a Field-framed input row. */}
+        <div className="shrink-0 border-t border-border">
+          <div className="t-label px-5 pt-4">{t("results.chat.inquiry")}</div>
+          <ul className="mt-2 divide-y divide-border border-y border-border">
+            {suggestions.map((suggestion, i) => (
+              <li key={suggestion}>
+                <button
+                  type="button"
+                  onClick={() => void sendMessage(suggestion)}
+                  disabled={isSending}
+                  className="flex w-full items-center gap-3 px-5 py-2 text-start transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Serial>{String(i + 1).padStart(2, "0")}</Serial>
+                  <span className="text-sm text-muted-foreground">{suggestion}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          <div className="px-5">
+            <Field label={t("results.chat.enterQuery")} align="center">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(event) => setInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      void sendMessage();
+                    }
+                  }}
+                  placeholder={t("results.chat.placeholder")}
+                  aria-label={t("results.chat.enterQuery")}
+                  className="h-11 flex-1 rounded-md border border-border bg-card px-3 text-sm text-foreground focus:border-primary/60 focus:outline-none focus:ring-1 focus:ring-primary/20 placeholder:text-muted-foreground/50"
+                />
+                <Button
+                  size="icon"
+                  className="h-11 w-11 rounded-md"
+                  onClick={() => void sendMessage()}
+                  disabled={!input.trim() || isSending}
+                  aria-label={t("results.chat.send")}
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+            </Field>
+          </div>
         </div>
-      </div>
+      </Panel>
     </div>
   );
 }

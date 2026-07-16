@@ -14,7 +14,7 @@ export function PageLoader({ message }: PageLoaderProps) {
       role="status"
       aria-live="polite"
     >
-      <div className="relative h-10 w-10">
+      <div className="relative h-10 w-10" aria-hidden="true">
         <div className="absolute inset-0 rounded-full border-4 border-primary/20" />
         <div className="absolute inset-0 animate-spin rounded-full border-4 border-transparent border-t-primary" />
       </div>

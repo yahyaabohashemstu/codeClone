@@ -1,17 +1,17 @@
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, Eye, EyeOff, Lock } from "lucide-react";
+import { Eye, EyeOff, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Notice, Panel } from "@/components/dossier/Dossier";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
-import { cn } from "@/lib/utils";
 
 const ResetPassword = () => {
   const { resetPassword } = useAuth();
   const { t } = useTranslation("auth");
-  const { isRTL, localizeRuntimeMessage } = useLanguage();
+  const { localizeRuntimeMessage } = useLanguage();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const token = params.get("token") || "";
@@ -47,77 +47,73 @@ const ResetPassword = () => {
 
   if (done) {
     return (
-      <div className="mx-auto max-w-md rounded-lg border border-border bg-card p-10 text-center">
-        <div className="mb-4 flex justify-center">
-          <CheckCircle2 className="h-9 w-9 text-success" />
-        </div>
-        <h1 className="t-h3">{t("auth.resetDoneTitle")}</h1>
-        <p className="mt-2 t-body">{t("auth.resetDoneDescription")}</p>
-        <Button asChild className="mt-6 h-10 w-full">
-          <Link to="/login">{t("auth.backToLogin")}</Link>
-        </Button>
+      <div className="mx-auto max-w-md py-4">
+        <Panel bodyClassName="p-6 sm:p-8">
+          <h1 className="t-h3">{t("auth.resetDoneTitle")}</h1>
+          <Notice tone="success" className="mt-4">
+            {t("auth.resetDoneDescription")}
+          </Notice>
+          <Button asChild className="mt-6 h-11 w-full">
+            <Link to="/login">{t("auth.backToLogin")}</Link>
+          </Button>
+        </Panel>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-md rounded-lg border border-border bg-card p-10">
-      <h1 className="t-h3 text-center">{t("auth.resetTitle")}</h1>
-      <p className="mt-2 mb-6 text-center t-body">{t("auth.resetDescription")}</p>
+    <div className="mx-auto max-w-md py-4">
+      <Panel bodyClassName="p-6 sm:p-8">
+        <h1 className="t-h3">{t("auth.resetTitle")}</h1>
+        <p className="mt-1.5 t-body">{t("auth.resetDescription")}</p>
 
-      {error && (
-        <div
-          className="mb-4 rounded-md border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-          role="alert"
-        >
-          {error}
-        </div>
-      )}
-
-      <form className="space-y-4" onSubmit={(e) => void handleSubmit(e)}>
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-foreground">
-            {t("auth.newPassword")}
-          </label>
-          <div className="relative">
-            <Lock className={cn("absolute top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground", isRTL ? "right-3" : "left-3")} />
-            <Input
-              type={showPassword ? "text" : "password"}
-              value={password}
-              autoComplete="new-password"
-              onChange={(e) => setPassword(e.target.value)}
-              className={cn("h-10", isRTL ? "pr-10 pl-10 text-right" : "pl-10 pr-10")}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword((v) => !v)}
-              className={cn("absolute top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground", isRTL ? "left-3" : "right-3")}
-              aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
-            >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
+        {error && (
+          <div role="alert" className="mt-4">
+            <Notice tone="danger">{error}</Notice>
           </div>
+        )}
+
+        <form className="mt-6 space-y-4" onSubmit={(e) => void handleSubmit(e)}>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-foreground">
+              {t("auth.newPassword")}
+            </label>
+            <div className="relative">
+              <Lock className="absolute top-1/2 start-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                autoComplete="new-password"
+                onChange={(e) => setPassword(e.target.value)}
+                className="h-10 ps-10 pe-10 text-start"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute top-1/2 end-3 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+
+          <Button type="submit" disabled={isSubmitting} className="mt-2 h-11 w-full gap-2">
+            {isSubmitting ? (
+              <span className="flex items-center gap-2">
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                {t("auth.updating")}
+              </span>
+            ) : (
+              t("auth.updatePassword")
+            )}
+          </Button>
+        </form>
+
+        <div className="mt-5 text-sm">
+          <Link to="/login" className="text-primary hover:underline">{t("auth.backToLogin")}</Link>
         </div>
-
-        <Button
-          type="submit"
-          disabled={isSubmitting}
-          className="mt-2 h-11 w-full gap-2"
-        >
-          {isSubmitting ? (
-            <span className="flex items-center gap-2">
-              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-              {t("auth.updating")}
-            </span>
-          ) : (
-            t("auth.updatePassword")
-          )}
-        </Button>
-      </form>
-
-      <div className="mt-5 text-center text-sm">
-        <Link to="/login" className="text-foreground underline underline-offset-2 hover:opacity-70">{t("auth.backToLogin")}</Link>
-      </div>
+      </Panel>
     </div>
   );
 };
