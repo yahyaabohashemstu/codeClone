@@ -20,7 +20,10 @@ from backend.services.ai_service import (
     check_ai_health,
     generate_ai_chat,
 )
-from backend.services.analysis_service import restore_saved_analysis_context
+from backend.services.analysis_service import (
+    render_analysis_markdown,
+    restore_saved_analysis_context,
+)
 from backend.services.cache_service import build_cached_analysis_data
 from backend.utils.localization import (
     get_ai_response_language_name,
@@ -122,4 +125,12 @@ def api_chat():
 
     response_text = generate_ai_chat(messages)
 
-    return jsonify({"response": response_text, "grounded": grounded})
+    # The model answers in Markdown (headings, lists, tables, fenced code). Render
+    # it with the same markdown2 pipeline that produces ``analysis_html`` so the
+    # chat and the AI report share one formatting vocabulary. ``response`` is kept
+    # verbatim for clients that want the plain text (and as the client's fallback).
+    return jsonify({
+        "response": response_text,
+        "response_html": render_analysis_markdown(response_text),
+        "grounded": grounded,
+    })

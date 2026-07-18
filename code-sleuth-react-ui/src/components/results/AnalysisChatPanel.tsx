@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
+import { sanitizeHtml } from "@/lib/sanitize";
 import { useLanguage } from "@/context/LanguageContext";
 import {
   Panel,
@@ -18,6 +19,9 @@ interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
+  /** Server-rendered Markdown for AI answers. Absent on user turns and on the
+      plain localized intro/error strings, which render as text. */
+  html?: string;
   time: string;
 }
 
@@ -110,7 +114,7 @@ export function AnalysisChatPanel({
     setIsSending(true);
 
     try {
-      const response = await apiFetch<{ response: string; grounded?: boolean }>("/api/chat", {
+      const response = await apiFetch<{ response: string; response_html?: string; grounded?: boolean }>("/api/chat", {
         method: "POST",
         body: JSON.stringify({
           message: content,
@@ -125,6 +129,7 @@ export function AnalysisChatPanel({
           id: crypto.randomUUID(),
           role: "assistant",
           content: response.response,
+          html: response.response_html,
           time: justNow,
         },
       ]);
@@ -185,7 +190,17 @@ export function AnalysisChatPanel({
                 speaker={speakerFor(message.role)}
                 time={message.time}
               >
-                {message.content}
+                {message.html ? (
+                  // The turn wrapper sets whitespace-pre-wrap for plain text; rendered
+                  // Markdown must reset it or every newline in the HTML source becomes
+                  // visible slack between blocks.
+                  <div
+                    className="analysis-markdown chat-markdown whitespace-normal"
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(message.html) }}
+                  />
+                ) : (
+                  message.content
+                )}
               </TranscriptTurn>
             ))}
 
