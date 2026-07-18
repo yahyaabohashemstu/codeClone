@@ -64,11 +64,14 @@
       "freePrice": "Free",
       "includedPer": "{{n}} pairs / month",
       "overageThen": "then {{rate}} / 1,000",
-      "hardCapNote": "Hard-capped — no overage"
+      "hardCapNote": "Hard-capped — no overage",
+      "limitLabel": "Allowance reached"
     },
     "docs": {
       "heading": "API documentation",
       "intro": "Call the Clone Lens public API from a script, CI pipeline, or service."
-    }
+    },
+    "railSections": "Sections",
+    "railFigures": "Figures"
   }
 }

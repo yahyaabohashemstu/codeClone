@@ -1,6 +1,13 @@
 {
   "results": {
     "title": "Analysis Results",
+    "rail": {
+      "sections": "Sections",
+      "readings": "Readings",
+      "combined": "Combined",
+      "confidence": "Confidence",
+      "corroborating": "Corroborating"
+    },
     "tabs": {
       "overview": "Overview",
       "diff": "Diff",

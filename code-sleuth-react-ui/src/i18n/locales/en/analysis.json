@@ -38,11 +38,13 @@
     "params": {
       "comparator": "Comparator",
       "method": "Method",
-      "case": "Case"
+      "case": "Case",
+      "label": "Parameters"
     },
     "engine": {
       "label": "Engine modules",
-      "online": "Online"
+      "online": "Online",
+      "modules": "{{count}} modules"
     },
     "capabilities": {
       "toggle": "Analysis capabilities included in this run",
@@ -71,6 +73,8 @@
       "draft": "DRAFT",
       "autosave": "Autosave",
       "on": "ON"
-    }
+    },
+    "comparatorReadings": "Comparator",
+    "methodGroupLabel": "Input method for source {{label}}"
   }
 }

@@ -43,13 +43,11 @@
     "/settings": "الإعدادات",
     "/admin": "الإدارة",
     "/api-keys": "مفاتيح API",
-    "/verify-email": "تأكيد البريد",
+    "/verify-email": "تأكيد البريد الإلكتروني",
     "/reset-password": "إعادة تعيين كلمة المرور",
     "/terms": "شروط الخدمة",
     "/privacy": "سياسة الخصوصية",
-    "/status": "حالة النظام",
-    "/reset-password": "إعادة تعيين كلمة المرور",
-    "/verify-email": "تأكيد البريد الإلكتروني"
+    "/status": "حالة النظام"
   },
   "buttons": {
     "save": "حفظ",
@@ -219,7 +217,9 @@
     "analyses": "تحليل",
     "loadError": "فشل تحميل التحليلات.",
     "eyebrow": "أرقام الاستخدام",
-    "last7Days": "آخر 7 أيام"
+    "last7Days": "آخر 7 أيام",
+    "railFigures": "الأرقام",
+    "distributions": "التوزيعات"
   },
   "platform": "منصة التحليل",
   "brandName": "Clone Lens",
@@ -236,7 +236,8 @@
       "totalAnalyses": "إجمالي التحليلات",
       "highSimilarity": "تشابه مرتفع",
       "languagesUsed": "اللغات المستخدمة",
-      "last7Days": "آخر 7 أيام"
+      "last7Days": "آخر 7 أيام",
+      "registerLabel": "السجلّ"
     },
     "searchPlaceholder": "ابحث في المصادر أو اللغة…",
     "allLanguages": "كل اللغات",
@@ -286,7 +287,8 @@
       "open": "تعذر فتح هذا التحليل.",
       "export": "تعذر تصدير هذا التحليل.",
       "delete": "تعذر حذف هذا التحليل."
-    }
+    },
+    "showing": "معروض"
   },
   "chat": {
     "eyebrow": "محادثة مُسنَدة",
@@ -301,7 +303,9 @@
     "modeConsult": "استشارة",
     "modeGrounded": "موثّقة",
     "groundingNone": "لا شيء",
-    "statusNoContext": "بلا سياق"
+    "statusNoContext": "بلا سياق",
+    "groundedOn": "مُؤسَّس على",
+    "groundingLabel": "التأريض"
   },
   "billing": {
     "title": "الخطة والاستخدام",
@@ -338,7 +342,10 @@
     "loadError": "تعذّر تحميل تفاصيل الفوترة. حاول مرة أخرى.",
     "retry": "إعادة المحاولة",
     "noPlans": "لا توجد خطط متاحة حاليًا.",
-    "processing": "جارٍ المعالجة..."
+    "processing": "جارٍ المعالجة...",
+    "railAccount": "الحساب",
+    "statusLabel": "الحالة",
+    "periodLabel": "الفترة"
   },
   "settings": {
     "title": "الإعدادات",
@@ -398,7 +405,15 @@
     "deleteIntro": "احذف حسابك وكل البيانات المرتبطة به نهائيًا. لا يمكن التراجع.",
     "deleteConfirm": "اكتب كلمة مرورك للتأكيد.",
     "deleteButton": "حذف حسابي",
-    "deleting": "جارٍ الحذف…"
+    "deleting": "جارٍ الحذف…",
+    "contents": "المحتويات",
+    "record": "السجلّ",
+    "recordUser": "المستخدم",
+    "recordRole": "الدور",
+    "recordEmail": "البريد",
+    "twofaQr": "رمز QR للإعداد",
+    "twofaSecret": "المفتاح السرّي",
+    "twofaCode": "رمز التحقّق"
   },
   "admin": {
     "title": "الإدارة",
@@ -532,6 +547,14 @@
     "noPayments": "لا مدفوعات",
     "loadError": "تعذّر التحميل — أعد المحاولة.",
     "retry": "إعادة المحاولة",
-    "suspended": "موقوف"
+    "suspended": "موقوف",
+    "loading": "جارٍ التحميل…",
+    "censusNote": "الإحصاء",
+    "signalsTitle": "الإشارات",
+    "estimatedRevenueTitle": "تقديري",
+    "classification": "مُقيَّد",
+    "sectionsLabel": "الأقسام",
+    "censusLabel": "الإحصاء",
+    "signalsLabel": "الإشارات"
   }
 }

@@ -64,11 +64,14 @@
       "freePrice": "مجاني",
       "includedPer": "{{n}} زوج / شهر",
       "overageThen": "ثم {{rate}} لكل 1000",
-      "hardCapNote": "حدّ صارم — بلا زيادة"
+      "hardCapNote": "حدّ صارم — بلا زيادة",
+      "limitLabel": "بلغت الحصّة"
     },
     "docs": {
       "heading": "توثيق الـ API",
       "intro": "استدعِ الـ API العام لِـ Clone Lens من سكربت أو خط CI أو خدمة."
-    }
+    },
+    "railSections": "الأقسام",
+    "railFigures": "الأرقام"
   }
 }

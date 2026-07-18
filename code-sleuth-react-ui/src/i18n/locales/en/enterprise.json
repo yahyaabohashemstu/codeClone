@@ -24,7 +24,8 @@
       "created": "Created",
       "createdDesc": "Workspace \"{{name}}\" is ready.",
       "creationFailed": "Creation failed",
-      "eyebrow": "Enterprise admin"
+      "eyebrow": "Enterprise admin",
+      "registerLabel": "Register"
     },
     "workspaceDetail": {
       "back": "Workspaces",
@@ -90,7 +91,16 @@
       "colType": "Clone type",
       "colStatus": "Status",
       "userHash": "User #",
-      "dossierKicker": "Workspace"
+      "dossierKicker": "Workspace",
+      "contents": "Contents",
+      "colRepo": "Repository",
+      "colProvider": "Provider",
+      "colBranch": "Branch",
+      "colRegion": "Region",
+      "colVerdict": "Verdict",
+      "colUser": "User",
+      "colLastActive": "Last active",
+      "colRole": "Role"
     },
     "cases": {
       "title": "Review Cases",
@@ -113,7 +123,9 @@
       "colPaths": "Artifacts",
       "colScore": "Score",
       "colType": "Clone type",
-      "colStatus": "Status"
+      "colStatus": "Status",
+      "docketLabel": "Docket",
+      "colVerdict": "Verdict"
     },
     "caseDetail": {
       "back": "Back",
@@ -153,7 +165,14 @@
       "updatedDesc": "Case updated successfully.",
       "updateFailed": "Update failed",
       "feedbackSubmitted": "Feedback submitted",
-      "submissionFailed": "Submission failed"
+      "submissionFailed": "Submission failed",
+      "contents": "Contents",
+      "percentConfidence": "% conf",
+      "breakdown": "Breakdown",
+      "scale": "Scale",
+      "evidenceType": "Type",
+      "evidenceDetail": "Detail",
+      "records": "Records"
     },
     "status": {
       "all": "All",
@@ -183,7 +202,8 @@
       "confirm": "Create",
       "save": "Save",
       "submit": "Submit",
-      "delete": "Delete"
+      "delete": "Delete",
+      "retry": "Retry"
     }
   }
 }
