@@ -192,7 +192,8 @@
         "title": "File + ZIP + Excel",
         "description": "Analyze pasted snippets, uploaded source files, ZIP projects, or spreadsheet-derived code samples."
       }
-    ]
+    ],
+    "featuresNote": "{{count}} modules"
   },
   "analytics": {
     "title": "Analytics Dashboard",
@@ -219,7 +220,8 @@
     "eyebrow": "Usage figures",
     "last7Days": "Last 7 days",
     "railFigures": "Figures",
-    "distributions": "Distributions"
+    "distributions": "Distributions",
+    "activitySection": "Activity"
   },
   "platform": "Analysis Platform",
   "brandName": "Clone Lens",
@@ -345,7 +347,9 @@
     "processing": "Processing…",
     "railAccount": "Account",
     "statusLabel": "Status",
-    "periodLabel": "Period"
+    "periodLabel": "Period",
+    "statusAlertLabel": "Subscription needs attention",
+    "statusAlertBody": "Your subscription is {{status}}. Manage your subscription to restore full access."
   },
   "settings": {
     "title": "Settings",
@@ -555,6 +559,7 @@
     "classification": "Restricted",
     "sectionsLabel": "Sections",
     "censusLabel": "Census",
-    "signalsLabel": "Signals"
+    "signalsLabel": "Signals",
+    "distributionsTitle": "Distributions"
   }
 }

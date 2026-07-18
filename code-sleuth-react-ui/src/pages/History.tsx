@@ -277,6 +277,11 @@ const History = () => {
       {/* Document layout — the register readings sit in the margin rail, the
           filters + ruled ledger form the main column (asymmetric, not a stack). */}
       <DocFrame
+        // The rail + gap-x-10 are charged to the main column, and the register is
+        // an 8-track ledger. RailReadings only needs room for a mono label and a
+        // tabular value, so this page runs a 12rem rail (vs the 14rem default) and
+        // hands the reclaimed 2rem back to the ledger's source-path tracks.
+        railWidth="12rem"
         rail={
           <RailReadings
             label={t("history.stats.registerLabel", { defaultValue: "Register" })}
@@ -352,8 +357,14 @@ const History = () => {
         </div>
       </div>
 
-      {/* Exhibit ledger — one ruled register; Serial flags flagged rows, ScoreMeter carries the band. */}
-      <Ledger columns="2.75rem minmax(0,1fr) minmax(0,1fr) 6.5rem 11rem 6.5rem 9.5rem 10rem">
+      {/* Exhibit ledger — one ruled register; Serial flags flagged rows, ScoreMeter carries the band.
+          The template is budgeted for the *narrowed* main column (page width − 12rem rail − 2.5rem
+          gap). The two source tracks carry a 7rem floor so they degrade to truncation instead of
+          collapsing to zero, and every fixed track is trimmed to its real content width:
+          #=Serial, lang=one Tag, score=meter+3-char readout, severity=one StatusTag,
+          date=2 mono lines, actions=5 × 32px icon buttons + gap-1. Head and rows share this one
+          string via LedgerCtx, so they cannot drift. */}
+      <Ledger columns="2.5rem minmax(7rem,1fr) minmax(7rem,1fr) 5.5rem 7rem 4.75rem 6.5rem 11rem">
         <LedgerHead
           cells={[
             "#",

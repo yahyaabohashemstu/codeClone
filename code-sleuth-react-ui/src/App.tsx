@@ -43,18 +43,52 @@ const SuspenseFallback = () => (
 
 // React Router's <Link to="#id"> pushes a hash-only location but does not scroll
 // to the target, so in-page contents rails (RailNav/Ledger hash links) would be
-// dead affordances. This restores native anchor behaviour app-wide: whenever the
-// hash changes, scroll the matching element into view once it has mounted.
+// dead affordances. This restores native anchor behaviour app-wide.
+//
+// Keyed on location.key as well as hash so re-activating the SAME anchor scrolls
+// again, and it polls briefly because a deep link lands before the lazy route
+// chunk has mounted the target section.
 const ScrollToHash = () => {
-  const { hash } = useLocation();
+  const { hash, key } = useLocation();
+
   useEffect(() => {
     if (!hash) return;
-    const id = decodeURIComponent(hash.slice(1));
-    const raf = requestAnimationFrame(() => {
-      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [hash]);
+
+    // A malformed escape (e.g. "#%") makes decodeURIComponent throw. This component
+    // sits above the ErrorBoundary, so an unguarded throw would blank the whole app.
+    let id = hash.slice(1);
+    try {
+      id = decodeURIComponent(id);
+    } catch {
+      /* keep the raw fragment — it still matches ids without escapes */
+    }
+    if (!id) return;
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let timer = 0;
+    // Retries are scheduled on a timer rather than requestAnimationFrame: rAF does
+    // not fire at all while the document is hidden, so a link opened in a background
+    // tab would never scroll. Bounded by attempt COUNT so a throttled background tab
+    // still has its retries left when it becomes visible.
+    let attemptsLeft = 60;
+
+    const tick = () => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+        // Move the reading position too, so keyboard and screen-reader users follow
+        // the jump instead of being left behind in the rail.
+        el.setAttribute("tabindex", "-1");
+        el.focus({ preventScroll: true });
+        return;
+      }
+      if (attemptsLeft-- > 0) timer = window.setTimeout(tick, 50);
+    };
+
+    timer = window.setTimeout(tick, 0);
+    return () => window.clearTimeout(timer);
+  }, [hash, key]);
+
   return null;
 };
 

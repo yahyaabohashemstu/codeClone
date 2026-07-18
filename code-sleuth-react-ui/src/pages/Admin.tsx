@@ -11,7 +11,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Masthead, Panel, Figure, Serial, Field, FieldSheet, Reading,
+  Masthead, Figure, Serial, Field, FieldSheet, Reading,
   StatusTag, Meter, SectionRule, Notice,
   Ledger, LedgerHead, LedgerRow, LedgerCell, LedgerFooter, LedgerEmpty,
   DocFrame, RailNav, RailReadings, DocSection, ReadoutGrid, ReadoutRow,
@@ -38,8 +38,27 @@ type SemTone = "ok" | "warning" | "danger" | "muted";
 const subStatusTone = (s: string): SemTone =>
   s === "active" ? "ok" : s === "past_due" ? "warning" : s === "canceled" ? "danger" : "muted";
 
+/** The tone vocabulary a rail reading understands (RailReadings' `tone` prop). */
+type RailTone = "default" | "primary" | "success" | "warning" | "danger";
+
+// One place to calibrate the failed-login alarm, so the ledger stamp in
+// SecurityTab and the live rail reading can never drift apart: any failure is a
+// warning, a run of five is the lockout threshold and reads destructive.
+const FAILED_WARN_AT = 1;
+const FAILED_DANGER_AT = 5;
+
 /** Failed-login count → escalating tone. */
-const failedTone = (n: number): SemTone => (n >= 5 ? "danger" : n >= 1 ? "warning" : "muted");
+const failedTone = (n: number): SemTone =>
+  n >= FAILED_DANGER_AT ? "danger" : n >= FAILED_WARN_AT ? "warning" : "muted";
+
+/** Failed-login count → the same escalation expressed as a rail reading tone. */
+const railFailedTone = (n: number): RailTone =>
+  n >= FAILED_DANGER_AT ? "danger" : n >= FAILED_WARN_AT ? "warning" : "default";
+
+/** Locked accounts → a rail reading tone. A lock is a held state an operator must
+ *  clear, not an attack in progress, so it warns but never escalates to danger —
+ *  matching the `warning` stamp SecurityTab §01 puts on the same count. */
+const railLockedTone = (n: number): RailTone => (n > 0 ? "warning" : "default");
 
 /** Payment status → semantic tone. */
 const paymentTone = (s: string): SemTone => {
@@ -159,16 +178,13 @@ function OverviewTab() {
         </ReadoutGrid>
       </DocSection>
 
-      {/* §02 Signals — the number is the content, the stamp colour is the state */}
-      <DocSection n="02" title={t("admin.signalsTitle", { defaultValue: "Signals" })}>
-        <ReadoutGrid>
-          <ReadoutRow label={t("admin.locked")} value={signalTag(m.lockedUsers, "warning")} />
-          <ReadoutRow label={t("admin.failedLogins24h")} value={signalTag(m.failedLogins24h, "warning")} />
-        </ReadoutGrid>
-      </DocSection>
+      {/* The security signals (locked accounts, failed logins) are deliberately NOT
+          restated here: the margin rail carries them live on every tab from this
+          same endpoint, and SecurityTab §01 holds the full detail. A third copy on
+          the default tab was pure duplication. */}
 
-      {/* §03 Plan distribution — figure-framed bar readouts */}
-      <DocSection n="03" title={t("admin.planMix")}>
+      {/* §02 Plan distribution — figure-framed bar readouts */}
+      <DocSection n="02" title={t("admin.planMix")}>
         <div className="grid gap-5 md:grid-cols-2">
           <Figure n={1} label={t("admin.planMix")} actions={<Reading label={t("admin.users")} value={m.totalUsers.toLocaleString()} />}>
             <Bars items={PLANS.map((p) => ({ label: p, count: m.planCounts[p] ?? 0 }))} />
@@ -179,8 +195,8 @@ function OverviewTab() {
         </div>
       </DocSection>
 
-      {/* §04 New signups — mono readouts */}
-      <DocSection n="04" title={t("admin.newSignups")}>
+      {/* §03 New signups — mono readouts */}
+      <DocSection n="03" title={t("admin.newSignups")}>
         <ReadoutGrid>
           <ReadoutRow label={t("admin.today")} value={m.signups.today.toLocaleString()} />
           <ReadoutRow label={t("admin.days7")} value={m.signups.last7d.toLocaleString()} />
@@ -481,38 +497,37 @@ function UsersTab() {
   const rows = data?.items ?? [];
 
   return (
-    <div className="space-y-4">
-      <Panel
-        label={t("admin.users")}
-        bodyClassName="p-0"
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <form onSubmit={(e) => { e.preventDefault(); setPage(1); setSearch(q); }} className="min-w-[180px]">
-              <Input placeholder={t("admin.search")} value={q} onChange={(e) => setQ(e.target.value)} className="h-8" />
-            </form>
-            <Select value={plan} onValueChange={(v) => { setPlan(v); setPage(1); }}>
-              <SelectTrigger className="h-8 w-28"><SelectValue placeholder={t("admin.plan")} /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t("admin.all")}</SelectItem>
-                {PLANS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1); }}>
-              <SelectTrigger className="h-8 w-32"><SelectValue placeholder={t("admin.status")} /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t("admin.all")}</SelectItem>
-                <SelectItem value="active">active</SelectItem>
-                <SelectItem value="past_due">past_due</SelectItem>
-                <SelectItem value="canceled">canceled</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button asChild variant="outline" size="sm" className="h-8">
-              <a href={csvUrl} download>{t("admin.exportCsv")}</a>
-            </Button>
-          </div>
-        }
-      >
-        <Ledger columns={USERS_COLUMNS} className="rounded-none border-0 bg-transparent">
+    <div>
+      {/* §01 Register — the same ruled §-section the other tabs use, framing the
+          users ledger. The filter set reads as a hairline instrument strip above
+          the ledger rather than a boxed card header. */}
+      <DocSection n="01" title={t("admin.users")} note={total ? total.toLocaleString() : undefined}>
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <form onSubmit={(e) => { e.preventDefault(); setPage(1); setSearch(q); }} className="min-w-[180px]">
+            <Input placeholder={t("admin.search")} value={q} onChange={(e) => setQ(e.target.value)} className="h-8" />
+          </form>
+          <Select value={plan} onValueChange={(v) => { setPlan(v); setPage(1); }}>
+            <SelectTrigger className="h-8 w-28"><SelectValue placeholder={t("admin.plan")} /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("admin.all")}</SelectItem>
+              {PLANS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1); }}>
+            <SelectTrigger className="h-8 w-32"><SelectValue placeholder={t("admin.status")} /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("admin.all")}</SelectItem>
+              <SelectItem value="active">active</SelectItem>
+              <SelectItem value="past_due">past_due</SelectItem>
+              <SelectItem value="canceled">canceled</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button asChild variant="outline" size="sm" className="ms-auto h-8">
+            <a href={csvUrl} download>{t("admin.exportCsv")}</a>
+          </Button>
+        </div>
+
+        <Ledger columns={USERS_COLUMNS}>
           <LedgerHead
             cells={["#", t("admin.username"), t("admin.email"), t("admin.verified"), t("admin.twofa"), t("admin.status"), t("admin.usage"), t("admin.lastActive"), t("admin.plan")]}
             aligns={["start", "start", "start", "start", "start", "start", "end", "start", "start"]}
@@ -554,7 +569,10 @@ function UsersTab() {
           ))}
           {data && rows.length === 0 && <LedgerEmpty>{t("admin.noUsers")}</LedgerEmpty>}
         </Ledger>
-        <div className="flex items-center justify-between border-t border-border px-4 py-3 font-mono text-xs text-muted-foreground">
+
+        {/* Pagination sits outside the ledger box so it stays flat rather than
+            adding a second boxed footer bar under a bordered table. */}
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 font-mono text-xs text-muted-foreground">
           <span className="tabular-nums">{t("admin.showing")} {rows.length} {t("admin.of")} {total}</span>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>{t("admin.prev")}</Button>
@@ -562,7 +580,7 @@ function UsersTab() {
             <Button variant="outline" size="sm" disabled={page >= maxPage} onClick={() => setPage((p) => p + 1)}>{t("admin.next")}</Button>
           </div>
         </div>
-      </Panel>
+      </DocSection>
 
       {detailId !== null && <UserDetailModal userId={detailId} onClose={() => setDetailId(null)} onChanged={load} />}
     </div>
@@ -715,20 +733,28 @@ function ActivityTab() {
     </span>
   );
   return (
-    <div className="space-y-5">
-      <div className="grid gap-5 md:grid-cols-3">
-        <Figure n={1} label={t("admin.signupsPerDay")} actions={total(sum(a.signupsPerDay))}><Bars items={asBars(a.signupsPerDay)} /></Figure>
-        <Figure n={2} label={t("admin.analysesPerDay")} actions={total(sum(a.analysesPerDay))}><Bars items={asBars(a.analysesPerDay)} /></Figure>
-        <Figure n={3} label={t("admin.dau")} actions={total(sum(a.activeUsersPerDay))}><Bars items={asBars(a.activeUsersPerDay)} /></Figure>
-      </div>
-      <div className="grid gap-5 md:grid-cols-2">
-        <Figure n={4} label={t("admin.languageMix")} actions={total(sum(dist.languages.map((l) => ({ count: l.count }))))}>
-          <Bars items={dist.languages.map((l) => ({ label: l.language, count: l.count }))} />
-        </Figure>
-        <Figure n={5} label={t("admin.similarityMix")} actions={total(sum(dist.similarity.map((s) => ({ count: s.count }))))}>
-          <Bars items={dist.similarity.map((s) => ({ label: s.range, count: s.count }))} />
-        </Figure>
-      </div>
+    <div>
+      {/* §01 Daily series — the 30-day trend figures, under a real section heading
+          instead of a bare grid hanging beneath the page h1. */}
+      <DocSection n="01" title={t("admin.tabs.activity")} note={t("admin.days30")}>
+        <div className="grid gap-5 md:grid-cols-3">
+          <Figure n={1} label={t("admin.signupsPerDay")} actions={total(sum(a.signupsPerDay))}><Bars items={asBars(a.signupsPerDay)} /></Figure>
+          <Figure n={2} label={t("admin.analysesPerDay")} actions={total(sum(a.analysesPerDay))}><Bars items={asBars(a.analysesPerDay)} /></Figure>
+          <Figure n={3} label={t("admin.dau")} actions={total(sum(a.activeUsersPerDay))}><Bars items={asBars(a.activeUsersPerDay)} /></Figure>
+        </div>
+      </DocSection>
+
+      {/* §02 Distributions — the corpus mixes, a separate reading from the series */}
+      <DocSection n="02" title={t("admin.distributionsTitle", { defaultValue: "Distributions" })}>
+        <div className="grid gap-5 md:grid-cols-2">
+          <Figure n={4} label={t("admin.languageMix")} actions={total(sum(dist.languages.map((l) => ({ count: l.count }))))}>
+            <Bars items={dist.languages.map((l) => ({ label: l.language, count: l.count }))} />
+          </Figure>
+          <Figure n={5} label={t("admin.similarityMix")} actions={total(sum(dist.similarity.map((s) => ({ count: s.count }))))}>
+            <Bars items={dist.similarity.map((s) => ({ label: s.range, count: s.count }))} />
+          </Figure>
+        </div>
+      </DocSection>
     </div>
   );
 }
@@ -805,10 +831,12 @@ const Admin = () => {
   // A lightweight, always-on read powering the rail's live console readings.
   const { data: m } = useLoad(() => api.getAdminMetrics());
 
-  // Live security signals — quiet (default) at zero, escalating when the alarm fires.
-  const lockedTone: "default" | "warning" = m && m.lockedUsers > 0 ? "warning" : "default";
-  const failedTone24h: "default" | "warning" | "danger" =
-    !m ? "default" : m.failedLogins24h >= 5 ? "danger" : m.failedLogins24h > 0 ? "warning" : "default";
+  // Live security signals — quiet (default) at zero, escalating when the alarm
+  // fires. Both read from the shared thresholds so the rail and SecurityTab's
+  // ledger stamps always agree. RailReadings renders `warning` as ink-on-amber,
+  // so a warning reading stays visibly distinct from the default ink.
+  const lockedTone = railLockedTone(m?.lockedUsers ?? 0);
+  const failedTone24h = railFailedTone(m?.failedLogins24h ?? 0);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -827,6 +855,7 @@ const Admin = () => {
             {/* Console section index — a mono §NN table of contents wired to the tab state */}
             <RailNav
               label={t("admin.sectionsLabel", { defaultValue: "Sections" })}
+              ariaLabel={t("admin.sectionsLabel", { defaultValue: "Sections" })}
               items={TABS.map((tb, i) => ({
                 n: String(i + 1).padStart(2, "0"),
                 label: t(`admin.tabs.${tb}`),

@@ -4,24 +4,16 @@ import { useTranslation } from "react-i18next";
 import {
   Activity,
   AlertTriangle,
-  BarChart3,
   Bookmark,
   CheckCircle2,
   ChevronLeft,
   Code2,
   Download,
-  FileText,
-  MessageSquare,
   RefreshCw,
   ScrollText,
-  Share2,
-  ShieldAlert,
-  TrendingUp,
-  Diff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { AnalysisChatPanel } from "@/components/results/AnalysisChatPanel";
 import { AnalysisReport } from "@/components/results/AnalysisReport";
@@ -56,15 +48,16 @@ import type { TFunction } from "i18next";
 
 type ResultTab = "overview" | "diff" | "graphs" | "metrics" | "quality" | "report" | "chat";
 
-function getTabs(t: TFunction): Array<{ id: ResultTab; label: string; icon: typeof BarChart3 }> {
+// The section index. RailNav renders label text only — no icons.
+function getTabs(t: TFunction): Array<{ id: ResultTab; label: string }> {
   return [
-    { id: "overview", label: t("results.tabs.overview"), icon: BarChart3 },
-    { id: "diff", label: t("results.tabs.diff"), icon: Diff },
-    { id: "graphs", label: t("results.tabs.graphs"), icon: Share2 },
-    { id: "metrics", label: t("results.tabs.metrics"), icon: TrendingUp },
-    { id: "quality", label: t("results.tabs.quality"), icon: ShieldAlert },
-    { id: "report", label: t("results.tabs.report"), icon: FileText },
-    { id: "chat", label: t("results.tabs.chat"), icon: MessageSquare },
+    { id: "overview", label: t("results.tabs.overview") },
+    { id: "diff", label: t("results.tabs.diff") },
+    { id: "graphs", label: t("results.tabs.graphs") },
+    { id: "metrics", label: t("results.tabs.metrics") },
+    { id: "quality", label: t("results.tabs.quality") },
+    { id: "report", label: t("results.tabs.report") },
+    { id: "chat", label: t("results.tabs.chat") },
   ];
 }
 
@@ -255,7 +248,21 @@ function SimilaritySignals({ items, n }: { items: SimilarityItem[]; n: string })
     <DocSection
       n={n}
       title={t("results.similarity.title")}
-      note={`${items.length} · ${strongest ? `${Math.round(strongest.value)}%` : "—"} peak`}
+      // The note names the strongest signal rather than showing a bare number, so
+      // the reading is legible without the old header — and translatable.
+      note={
+        strongest
+          ? t("results.similarity.sectionNote", {
+              defaultValue: "{{total}} signals · strongest {{name}} {{value}}%",
+              total: items.length,
+              name: translateSimilarityName(strongest.name, t),
+              value: Math.round(strongest.value),
+            })
+          : t("results.similarity.sectionNoteEmpty", {
+              defaultValue: "{{total}} signals · no reading",
+              total: items.length,
+            })
+      }
     >
       <ReadoutGrid cols={2} className="border-t border-border/60">
         {items.map((item) => (
@@ -531,14 +538,16 @@ type QualityReport = {
 
 /** Severity → kit tones. `tag` colours the StatusTag stamp; `notice` colours the
     Notice inline-start accent edge. Colour encodes severity, never decoration. */
+// `primary` is reserved for action / focus / current-state, so the non-actionable
+// style + info severities take the neutral muted stamp instead of the indigo one.
 const qualitySeverityTone: Record<
   QualitySeverity,
-  { tag: "danger" | "warning" | "primary"; notice: "danger" | "warning" | "info" }
+  { tag: "danger" | "warning" | "muted"; notice: "danger" | "warning" | "info" }
 > = {
   critical: { tag: "danger", notice: "danger" },
   warning: { tag: "warning", notice: "warning" },
-  style: { tag: "primary", notice: "info" },
-  info: { tag: "primary", notice: "info" },
+  style: { tag: "muted", notice: "info" },
+  info: { tag: "muted", notice: "info" },
 };
 
 /** The status-stamp tone for a source's overall quality disposition. */
@@ -681,50 +690,14 @@ function parseQualityReport(rawValue: unknown, sourceName: string, fallback: str
   };
 }
 
-function getQualityToneMeta(statusTone: QualityReport["statusTone"], t: TFunction) {
-  if (statusTone === "excellent") {
-    return {
-      badgeClass: "badge-success",
-      containerClass: "border-success/20 bg-success/[0.04]",
-      scoreClass: "text-success",
-      label: t("results.quality.statusTone.excellent"),
-      icon: CheckCircle2,
-    };
-  }
-  if (statusTone === "healthy") {
-    return {
-      badgeClass: "badge-success",
-      containerClass: "border-success/14 bg-success/[0.03]",
-      scoreClass: "text-success",
-      label: t("results.quality.statusTone.healthy"),
-      icon: CheckCircle2,
-    };
-  }
-  if (statusTone === "watch") {
-    return {
-      badgeClass: "badge-warning",
-      containerClass: "border-warning/18 bg-warning/[0.04]",
-      scoreClass: "text-warning",
-      label: t("results.quality.statusTone.needsReview"),
-      icon: ShieldAlert,
-    };
-  }
-  if (statusTone === "critical") {
-    return {
-      badgeClass: "badge-error",
-      containerClass: "border-destructive/18 bg-destructive/[0.04]",
-      scoreClass: "text-destructive",
-      label: t("results.quality.statusTone.highRisk"),
-      icon: AlertTriangle,
-    };
-  }
-  return {
-    badgeClass: "badge-info",
-    containerClass: "border-border/60 bg-card",
-    scoreClass: "text-foreground",
-    label: t("results.quality.statusTone.diagnosticView"),
-    icon: FileText,
-  };
+/** The translated stamp label for a source's overall quality disposition.
+    Colour is carried by `qualityStatusTone` + StatusTag, not by this helper. */
+function getQualityToneLabel(statusTone: QualityReport["statusTone"], t: TFunction): string {
+  if (statusTone === "excellent") return t("results.quality.statusTone.excellent");
+  if (statusTone === "healthy") return t("results.quality.statusTone.healthy");
+  if (statusTone === "watch") return t("results.quality.statusTone.needsReview");
+  if (statusTone === "critical") return t("results.quality.statusTone.highRisk");
+  return t("results.quality.statusTone.diagnosticView");
 }
 
 function QualitySourceCard({
@@ -740,7 +713,7 @@ function QualitySourceCard({
 }) {
   const { t } = useTranslation("results");
   const totalFindings = report.issues.length;
-  const toneMeta = getQualityToneMeta(report.statusTone, t);
+  const toneLabel = getQualityToneLabel(report.statusTone, t);
   const topIssues = report.issues.slice(0, 8);
   const warningCount = report.counts.warning + report.counts.style;
   const severityLabels: Record<QualitySeverity, string> = {
@@ -772,7 +745,7 @@ function QualitySourceCard({
         </span>
       }
       note={report.score !== null ? `${report.score.toFixed(1)}/10` : "\u2014"}
-      actions={<StatusTag tone={qualityStatusTone(report.statusTone)}>{toneMeta.label}</StatusTag>}
+      actions={<StatusTag tone={qualityStatusTone(report.statusTone)}>{toneLabel}</StatusTag>}
     >
       <p className="text-sm font-medium text-foreground">{report.headline}</p>
       <p className="mt-1 t-body">{report.summary}</p>
@@ -825,7 +798,7 @@ function QualitySourceCard({
         <div className="mt-5">
           <div className="mb-3 flex items-center gap-2">
             <ScrollText className="h-4 w-4 text-primary" />
-            <h4 className="t-label text-foreground">{t("results.quality.priorityFindings")}</h4>
+            <h3 className="t-label text-foreground">{t("results.quality.priorityFindings")}</h3>
           </div>
           <div className="space-y-2">
             {topIssues.map((issue, index) => {
@@ -837,7 +810,7 @@ function QualitySourceCard({
                   label={
                     <div className="flex flex-wrap items-center gap-2">
                       <StatusTag tone={tone.tag}>{severityLabels[issue.severity]}</StatusTag>
-                      {issue.symbol && <Tag tone="primary">{issue.symbol}</Tag>}
+                      {issue.symbol && <Tag tone="neutral">{issue.symbol}</Tag>}
                       {(issue.line !== null || issue.column !== null) && (
                         <Tag tone="neutral">
                           {issue.line !== null ? t("results.quality.line", { line: issue.line }) : t("results.quality.lineEmpty")}
@@ -1426,13 +1399,16 @@ const Results = () => {
           </>
         }
       >
-        {/* Radix keeps the URL-mirrored value + per-panel mounting; only the
-            horizontal tab strip is gone — the rail RailNav drives selection. */}
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as ResultTab)}>
+        {/* RailNav is the section switcher, so there is no tab strip and no
+            tabpanel to label — the active section is rendered straight into the
+            main column. Only the selected section mounts, as before; the choice
+            still lives in the URL via activeTab. */}
+        <div key={activeTab}>
 
         {/* §01 Overview — the exact signal values + clone evidence lead; the
             redundant radar and the raw source view fold behind disclosure. */}
-        <TabsContent value="overview" className="focus-visible:outline-none">
+        {activeTab === "overview" && (
+        <>
           {/* §01 — verdict → evidence chain, read as a ruled document section */}
           <DocSection n="01" title={t("results.drivers.label")} note={`→ ${overallScoreLabel}%`}>
             <p className="t-body">
@@ -1481,9 +1457,10 @@ const Results = () => {
               </div>
             </details>
           </div>
-        </TabsContent>
+        </>
+        )}
 
-        <TabsContent value="diff" className="focus-visible:outline-none">
+        {activeTab === "diff" && (
           <ErrorBoundary fallback={<PanelErrorFallback />}>
             <DiffViewer
               analysisId={result.saved_analysis_id}
@@ -1491,9 +1468,9 @@ const Results = () => {
               labelB={result.source_labels.code2}
             />
           </ErrorBoundary>
-        </TabsContent>
+        )}
 
-        <TabsContent value="graphs" className="focus-visible:outline-none">
+        {activeTab === "graphs" && (
           <div className="grid gap-5 xl:grid-cols-2">
             <ErrorBoundary fallback={<PanelErrorFallback />}>
               <AstGraphPanel title={t("results.graph1")} color="primary" elements={result.graph_json1} />
@@ -1502,32 +1479,30 @@ const Results = () => {
               <AstGraphPanel title={t("results.graph2")} color="accent" elements={result.graph_json2} />
             </ErrorBoundary>
           </div>
-        </TabsContent>
+        )}
 
-        <TabsContent value="metrics" className="focus-visible:outline-none">
+        {activeTab === "metrics" && (
           <ErrorBoundary fallback={<PanelErrorFallback />}>
             <MetricsComparison metricsA={result.metrics1} metricsB={result.metrics2} />
           </ErrorBoundary>
-        </TabsContent>
+        )}
 
-        <TabsContent value="quality" className="focus-visible:outline-none">
-          <QualityPanel result={result} />
-        </TabsContent>
+        {activeTab === "quality" && <QualityPanel result={result} />}
 
-        <TabsContent value="report" className="focus-visible:outline-none">
+        {activeTab === "report" && (
           <div className="space-y-6">
             {result.analysis_structured && <StructuredReport data={result.analysis_structured} />}
             <AnalysisReport html={result.analysis_html} />
           </div>
-        </TabsContent>
+        )}
 
-        <TabsContent value="chat" className="focus-visible:outline-none">
+        {activeTab === "chat" && (
           <AnalysisChatPanel
             analysisId={result.saved_analysis_id}
             contextLabel={`${result.source_labels.code1} \u2194 ${result.source_labels.code2}`}
           />
-        </TabsContent>
-        </Tabs>
+        )}
+        </div>
       </DocFrame>
 
       <PdfExportDialog

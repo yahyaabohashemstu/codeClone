@@ -59,15 +59,24 @@ const Help = () => {
     },
   ];
 
+  // Index-aligned topic codes for the FAQ gutter (content-accurate, mono codes).
+  const faqTopics = ["LANGUAGES", "DETECTION", "UPLOAD", "SCORING", "API", "SECURITY"];
+
+  // Every FAQ row is stamped #faq-01…#faq-NN, so a quick link can land on its own
+  // question instead of dumping the reader at the top of §03. Resolved by topic
+  // code rather than a hard index, so reordering the FAQ cannot silently misaim a
+  // link; an unknown code falls back to the section anchor.
+  const faqAnchor = (topic: string) => {
+    const i = faqTopics.indexOf(topic);
+    return i >= 0 ? `#faq-${String(i + 1).padStart(2, "0")}` : "#faq";
+  };
+
   const quickLinks = [
     { labelKey: "help.quickLinks.runAnalysis", href: "/analysis" },
     { labelKey: "help.quickLinks.viewResults", href: "/results" },
-    { labelKey: "help.quickLinks.securityFaq", href: "#faq" },
-    { labelKey: "help.quickLinks.apiGuide", href: "#faq" },
+    { labelKey: "help.quickLinks.securityFaq", href: faqAnchor("SECURITY") },
+    { labelKey: "help.quickLinks.apiGuide", href: faqAnchor("API") },
   ];
-
-  // Index-aligned topic codes for the FAQ gutter (content-accurate, mono codes).
-  const faqTopics = ["LANGUAGES", "DETECTION", "UPLOAD", "SCORING", "API", "SECURITY"];
 
   const sections = [
     { id: "support", n: "01", label: t("help.support.title", { defaultValue: "Support channels" }), count: supportCards.length },
@@ -193,18 +202,23 @@ const Help = () => {
           <Panel bodyClassName="p-0">
             <dl className="divide-y divide-border">
               {faqItems.map((item, i) => (
+                // Each row wrapper holds <dt> and <dd> directly, so the term/definition
+                // pairing survives; the gutter (serial + topic) rides inside the <dt>
+                // and borrows the wrapper's tracks via subgrid to keep the two-column
+                // layout. scroll-mt-20 clears the sticky header on a #faq-NN jump.
                 <div
-                  key={i}
-                  className="grid grid-cols-1 gap-x-5 gap-y-2 px-5 py-5 sm:grid-cols-[minmax(3rem,5rem)_1fr] sm:px-6"
+                  key={`faq-${String(i + 1).padStart(2, "0")}`}
+                  id={`faq-${String(i + 1).padStart(2, "0")}`}
+                  className="grid scroll-mt-20 grid-cols-1 gap-x-5 gap-y-2 px-5 py-5 sm:grid-cols-[minmax(3rem,5rem)_1fr] sm:px-6"
                 >
-                  <div className="flex flex-row items-center gap-2 pt-0.5 sm:flex-col sm:items-start">
-                    <Serial tone="muted">{`Q${String(i + 1).padStart(2, "0")}`}</Serial>
-                    {faqTopics[i] && <Tag tone="neutral">{faqTopics[i]}</Tag>}
-                  </div>
-                  <div className="min-w-0">
-                    <dt className="t-h5 text-foreground">{item.question}</dt>
-                    <dd className="mt-2 t-sm leading-relaxed text-muted-foreground">{item.answer}</dd>
-                  </div>
+                  <dt className="grid grid-cols-1 items-start gap-x-5 gap-y-2 sm:col-span-2 sm:grid-cols-subgrid">
+                    <span className="flex flex-row items-center gap-2 pt-0.5 sm:flex-col sm:items-start">
+                      <Serial tone="muted">{`Q${String(i + 1).padStart(2, "0")}`}</Serial>
+                      {faqTopics[i] && <Tag tone="neutral">{faqTopics[i]}</Tag>}
+                    </span>
+                    <span className="min-w-0 t-h5 text-foreground">{item.question}</span>
+                  </dt>
+                  <dd className="min-w-0 t-sm leading-relaxed text-muted-foreground sm:col-start-2">{item.answer}</dd>
                 </div>
               ))}
             </dl>

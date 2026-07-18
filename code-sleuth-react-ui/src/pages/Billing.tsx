@@ -162,6 +162,15 @@ const Billing = () => {
       : 0;
   const overQuota = usagePct >= 100;
 
+  // The subscription state, resolved once. `atRisk` covers the states that cost
+  // the user something — past_due / unpaid (warning) and canceled (danger) — and
+  // deliberately excludes "neutral", which is just an unrecognised status string
+  // and must not raise an alarm. An at-risk account gets a real carrier in the
+  // main column (a Notice) and a stamp beside the plan name, not only the rail
+  // reading's tint.
+  const statusTone: BillingStatusTone = summary ? billingStatusTone(summary.status) : "neutral";
+  const atRisk = statusTone === "warning" || statusTone === "danger";
+
   // Upgrade-only: a plan is choosable only if it ranks strictly above the current
   // plan (plans arrive ordered free < pro < team). Applies whatever the source of
   // the current plan — Stripe payment or an admin grant.
@@ -215,7 +224,7 @@ const Billing = () => {
                 {
                   label: t("billing.statusLabel", { defaultValue: "Status" }),
                   value: <span className="uppercase">{summary.status}</span>,
-                  tone: railStatusTone(billingStatusTone(summary.status)),
+                  tone: railStatusTone(statusTone),
                 },
                 { label: t("billing.periodLabel", { defaultValue: "Period" }), value: summary.period },
                 { label: t("billing.resets", { defaultValue: "Resets" }), value: renewsOn ?? "—" },
@@ -236,6 +245,23 @@ const Billing = () => {
             className="mb-6"
           >
             {t("billing.billingDisabled")}
+          </Notice>
+        )}
+
+        {/* An at-risk subscription is the most consequential thing on the page, so
+            it gets a main-column carrier — the rail tint alone is too quiet for a
+            state that can suspend the account. */}
+        {summary && atRisk && (
+          <Notice
+            tone={statusTone === "danger" ? "danger" : "warning"}
+            label={t("billing.statusAlertLabel", { defaultValue: "Subscription needs attention" })}
+            className="mb-6"
+          >
+            {t("billing.statusAlertBody", {
+              defaultValue:
+                "Your subscription is {{status}}. Manage your subscription to restore full access.",
+              status: summary.status,
+            })}
           </Notice>
         )}
 
@@ -295,8 +321,12 @@ const Billing = () => {
                         aria-hidden="true"
                       />
                     ))}
+                    {/* The halo separates the ticker from the fill beneath it, so it
+                        must be painted in the surface the gauge actually sits on.
+                        Since the Figure→DocSection move that is the page background,
+                        not --card — the same surface the ticks above are drawn in. */}
                     <span
-                      className="absolute -top-1.5 h-[1.375rem] w-[3px] -translate-x-1/2 rounded-[1px] bg-foreground shadow-[0_0_0_2px_hsl(var(--card))]"
+                      className="absolute -top-1.5 h-[1.375rem] w-[3px] -translate-x-1/2 rounded-[1px] bg-foreground shadow-[0_0_0_2px_hsl(var(--background))]"
                       style={{ left: `${usagePct}%` }}
                       aria-hidden="true"
                     />
@@ -354,7 +384,13 @@ const Billing = () => {
                     <LedgerCell>
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="t-h5">{plan.name}</span>
-                        {isCurrent && <StatusTag tone="success">{t("billing.current")}</StatusTag>}
+                        {/* "Current" is a current-state marker, so it carries the
+                            one primary hue; success/warning/danger stay reserved
+                            for the real subscription status stamped beside it. */}
+                        {isCurrent && <StatusTag tone="primary">{t("billing.current")}</StatusTag>}
+                        {isCurrent && atRisk && summary && (
+                          <StatusTag tone={statusTone}>{summary.status}</StatusTag>
+                        )}
                       </div>
                     </LedgerCell>
                     <LedgerCell align="end" mono>

@@ -491,18 +491,24 @@ const Analysis = () => {
         )}
 
         {/* Two exhibits on the examination bench — framed either side of a live
-            A ⇄ B comparator axis, the way a case file pins two specimens for review. */}
-        <div className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1fr)_2.75rem_minmax(0,1fr)]">
+            A ⇄ B comparator axis, the way a case file pins two specimens for review.
+
+            The pair-up switch is 2xl, not xl: this bench lives inside DocFrame's main
+            column, which is already short a 14rem rail + a 2.5rem gutter, and the app
+            shell spends another 15rem on the sidebar. At xl that leaves each code pane
+            around 310px — too narrow to read a source listing — so the exhibits stay
+            stacked (full main-column width each) until the column is genuinely wide. */}
+        <div className="grid items-stretch gap-5 2xl:grid-cols-[minmax(0,1fr)_2.75rem_minmax(0,1fr)]">
           <ExhibitPanel label="A" source={sourceA} onChange={setSourceA} />
 
-          {/* Comparator axis — a hairline run through an indigo ⇄ node (vertical on wide,
-              horizontal when the exhibits stack) */}
-          <div className="flex items-center justify-center gap-3 xl:flex-col xl:gap-0" aria-hidden="true">
-            <span className="h-px flex-1 bg-border xl:h-auto xl:w-px" />
-            <span className="my-0 flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border border-primary/40 bg-primary/10 font-mono text-base font-bold text-primary xl:my-3">
+          {/* Comparator axis — a hairline run through an indigo ⇄ node (vertical once the
+              exhibits pair up, horizontal while they stack) */}
+          <div className="flex items-center justify-center gap-3 2xl:flex-col 2xl:gap-0" aria-hidden="true">
+            <span className="h-px flex-1 bg-border 2xl:h-auto 2xl:w-px" />
+            <span className="my-0 flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border border-primary/40 bg-primary/10 font-mono text-base font-bold text-primary 2xl:my-3">
               ⇄
             </span>
-            <span className="h-px flex-1 bg-border xl:h-auto xl:w-px" />
+            <span className="h-px flex-1 bg-border 2xl:h-auto 2xl:w-px" />
           </div>
 
           <ExhibitPanel label="B" source={sourceB} onChange={setSourceB} />
@@ -562,7 +568,19 @@ const Analysis = () => {
               />
             </div>
           ) : (
-            <span className="uppercase tracking-wide">{t("analysis.autoSave")}</span>
+            // Readiness verdict at the point of action. The rail carries the
+            // measurement (READY n/2) but the rail only sticks at lg and scrolls
+            // away below it, whereas this footer is always on screen — so the
+            // go/no-go stamp belongs beside the run button.
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+              <span className="uppercase tracking-[0.12em] text-muted-foreground/80">
+                {t("analysis.meta.status")}
+              </span>
+              <StatusTag tone={bothReady ? "ok" : "muted"}>
+                {bothReady ? t("analysis.meta.ready") : t("analysis.meta.draft")}
+              </StatusTag>
+              <span className="uppercase tracking-wide">{t("analysis.autoSave")}</span>
+            </div>
           )}
         </div>
 

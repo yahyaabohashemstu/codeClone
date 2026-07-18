@@ -40,6 +40,9 @@ const REGIONS = ["global", "us-east", "us-west", "eu-west", "eu-central", "ap-so
 // The register ledger's single grid template — drives head, rows, footer alike.
 const LEDGER_COLS = "3rem minmax(0,1fr) 9.5rem 7rem 6.5rem 1.5rem";
 
+// Stands in for a rail reading whose measurement is not yet trustworthy.
+const PENDING = "—";
+
 // Membership role → a NEUTRAL categorical tag tone. Role is a category, not a
 // state, severity, or similarity band, so it never borrows --primary/--warning/
 // --destructive/--success — those stay reserved for real action/state signals.
@@ -66,6 +69,11 @@ export default function Workspaces() {
   const [wsDesc, setWsDesc] = useState("");
   const [wsRegion, setWsRegion] = useState("global");
   const [creating, setCreating] = useState(false);
+
+  // Aggregates are only meaningful once the register has actually loaded — while
+  // STATUS reads SYNC or ERROR every reading shows a placeholder instead of
+  // asserting a measurement derived from an empty list.
+  const ready = !loading && !error;
 
   const load = useCallback(() => {
     setLoading(true);
@@ -213,11 +221,20 @@ export default function Workspaces() {
           <RailReadings
             label={t("enterprise.workspaces.registerLabel", { defaultValue: "Register" })}
             items={[
-              { label: "RECORDS", value: loading ? "…" : workspaces.length },
-              { label: t("enterprise.workspaces.region", { defaultValue: "Region" }), value: regionCount },
-              { label: "MEDIAN", value: `${medianThreshold}%` },
               {
-                label: "STATUS",
+                label: t("enterprise.workspaces.records", { defaultValue: "Records" }),
+                value: ready ? workspaces.length : PENDING,
+              },
+              {
+                label: t("enterprise.workspaces.region", { defaultValue: "Region" }),
+                value: ready ? regionCount : PENDING,
+              },
+              {
+                label: t("enterprise.workspaces.median", { defaultValue: "Median" }),
+                value: ready ? `${medianThreshold}%` : PENDING,
+              },
+              {
+                label: t("enterprise.workspaces.status", { defaultValue: "Status" }),
                 value: loading ? "SYNC" : error ? "ERROR" : "LIVE",
                 tone: loading ? "warning" : error ? "danger" : "success",
               },
@@ -327,20 +344,13 @@ export default function Workspaces() {
                 );
               })}
 
+              {/* The rail owns the aggregates (records / regions / median); the
+                  footer only states what this register covers, so no figure on
+                  this screen is printed twice. */}
               <LedgerFooter
-                left={
-                  <span className="inline-flex flex-wrap items-center gap-x-5 gap-y-1">
-                    <span>
-                      {t("enterprise.workspaces.region")}{" "}
-                      <span className="font-semibold tabular-nums text-foreground">{regionCount}</span>
-                    </span>
-                    <span>
-                      MEDIAN{" "}
-                      <span className="font-semibold tabular-nums text-foreground">{medianThreshold}%</span>
-                    </span>
-                  </span>
-                }
-                right={`${workspaces.length} RECORDS`}
+                left={t("enterprise.workspaces.footerScope", {
+                  defaultValue: "All workspaces you are a member of",
+                })}
               />
             </>
           )}

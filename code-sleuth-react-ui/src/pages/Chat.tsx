@@ -79,45 +79,42 @@ const Chat = () => {
           the grounded consultation transcript is the document body. */}
       <DocFrame
         rail={
-          <>
-            {/* What this chat is grounded in — the record, read as margin readings */}
-            <RailReadings
-              label={t("chat.groundedOn", { defaultValue: "Grounded on" })}
-              items={[
-                {
-                  label: t("chat.exhibitA", { defaultValue: "Source A" }),
-                  value: (
-                    <span dir="ltr" title={source_labels.code1} className="block max-w-[8rem] truncate">
-                      {source_labels.code1}
-                    </span>
-                  ),
-                },
-                {
-                  label: t("chat.exhibitB", { defaultValue: "Source B" }),
-                  value: (
-                    <span dir="ltr" title={source_labels.code2} className="block max-w-[8rem] truncate">
-                      {source_labels.code2}
-                    </span>
-                  ),
-                },
-                { label: "CASE", value: caseSerial },
-                { label: "LANG", value: (language || "—").toUpperCase() },
-                ...(risk ? [{ label: "RISK", value: risk.toUpperCase(), tone: riskTone }] : []),
-              ]}
-            />
-
-            {/* Grounding status — the record is on file, so the consultation is grounded */}
-            <div>
-              <div className="t-label mb-2.5 text-muted-foreground/80">
-                {t("chat.groundingLabel", { defaultValue: "Grounding" })}
-              </div>
-              {groundingAttached ? (
-                <StatusTag tone="ok">{t("chat.modeGrounded")}</StatusTag>
-              ) : (
-                <StatusTag tone="warn">{t("chat.statusNoContext")}</StatusTag>
-              )}
-            </div>
-          </>
+          /* What this chat is grounded in — the record, read as margin readings.
+             Grounding state leads the block as one row rather than a separate
+             hand-rolled caption: AnalysisChatPanel already shows its own indicator,
+             so a third simultaneous display of the same state was noise. */
+          <RailReadings
+            label={t("chat.groundedOn", { defaultValue: "Grounded on" })}
+            items={[
+              {
+                label: t("chat.groundingLabel", { defaultValue: "Grounding" }),
+                value: groundingAttached ? (
+                  <StatusTag tone="ok">{t("chat.modeGrounded")}</StatusTag>
+                ) : (
+                  <StatusTag tone="warn">{t("chat.statusNoContext")}</StatusTag>
+                ),
+              },
+              {
+                label: t("chat.exhibitA", { defaultValue: "Source A" }),
+                value: (
+                  <span dir="ltr" title={source_labels.code1} className="block max-w-[8rem] truncate">
+                    {source_labels.code1}
+                  </span>
+                ),
+              },
+              {
+                label: t("chat.exhibitB", { defaultValue: "Source B" }),
+                value: (
+                  <span dir="ltr" title={source_labels.code2} className="block max-w-[8rem] truncate">
+                    {source_labels.code2}
+                  </span>
+                ),
+              },
+              { label: "CASE", value: caseSerial },
+              { label: "LANG", value: (language || "—").toUpperCase() },
+              ...(risk ? [{ label: "RISK", value: risk.toUpperCase(), tone: riskTone }] : []),
+            ]}
+          />
         }
       >
         <AnalysisChatPanel analysisId={saved_analysis_id} contextLabel={contextLabel} />

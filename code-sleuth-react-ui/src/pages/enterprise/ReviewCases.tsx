@@ -31,7 +31,8 @@ import { cn } from "@/lib/utils";
 
 // Triage cue in the case gutter (colour = meaning). high vs medium never rely on
 // opacity alone: high is a filled amber dot, medium a hollow amber ring — a shape
-// difference — and severity is also carried as text on the dot's aria-label.
+// difference. The dot itself is decorative; the severity is carried in text by the
+// visible token rendered beneath it in the same cell.
 const SEVERITY_DOT: Record<string, string> = {
   critical: "bg-destructive",
   high: "bg-warning",
@@ -64,7 +65,14 @@ const ALL_STATUSES: Array<CaseStatus | "all"> = [
 
 // One grid-template drives the ledger head + every row (prevents column drift):
 // #  ·  artifacts  ·  similarity  ·  verdict  ·  type  ·  status  ·  workspace  ·  ref
-const LEDGER_COLS = "4.5rem minmax(12rem,1fr) 10rem 7rem 7rem 7.5rem 8rem 3.5rem";
+//
+// Budgeted for the main column this page actually gets: the page caps at max-w-6xl
+// (1152px) less p-6, less the DocFrame rail (12rem) and its 2.5rem gap. Every fixed
+// track is sized to its real content — Serial + severity token, meter + 3-char
+// readout, one StatusTag each, a truncated workspace name, one chevron — and the
+// artifacts column is the elastic one (minmax(0,1fr)), so it absorbs whatever is
+// left and the row can never demand more width than the column has.
+const LEDGER_COLS = "4rem minmax(0,1fr) 6.25rem 6.5rem 5rem 6.25rem 4.75rem 1.75rem";
 
 export default function ReviewCases() {
   const { isRTL } = useLanguage();
@@ -172,14 +180,20 @@ export default function ReviewCases() {
       {/* Instrument-document body — scope + status register + docket readings sit in
           the margin rail; the ruled case ledger fills the wide main column. */}
       <DocFrame
-        railWidth="16rem"
+        // The rail is charged to the main column, and the docket is an 8-track
+        // ledger. 12rem still clears the widest status chip ("Confirmed Clone")
+        // and the mono readings, while leaving the case ledger enough width to
+        // lay out without a horizontal scrollbar.
+        railWidth="12rem"
         rail={
           <>
             {/* Scope — the cross-workspace fetch control */}
             <div>
-              <div className="t-label mb-2.5 text-muted-foreground/80">
+              {/* A real <label htmlFor>: <button> is a labelable element, so this
+                  both names the trigger and makes the caption a click target. */}
+              <label htmlFor="rc-scope" className="t-label mb-2.5 block text-muted-foreground/80">
                 {t("enterprise.cases.workspace")}
-              </div>
+              </label>
               <Select value={selectedWs} onValueChange={setSelectedWs}>
                 <SelectTrigger
                   id="rc-scope"
@@ -199,13 +213,15 @@ export default function ReviewCases() {
 
             {/* Status register — the whole distribution as a visible tally */}
             <div>
-              <div className="t-label mb-2.5 text-muted-foreground/80">
+              <div id="rc-status-label" className="t-label mb-2.5 text-muted-foreground/80">
                 {t("enterprise.cases.colStatus", { defaultValue: "Status" })}
               </div>
               <Register
                 items={registerItems}
                 active={statusFilter}
                 onSelect={(v) => setStatusFilter(v as CaseStatus | "all")}
+                // Names the role="group" from the visible caption above it.
+                ariaLabelledBy="rc-status-label"
               />
             </div>
 
@@ -227,7 +243,12 @@ export default function ReviewCases() {
           title={t("enterprise.cases.docket", { defaultValue: "Case docket" })}
           note={
             !loading && !error && cases.length > 0
-              ? t("enterprise.cases.onDocket", { n: cases.length })
+              ? // `count` drives i18next's plural resolver (en: one/other; ar: the
+                // full zero/one/two/few/many/other set) so a single case never
+                // reads "1 cases". `n` is passed alongside so the current
+                // singular-only "{{n}} cases" string keeps interpolating until the
+                // suffixed plural keys land.
+                t("enterprise.cases.onDocket", { count: cases.length, n: cases.length })
               : undefined
           }
           actions={
@@ -280,10 +301,11 @@ export default function ReviewCases() {
                   <LedgerRow key={c.id} to={`/enterprise/cases/${c.id}`}>
                     <LedgerCell>
                       <div className="flex items-center gap-2">
+                        {/* Decorative: the same severity is printed as a visible
+                            text token directly beneath this dot, so exposing it
+                            here too would announce every row's severity twice. */}
                         <span
-                          role="img"
-                          aria-label={severityText}
-                          title={severityText}
+                          aria-hidden="true"
                           className={cn("h-2 w-2 shrink-0 rounded-full", SEVERITY_DOT[c.severity] ?? "bg-muted")}
                         />
                         <Serial tone={c.status === "confirmed_clone" ? "primary" : "muted"}>

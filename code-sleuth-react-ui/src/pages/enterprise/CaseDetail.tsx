@@ -306,10 +306,6 @@ export default function CaseDetail() {
     { key: "hash", label: t("enterprise.caseDetail.hash", { defaultValue: "Norm. hash" }), a: aA?.normalizedHash, b: aB?.normalizedHash, ltr: true, hash: true },
   ].filter((r) => r.always || r.a || r.b);
 
-  // Contents-rail anchors — smooth-scroll the main column to a §-section by id.
-  const scrollToId = (id: string) => () =>
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6" dir={isRTL ? "rtl" : "ltr"}>
       {/* Back — mono file-return line */}
@@ -355,14 +351,17 @@ export default function CaseDetail() {
       <DocFrame
         rail={
           <>
+            {/* Real anchors, not buttons: each §-section is deep-linkable and the
+                global ScrollToHash performs the smooth scroll and moves focus into
+                the section, so the reading cursor follows the jump. */}
             <RailNav
               ariaLabel={t("enterprise.caseDetail.contents", { defaultValue: "Contents" })}
               label={t("enterprise.caseDetail.contents", { defaultValue: "Contents" })}
               items={[
-                { n: "01", label: t("enterprise.caseDetail.confidence"), onClick: scrollToId("sec-confidence") },
-                { n: "02", label: t("enterprise.caseDetail.exhibits", { defaultValue: "Sources" }), onClick: scrollToId("sec-sources") },
-                { n: "03", label: t("enterprise.caseDetail.evidenceSection"), onClick: scrollToId("sec-evidence") },
-                { n: "04", label: t("enterprise.caseDetail.matchSection", { defaultValue: "Disposition" }), onClick: scrollToId("sec-disposition") },
+                { n: "01", label: t("enterprise.caseDetail.confidence"), href: "#sec-confidence" },
+                { n: "02", label: t("enterprise.caseDetail.exhibits", { defaultValue: "Sources" }), href: "#sec-sources" },
+                { n: "03", label: t("enterprise.caseDetail.evidenceSection"), href: "#sec-evidence" },
+                { n: "04", label: t("enterprise.caseDetail.matchSection", { defaultValue: "Disposition" }), href: "#sec-disposition" },
               ]}
             />
             <RailReadings
@@ -393,12 +392,13 @@ export default function CaseDetail() {
         }
       >
 
-        {/* §01 — confidence assessment: dominant ring + verdict + calibrated meter sheet */}
+        {/* §01 — confidence assessment: dominant ring + verdict + calibrated meter sheet.
+            Clone type is already printed by the masthead and the rail, so it is not
+            restated in this section's header. */}
         <DocSection
           n="01"
           id="sec-confidence"
           title={t("enterprise.caseDetail.confidence")}
-          actions={<Reading label={t("enterprise.caseDetail.cloneType")} value={caseData.cloneType} />}
         >
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
           {/* Score dial — the dominant instrument, seated in a lightly gridded bezel

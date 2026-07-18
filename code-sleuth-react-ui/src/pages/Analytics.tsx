@@ -39,6 +39,7 @@ import {
   scoreBand,
 } from "@/components/dossier/Dossier";
 import { apiFetch } from "@/lib/api";
+import { useLanguage } from "@/context/LanguageContext";
 import type { HistorySummary } from "@/types/api";
 
 interface AnalyticsData {
@@ -81,6 +82,7 @@ function Reading({ children }: { children: React.ReactNode }) {
 
 const Analytics = () => {
   const { t } = useTranslation("common");
+  const { formatNumber } = useLanguage();
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [error, setError] = useState("");
 
@@ -128,7 +130,13 @@ const Analytics = () => {
 
   const topScore = data.top_analyses[0]?.similarity ?? 0;
   const uniqueLangs = data.language_dist.length;
+  // The API returns a 30-entry daily series (oldest → newest), so this is the
+  // 30-day total — it belongs to FIG.01, whose caption is "…(Last 30 Days)".
   const totalActivity = data.activity.reduce((sum, d) => sum + d.count, 0);
+  // The rail's "Last 7 days" reading must be a real 7-day count, matching the
+  // backend-computed `stats.last7Days` that History's rail prints. Take the
+  // trailing 7 entries of the same series rather than the whole month.
+  const last7Activity = data.activity.slice(-7).reduce((sum, d) => sum + d.count, 0);
 
   // Shorten dates to MM/DD for activity chart
   const activityData = data.activity.map((d) => ({
@@ -161,10 +169,14 @@ const Analytics = () => {
           <RailReadings
             label={t("analytics.railFigures", { defaultValue: "Figures" })}
             items={[
-              { label: t("analytics.totalAnalyses"), value: String(data.total) },
-              { label: t("analytics.topScore"), value: `${topScore.toFixed(1)}%`, tone: scoreBand(topScore) },
-              { label: t("analytics.languages"), value: String(uniqueLangs) },
-              { label: t("analytics.last7Days", { defaultValue: "Last 7 days" }), value: String(totalActivity) },
+              { label: t("analytics.totalAnalyses"), value: formatNumber(data.total) },
+              {
+                label: t("analytics.topScore"),
+                value: `${formatNumber(topScore, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`,
+                tone: scoreBand(topScore),
+              },
+              { label: t("analytics.languages"), value: formatNumber(uniqueLangs) },
+              { label: t("analytics.last7Days", { defaultValue: "Last 7 days" }), value: formatNumber(last7Activity) },
             ]}
           />
         }
@@ -178,7 +190,10 @@ const Analytics = () => {
 
         {/* §01 — Daily activity: the page's one bold signature reading, framed
             with printer's corner registration ticks. */}
-        <DocSection n="01" title={t("analytics.activity")}>
+        {/* The §-heading carries the short section name; the descriptive
+            "Daily Activity (Last 30 Days)" stays on the figure's caption, so the
+            h2 and the figcaption beneath it don't read as the same line twice. */}
+        <DocSection n="01" title={t("analytics.activitySection", { defaultValue: "Activity" })}>
           <div className="tick-frame relative">
             <Figure n={1} label={t("analytics.activity")} actions={<Reading>Σ {totalActivity}</Reading>}>
               <div
@@ -221,13 +236,19 @@ const Analytics = () => {
         {/* §02 — Distributions: an asymmetric field of framed figures — language
             and similarity split unevenly, the clone-type census running full width. */}
         <DocSection n="02" title={t("analytics.distributions", { defaultValue: "Distributions" })}>
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+          {/* The two-up split waits for xl: — at lg the 14rem rail leaves the main
+              column too narrow to seat a pie and its legend side by side. */}
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
             {/* Language distribution */}
             <Figure n={2} label={t("analytics.langDist")} actions={<Reading>{uniqueLangs}</Reading>}>
-              <div className="flex items-center justify-center gap-4">
+              {/* Plot and legend each hold a readable floor and wrap onto their own
+                  line rather than crushing below it — a hard percentage width let
+                  the plot fall under the pie's diameter and clip on Figure's
+                  overflow-hidden. */}
+              <div className="flex flex-wrap items-center justify-center gap-4">
                 <div
                   role="img"
-                  style={{ width: "45%" }}
+                  className="min-w-[10rem] flex-[1_1_45%]"
                   aria-label={`${t("analytics.langDist")}: ${data.language_dist
                     .map((d) => `${d.language} ${d.count}`)
                     .join(", ")}`}
@@ -240,7 +261,10 @@ const Analytics = () => {
                         nameKey="language"
                         cx="50%"
                         cy="50%"
-                        outerRadius={80}
+                        /* Relative to min(width, height) / 2 — resolves to the
+                           original 80px once the plot is ≥160px wide, and scales
+                           down instead of overflowing below that. */
+                        outerRadius="80%"
                         stroke="hsl(var(--card))"
                         strokeWidth={1}
                       >
@@ -252,7 +276,7 @@ const Analytics = () => {
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
-                <dl className="flex-1 space-y-2">
+                <dl className="min-w-[9rem] flex-[1_1_9rem] space-y-2">
                   {data.language_dist.slice(0, 7).map((d, i) => (
                     <div key={d.language} className="flex items-center justify-between gap-2 text-xs">
                       <dt className="flex items-center gap-1.5">
@@ -356,8 +380,8 @@ const Analytics = () => {
             actions={
               <MetaStrip
                 items={[
-                  { label: "MAX", value: `${topScore.toFixed(1)}%` },
-                  { label: "ROWS", value: data.top_analyses.length },
+                  { label: "MAX", value: `${formatNumber(topScore, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%` },
+                  { label: "ROWS", value: formatNumber(data.top_analyses.length) },
                 ]}
               />
             }
@@ -376,13 +400,19 @@ const Analytics = () => {
               {data.top_analyses.map((a, i) => (
                 <LedgerRow key={a.id}>
                   <LedgerCell>
-                    <Serial tone={i === 0 ? "primary" : "muted"}>{i + 1}</Serial>
+                    <Serial tone={i === 0 ? "primary" : "muted"}>{formatNumber(i + 1)}</Serial>
                   </LedgerCell>
-                  <LedgerCell mono className="truncate text-xs text-foreground">
-                    {a.sourceA}
+                  {/* File paths are LTR data: pin the direction so they don't
+                      bidi-reorder under Arabic, and keep the full path on hover. */}
+                  <LedgerCell>
+                    <span dir="ltr" title={a.sourceA} className="block truncate font-mono text-xs text-foreground">
+                      {a.sourceA}
+                    </span>
                   </LedgerCell>
-                  <LedgerCell mono className="truncate text-xs text-foreground">
-                    {a.sourceB}
+                  <LedgerCell>
+                    <span dir="ltr" title={a.sourceB} className="block truncate font-mono text-xs text-foreground">
+                      {a.sourceB}
+                    </span>
                   </LedgerCell>
                   <LedgerCell>
                     <Tag tone="neutral">{a.language}</Tag>
@@ -392,7 +422,7 @@ const Analytics = () => {
                   </LedgerCell>
                 </LedgerRow>
               ))}
-              <LedgerFooter left="SHOWING" right={data.top_analyses.length} />
+              <LedgerFooter left="SHOWING" right={formatNumber(data.top_analyses.length)} />
             </Ledger>
           </DocSection>
         )}

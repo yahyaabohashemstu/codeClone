@@ -192,7 +192,8 @@
         "title": "ملف + ZIP + Excel",
         "description": "حلّل نصوصًا ملصقة أو ملفات برمجية أو مشاريع ZIP أو عينات مستخرجة من الجداول."
       }
-    ]
+    ],
+    "featuresNote": "{{count}} وحدة"
   },
   "analytics": {
     "title": "لوحة التحليلات",
@@ -219,7 +220,8 @@
     "eyebrow": "أرقام الاستخدام",
     "last7Days": "آخر 7 أيام",
     "railFigures": "الأرقام",
-    "distributions": "التوزيعات"
+    "distributions": "التوزيعات",
+    "activitySection": "النشاط"
   },
   "platform": "منصة التحليل",
   "brandName": "Clone Lens",
@@ -345,7 +347,9 @@
     "processing": "جارٍ المعالجة...",
     "railAccount": "الحساب",
     "statusLabel": "الحالة",
-    "periodLabel": "الفترة"
+    "periodLabel": "الفترة",
+    "statusAlertLabel": "الاشتراك يحتاج إلى انتباه",
+    "statusAlertBody": "اشتراكك في حالة {{status}}. أدِر اشتراكك لاستعادة الوصول الكامل."
   },
   "settings": {
     "title": "الإعدادات",
@@ -555,6 +559,7 @@
     "classification": "مُقيَّد",
     "sectionsLabel": "الأقسام",
     "censusLabel": "الإحصاء",
-    "signalsLabel": "الإشارات"
+    "signalsLabel": "الإشارات",
+    "distributionsTitle": "التوزيعات"
   }
 }

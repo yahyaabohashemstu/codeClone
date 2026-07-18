@@ -25,7 +25,11 @@
       "createdDesc": "Workspace \"{{name}}\" is ready.",
       "creationFailed": "Creation failed",
       "eyebrow": "Enterprise admin",
-      "registerLabel": "Register"
+      "registerLabel": "Register",
+      "records": "Records",
+      "median": "Median",
+      "status": "Status",
+      "footerScope": "All workspaces you are a member of"
     },
     "workspaceDetail": {
       "back": "Workspaces",
@@ -125,7 +129,13 @@
       "colType": "Clone type",
       "colStatus": "Status",
       "docketLabel": "Docket",
-      "colVerdict": "Verdict"
+      "colVerdict": "Verdict",
+      "onDocket_zero": "{{count}} cases",
+      "onDocket_one": "{{count}} case",
+      "onDocket_two": "{{count}} cases",
+      "onDocket_few": "{{count}} cases",
+      "onDocket_many": "{{count}} cases",
+      "onDocket_other": "{{count}} cases"
     },
     "caseDetail": {
       "back": "Back",

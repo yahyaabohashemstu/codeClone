@@ -84,20 +84,21 @@ const STATUS_TONE: Record<string, StampTone> = {
 
 // Membership role is a CATEGORY, not a status or severity — it must never borrow the
 // reserved semantic palette (primary/warning/destructive) that STATUS_TONE uses on this
-// same page, or an admin badge would read as an alarm-red confirmed clone. All roles
-// render neutral; the role TEXT carries the distinction.
-const ROLE_TONE: Record<string, StampTone> = {
-  owner: "neutral",
-  admin: "neutral",
-  manager: "neutral",
-  reviewer: "neutral",
-  student: "muted",
+// same page, or an admin badge would read as an alarm-red confirmed clone. Every role
+// therefore renders in Tag's default neutral tone and the role TEXT — translated, via
+// the same keys as the add-member select — carries the whole distinction.
+const ROLE_LABEL_KEY: Record<string, string> = {
+  owner: "roleOwner",
+  admin: "roleAdmin",
+  manager: "roleManager",
+  reviewer: "roleReviewer",
+  student: "roleStudent",
 };
 
 // Severity → a compact triage dot in the case gutter (colour = meaning). high vs
 // medium never rely on opacity alone: high is a filled amber dot, medium a hollow
-// amber ring — a shape difference — and severity is also carried as text (the
-// visible token below the serial and the dot's aria-label), never colour alone.
+// amber ring — a shape difference. The dot is purely decorative for AT: severity is
+// announced once, by the visible text token printed below the serial.
 const SEVERITY_DOT: Record<string, string> = {
   critical: "bg-destructive",
   high: "bg-warning",
@@ -151,6 +152,13 @@ export default function WorkspaceDetail() {
   const [tabError, setTabError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const reloadTab = () => setReloadKey((k) => k + 1);
+
+  // The role enum is the only carrier of the role distinction now that every role
+  // renders in one neutral tone, so it must be translated wherever it is printed.
+  const roleLabel = (role: string) => {
+    const key = ROLE_LABEL_KEY[role];
+    return key ? t(`enterprise.workspaceDetail.${key}`, { defaultValue: role }) : role;
+  };
 
   const [scanning, setScanningId] = useState<number | null>(null);
   const [caseSearch, setCaseSearch] = useState("");
@@ -561,8 +569,7 @@ export default function WorkspaceDetail() {
                       <LedgerCell>
                         <div className="flex items-center gap-2">
                           <span
-                            role="img"
-                            aria-label={severityText}
+                            aria-hidden="true"
                             title={severityText}
                             className={cn("h-2 w-2 shrink-0 rounded-full", SEVERITY_DOT[c.severity] ?? "bg-muted")}
                           />
@@ -653,7 +660,7 @@ export default function WorkspaceDetail() {
                       {m.lastActiveAt ? new Date(m.lastActiveAt).toLocaleDateString() : "—"}
                     </LedgerCell>
                     <LedgerCell>
-                      <Tag tone={ROLE_TONE[m.role] ?? "muted"}>{m.role}</Tag>
+                      <Tag>{roleLabel(m.role)}</Tag>
                     </LedgerCell>
                   </LedgerRow>
                 ))}

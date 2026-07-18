@@ -415,15 +415,28 @@ export function Register({
   items,
   active,
   onSelect,
+  ariaLabel,
+  ariaLabelledBy,
   className,
 }: {
   items: Array<{ value: string; label: React.ReactNode; count?: number }>;
   active?: string;
   onSelect?: (value: string) => void;
+  /** Accessible name for the role="group" wrapper. */
+  ariaLabel?: string;
+  /** id of the visible caption that names this register (preferred over ariaLabel). */
+  ariaLabelledBy?: string;
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-wrap gap-2", className)} role="group">
+    // A role="group" must be named, otherwise AT announces an anonymous group
+    // around the filter chips. Callers pass the id of their visible caption.
+    <div
+      className={cn("flex flex-wrap gap-2", className)}
+      role="group"
+      aria-label={ariaLabelledBy ? undefined : ariaLabel}
+      aria-labelledby={ariaLabelledBy}
+    >
       {items.map((it) => {
         const on = it.value === active;
         return (
@@ -615,8 +628,11 @@ export function RailNav({
   items: Array<{ n: React.ReactNode; label: React.ReactNode; count?: React.ReactNode; href?: string; active?: boolean; onClick?: () => void }>;
   className?: string;
 }) {
+  // A nav landmark must be named. Fall back to the visible caption when the caller
+  // omits ariaLabel, so no consumer can ship an anonymous second <nav>.
+  const navName = ariaLabel ?? (typeof label === "string" ? label : undefined);
   return (
-    <nav className={className} aria-label={ariaLabel}>
+    <nav className={className} aria-label={navName}>
       {label != null && <div className="t-label mb-2.5 text-muted-foreground/80">{label}</div>}
       <ul className="flex flex-col">
         {items.map((it, i) => {
@@ -668,10 +684,13 @@ export function RailReadings({
       {label != null && <div className="t-label mb-2.5 text-muted-foreground/80">{label}</div>}
       <dl className="flex flex-col gap-2">
         {items.map((it, i) => {
+          // Amber text fails AA on the light canvas, so warning is carried as
+          // ink-on-tint (the kit's TONE_TAG convention) rather than a colour that
+          // would otherwise collapse into the default ink and lose the signal.
           const tone =
             it.tone === "primary" ? "text-primary"
             : it.tone === "success" ? "text-success"
-            : it.tone === "warning" ? "text-foreground"
+            : it.tone === "warning" ? "rounded-sm bg-warning/20 px-1.5 text-foreground"
             : it.tone === "danger" ? "text-destructive"
             : "text-foreground";
           return (
@@ -706,7 +725,9 @@ export function DocSection({
   className?: string;
 }) {
   return (
-    <section id={id} className={cn("scroll-mt-6 border-t border-border pt-6 first:border-t-0 first:pt-0", className)}>
+    // scroll-mt-20 clears the 64px sticky app header so a jumped-to section's §NN
+    // marker and heading are not hidden underneath it.
+    <section id={id} className={cn("scroll-mt-20 border-t border-border pt-6 first:border-t-0 first:pt-0", className)}>
       <div className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
         {n != null && <span className="font-mono text-[11px] font-bold text-primary">{`§${n}`}</span>}
         <h2 className="t-h4">{title}</h2>
@@ -737,7 +758,16 @@ export function ReadoutRow({
   return (
     <div className={cn("grid grid-cols-[minmax(4.5rem,auto)_1fr_auto] items-center gap-3 border-t border-border/60 py-2 first:border-t-0", className)}>
       <span className="font-mono text-[10.5px] uppercase tracking-[0.05em] text-muted-foreground">{label}</span>
-      {meterValue != null ? <Meter value={meterValue} tone={tone} className="h-[5px]" /> : <span aria-hidden="true" />}
+      {/* The meter is a purely visual restatement of the value printed beside it,
+          so it is hidden from AT — otherwise every row announces an unnamed
+          progressbar in addition to its label and value. */}
+      {meterValue != null ? (
+        <span aria-hidden="true" className="contents">
+          <Meter value={meterValue} tone={tone} className="h-[5px]" />
+        </span>
+      ) : (
+        <span aria-hidden="true" />
+      )}
       <span className="text-end font-mono text-xs font-semibold tabular-nums text-foreground">{value}</span>
     </div>
   );
@@ -745,5 +775,12 @@ export function ReadoutRow({
 
 /** A dense readout grid — one or two columns of ReadoutRow / Reading, ruled not boxed. */
 export function ReadoutGrid({ children, cols = 2, className }: { children: React.ReactNode; cols?: 1 | 2; className?: string }) {
-  return <div className={cn("grid gap-x-8", cols === 2 && "sm:grid-cols-2", className)}>{children}</div>;
+  // ReadoutRow clears its own top rule with `first:`, which only matches the first
+  // DOM child. In a two-column grid the second child also starts a row, so it needs
+  // the same reset — otherwise the top row is ruled on one side only.
+  return (
+    <div className={cn("grid gap-x-8", cols === 2 && "sm:grid-cols-2 sm:[&>*:nth-child(2)]:border-t-0", className)}>
+      {children}
+    </div>
+  );
 }

@@ -193,7 +193,13 @@ const Home = () => {
       </Link>
 
       {/* ── §01 Capability index — a numbered, hairline-ruled register with catalogue refs ── */}
-      <DocSection n="01" title={t("home.featuresTitle")} note={`${features.length} MODULES`}>
+      {/* The note is translated, not template-built: the DocSection note is styled
+          uppercase, so EN renders "6 MODULES" while AR keeps its own wording. */}
+      <DocSection
+        n="01"
+        title={t("home.featuresTitle")}
+        note={t("home.featuresNote", { count: features.length, defaultValue: "{{count}} modules" })}
+      >
         <ul className="divide-y divide-border border-t border-border">
           {features.map((feature, i) => {
             const Icon = feature.Icon;
@@ -214,25 +220,24 @@ const Home = () => {
       </DocSection>
 
       {/* ── §02 Disposition — the closing call to open a case, with input readings ── */}
-      <DocSection
-        n="02"
-        title={t("home.ctaTitle")}
-        note={t("home.badge")}
-        actions={
-          <Button asChild size="lg" className="h-11 shrink-0 px-6">
-            <Link to={primaryHref}>{isAuthenticated ? t("home.ctaSignedIn") : t("home.ctaSignedOut")}</Link>
-          </Button>
-        }
-      >
-        <div className="max-w-xl">
-          <p className="t-body">{t("home.ctaDescription")}</p>
-          <MetaStrip
-            className="mt-4"
-            items={[
-              { label: "INPUTS", value: "PASTE · FILE" },
-              { label: "BUNDLES", value: "ZIP · XLSX" },
-            ]}
-          />
+      <DocSection n="02" title={t("home.ctaTitle")} note={t("home.badge")}>
+        <div>
+          <p className="max-w-xl t-body">{t("home.ctaDescription")}</p>
+          {/* The closing CTA lives in the section body, not the §-header `actions`
+              slot: keeping §01 and §02 headers to the same §NN · title · rule · note
+              geometry preserves the ruled rhythm, and the h-12 button + readings row
+              here mirrors the hero's, closing the page the way it opened. */}
+          <div className="mt-5 flex flex-wrap items-center gap-x-7 gap-y-4">
+            <Button asChild size="lg" className="h-12 shrink-0 px-7">
+              <Link to={primaryHref}>{isAuthenticated ? t("home.ctaSignedIn") : t("home.ctaSignedOut")}</Link>
+            </Button>
+            <MetaStrip
+              items={[
+                { label: "INPUTS", value: "PASTE · FILE" },
+                { label: "BUNDLES", value: "ZIP · XLSX" },
+              ]}
+            />
+          </div>
         </div>
       </DocSection>
     </div>

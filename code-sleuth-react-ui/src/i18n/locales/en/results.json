@@ -19,6 +19,8 @@
     },
     "similarity": {
       "title": "Similarity Indicators",
+      "sectionNote": "{{total}} signals · strongest {{name}} {{value}}%",
+      "sectionNoteEmpty": "{{total}} signals · no reading",
       "textSimilarity": "Text Similarity",
       "tokenBased": "Token-Based Similarity",
       "tokenOrdered": "Token Similarity (ordered)",
