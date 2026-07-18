@@ -1,11 +1,16 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
-  BookOpen,
   Check,
   Copy,
-  CreditCard,
   KeyRound,
   Loader2,
   Plus,
@@ -28,6 +33,10 @@ import {
   LedgerCell,
   LedgerFooter,
   LedgerEmpty,
+  DocFrame,
+  DocSection,
+  RailNav,
+  RailReadings,
 } from "@/components/dossier/Dossier";
 import { useLanguage } from "@/context/LanguageContext";
 import {
@@ -44,6 +53,10 @@ import {
 import { cn } from "@/lib/utils";
 
 type Tab = "keys" | "usage" | "docs";
+
+// Live plans+usage payload, fetched once at the page level so the margin rail can
+// read the account figures alongside each tab's own view.
+type PlansData = { plans: ApiPlanInfo[]; current: ApiUsage; billingEnabled: boolean };
 
 const ORIGIN = typeof window !== "undefined" ? window.location.origin : "https://YOUR_HOST";
 const HOST = ORIGIN.replace(/^https?:\/\//, "");
@@ -109,17 +122,18 @@ function Reading({
 
 // ── Keys tab (credentials register) ──────────────────────────────────────────
 
-function KeysTab() {
+function KeysTab({
+  keys,
+  setKeys,
+}: {
+  keys: ApiKeyRow[];
+  setKeys: Dispatch<SetStateAction<ApiKeyRow[]>>;
+}) {
   const { t } = useTranslation("apiKeys");
-  const [keys, setKeys] = useState<ApiKeyRow[]>([]);
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
   const [freshToken, setFreshToken] = useState("");
   const activeCount = keys.filter((k) => !k.revoked).length;
-
-  useEffect(() => {
-    listApiKeys().then(setKeys).catch(() => undefined);
-  }, []);
 
   const create = async () => {
     if (activeCount >= 20) {
@@ -202,7 +216,7 @@ function KeysTab() {
       {/* Register — a ruled ledger, not a stack of cards */}
       <div>
         <div className="mb-3 flex items-center justify-between gap-3">
-          <h3 className="t-label text-foreground">{t("apiKeys.keys.heading")}</h3>
+          <h2 className="t-label text-foreground">{t("apiKeys.keys.heading")}</h2>
           <span className="font-mono text-xs tabular-nums text-muted-foreground">
             {activeCount} / 20 {t("apiKeys.keys.active").toLowerCase()}
           </span>
@@ -324,14 +338,9 @@ function PlanCard({
   );
 }
 
-function UsageTab() {
+function UsageTab({ data }: { data: PlansData | null }) {
   const { t } = useTranslation("apiKeys");
-  const [data, setData] = useState<{ plans: ApiPlanInfo[]; current: ApiUsage; billingEnabled: boolean } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-
-  useEffect(() => {
-    getApiPlans().then(setData).catch(() => undefined);
-  }, []);
 
   const subscribe = async (plan: string) => {
     setBusy(plan);
@@ -505,12 +514,9 @@ function UsageTab() {
 
 // ── Docs tab (spec sheet) ────────────────────────────────────────────────────
 
-function DocSection({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <Panel label={title}>
-      <div className="space-y-2 text-sm leading-relaxed text-muted-foreground">{children}</div>
-    </Panel>
-  );
+/** The prose body wrapper shared by every doc section — muted, ruled rhythm. */
+function DocBody({ children }: { children: ReactNode }) {
+  return <div className="space-y-2 text-sm leading-relaxed text-muted-foreground">{children}</div>;
 }
 
 function DocsTab() {
@@ -568,104 +574,119 @@ if r.status_code == 422:  # verdict == "fail"
   const copy = t("apiKeys.keys.copy");
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <p className="text-sm text-muted-foreground">{t("apiKeys.docs.intro")}</p>
 
-      {/* Spec header — the contract at a glance */}
-      <FieldSheet>
-        <Field label="Base URL" align="center">
-          <Mono>{ORIGIN}/api/v1</Mono>
-        </Field>
-        <Field label="Auth" align="center">
-          <span className="text-sm">
-            <Mono>Authorization: Bearer</Mono> or <Mono>X-API-Key</Mono>
-          </span>
-        </Field>
-        <Field label="Format" align="center">
-          <span className="font-mono text-sm text-foreground">JSON · UTF-8</span>
-        </Field>
-      </FieldSheet>
-
-      <DocSection title="Base URL & authentication">
-        <p>
-          All endpoints live under <Mono>{ORIGIN}/api/v1</Mono>. Authenticate every public-API request with an API
-          key in either header:
-        </p>
-        <CodeBlock code={`Authorization: Bearer csk_xxxxxxxx.YOUR_SECRET
+      {/* Ruled §-numbered document sections — hairline rules + mono §NN markers,
+          consistent with the Settings/Help pages, not a stack of boxed cards. */}
+      <div>
+        {/* §01 — folds the contract-at-a-glance spec sheet into the auth section. */}
+        <DocSection n="01" title="Base URL & authentication">
+          <FieldSheet className="mb-4">
+            <Field label="Base URL" align="center">
+              <Mono>{ORIGIN}/api/v1</Mono>
+            </Field>
+            <Field label="Auth" align="center">
+              <span className="text-sm">
+                <Mono>Authorization: Bearer</Mono> or <Mono>X-API-Key</Mono>
+              </span>
+            </Field>
+            <Field label="Format" align="center">
+              <span className="font-mono text-sm text-foreground">JSON · UTF-8</span>
+            </Field>
+          </FieldSheet>
+          <DocBody>
+            <p>
+              All endpoints live under <Mono>{ORIGIN}/api/v1</Mono>. Authenticate every public-API request with an API
+              key in either header:
+            </p>
+            <CodeBlock code={`Authorization: Bearer csk_xxxxxxxx.YOUR_SECRET
 # or
 X-API-Key: csk_xxxxxxxx.YOUR_SECRET`} copyLabel={copy} />
-        <p>
-          Keys are shown once at creation and stored only as a salted SHA-256 hash. Create/revoke them in the{" "}
-          <b>Keys</b> tab.
-        </p>
-      </DocSection>
+            <p>
+              Keys are shown once at creation and stored only as a salted SHA-256 hash. Create/revoke them in the{" "}
+              <b>Keys</b> tab.
+            </p>
+          </DocBody>
+        </DocSection>
 
-      <DocSection title="Endpoints">
-        <DocTable
-          head={["Method", "Path", "Auth", "Purpose"]}
-          rows={[
-            ["POST", "/api/v1/ci/check", "API key", "Run a similarity check on code pairs"],
-            ["GET", "/api/v1/ci/languages", "none", "List supported languages"],
-            ["GET", "/api/v1/api-keys", "session", "List your keys"],
-            ["POST", "/api/v1/api-keys", "session", "Create a key (token shown once)"],
-            ["DELETE", "/api/v1/api-keys/{id}", "session", "Revoke a key"],
-          ]}
-        />
-      </DocSection>
+        <DocSection n="02" title="Endpoints">
+          <DocBody>
+            <DocTable
+              head={["Method", "Path", "Auth", "Purpose"]}
+              rows={[
+                ["POST", "/api/v1/ci/check", "API key", "Run a similarity check on code pairs"],
+                ["GET", "/api/v1/ci/languages", "none", "List supported languages"],
+                ["GET", "/api/v1/api-keys", "session", "List your keys"],
+                ["POST", "/api/v1/api-keys", "session", "Create a key (token shown once)"],
+                ["DELETE", "/api/v1/api-keys/{id}", "session", "Revoke a key"],
+              ]}
+            />
+          </DocBody>
+        </DocSection>
 
-      <DocSection title="POST /ci/check — request">
-        <DocTable
-          head={["Field", "Type", "Required", "Notes"]}
-          rows={[
-            ["pairs", "array", "yes", "1–50 pairs"],
-            ["pairs[].code_a / code_b", "string", "yes", "Source code, max 512 KB each"],
-            ["pairs[].label_a / label_b", "string", "no", "Human labels (e.g. file paths)"],
-            ["threshold", "number", "no", "0–100, default 80. ≥ threshold ⇒ violation"],
-            ["language", "string", "no", "Default python; see /ci/languages"],
-          ]}
-        />
-        <CodeBlock code={checkExample} copyLabel={copy} />
-      </DocSection>
+        <DocSection n="03" title="POST /ci/check — request">
+          <DocBody>
+            <DocTable
+              head={["Field", "Type", "Required", "Notes"]}
+              rows={[
+                ["pairs", "array", "yes", "1–50 pairs"],
+                ["pairs[].code_a / code_b", "string", "yes", "Source code, max 512 KB each"],
+                ["pairs[].label_a / label_b", "string", "no", "Human labels (e.g. file paths)"],
+                ["threshold", "number", "no", "0–100, default 80. ≥ threshold ⇒ violation"],
+                ["language", "string", "no", "Default python; see /ci/languages"],
+              ]}
+            />
+            <CodeBlock code={checkExample} copyLabel={copy} />
+          </DocBody>
+        </DocSection>
 
-      <DocSection title="POST /ci/check — response">
-        <p>
-          Per-pair scores are 0–100. <Mono>verdict</Mono> is <Mono>"fail"</Mono> if any pair is a violation. HTTP{" "}
-          <Mono>200</Mono> = pass, <Mono>422</Mono> = fail (a policy result — fail your build on it),{" "}
-          <Mono>401/403/400/429</Mono> = error.
-        </p>
-        <CodeBlock code={responseExample} copyLabel={copy} />
-        <p className="text-xs">
-          <b>clone_types_detected</b> values: exact, near_miss, parameterized, function, non_contiguous, structural,
-          reordered, function_reordered, gapped, intertwined, semantic.
-        </p>
-      </DocSection>
+        <DocSection n="04" title="POST /ci/check — response">
+          <DocBody>
+            <p>
+              Per-pair scores are 0–100. <Mono>verdict</Mono> is <Mono>"fail"</Mono> if any pair is a violation. HTTP{" "}
+              <Mono>200</Mono> = pass, <Mono>422</Mono> = fail (a policy result — fail your build on it),{" "}
+              <Mono>401/403/400/429</Mono> = error.
+            </p>
+            <CodeBlock code={responseExample} copyLabel={copy} />
+            <p className="text-xs">
+              <b>clone_types_detected</b> values: exact, near_miss, parameterized, function, non_contiguous, structural,
+              reordered, function_reordered, gapped, intertwined, semantic.
+            </p>
+          </DocBody>
+        </DocSection>
 
-      <DocSection title="Errors & limits">
-        <DocTable
-          head={["code", "Status", "Cause"]}
-          rows={[
-            ["authentication_required", "401", "Missing/invalid API key"],
-            ["api_quota_exceeded", "402", "API plan allowance exceeded — upgrade"],
-            ["insufficient_scope", "403", "Key lacks the ci:check scope"],
-            ["invalid_threshold", "400", "threshold not in 0–100"],
-            ["unsupported_language", "400", "language not supported"],
-            ["too_many_pairs", "400", "More than 50 pairs"],
-            ["code_too_large", "400", "A source exceeds 512 KB"],
-          ]}
-        />
-        <p className="mt-2 text-xs">
-          Rate limit: <b>60 requests/minute per key</b>. Limits: 50 pairs/request, 512 KB/source, 20 active keys/user.
-        </p>
-      </DocSection>
+        <DocSection n="05" title="Errors & limits">
+          <DocBody>
+            <DocTable
+              head={["code", "Status", "Cause"]}
+              rows={[
+                ["authentication_required", "401", "Missing/invalid API key"],
+                ["api_quota_exceeded", "402", "API plan allowance exceeded — upgrade"],
+                ["insufficient_scope", "403", "Key lacks the ci:check scope"],
+                ["invalid_threshold", "400", "threshold not in 0–100"],
+                ["unsupported_language", "400", "language not supported"],
+                ["too_many_pairs", "400", "More than 50 pairs"],
+                ["code_too_large", "400", "A source exceeds 512 KB"],
+              ]}
+            />
+            <p className="mt-2 text-xs">
+              Rate limit: <b>60 requests/minute per key</b>. Limits: 50 pairs/request, 512 KB/source, 20 active keys/user.
+            </p>
+          </DocBody>
+        </DocSection>
 
-      <DocSection title="Examples">
-        <p className="text-xs font-semibold text-foreground">cURL</p>
-        <CodeBlock code={checkExample} copyLabel={copy} />
-        <p className="text-xs font-semibold text-foreground">GitHub Actions (fail on violation)</p>
-        <CodeBlock code={ghExample} copyLabel={copy} />
-        <p className="text-xs font-semibold text-foreground">Python</p>
-        <CodeBlock code={pyExample} copyLabel={copy} />
-      </DocSection>
+        <DocSection n="06" title="Examples">
+          <DocBody>
+            <p className="text-xs font-semibold text-foreground">cURL</p>
+            <CodeBlock code={checkExample} copyLabel={copy} />
+            <p className="text-xs font-semibold text-foreground">GitHub Actions (fail on violation)</p>
+            <CodeBlock code={ghExample} copyLabel={copy} />
+            <p className="text-xs font-semibold text-foreground">Python</p>
+            <CodeBlock code={pyExample} copyLabel={copy} />
+          </DocBody>
+        </DocSection>
+      </div>
     </div>
   );
 }
@@ -712,18 +733,30 @@ export default function ApiKeys() {
   const { t } = useTranslation("apiKeys");
   const { isRTL } = useLanguage();
   const [tab, setTab] = useState<Tab>("keys");
+  // Keys + plans/usage are fetched once here so the margin rail can read the live
+  // account figures; each tab renders from this shared state.
+  const [keys, setKeys] = useState<ApiKeyRow[]>([]);
+  const [plansData, setPlansData] = useState<PlansData | null>(null);
+
+  useEffect(() => {
+    listApiKeys().then(setKeys).catch(() => undefined);
+    getApiPlans().then(setPlansData).catch(() => undefined);
+  }, []);
+
+  const activeCount = keys.filter((k) => !k.revoked).length;
+  const usage = plansData?.current;
 
   const tabs = useMemo(
     () => [
-      { id: "keys" as Tab, label: t("apiKeys.tabs.keys"), icon: KeyRound },
-      { id: "usage" as Tab, label: t("apiKeys.tabs.usage"), icon: CreditCard },
-      { id: "docs" as Tab, label: t("apiKeys.tabs.docs"), icon: BookOpen },
+      { id: "keys" as Tab, label: t("apiKeys.tabs.keys") },
+      { id: "usage" as Tab, label: t("apiKeys.tabs.usage") },
+      { id: "docs" as Tab, label: t("apiKeys.tabs.docs") },
     ],
     [t],
   );
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 px-4 py-6" dir={isRTL ? "rtl" : "ltr"}>
+    <div className="space-y-6 animate-fade-in" dir={isRTL ? "rtl" : "ltr"}>
       <Masthead
         kicker={t("apiKeys.eyebrow")}
         title={t("apiKeys.title")}
@@ -735,36 +768,45 @@ export default function ApiKeys() {
         ]}
       />
 
-      {/* Ruled section tabs — left-anchored, mono */}
-      <div className="flex border-b border-border">
-        {tabs.map((tabItem) => {
-          const Icon = tabItem.icon;
-          const active = tab === tabItem.id;
-          return (
-            <button
-              key={tabItem.id}
-              type="button"
-              onClick={() => setTab(tabItem.id)}
-              aria-current={active ? "page" : undefined}
-              className={cn(
-                "-mb-px flex items-center gap-2 border-b-2 px-4 py-2.5 font-mono text-[11px] uppercase tracking-wide transition-colors",
-                active
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {tabItem.label}
-            </button>
-          );
-        })}
-      </div>
-
-      <div>
-        {tab === "keys" && <KeysTab />}
-        {tab === "usage" && <UsageTab />}
+      {/* Instrument-document body — the §-numbered contents index and the live
+          account figures read down the margin rail; the wide main column shows
+          the active section. */}
+      <DocFrame
+        rail={
+          <>
+            <RailNav
+              label={t("apiKeys.railSections", { defaultValue: "Sections" })}
+              ariaLabel={t("apiKeys.railSections", { defaultValue: "Sections" })}
+              // The kit emits aria-current on the active item's control from the
+              // `active` flag, so callers just mark the current section active.
+              items={tabs.map((tabItem, i) => ({
+                n: String(i + 1).padStart(2, "0"),
+                label: tabItem.label,
+                active: tab === tabItem.id,
+                onClick: () => setTab(tabItem.id),
+              }))}
+            />
+            <RailReadings
+              label={t("apiKeys.railFigures", { defaultValue: "Figures" })}
+              items={[
+                { label: t("apiKeys.keys.active"), value: `${activeCount} / 20` },
+                { label: t("apiKeys.usage.plan"), value: usage?.apiPlanName ?? "—" },
+                {
+                  label: t("apiKeys.usage.pairs"),
+                  value: usage
+                    ? `${usage.pairs.toLocaleString()} / ${usage.includedPairs.toLocaleString()}`
+                    : "—",
+                  tone: usage?.atLimit ? "warning" : "default",
+                },
+              ]}
+            />
+          </>
+        }
+      >
+        {tab === "keys" && <KeysTab keys={keys} setKeys={setKeys} />}
+        {tab === "usage" && <UsageTab data={plansData} />}
         {tab === "docs" && <DocsTab />}
-      </div>
+      </DocFrame>
     </div>
   );
 }

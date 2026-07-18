@@ -23,6 +23,8 @@ import {
   ScoreMeter,
   StatusTag,
   Tag,
+  DocFrame,
+  RailReadings,
 } from "@/components/dossier/Dossier";
 import { apiFetch } from "@/lib/api";
 import { downloadText } from "@/lib/download";
@@ -253,18 +255,9 @@ const History = () => {
     <div className="space-y-6 animate-fade-in">
       {/* Case-register masthead — stats fold into the live mono meta strip */}
       <Masthead
-        kicker={t("history.eyebrow", { defaultValue: "Case register" })}
+        kicker={t("history.eyebrow", { defaultValue: "Past analyses" })}
         title={t("history.pageTitle")}
         description={t("history.pageDescription")}
-        meta={[
-          { label: t("history.stats.totalAnalyses"), value: formatNumber(historyData?.stats.totalAnalyses ?? 0) },
-          {
-            label: t("history.stats.highSimilarity"),
-            value: <span className="text-destructive">{formatNumber(historyData?.stats.highSimilarity ?? 0)}</span>,
-          },
-          { label: t("history.stats.languagesUsed"), value: formatNumber(historyData?.stats.languagesUsed ?? 0) },
-          { label: t("history.stats.last7Days"), value: formatNumber(historyData?.stats.last7Days ?? 0) },
-        ]}
         actions={
           <Button asChild size="lg" className="h-11 shrink-0 gap-2 px-5">
             <Link to="/analysis">
@@ -281,8 +274,23 @@ const History = () => {
         </div>
       )}
 
-      {/* Register controls — a compact mono filter strip, ruled not boxed */}
-      <div className="flex flex-wrap items-center gap-2 border-y border-border py-3">
+      {/* Document layout — the register readings sit in the margin rail, the
+          filters + ruled ledger form the main column (asymmetric, not a stack). */}
+      <DocFrame
+        rail={
+          <RailReadings
+            label={t("history.stats.registerLabel", { defaultValue: "Register" })}
+            items={[
+              { label: t("history.stats.totalAnalyses"), value: formatNumber(historyData?.stats.totalAnalyses ?? 0) },
+              { label: t("history.stats.highSimilarity"), value: formatNumber(historyData?.stats.highSimilarity ?? 0), tone: "danger" },
+              { label: t("history.stats.languagesUsed"), value: formatNumber(historyData?.stats.languagesUsed ?? 0) },
+              { label: t("history.stats.last7Days"), value: formatNumber(historyData?.stats.last7Days ?? 0) },
+            ]}
+          />
+        }
+      >
+        {/* filter strip */}
+        <div className="mb-5 flex flex-wrap items-center gap-2 border-b border-border pb-3">
         <div className="relative min-w-48 flex-1">
           <Search className="pointer-events-none absolute start-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -290,6 +298,7 @@ const History = () => {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder={t("history.searchPlaceholder")}
+            aria-label={t("history.searchPlaceholder")}
             className="h-9 w-full rounded-sm border border-border bg-card ps-9 pe-3 py-2 text-start font-mono text-xs placeholder:text-muted-foreground/50 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
@@ -299,6 +308,7 @@ const History = () => {
           <select
             value={filterLanguage}
             onChange={(event) => setFilterLanguage(event.target.value)}
+            aria-label={t("history.table.language", { defaultValue: "Language" })}
             className="h-9 bg-transparent font-mono text-xs text-foreground focus:outline-none"
           >
             {languages.map((lang) => (
@@ -313,6 +323,7 @@ const History = () => {
           <select
             value={filterSeverity}
             onChange={(event) => setFilterSeverity(event.target.value)}
+            aria-label={t("history.table.severity", { defaultValue: "Severity" })}
             className="h-9 bg-transparent font-mono text-xs text-foreground focus:outline-none"
           >
             <option value="all" className="bg-card">{t("history.allSeverity")}</option>
@@ -446,7 +457,8 @@ const History = () => {
           left={t("history.showing", { defaultValue: "Showing" })}
           right={`${formatNumber(filteredItems.length)} / ${formatNumber(items.length)}`}
         />
-      </Ledger>
+        </Ledger>
+      </DocFrame>
 
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent className="max-w-md border-border bg-card text-foreground">

@@ -367,6 +367,7 @@
     "manualEntry": "Can't scan? Enter this secret key manually instead:",
     "copySecret": "Copy secret key",
     "copyToken": "Copy API key",
+    "copyAllCodes": "Copy codes",
     "recoveryTitle": "Save your recovery codes",
     "recoveryIntro": "Store these somewhere safe. Each can be used once if you lose your authenticator. They are shown only now.",
     "done": "Done",

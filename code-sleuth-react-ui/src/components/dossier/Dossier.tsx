@@ -542,3 +542,208 @@ export function Notice({
     </div>
   );
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Instrument-document layout — the distinctive interior composition.
+   An asymmetric MARGIN RAIL beside a wide MAIN column of ruled, §-numbered
+   sections and dense readouts, instead of a title + card-grid dashboard.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/** The asymmetric page frame: a narrow left margin rail beside the wide main
+    column. The rail sticks on wide viewports; both stack on narrow ones. */
+export function DocFrame({
+  rail,
+  children,
+  railWidth = "14rem",
+  className,
+}: {
+  rail: React.ReactNode;
+  children: React.ReactNode;
+  railWidth?: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "grid gap-x-10 gap-y-8 [grid-template-columns:minmax(0,1fr)] lg:items-start lg:[grid-template-columns:var(--rail-w)_minmax(0,1fr)]",
+        className,
+      )}
+      style={{ "--rail-w": railWidth } as React.CSSProperties}
+    >
+      <aside className="lg:sticky lg:top-6 lg:self-start">
+        <div className="flex flex-col gap-7 lg:border-e lg:border-border lg:pe-6">{rail}</div>
+      </aside>
+      <div className="min-w-0">{children}</div>
+    </div>
+  );
+}
+
+/** A dense monospace identification strip — key:value readings + an optional
+    trailing slot. Replaces the big title masthead with a technical header. */
+export function IdBar({
+  items,
+  trailing,
+  className,
+}: {
+  items: Array<{ label: React.ReactNode; value: React.ReactNode }>;
+  trailing?: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex flex-wrap items-center gap-x-6 gap-y-1.5 border-y border-border bg-card px-4 py-2.5 font-mono text-[11px]", className)}>
+      {items.map((it, i) => (
+        <div key={i} className="flex min-w-0 items-center gap-2">
+          <span className="uppercase tracking-[0.1em] text-muted-foreground/70">{it.label}</span>
+          <span className="min-w-0 truncate font-semibold tabular-nums text-foreground">{it.value}</span>
+        </div>
+      ))}
+      {trailing != null && <div className="ms-auto flex items-center gap-2">{trailing}</div>}
+    </div>
+  );
+}
+
+/** The rail's numbered contents index — §-marked section links with optional counts. */
+export function RailNav({
+  label,
+  ariaLabel,
+  items,
+  className,
+}: {
+  label?: React.ReactNode;
+  /** Accessible name for the <nav> landmark (the visible `label` is not exposed to AT). */
+  ariaLabel?: string;
+  items: Array<{ n: React.ReactNode; label: React.ReactNode; count?: React.ReactNode; href?: string; active?: boolean; onClick?: () => void }>;
+  className?: string;
+}) {
+  return (
+    <nav className={className} aria-label={ariaLabel}>
+      {label != null && <div className="t-label mb-2.5 text-muted-foreground/80">{label}</div>}
+      <ul className="flex flex-col">
+        {items.map((it, i) => {
+          const inner = (
+            <span
+              className={cn(
+                "flex items-baseline gap-2.5 border-t border-border/70 py-1.5 text-[13px] first:border-t-0",
+                it.active ? "font-semibold text-foreground" : "text-muted-foreground",
+                (it.href || it.onClick) && "transition-colors hover:text-foreground",
+              )}
+            >
+              <span className="font-mono text-[10px] font-bold text-primary">{it.n}</span>
+              <span className="min-w-0 truncate">{it.label}</span>
+              {it.count != null && <span className="ms-auto shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground/80">{it.count}</span>}
+            </span>
+          );
+          // aria-current lives on the focusable control (Link/button), not the inner span,
+          // so screen readers announce the active section when tabbing through the rail.
+          const current = it.active ? "true" : undefined;
+          return (
+            <li key={i}>
+              {it.href ? (
+                <Link to={it.href} aria-current={current} className="block">{inner}</Link>
+              ) : it.onClick ? (
+                <button type="button" onClick={it.onClick} aria-current={current} className="block w-full text-start">{inner}</button>
+              ) : (
+                inner
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
+/** The rail's live readings block — a mono caption over a column of label/value rows. */
+export function RailReadings({
+  label,
+  items,
+  className,
+}: {
+  label?: React.ReactNode;
+  items: Array<{ label: React.ReactNode; value: React.ReactNode; tone?: "default" | "primary" | "success" | "warning" | "danger" }>;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      {label != null && <div className="t-label mb-2.5 text-muted-foreground/80">{label}</div>}
+      <dl className="flex flex-col gap-2">
+        {items.map((it, i) => {
+          const tone =
+            it.tone === "primary" ? "text-primary"
+            : it.tone === "success" ? "text-success"
+            : it.tone === "warning" ? "text-foreground"
+            : it.tone === "danger" ? "text-destructive"
+            : "text-foreground";
+          return (
+            <div key={i} className="flex items-baseline justify-between gap-3">
+              <dt className="font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground/80">{it.label}</dt>
+              <dd className={cn("font-mono text-[13px] font-semibold tabular-nums", tone)}>{it.value}</dd>
+            </div>
+          );
+        })}
+      </dl>
+    </div>
+  );
+}
+
+/** A ruled, §-numbered document section: a mono section number + a sans title +
+    a hairline rule + an optional right-margin annotation. Ruled, never boxed. */
+export function DocSection({
+  n,
+  title,
+  note,
+  actions,
+  id,
+  children,
+  className,
+}: {
+  n?: React.ReactNode;
+  title: React.ReactNode;
+  note?: React.ReactNode;
+  actions?: React.ReactNode;
+  id?: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <section id={id} className={cn("scroll-mt-6 border-t border-border pt-6 first:border-t-0 first:pt-0", className)}>
+      <div className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        {n != null && <span className="font-mono text-[11px] font-bold text-primary">{`§${n}`}</span>}
+        <h2 className="t-h4">{title}</h2>
+        <span className="mx-1 h-px flex-1 self-center bg-border" aria-hidden="true" />
+        {note != null && <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">{note}</span>}
+        {actions != null && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/** A dense instrument readout row: mono label · semantic meter · mono value — the
+    ruled readout that replaces big-number stat tiles. */
+export function ReadoutRow({
+  label,
+  value,
+  meterValue,
+  tone = "auto",
+  className,
+}: {
+  label: React.ReactNode;
+  value: React.ReactNode;
+  meterValue?: number;
+  tone?: "primary" | "success" | "warning" | "danger" | "auto";
+  className?: string;
+}) {
+  return (
+    <div className={cn("grid grid-cols-[minmax(4.5rem,auto)_1fr_auto] items-center gap-3 border-t border-border/60 py-2 first:border-t-0", className)}>
+      <span className="font-mono text-[10.5px] uppercase tracking-[0.05em] text-muted-foreground">{label}</span>
+      {meterValue != null ? <Meter value={meterValue} tone={tone} className="h-[5px]" /> : <span aria-hidden="true" />}
+      <span className="text-end font-mono text-xs font-semibold tabular-nums text-foreground">{value}</span>
+    </div>
+  );
+}
+
+/** A dense readout grid — one or two columns of ReadoutRow / Reading, ruled not boxed. */
+export function ReadoutGrid({ children, cols = 2, className }: { children: React.ReactNode; cols?: 1 | 2; className?: string }) {
+  return <div className={cn("grid gap-x-8", cols === 2 && "sm:grid-cols-2", className)}>{children}</div>;
+}

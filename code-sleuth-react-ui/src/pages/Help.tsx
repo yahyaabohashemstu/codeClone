@@ -8,12 +8,14 @@ import {
   Field,
   Panel,
   Serial,
-  SectionRule,
   Tag,
   Ledger,
   LedgerHead,
   LedgerRow,
   LedgerCell,
+  DocFrame,
+  RailNav,
+  DocSection,
 } from "@/components/dossier/Dossier";
 
 interface FaqItem {
@@ -91,126 +93,124 @@ const Help = () => {
         }
       />
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,11rem)_1fr] lg:gap-12">
-        {/* Left mono index — a live table of contents with per-section tallies */}
-        <nav aria-label={t("help.title")} className="hidden lg:block">
-          <div className="sticky top-6">
-            <p className="t-label mb-3 text-muted-foreground">
-              {t("help.contents", { defaultValue: "Contents" })}
-            </p>
-            <ol className="space-y-1 border-s border-border">
-              {sections.map((section) => (
-                <li key={section.id}>
-                  <a
-                    href={`#${section.id}`}
-                    className="group flex items-baseline gap-2 border-s-2 border-transparent -ms-px py-1.5 ps-3 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
-                  >
-                    <span className="font-mono tabular-nums text-primary/70 group-hover:text-primary">{section.n}</span>
-                    <span className="truncate">{section.label}</span>
-                    <span className="ms-auto shrink-0 font-mono tabular-nums text-muted-foreground group-hover:text-primary/70">
-                      {String(section.count).padStart(2, "0")}
-                    </span>
-                  </a>
-                </li>
-              ))}
-            </ol>
-          </div>
-        </nav>
-
-        {/* Right column — numbered reference sections */}
-        <div className="min-w-0 space-y-10">
-          {/* §01 — Support channels as margin-label fields; each carries a channel
-                 class tag and a mono TYPE/ENDPOINT/RESPONSE header line. */}
-          <section id="support" className="scroll-mt-6">
-            <SectionRule n="01">{t("help.support.title", { defaultValue: "Support channels" })}</SectionRule>
-            <FieldSheet>
-              {supportCards.map((card, i) => (
-                <Field
-                  key={card.titleKey}
-                  label={
-                    <span className="flex items-center gap-2">
-                      <Serial>{String(i + 1).padStart(2, "0")}</Serial>
-                      <span className="min-w-0 truncate">{t(card.titleKey)}</span>
-                    </span>
-                  }
-                >
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0 space-y-2">
-                        <Tag tone="neutral">{card.type}</Tag>
-                        <p className="max-w-[52ch] t-sm leading-relaxed">{t(card.descKey)}</p>
-                      </div>
-                      {card.href ? (
-                        <Button asChild variant="outline" size="sm" className="h-8 shrink-0 text-xs">
-                          <Link to={card.href}>{t(card.actionKey)}</Link>
-                        </Button>
-                      ) : card.mailto ? (
-                        <Button asChild variant="outline" size="sm" className="h-8 shrink-0 text-xs">
-                          <a href={card.mailto}>{t(card.actionKey)}</a>
-                        </Button>
-                      ) : (
-                        <Button variant="outline" size="sm" className="h-8 shrink-0 text-xs">
-                          {t(card.actionKey)}
-                        </Button>
-                      )}
-                    </div>
-                    <MetaStrip
-                      items={[
-                        { label: "TYPE", value: card.type },
-                        { label: "ENDPOINT", value: <span dir="ltr">{card.endpoint}</span> },
-                        { label: "RESPONSE", value: card.response },
-                      ]}
-                    />
-                  </div>
-                </Field>
-              ))}
-            </FieldSheet>
-          </section>
-
-          {/* §02 — Quick links as a ruled register ledger: IDX · DESTINATION · TARGET */}
-          <section id="navigation" className="scroll-mt-6">
-            <SectionRule n="02">{t("help.quickLinks.title")}</SectionRule>
-            <Ledger columns="4rem minmax(0,1fr) auto">
-              <LedgerHead cells={["IDX", "DESTINATION", "TARGET"]} aligns={["start", "start", "end"]} />
-              {quickLinks.map((link, i) => (
-                <LedgerRow key={link.labelKey} to={link.href}>
-                  <LedgerCell>
+      {/* Instrument-document body — a §-numbered contents rail with live tallies
+          beside a wide main column of ruled §-sections. */}
+      <DocFrame
+        rail={
+          <RailNav
+            label={t("help.contents", { defaultValue: "Contents" })}
+            ariaLabel={t("help.contents", { defaultValue: "Contents" })}
+            items={sections.map((section) => ({
+              n: section.n,
+              label: section.label,
+              count: String(section.count).padStart(2, "0"),
+              href: `#${section.id}`,
+            }))}
+          />
+        }
+      >
+        {/* §01 — Support channels as margin-label fields; each carries a channel
+               class tag and a mono TYPE/ENDPOINT/RESPONSE header line. */}
+        <DocSection
+          n="01"
+          id="support"
+          title={t("help.support.title", { defaultValue: "Support channels" })}
+          note={String(supportCards.length).padStart(2, "0")}
+        >
+          <FieldSheet>
+            {supportCards.map((card, i) => (
+              <Field
+                key={card.titleKey}
+                label={
+                  <span className="flex items-center gap-2">
                     <Serial>{String(i + 1).padStart(2, "0")}</Serial>
-                  </LedgerCell>
-                  <LedgerCell className="text-sm text-foreground">{t(link.labelKey)}</LedgerCell>
-                  <LedgerCell align="end" mono className="text-xs text-muted-foreground">
-                    <span dir="ltr">{link.href}</span>
-                  </LedgerCell>
-                </LedgerRow>
-              ))}
-            </Ledger>
-          </section>
-
-          {/* §03 — FAQ as a ruled definition list, topic-stamped, prose kept (no accordion) */}
-          <section id="faq" className="scroll-mt-6">
-            <SectionRule n="03">{t("help.faq.title")}</SectionRule>
-            <Panel bodyClassName="p-0">
-              <dl className="divide-y divide-border">
-                {faqItems.map((item, i) => (
-                  <div
-                    key={i}
-                    className="grid grid-cols-1 gap-x-5 gap-y-2 px-5 py-5 sm:grid-cols-[minmax(3rem,5rem)_1fr] sm:px-6"
-                  >
-                    <div className="flex flex-row items-center gap-2 pt-0.5 sm:flex-col sm:items-start">
-                      <Serial tone="primary">{`Q${String(i + 1).padStart(2, "0")}`}</Serial>
-                      {faqTopics[i] && <Tag tone="neutral">{faqTopics[i]}</Tag>}
+                    <span className="min-w-0 truncate">{t(card.titleKey)}</span>
+                  </span>
+                }
+              >
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0 space-y-2">
+                      <Tag tone="neutral">{card.type}</Tag>
+                      <p className="max-w-[52ch] t-sm leading-relaxed">{t(card.descKey)}</p>
                     </div>
-                    <div className="min-w-0">
-                      <dt className="t-h5 text-foreground">{item.question}</dt>
-                      <dd className="mt-2 t-sm leading-relaxed text-muted-foreground">{item.answer}</dd>
-                    </div>
+                    {card.href ? (
+                      <Button asChild variant="outline" size="sm" className="h-8 shrink-0 text-xs">
+                        <Link to={card.href}>{t(card.actionKey)}</Link>
+                      </Button>
+                    ) : card.mailto ? (
+                      <Button asChild variant="outline" size="sm" className="h-8 shrink-0 text-xs">
+                        <a href={card.mailto}>{t(card.actionKey)}</a>
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" className="h-8 shrink-0 text-xs">
+                        {t(card.actionKey)}
+                      </Button>
+                    )}
                   </div>
-                ))}
-              </dl>
-            </Panel>
-          </section>
-        </div>
-      </div>
+                  <MetaStrip
+                    items={[
+                      { label: "ENDPOINT", value: <span dir="ltr">{card.endpoint}</span> },
+                      { label: "RESPONSE", value: card.response },
+                    ]}
+                  />
+                </div>
+              </Field>
+            ))}
+          </FieldSheet>
+        </DocSection>
+
+        {/* §02 — Quick links as a ruled register ledger: IDX · DESTINATION · TARGET */}
+        <DocSection
+          n="02"
+          id="navigation"
+          title={t("help.quickLinks.title")}
+          note={String(quickLinks.length).padStart(2, "0")}
+        >
+          <Ledger columns="4rem minmax(0,1fr) auto">
+            <LedgerHead cells={["IDX", "DESTINATION", "TARGET"]} aligns={["start", "start", "end"]} />
+            {quickLinks.map((link, i) => (
+              <LedgerRow key={link.labelKey} to={link.href}>
+                <LedgerCell>
+                  <Serial>{String(i + 1).padStart(2, "0")}</Serial>
+                </LedgerCell>
+                <LedgerCell className="text-sm text-foreground">{t(link.labelKey)}</LedgerCell>
+                <LedgerCell align="end" mono className="text-xs text-muted-foreground">
+                  <span dir="ltr">{link.href}</span>
+                </LedgerCell>
+              </LedgerRow>
+            ))}
+          </Ledger>
+        </DocSection>
+
+        {/* §03 — FAQ as a ruled definition list, topic-stamped, prose kept (no accordion) */}
+        <DocSection
+          n="03"
+          id="faq"
+          title={t("help.faq.title")}
+          note={String(faqItems.length).padStart(2, "0")}
+        >
+          <Panel bodyClassName="p-0">
+            <dl className="divide-y divide-border">
+              {faqItems.map((item, i) => (
+                <div
+                  key={i}
+                  className="grid grid-cols-1 gap-x-5 gap-y-2 px-5 py-5 sm:grid-cols-[minmax(3rem,5rem)_1fr] sm:px-6"
+                >
+                  <div className="flex flex-row items-center gap-2 pt-0.5 sm:flex-col sm:items-start">
+                    <Serial tone="muted">{`Q${String(i + 1).padStart(2, "0")}`}</Serial>
+                    {faqTopics[i] && <Tag tone="neutral">{faqTopics[i]}</Tag>}
+                  </div>
+                  <div className="min-w-0">
+                    <dt className="t-h5 text-foreground">{item.question}</dt>
+                    <dd className="mt-2 t-sm leading-relaxed text-muted-foreground">{item.answer}</dd>
+                  </div>
+                </div>
+              ))}
+            </dl>
+          </Panel>
+        </DocSection>
+      </DocFrame>
     </div>
   );
 };

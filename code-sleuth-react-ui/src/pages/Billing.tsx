@@ -6,11 +6,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
   Masthead,
-  FieldSheet,
-  Field,
   Serial,
-  SectionRule,
-  Figure,
   Notice,
   StatusTag,
   Ledger,
@@ -19,6 +15,9 @@ import {
   LedgerCell,
   LedgerFooter,
   LedgerEmpty,
+  DocFrame,
+  RailReadings,
+  DocSection,
 } from "@/components/dossier/Dossier";
 import {
   getBillingSummary,
@@ -32,9 +31,9 @@ import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 // Subscription status is free-form (active|trialing|past_due|unpaid|canceled|…).
-// One helper maps it to a semantic tone; the mono STATUS reading and the status
-// stamp both read from it, so their colour tracks the real state — never a fixed
-// hue. Colour encodes meaning only.
+// One helper maps it to a semantic tone; the STATUS reading in the rail and the
+// status stamp both read from it, so their colour tracks the real state — never a
+// fixed hue. Colour encodes meaning only.
 type BillingStatusTone = "success" | "warning" | "danger" | "neutral";
 
 const billingStatusTone = (status: string): BillingStatusTone => {
@@ -45,10 +44,11 @@ const billingStatusTone = (status: string): BillingStatusTone => {
   return "neutral";
 };
 
-// Ink for a plain-text status reading. Amber text fails AA on warm paper, so the
-// warning state reads in ink (text-foreground), matching the warning-band rule.
-const billingStatusInk = (tone: BillingStatusTone): string =>
-  tone === "success" ? "text-success" : tone === "danger" ? "text-destructive" : "text-foreground";
+// RailReadings expects a default|primary|success|warning|danger tone; the status
+// helper's "neutral" maps to the rail's plain "default".
+const railStatusTone = (
+  tone: BillingStatusTone,
+): "default" | "success" | "warning" | "danger" => (tone === "neutral" ? "default" : tone);
 
 const Billing = () => {
   const { t } = useTranslation("common");
@@ -176,39 +176,12 @@ const Billing = () => {
         })
       : null;
 
-  // Live mono readings for the statement masthead.
-  const meta = summary
-    ? [
-        { label: "PLAN", value: <span className="uppercase">{summary.planName}</span> },
-        {
-          label: "STATUS",
-          value: (
-            <span className={cn("uppercase", billingStatusInk(billingStatusTone(summary.status)))}>
-              {summary.status}
-            </span>
-          ),
-        },
-        { label: "PERIOD", value: summary.period },
-        {
-          label: "USAGE",
-          value: summary.unlimited ? (
-            <span className="text-primary">∞</span>
-          ) : (
-            <span className={cn(overQuota && "text-destructive")}>
-              {summary.used}/{summary.limit}
-            </span>
-          ),
-        },
-      ]
-    : undefined;
-
   return (
     <div className="space-y-6 animate-fade-in">
       <Masthead
         kicker={t("nav.billing")}
         title={t("billing.title")}
         description={t("billing.subtitle")}
-        meta={meta}
         actions={
           billingEnabled && summary && summary.plan !== "free" ? (
             <Button
@@ -229,12 +202,46 @@ const Billing = () => {
         }
       />
 
-      {/* Statement — usage instrument (left) + account record (right).
-          The period lives in the masthead reading strip, so it is not repeated here. */}
-      {summary && (
-        <div className="grid gap-5 lg:grid-cols-[3fr_2fr]">
-          {/* Usage — a calibrated quota gauge, not a flat progress bar */}
-          <Figure n={1} label={t("billing.usageThisMonth")}>
+      {/* Instrument-document body — the account record reads down the margin rail;
+          the wide main column carries the calibrated usage gauge and the plans
+          ledger as ruled §-sections. */}
+      <DocFrame
+        rail={
+          summary ? (
+            <RailReadings
+              label={t("billing.railAccount", { defaultValue: "Account" })}
+              items={[
+                { label: t("billing.currentPlan"), value: <span className="uppercase">{summary.planName}</span> },
+                {
+                  label: t("billing.statusLabel", { defaultValue: "Status" }),
+                  value: <span className="uppercase">{summary.status}</span>,
+                  tone: railStatusTone(billingStatusTone(summary.status)),
+                },
+                { label: t("billing.periodLabel", { defaultValue: "Period" }), value: summary.period },
+                { label: t("billing.resets", { defaultValue: "Resets" }), value: renewsOn ?? "—" },
+                {
+                  label: t("billing.analysesLeft", { defaultValue: "Analyses left" }),
+                  value: summary.unlimited ? "∞" : String(summary.remaining ?? 0),
+                  tone: summary.unlimited ? "primary" : overQuota ? "danger" : "default",
+                },
+              ]}
+            />
+          ) : null
+        }
+      >
+        {!billingEnabled && (
+          <Notice
+            tone="warning"
+            label={t("billing.systemNotice", { defaultValue: "System notice" })}
+            className="mb-6"
+          >
+            {t("billing.billingDisabled")}
+          </Notice>
+        )}
+
+        {/* §01 — Usage: the calibrated quota gauge as the dominant reading. */}
+        {summary && (
+          <DocSection n="01" title={t("billing.usageThisMonth")}>
             {summary.unlimited ? (
               <div className="flex items-center gap-2.5 py-2">
                 <Infinity className="h-7 w-7 text-primary" aria-hidden="true" />
@@ -307,140 +314,104 @@ const Billing = () => {
                 )}
               </div>
             )}
-          </Figure>
+          </DocSection>
+        )}
 
-          {/* Account record — margin-label statement */}
-          <FieldSheet>
-            <Field label={t("billing.currentPlan")} align="center">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <span className="t-h4">{summary.planName}</span>
-                <StatusTag tone={billingStatusTone(summary.status)}>{summary.status}</StatusTag>
-              </div>
-            </Field>
-            <Field label={t("billing.resets", { defaultValue: "Resets" })} align="center">
-              <span className="font-mono text-sm tabular-nums text-foreground">{renewsOn ?? "—"}</span>
-            </Field>
-            <Field label={t("billing.analysesLeft", { defaultValue: "Analyses left" })} align="center">
-              {summary.unlimited ? (
-                <span className="inline-flex items-center gap-1.5 font-mono text-sm text-primary">
-                  <Infinity className="h-4 w-4" aria-hidden="true" /> {t("billing.unlimited")}
-                </span>
-              ) : (
-                <span
-                  className={cn(
-                    "font-mono text-sm font-semibold tabular-nums",
-                    overQuota ? "text-destructive" : "text-foreground",
-                  )}
-                >
-                  {summary.remaining ?? 0}
-                </span>
-              )}
-            </Field>
-          </FieldSheet>
-        </div>
-      )}
-
-      {!billingEnabled && (
-        <Notice tone="warning" label={t("billing.systemNotice", { defaultValue: "System notice" })}>
-          {t("billing.billingDisabled")}
-        </Notice>
-      )}
-
-      {/* Plans — a comparison ledger, one ruled row per tier */}
-      <section className="space-y-3">
-        <SectionRule>{t("billing.availablePlans")}</SectionRule>
-        <Ledger columns="2.75rem minmax(0,1fr) 6.5rem 6rem 6.5rem auto">
-          <LedgerHead
-            cells={[
-              "#",
-              t("billing.colTier", { defaultValue: "Tier" }),
-              t("billing.colPrice", { defaultValue: "Price" }),
-              t("billing.colQuota", { defaultValue: "Analyses / mo" }),
-              t("billing.colPerAnalysis", { defaultValue: "Per analysis" }),
-              "",
-            ]}
-            aligns={["start", "start", "end", "end", "end", "end"]}
-          />
-          {plans.length === 0 ? (
-            <LedgerEmpty>{t("billing.noPlans")}</LedgerEmpty>
-          ) : (
-            plans.map((plan, i) => {
-              const isCurrent = summary?.plan === plan.code;
-              const isFree = plan.code === "free";
-              const isUpgrade = currentIndex >= 0 && i > currentIndex;
-              // Derived comparator: monthly cost amortised per analysis (cents).
-              const perAnalysis =
-                plan.priceCents === 0 || plan.unlimited || plan.monthlyAnalysisQuota === 0
-                  ? "—"
-                  : `${(plan.priceCents / plan.monthlyAnalysisQuota).toFixed(1)}¢`;
-              return (
-                <LedgerRow
-                  key={plan.code}
-                  className={cn(isCurrent && "border-s-2 border-primary bg-primary/5")}
-                >
-                  <LedgerCell>
-                    <Serial tone={isCurrent ? "primary" : "muted"}>{i + 1}</Serial>
-                  </LedgerCell>
-                  <LedgerCell>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="t-h5">{plan.name}</span>
-                      {isCurrent && <StatusTag tone="success">{t("billing.current")}</StatusTag>}
-                    </div>
-                  </LedgerCell>
-                  <LedgerCell align="end" mono>
-                    <span className="text-base font-semibold text-foreground">
-                      {plan.priceCents === 0
-                        ? t("billing.free")
-                        : `$${(plan.priceCents / 100).toFixed(0)}`}
-                    </span>
-                    {plan.priceCents > 0 && (
-                      <span className="ms-1 text-xs font-normal text-muted-foreground">
-                        {t("billing.perMonth")}
+        {/* §02 — Plans: a comparison ledger, one ruled row per tier. */}
+        <DocSection n="02" title={t("billing.availablePlans")}>
+          <Ledger columns="2.75rem minmax(0,1fr) 6.5rem 6rem 6.5rem auto">
+            <LedgerHead
+              cells={[
+                "#",
+                t("billing.colTier", { defaultValue: "Tier" }),
+                t("billing.colPrice", { defaultValue: "Price" }),
+                t("billing.colQuota", { defaultValue: "Analyses / mo" }),
+                t("billing.colPerAnalysis", { defaultValue: "Per analysis" }),
+                "",
+              ]}
+              aligns={["start", "start", "end", "end", "end", "end"]}
+            />
+            {plans.length === 0 ? (
+              <LedgerEmpty>{t("billing.noPlans")}</LedgerEmpty>
+            ) : (
+              plans.map((plan, i) => {
+                const isCurrent = summary?.plan === plan.code;
+                const isFree = plan.code === "free";
+                const isUpgrade = currentIndex >= 0 && i > currentIndex;
+                // Derived comparator: monthly cost amortised per analysis (cents).
+                const perAnalysis =
+                  plan.priceCents === 0 || plan.unlimited || plan.monthlyAnalysisQuota === 0
+                    ? "—"
+                    : `${(plan.priceCents / plan.monthlyAnalysisQuota).toFixed(1)}¢`;
+                return (
+                  <LedgerRow
+                    key={plan.code}
+                    className={cn(isCurrent && "border-s-2 border-primary bg-primary/5")}
+                  >
+                    <LedgerCell>
+                      <Serial tone={isCurrent ? "primary" : "muted"}>{i + 1}</Serial>
+                    </LedgerCell>
+                    <LedgerCell>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="t-h5">{plan.name}</span>
+                        {isCurrent && <StatusTag tone="success">{t("billing.current")}</StatusTag>}
+                      </div>
+                    </LedgerCell>
+                    <LedgerCell align="end" mono>
+                      <span className="text-base font-semibold text-foreground">
+                        {plan.priceCents === 0
+                          ? t("billing.free")
+                          : `$${(plan.priceCents / 100).toFixed(0)}`}
                       </span>
-                    )}
-                  </LedgerCell>
-                  <LedgerCell align="end" mono>
-                    {plan.unlimited ? t("billing.unlimited") : plan.monthlyAnalysisQuota}
-                  </LedgerCell>
-                  <LedgerCell align="end" mono className="text-muted-foreground">
-                    {perAnalysis}
-                  </LedgerCell>
-                  <LedgerCell align="end">
-                    {!isCurrent && !isFree && (
-                      isUpgrade ? (
-                        <Button
-                          onClick={() => handleChoose(plan.code)}
-                          disabled={checkingOut === plan.code}
-                          aria-label={t("billing.choose")}
-                          className="h-9 gap-2"
-                        >
-                          {checkingOut === plan.code ? (
-                            <>
-                              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                              <span className="sr-only">{t("billing.processing")}</span>
-                            </>
-                          ) : (
-                            <>{t("billing.choose")}</>
-                          )}
-                        </Button>
-                      ) : (
-                        // Lower tier than the current plan — a downgrade, so its
-                        // subscribe button is disabled (its features are already included).
-                        <Button variant="outline" disabled className="h-9 opacity-60">
-                          {t("billing.includedInPlan")}
-                        </Button>
-                      )
-                    )}
-                  </LedgerCell>
-                </LedgerRow>
-              );
-            })
-          )}
-          {plans.length > 0 && (
-            <LedgerFooter left={t("billing.currentPlan")} right={summary ? summary.planName : "—"} />
-          )}
-        </Ledger>
-      </section>
+                      {plan.priceCents > 0 && (
+                        <span className="ms-1 text-xs font-normal text-muted-foreground">
+                          {t("billing.perMonth")}
+                        </span>
+                      )}
+                    </LedgerCell>
+                    <LedgerCell align="end" mono>
+                      {plan.unlimited ? t("billing.unlimited") : plan.monthlyAnalysisQuota}
+                    </LedgerCell>
+                    <LedgerCell align="end" mono className="text-muted-foreground">
+                      {perAnalysis}
+                    </LedgerCell>
+                    <LedgerCell align="end">
+                      {!isCurrent && !isFree && (
+                        isUpgrade ? (
+                          <Button
+                            onClick={() => handleChoose(plan.code)}
+                            disabled={checkingOut === plan.code}
+                            aria-label={t("billing.choose")}
+                            className="h-9 gap-2"
+                          >
+                            {checkingOut === plan.code ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                                <span className="sr-only">{t("billing.processing")}</span>
+                              </>
+                            ) : (
+                              <>{t("billing.choose")}</>
+                            )}
+                          </Button>
+                        ) : (
+                          // Lower tier than the current plan — a downgrade, so its
+                          // subscribe button is disabled (its features are already included).
+                          <Button variant="outline" disabled className="h-9 opacity-60">
+                            {t("billing.includedInPlan")}
+                          </Button>
+                        )
+                      )}
+                    </LedgerCell>
+                  </LedgerRow>
+                );
+              })
+            )}
+            {plans.length > 0 && (
+              <LedgerFooter left={t("billing.currentPlan")} right={summary ? summary.planName : "—"} />
+            )}
+          </Ledger>
+        </DocSection>
+      </DocFrame>
     </div>
   );
 };

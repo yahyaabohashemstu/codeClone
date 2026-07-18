@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { AnalysisChatPanel } from "@/components/results/AnalysisChatPanel";
 import { AnalysisReport } from "@/components/results/AnalysisReport";
@@ -31,7 +31,22 @@ import { MetricsComparison } from "@/components/results/MetricsComparison";
 import { PdfExportDialog } from "@/components/results/PdfExportDialog";
 import { SimilarityRadar } from "@/components/results/SimilarityRadar";
 import { StructuredReport } from "@/components/results/StructuredReport";
-import { Masthead, FieldSheet, Field, Panel, Figure, Serial, Tag, Register, Notice } from "@/components/dossier/Dossier";
+import {
+  Masthead,
+  Field,
+  Panel,
+  Serial,
+  Tag,
+  Register,
+  Notice,
+  DocFrame,
+  RailNav,
+  RailReadings,
+  DocSection,
+  ReadoutGrid,
+  ReadoutRow,
+  StatusTag,
+} from "@/components/dossier/Dossier";
 import { useAnalysis } from "@/context/AnalysisContext";
 import { useLanguage } from "@/context/LanguageContext";
 import type { AnalysisResult, CloneItem, SimilarityItem } from "@/types/api";
@@ -227,45 +242,33 @@ function exportAsText(result: AnalysisResult, t: TFunction) {
 }
 
 
-function SimilarityBars({ items }: { items: SimilarityItem[] }) {
+function SimilaritySignals({ items, n }: { items: SimilarityItem[]; n: string }) {
   const { t } = useTranslation("results");
   const strongest = items.reduce<SimilarityItem | null>(
     (max, item) => (max === null || item.value > max.value ? item : max),
     null,
   );
 
+  // The raw measurement table read as a dense two-column instrument readout —
+  // each signal carries its own band-coloured meter; the value stays mono/tabular.
   return (
-    <Figure n={1} label={t("results.similarity.title")}>
-      {/* Mono reading — signal count and the peak measurement */}
-      <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground/70">
-        <span className="tabular-nums text-foreground">{items.length}</span> ·{" "}
-        {strongest ? (
-          <>
-            {translateSimilarityName(strongest.name, t)}{" "}
-            <span className="tabular-nums text-foreground">{Math.round(strongest.value)}%</span>
-          </>
-        ) : (
-          "—"
-        )}
-      </p>
-      <div className="divide-y divide-border">
-        {items.map((item) => {
-          const barTone = item.value >= 80 ? "bg-destructive" : item.value >= 50 ? "bg-warning" : "bg-success";
-          const valueTone = item.value >= 80 ? "text-destructive" : item.value >= 50 ? "text-warning" : "text-success";
-          return (
-            <div key={item.name} className="flex items-center gap-4 py-2.5">
-              <span className="min-w-0 flex-1 truncate text-sm text-foreground">{translateSimilarityName(item.name, t)}</span>
-              <div className="metric-bar-track hidden w-28 shrink-0 sm:block lg:w-48">
-                <div className={cn("h-full rounded-full transition-all duration-700", barTone)} style={{ width: `${item.value}%` }} />
-              </div>
-              <span className={cn("w-16 shrink-0 text-end font-mono text-sm font-bold tabular-nums", valueTone)}>
-                {formatSimilarityValue(item)}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </Figure>
+    <DocSection
+      n={n}
+      title={t("results.similarity.title")}
+      note={`${items.length} · ${strongest ? `${Math.round(strongest.value)}%` : "—"} peak`}
+    >
+      <ReadoutGrid cols={2} className="border-t border-border/60">
+        {items.map((item) => (
+          <ReadoutRow
+            key={item.name}
+            label={translateSimilarityName(item.name, t)}
+            value={formatSimilarityValue(item)}
+            meterValue={item.value}
+            tone="auto"
+          />
+        ))}
+      </ReadoutGrid>
+    </DocSection>
   );
 }
 
@@ -329,7 +332,7 @@ function getCloneFocus(items: CloneItem[], t: TFunction) {
   return detectedItems.slice(0, 3).map((item) => translateCloneName(item.name, t)).join(" \u2022 ");
 }
 
-function CloneDetection({ items }: { items: CloneItem[] }) {
+function CloneDetection({ items, n }: { items: CloneItem[]; n: string }) {
   const { t } = useTranslation("results");
   const detectedItems = items.filter((item) => item.detected);
   const detectedCount = detectedItems.length;
@@ -342,24 +345,26 @@ function CloneDetection({ items }: { items: CloneItem[] }) {
   });
 
   return (
-    <Panel
-      label={t("results.cloneTypes.cloneTypeDetection")}
+    <DocSection
+      n={n}
+      title={t("results.cloneTypes.cloneTypeDetection")}
       actions={
         <>
-          <span className={detectedCount > 0 ? "badge-warning" : "badge-success"}>
+          <StatusTag tone={detectedCount > 0 ? "warning" : "success"}>
             {detectedCount} {t("results.cloneTypes.detectedCount")}
-          </span>
-          <span className="badge-info">{undetectedCount} {t("results.cloneTypes.notDetectedCount")}</span>
+          </StatusTag>
+          <StatusTag tone="muted">
+            {undetectedCount} {t("results.cloneTypes.notDetectedCount")}
+          </StatusTag>
         </>
       }
-      bodyClassName="p-0"
     >
-      <p className="border-b border-border px-5 py-4 text-xs leading-relaxed text-muted-foreground">
+      <p className="text-xs leading-relaxed text-muted-foreground">
         {summarizeCloneProfile(items, t)}
       </p>
 
       {/* Case attributes — margin-label fields */}
-      <div className="border-b border-border px-5 sm:px-6">
+      <div className="mt-4 border-t border-border">
         <Field label={t("results.cloneTypes.cloneProfile")}>
           <p className="text-sm font-semibold text-foreground">{getCloneProfileLabel(items, t)}</p>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
@@ -389,14 +394,14 @@ function CloneDetection({ items }: { items: CloneItem[] }) {
       </div>
 
       {/* The clone matrix — one ruled ledger with mono serials and status, not a card grid */}
-      <div className="divide-y divide-border">
+      <div className="mt-2 divide-y divide-border border-t border-border">
         {sortedItems.map((item, index) => {
           const meta = getCloneTypeMeta(item.name, t);
 
           return (
             <div
               key={item.name}
-              className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 px-5 py-4 sm:px-6"
+              className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 py-4"
             >
               <Serial tone={item.detected ? "primary" : "muted"}>{String(index + 1).padStart(2, "0")}</Serial>
               <div className="min-w-0">
@@ -436,7 +441,7 @@ function CloneDetection({ items }: { items: CloneItem[] }) {
           );
         })}
       </div>
-    </Panel>
+    </DocSection>
   );
 }
 
@@ -524,45 +529,27 @@ type QualityReport = {
   summary: string;
 };
 
-const qualitySeverityMeta: Record<
+/** Severity → kit tones. `tag` colours the StatusTag stamp; `notice` colours the
+    Notice inline-start accent edge. Colour encodes severity, never decoration. */
+const qualitySeverityTone: Record<
   QualitySeverity,
-  {
-    label: string;
-    icon: typeof AlertTriangle;
-    badgeClass: string;
-    iconClass: string;
-    cardClass: string;
-  }
+  { tag: "danger" | "warning" | "primary"; notice: "danger" | "warning" | "info" }
 > = {
-  critical: {
-    label: "Critical",
-    icon: AlertTriangle,
-    badgeClass: "badge-error",
-    iconClass: "border-destructive/30 bg-destructive/10 text-destructive",
-    cardClass: "border-destructive/18 bg-destructive/[0.04]",
-  },
-  warning: {
-    label: "Warning",
-    icon: ShieldAlert,
-    badgeClass: "badge-warning",
-    iconClass: "border-warning/30 bg-warning/10 text-warning",
-    cardClass: "border-warning/18 bg-warning/[0.04]",
-  },
-  style: {
-    label: "Style",
-    icon: FileText,
-    badgeClass: "badge-info",
-    iconClass: "border-border bg-muted text-muted-foreground",
-    cardClass: "border-border bg-muted/40",
-  },
-  info: {
-    label: "Info",
-    icon: TrendingUp,
-    badgeClass: "badge-info",
-    iconClass: "border-accent/25 bg-accent/10 text-muted-foreground",
-    cardClass: "border-accent/16 bg-accent/[0.04]",
-  },
+  critical: { tag: "danger", notice: "danger" },
+  warning: { tag: "warning", notice: "warning" },
+  style: { tag: "primary", notice: "info" },
+  info: { tag: "primary", notice: "info" },
 };
+
+/** The status-stamp tone for a source's overall quality disposition. */
+function qualityStatusTone(
+  statusTone: QualityReport["statusTone"],
+): "success" | "warning" | "danger" | "primary" {
+  if (statusTone === "excellent" || statusTone === "healthy") return "success";
+  if (statusTone === "watch") return "warning";
+  if (statusTone === "critical") return "danger";
+  return "primary";
+}
 
 function getQualitySeverity(rawType: string): QualitySeverity {
   const normalized = rawType.trim().toLowerCase();
@@ -741,65 +728,88 @@ function getQualityToneMeta(statusTone: QualityReport["statusTone"], t: TFunctio
 }
 
 function QualitySourceCard({
+  n,
+  id,
   title,
-  accentClass,
   report,
 }: {
+  n: string;
+  id: string;
   title: string;
-  accentClass: string;
   report: QualityReport;
 }) {
   const { t } = useTranslation("results");
   const totalFindings = report.issues.length;
   const toneMeta = getQualityToneMeta(report.statusTone, t);
   const topIssues = report.issues.slice(0, 8);
+  const warningCount = report.counts.warning + report.counts.style;
   const severityLabels: Record<QualitySeverity, string> = {
     critical: t("results.quality.severityLabels.critical"),
     warning: t("results.quality.severityLabels.warning"),
     style: t("results.quality.severityLabels.style"),
     info: t("results.quality.severityLabels.info"),
   };
+  // Higher score is healthier \u2014 the inverse of similarity, so the band is set
+  // explicitly rather than via the similarity-calibrated scoreBand().
+  const scoreTone =
+    report.score === null ? "primary"
+    : report.score >= 7 ? "success"
+    : report.score >= 5 ? "warning"
+    : "danger";
+  const scoreClass =
+    report.score === null ? "text-foreground"
+    : report.score >= 7 ? "text-success"
+    : report.score >= 5 ? "text-warning"
+    : "text-destructive";
 
   return (
-    <div className={cn("card-premium overflow-hidden border", toneMeta.containerClass)}>
-      <div className="border-b border-border/50 px-5 py-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className={cn("h-2.5 w-2.5 rounded-full", accentClass)} />
-              <h3 className="t-h5 text-foreground">{title}</h3>
-              <span className={toneMeta.badgeClass}>{toneMeta.label}</span>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-foreground">{report.headline}</p>
-              <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted-foreground">{report.summary}</p>
-            </div>
-          </div>
+    <DocSection
+      n={n}
+      title={
+        <span className="flex items-center gap-2">
+          <Serial>{id}</Serial>
+          {title}
+        </span>
+      }
+      note={report.score !== null ? `${report.score.toFixed(1)}/10` : "\u2014"}
+      actions={<StatusTag tone={qualityStatusTone(report.statusTone)}>{toneMeta.label}</StatusTag>}
+    >
+      <p className="text-sm font-medium text-foreground">{report.headline}</p>
+      <p className="mt-1 t-body">{report.summary}</p>
 
-          <Field label={t("results.quality.qualityScore")} className="lg:min-w-[220px]">
-            <div className={cn("t-stat text-4xl", toneMeta.scoreClass)}>
-              {report.score !== null ? report.score.toFixed(1) : "\u2014"}
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {report.ratingLine
-                ? t("results.quality.derivedFromPylint")
-                : t("results.quality.basedOnTextual")}
-            </p>
-          </Field>
-        </div>
-      </div>
+      {/* Quality score \u2014 a dense band-coloured readout, not a big-number tile */}
+      <ReadoutGrid cols={1} className="mt-4 border-t border-border/60">
+        <ReadoutRow
+          label={t("results.quality.qualityScore")}
+          value={
+            <span className={scoreClass}>
+              {report.score !== null ? `${report.score.toFixed(1)}/10` : "\u2014"}
+            </span>
+          }
+          meterValue={report.score !== null ? report.score * 10 : undefined}
+          tone={scoreTone}
+        />
+      </ReadoutGrid>
+      <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+        {report.ratingLine ? t("results.quality.derivedFromPylint") : t("results.quality.basedOnTextual")}
+      </p>
 
-      <div className="border-b border-border/50 px-5">
+      {/* Finding tallies \u2014 margin-label fields, severity carried in the value colour */}
+      <div className="mt-4 border-t border-border">
         <Field label={t("results.quality.findings")}>
-          <div className="t-stat text-2xl text-foreground">{totalFindings}</div>
+          <div className="font-mono text-lg font-bold tabular-nums text-foreground">{totalFindings}</div>
           <p className="mt-1 text-xs text-muted-foreground">{t("results.quality.findingsDesc")}</p>
         </Field>
         <Field label={t("results.quality.critical")}>
-          <div className="t-stat text-2xl text-destructive">{report.counts.critical}</div>
+          <div className={cn("font-mono text-lg font-bold tabular-nums", report.counts.critical > 0 ? "text-destructive" : "text-foreground")}>
+            {report.counts.critical}
+          </div>
           <p className="mt-1 text-xs text-muted-foreground">{t("results.quality.criticalDesc")}</p>
         </Field>
         <Field label={t("results.quality.warnings")}>
-          <div className="t-stat text-2xl text-warning">{report.counts.warning + report.counts.style}</div>
+          <div className={cn("font-mono text-lg font-bold tabular-nums", warningCount > 0 ? "text-warning" : "text-foreground")}>
+            {warningCount}
+          </div>
           <p className="mt-1 text-xs text-muted-foreground">{t("results.quality.warningsDesc")}</p>
         </Field>
         <Field label={t("results.quality.dominantSignals")}>
@@ -810,85 +820,72 @@ function QualitySourceCard({
         </Field>
       </div>
 
-      <div className="p-5">
-        {topIssues.length > 0 ? (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <ScrollText className="h-4 w-4 text-primary" />
-              <h4 className="t-label text-foreground">{t("results.quality.priorityFindings")}</h4>
-            </div>
-            <div className="space-y-3">
-              {topIssues.map((issue, index) => {
-                const meta = qualitySeverityMeta[issue.severity];
-                const IssueIcon = meta.icon;
-                return (
-                  <div key={`${issue.symbol ?? issue.message}-${index}`} className={cn("rounded-2xl border p-4 transition-all duration-200", meta.cardClass)}>
-                    <div className="flex items-start gap-3">
-                      <div className={cn("mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border", meta.iconClass)}>
-                        <IssueIcon className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className={meta.badgeClass}>{severityLabels[issue.severity]}</span>
-                          {issue.symbol && <span className="badge-info">{issue.symbol}</span>}
-                          {(issue.line !== null || issue.column !== null) && (
-                            <Tag tone="neutral">
-                              {issue.line !== null ? t("results.quality.line", { line: issue.line }) : t("results.quality.lineEmpty")}
-                              {issue.column !== null ? t("results.quality.column", { column: issue.column }) : ""}
-                            </Tag>
-                          )}
-                        </div>
-                        <p className="mt-2 text-sm font-medium leading-relaxed text-foreground">{issue.message}</p>
-                        <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground/85">
-                          {t("results.quality.reportedByLinter")}{" "}
-                          <span className="font-semibold text-foreground/85">{issue.rawType}</span>.
-                        </p>
-                      </div>
+      {/* Priority findings \u2014 flat ruled notices; the accent edge encodes severity */}
+      {topIssues.length > 0 ? (
+        <div className="mt-5">
+          <div className="mb-3 flex items-center gap-2">
+            <ScrollText className="h-4 w-4 text-primary" />
+            <h4 className="t-label text-foreground">{t("results.quality.priorityFindings")}</h4>
+          </div>
+          <div className="space-y-2">
+            {topIssues.map((issue, index) => {
+              const tone = qualitySeverityTone[issue.severity];
+              return (
+                <Notice
+                  key={`${issue.symbol ?? issue.message}-${index}`}
+                  tone={tone.notice}
+                  label={
+                    <div className="flex flex-wrap items-center gap-2">
+                      <StatusTag tone={tone.tag}>{severityLabels[issue.severity]}</StatusTag>
+                      {issue.symbol && <Tag tone="primary">{issue.symbol}</Tag>}
+                      {(issue.line !== null || issue.column !== null) && (
+                        <Tag tone="neutral">
+                          {issue.line !== null ? t("results.quality.line", { line: issue.line }) : t("results.quality.lineEmpty")}
+                          {issue.column !== null ? t("results.quality.column", { column: issue.column }) : ""}
+                        </Tag>
+                      )}
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  }
+                >
+                  <p className="text-sm font-medium leading-relaxed text-foreground">{issue.message}</p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground/85">
+                    {t("results.quality.reportedByLinter")}{" "}
+                    <span className="font-semibold text-foreground/85">{issue.rawType}</span>.
+                  </p>
+                </Notice>
+              );
+            })}
           </div>
-        ) : (
-          <div className="rounded-2xl border border-success/18 bg-success/[0.05] p-5">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-success/20 bg-success/10 text-success">
-                <CheckCircle2 className="h-4 w-4" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-foreground">{t("results.quality.noStructuredFindings")}</p>
-                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                  {report.generalNotes[0] || t("results.quality.noStructuredFindingsDesc")}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
+        </div>
+      ) : (
+        <Notice tone="success" label={t("results.quality.noStructuredFindings")} className="mt-5">
+          {report.generalNotes[0] || t("results.quality.noStructuredFindingsDesc")}
+        </Notice>
+      )}
 
-        {(report.generalNotes.length > 0 || report.text) && (
-          <details className="mt-4 overflow-hidden rounded-2xl border border-border/50 bg-background/35">
-            <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-foreground">
-              {t("results.quality.rawDiagnosticReport")}
-            </summary>
-            <div className="border-t border-border/40 px-4 py-4">
-              {report.generalNotes.length > 0 && (
-                <div className="mb-3 space-y-2">
-                  {report.generalNotes.map((note, index) => (
-                    <div key={`${note}-${index}`} className="rounded-xl border border-border/40 bg-muted/10 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-                      {note}
-                    </div>
-                  ))}
-                </div>
-              )}
-              <pre className="code-surface max-h-[320px] overflow-auto whitespace-pre-wrap p-4 text-[11px] leading-relaxed scrollbar-thin">
-                {report.text}
-              </pre>
-            </div>
-          </details>
-        )}
-      </div>
-    </div>
+      {/* Raw diagnostic report \u2014 folded, flat hairline container */}
+      {(report.generalNotes.length > 0 || report.text) && (
+        <details className="mt-4 overflow-hidden rounded-lg border border-border bg-card">
+          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-foreground">
+            {t("results.quality.rawDiagnosticReport")}
+          </summary>
+          <div className="border-t border-border px-4 py-4">
+            {report.generalNotes.length > 0 && (
+              <div className="mb-3 divide-y divide-border border-t border-border">
+                {report.generalNotes.map((note, index) => (
+                  <p key={`${note}-${index}`} className="py-2 text-xs leading-relaxed text-muted-foreground">
+                    {note}
+                  </p>
+                ))}
+              </div>
+            )}
+            <pre className="code-surface max-h-[320px] overflow-auto whitespace-pre-wrap p-4 text-[11px] leading-relaxed scrollbar-thin">
+              {report.text}
+            </pre>
+          </div>
+        </details>
+      )}
+    </DocSection>
   );
 }
 
@@ -898,7 +895,6 @@ function QualityPanel({ result }: { result: AnalysisResult }) {
     {
       id: "A",
       title: t("results.quality.sourceAReview"),
-      accentClass: "bg-primary text-primary",
       report: parseQualityReport(
         result.code_smell.code1_analysis,
         t("results.sourceA"),
@@ -909,7 +905,6 @@ function QualityPanel({ result }: { result: AnalysisResult }) {
     {
       id: "B",
       title: t("results.quality.sourceBReview"),
-      accentClass: "bg-accent text-accent",
       report: parseQualityReport(
         result.code_smell.code2_analysis,
         t("results.sourceB"),
@@ -932,55 +927,74 @@ function QualityPanel({ result }: { result: AnalysisResult }) {
     }
     return left.report.issues.length - right.report.issues.length;
   })[0];
+  const averageScoreTone =
+    averageScore === null ? "primary"
+    : averageScore >= 7 ? "success"
+    : averageScore >= 5 ? "warning"
+    : "danger";
+  const averageScoreClass =
+    averageScore === null ? "text-foreground"
+    : averageScore >= 7 ? "text-success"
+    : averageScore >= 5 ? "text-warning"
+    : "text-destructive";
 
   return (
-    <div className="space-y-5">
-      <div className="card-premium overflow-hidden">
-        <div className="grid gap-5 p-5 lg:grid-cols-[1.3fr_0.7fr]">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="badge-info">{t("results.quality.intelligence")}</span>
-              <span className="badge-info">{t("results.quality.linterDriven")}</span>
-            </div>
-            <h3 className="mt-3 t-h4 text-foreground">{t("results.quality.headline")}</h3>
-            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
-              {t("results.quality.description")}
-            </p>
-          </div>
-
-          <div>
-            <Field label={t("results.quality.totalFindings")}>
-              <div className="t-stat text-3xl text-foreground">{totalFindings}</div>
-              <p className="mt-1 text-xs text-muted-foreground">{t("results.quality.totalFindingsDesc")}</p>
-            </Field>
-            <Field label={t("results.quality.averageScore")}>
-              <div className={cn("t-stat text-3xl", averageScore !== null && averageScore >= 7 ? "text-success" : averageScore !== null && averageScore >= 5 ? "text-warning" : averageScore !== null ? "text-destructive" : "text-foreground")}>
-                {averageScore !== null ? averageScore.toFixed(1) : "\u2014"}
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">{t("results.quality.averageScoreDesc")}</p>
-            </Field>
-            <Field label={t("results.quality.healthierSource")}>
-              <p className="text-sm font-semibold text-foreground">{healthierSource.title}</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {healthierSource.report.score !== null
-                  ? t("results.quality.healthierScoreDesc", { score: healthierSource.report.score.toFixed(1) })
-                  : t("results.quality.healthierIssueDesc")}
-              </p>
-            </Field>
-          </div>
+    <div>
+      {/* \u00a701 \u2014 diagnostic overview, a ruled section instead of a premium card */}
+      <DocSection
+        n="01"
+        title={t("results.quality.headline")}
+        note={averageScore !== null ? `${averageScore.toFixed(1)}/10` : "\u2014"}
+      >
+        <div className="flex flex-wrap gap-2">
+          <Tag tone="primary">{t("results.quality.intelligence")}</Tag>
+          <Tag tone="neutral">{t("results.quality.linterDriven")}</Tag>
         </div>
-      </div>
+        <p className="mt-3 max-w-3xl t-body">{t("results.quality.description")}</p>
 
-      <div className="grid gap-5 xl:grid-cols-2">
-        {sourceReports.map((source) => (
-          <QualitySourceCard
-            key={source.id}
-            title={source.title}
-            accentClass={source.accentClass}
-            report={source.report}
+        {/* Average score \u2014 dense band-coloured readout */}
+        <ReadoutGrid cols={1} className="mt-4 border-t border-border/60">
+          <ReadoutRow
+            label={t("results.quality.averageScore")}
+            value={
+              <span className={averageScoreClass}>
+                {averageScore !== null ? averageScore.toFixed(1) : "\u2014"}
+              </span>
+            }
+            meterValue={averageScore !== null ? averageScore * 10 : undefined}
+            tone={averageScoreTone}
           />
-        ))}
-      </div>
+        </ReadoutGrid>
+        <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+          {t("results.quality.averageScoreDesc")}
+        </p>
+
+        {/* Aggregate readings \u2014 margin-label fields */}
+        <div className="mt-4 border-t border-border">
+          <Field label={t("results.quality.totalFindings")}>
+            <div className="font-mono text-lg font-bold tabular-nums text-foreground">{totalFindings}</div>
+            <p className="mt-1 text-xs text-muted-foreground">{t("results.quality.totalFindingsDesc")}</p>
+          </Field>
+          <Field label={t("results.quality.healthierSource")}>
+            <p className="text-sm font-semibold text-foreground">{healthierSource.title}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {healthierSource.report.score !== null
+                ? t("results.quality.healthierScoreDesc", { score: healthierSource.report.score.toFixed(1) })
+                : t("results.quality.healthierIssueDesc")}
+            </p>
+          </Field>
+        </div>
+      </DocSection>
+
+      {sourceReports.map((source, index) => (
+        <QualitySourceCard
+          key={source.id}
+          n={String(index + 2).padStart(2, "0")}
+          id={source.id}
+          title={source.title}
+          report={source.report}
+        />
+      ))}
     </div>
   );
 }
@@ -1331,9 +1345,11 @@ const Results = () => {
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 gap-1.5 text-xs"
+            className={cn(
+              "h-8 gap-1.5 text-xs",
+              result.saved_analysis_id ? "text-success" : "text-muted-foreground",
+            )}
             disabled
-            style={{ color: "hsl(var(--success))" }}
           >
             <Bookmark className="h-3.5 w-3.5" />
             {result.saved_analysis_id ? t("results.saved") : t("results.autoSaveUnavailable")}
@@ -1368,74 +1384,106 @@ const Results = () => {
         </div>
       </section>
 
-      {/* Accessible tablist (Radix): role=tab/tablist, aria-selected, and
-          arrow-key roving focus come for free; value is mirrored to the URL. */}
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as ResultTab)}>
-        <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto rounded-none border-b border-border bg-transparent p-0 text-muted-foreground">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <TabsTrigger
-                key={tab.id}
-                value={tab.id}
-                className="-mb-px flex items-center gap-2 whitespace-nowrap rounded-none border-b-2 border-transparent bg-transparent px-4 py-3 text-sm font-medium text-muted-foreground shadow-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-0 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-primary data-[state=active]:shadow-none"
-              >
-                <Icon className="h-4 w-4" />
-                {tab.label}
-              </TabsTrigger>
-            );
-          })}
-        </TabsList>
+      {/* Document body — the report's sections live in the margin rail as a
+          numbered contents index plus a live readings block; the wide main
+          column renders the active section. The rail replaces the tab strip. */}
+      <DocFrame
+        rail={
+          <>
+            <RailNav
+              label={t("results.rail.sections", { defaultValue: "Sections" })}
+              ariaLabel={t("results.rail.sections", { defaultValue: "Sections" })}
+              items={tabs.map((tab, index) => ({
+                n: String(index + 1).padStart(2, "0"),
+                label: tab.label,
+                active: activeTab === tab.id,
+                onClick: () => setActiveTab(tab.id),
+              }))}
+            />
+            <RailReadings
+              label={t("results.rail.readings", { defaultValue: "Readings" })}
+              items={[
+                {
+                  label: t("results.rail.combined", { defaultValue: "Combined" }),
+                  value: `${overallScoreLabel}%`,
+                  tone: band === "high" ? "danger" : band === "moderate" ? "warning" : "success",
+                },
+                {
+                  label: t("results.rail.confidence", { defaultValue: "Confidence" }),
+                  value: confidenceLabel,
+                  tone: confidence.advisory ? "warning" : "default",
+                },
+                {
+                  label: t("results.rail.corroborating", { defaultValue: "Corroborating" }),
+                  value: `${confidence.corroborating}/${confidence.deterministicTotal}`,
+                },
+                {
+                  label: t("results.language"),
+                  value: getProgrammingLanguageLabel(result.language),
+                },
+              ]}
+            />
+          </>
+        }
+      >
+        {/* Radix keeps the URL-mirrored value + per-panel mounting; only the
+            horizontal tab strip is gone — the rail RailNav drives selection. */}
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as ResultTab)}>
 
-        {/* Overview leads with the exact signal values and the clone evidence;
-            the redundant radar and the raw source view fold behind disclosure. */}
-        <TabsContent value="overview" className="mt-5 space-y-5">
-          {/* Verdict → evidence chain, read as ruled margin-label fields */}
-          <FieldSheet>
-            <Field label={t("results.drivers.label")}>
-              <p className="text-sm text-muted-foreground">
-                {t("results.drivers.combinedDrivenBy", { score: overallScoreLabel })}
-              </p>
-              <Register
-                className="mt-2.5"
-                items={drivers.map((driver) => ({
-                  value: driver.name,
-                  label: `${translateSimilarityName(driver.name, t)} ${Math.round(driver.value)}%`,
-                }))}
-                onSelect={(value) => setActiveTab(signalToTab(value))}
-              />
-            </Field>
-            <Field label={t("results.drivers.families")}>
-              <p className="text-sm text-foreground/90">{getCloneFocus(result.clone_items, t)}</p>
-            </Field>
-          </FieldSheet>
-
-          <SimilarityBars items={result.similarity_items} />
-          <CloneDetection items={result.clone_items} />
-
-          <details className="overflow-hidden rounded-lg border border-border bg-card">
-            <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-4 text-sm font-semibold text-foreground">
-              <Activity className="h-4 w-4 text-primary" />
-              {t("results.disclosure.radar")}
-            </summary>
-            <div className="border-t border-border p-2">
-              <ErrorBoundary fallback={<PanelErrorFallback />}>
-                <SimilarityRadar items={result.similarity_items} />
-              </ErrorBoundary>
+        {/* §01 Overview — the exact signal values + clone evidence lead; the
+            redundant radar and the raw source view fold behind disclosure. */}
+        <TabsContent value="overview" className="focus-visible:outline-none">
+          {/* §01 — verdict → evidence chain, read as a ruled document section */}
+          <DocSection n="01" title={t("results.drivers.label")} note={`→ ${overallScoreLabel}%`}>
+            <p className="t-body">
+              {t("results.drivers.combinedDrivenBy", { score: overallScoreLabel })}
+            </p>
+            <Register
+              className="mt-3"
+              items={drivers.map((driver) => ({
+                value: driver.name,
+                label: `${translateSimilarityName(driver.name, t)} ${Math.round(driver.value)}%`,
+              }))}
+              onSelect={(value) => setActiveTab(signalToTab(value))}
+            />
+            <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1 border-t border-border pt-3">
+              <span className="t-label">{t("results.drivers.families")}</span>
+              <span className="text-sm text-foreground/90">{getCloneFocus(result.clone_items, t)}</span>
             </div>
-          </details>
-          <details className="overflow-hidden rounded-lg border border-border bg-card">
-            <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-4 text-sm font-semibold text-foreground">
-              <Code2 className="h-4 w-4 text-primary" />
-              {t("results.disclosure.code")}
-            </summary>
-            <div className="border-t border-border">
-              <CodeComparisonPanel result={result} description={t("results.overviewDescription")} />
-            </div>
-          </details>
+          </DocSection>
+
+          {/* §02 — similarity signal readout */}
+          <SimilaritySignals items={result.similarity_items} n="02" />
+
+          {/* §03 — clone-type detection */}
+          <CloneDetection items={result.clone_items} n="03" />
+
+          {/* Supplementary exhibits — folded until called for */}
+          <div className="mt-6 space-y-4">
+            <details className="overflow-hidden rounded-lg border border-border bg-card">
+              <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-4 text-sm font-semibold text-foreground">
+                <Activity className="h-4 w-4 text-primary" />
+                {t("results.disclosure.radar")}
+              </summary>
+              <div className="border-t border-border p-2">
+                <ErrorBoundary fallback={<PanelErrorFallback />}>
+                  <SimilarityRadar items={result.similarity_items} />
+                </ErrorBoundary>
+              </div>
+            </details>
+            <details className="overflow-hidden rounded-lg border border-border bg-card">
+              <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-4 text-sm font-semibold text-foreground">
+                <Code2 className="h-4 w-4 text-primary" />
+                {t("results.disclosure.code")}
+              </summary>
+              <div className="border-t border-border">
+                <CodeComparisonPanel result={result} description={t("results.overviewDescription")} />
+              </div>
+            </details>
+          </div>
         </TabsContent>
 
-        <TabsContent value="diff" className="mt-5">
+        <TabsContent value="diff" className="focus-visible:outline-none">
           <ErrorBoundary fallback={<PanelErrorFallback />}>
             <DiffViewer
               analysisId={result.saved_analysis_id}
@@ -1445,7 +1493,7 @@ const Results = () => {
           </ErrorBoundary>
         </TabsContent>
 
-        <TabsContent value="graphs" className="mt-5">
+        <TabsContent value="graphs" className="focus-visible:outline-none">
           <div className="grid gap-5 xl:grid-cols-2">
             <ErrorBoundary fallback={<PanelErrorFallback />}>
               <AstGraphPanel title={t("results.graph1")} color="primary" elements={result.graph_json1} />
@@ -1456,30 +1504,31 @@ const Results = () => {
           </div>
         </TabsContent>
 
-        <TabsContent value="metrics" className="mt-5">
+        <TabsContent value="metrics" className="focus-visible:outline-none">
           <ErrorBoundary fallback={<PanelErrorFallback />}>
             <MetricsComparison metricsA={result.metrics1} metricsB={result.metrics2} />
           </ErrorBoundary>
         </TabsContent>
 
-        <TabsContent value="quality" className="mt-5">
+        <TabsContent value="quality" className="focus-visible:outline-none">
           <QualityPanel result={result} />
         </TabsContent>
 
-        <TabsContent value="report" className="mt-5">
+        <TabsContent value="report" className="focus-visible:outline-none">
           <div className="space-y-6">
             {result.analysis_structured && <StructuredReport data={result.analysis_structured} />}
             <AnalysisReport html={result.analysis_html} />
           </div>
         </TabsContent>
 
-        <TabsContent value="chat" className="mt-5">
+        <TabsContent value="chat" className="focus-visible:outline-none">
           <AnalysisChatPanel
             analysisId={result.saved_analysis_id}
             contextLabel={`${result.source_labels.code1} \u2194 ${result.source_labels.code2}`}
           />
         </TabsContent>
-      </Tabs>
+        </Tabs>
+      </DocFrame>
 
       <PdfExportDialog
         open={pdfOpen}

@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -40,6 +40,23 @@ const SuspenseFallback = () => (
     <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
   </div>
 );
+
+// React Router's <Link to="#id"> pushes a hash-only location but does not scroll
+// to the target, so in-page contents rails (RailNav/Ledger hash links) would be
+// dead affordances. This restores native anchor behaviour app-wide: whenever the
+// hash changes, scroll the matching element into view once it has mounted.
+const ScrollToHash = () => {
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (!hash) return;
+    const id = decodeURIComponent(hash.slice(1));
+    const raf = requestAnimationFrame(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [hash]);
+  return null;
+};
 
 // Keying the error boundary by pathname gives each route its own boundary
 // instance, so a render error on one page resets when the user navigates away
@@ -179,6 +196,7 @@ const App = () => (
             <Sonner />
             <BrowserRouter>
               <DocumentTitleSync />
+              <ScrollToHash />
               <MainLayout>
                 <RoutedContent />
               </MainLayout>

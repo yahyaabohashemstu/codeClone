@@ -33,6 +33,10 @@ import {
   ScoreMeter,
   StatusTag,
   Tag,
+  DocFrame,
+  RailReadings,
+  DocSection,
+  scoreBand,
 } from "@/components/dossier/Dossier";
 import { apiFetch } from "@/lib/api";
 import type { HistorySummary } from "@/types/api";
@@ -132,35 +136,14 @@ const Analytics = () => {
     date: d.date.slice(5), // "MM-DD"
   }));
 
-  // Headline readings, laid as a ruled spec band — not a 4-up card grid.
-  const readings = [
-    { label: t("analytics.totalAnalyses"), value: String(data.total), sub: t("analytics.totalDesc") },
-    { label: t("analytics.languages"), value: String(uniqueLangs), sub: t("analytics.languagesDesc") },
-    {
-      label: t("analytics.topScore"),
-      value: `${topScore.toFixed(1)}%`,
-      sub: t("analytics.topScoreDesc"),
-    },
-    {
-      label: t("analytics.last7Days", { defaultValue: "Last 7 days" }),
-      value: String(totalActivity),
-      sub: t("analytics.analyses"),
-    },
-  ];
-
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Case-file masthead + document meta strip */}
+      {/* Case-file masthead — the numeric figures fold down into the margin rail
+          instead of a 4-up stat-tile band. */}
       <Masthead
         kicker={t("analytics.eyebrow", { defaultValue: "Figures report" })}
         title={t("analytics.title")}
         description={t("analytics.description")}
-        meta={[
-          { label: "PERIOD", value: "30D" },
-          { label: "RECORDS", value: data.total },
-          { label: "LANGS", value: uniqueLangs },
-          { label: "FIGURES", value: data.clone_dist.length > 0 ? 4 : 3 },
-        ]}
         actions={
           <Button asChild size="sm" className="h-9 gap-2">
             <Link to="/analysis">
@@ -171,236 +154,249 @@ const Analytics = () => {
         }
       />
 
-      {/* Summary readings — a vertical, Serial-indexed instrument readout,
-          not a 4-up big-number stat-tile band. Left-anchored label/descriptor,
-          the reading itself carried in a mono tabular value at the inline-end. */}
-      <Panel label={t("analytics.eyebrow", { defaultValue: "Figures report" })} bodyClassName="p-0">
-        <div className="divide-y divide-border">
-          {readings.map((r, i) => (
-            <div
-              key={r.label}
-              className="grid grid-cols-[auto_1fr_auto] items-center gap-x-5 px-5 py-4"
-            >
-              <Serial tone={i === 0 ? "primary" : "muted"}>
-                {String(i + 1).padStart(2, "0")}
-              </Serial>
-              <div className="min-w-0">
-                <div className="t-label">{r.label}</div>
-                <div className="mt-0.5 t-xs">{r.sub}</div>
-              </div>
-              <div className="t-stat text-2xl tabular-nums text-foreground sm:text-3xl">
-                {r.value}
-              </div>
-            </div>
-          ))}
-        </div>
-      </Panel>
+      {/* Instrument-document body — the headline figures read down the margin
+          rail; the wide main column carries ruled §-sections of exhibits. */}
+      <DocFrame
+        rail={
+          <RailReadings
+            label={t("analytics.railFigures", { defaultValue: "Figures" })}
+            items={[
+              { label: t("analytics.totalAnalyses"), value: String(data.total) },
+              { label: t("analytics.topScore"), value: `${topScore.toFixed(1)}%`, tone: scoreBand(topScore) },
+              { label: t("analytics.languages"), value: String(uniqueLangs) },
+              { label: t("analytics.last7Days", { defaultValue: "Last 7 days" }), value: String(totalActivity) },
+            ]}
+          />
+        }
+      >
+        {/* NOTE: recharts is not RTL-aware — axis placement, category order, and
+            the horizontal clone-census bar (§02) always render left-to-right even
+            under Arabic. This is a known upstream limitation; a manual axis /
+            orientation flip risks mislabelling the data, so the plots are
+            deliberately left LTR. The enumerated per-point aria-labels below carry
+            the full data order to assistive tech regardless of visual direction. */}
 
-      {/* FIG.01 — Daily activity. The primary exhibit — framed with printer's
-          corner registration ticks (relative, not overflow-hidden) as the page's
-          one bold signature reading. */}
-      <div className="tick-frame relative">
-      <Figure n={1} label={t("analytics.activity")} actions={<Reading>Σ {totalActivity}</Reading>}>
-        <div role="img" aria-label={`${t("analytics.activity")}: ${totalActivity} ${t("analytics.analyses")}`}>
-        <ResponsiveContainer width="100%" height={220}>
-          <AreaChart data={activityData} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.4)" />
-            <XAxis
-              dataKey="date"
-              tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontFamily: "var(--font-mono)" }}
-              tickLine={false}
-              interval={4}
-            />
-            <YAxis
-              allowDecimals={false}
-              tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontFamily: "var(--font-mono)" }}
-              tickLine={false}
-            />
-            <Tooltip contentStyle={CHART_TOOLTIP_STYLE} labelStyle={{ color: "hsl(var(--foreground))" }} />
-            <Area
-              type="monotone"
-              dataKey="count"
-              stroke="hsl(var(--primary))"
-              strokeWidth={2}
-              fill="hsl(var(--primary))"
-              fillOpacity={0.08}
-              name={t("analytics.analyses")}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-        </div>
-      </Figure>
-      </div>
+        {/* §01 — Daily activity: the page's one bold signature reading, framed
+            with printer's corner registration ticks. */}
+        <DocSection n="01" title={t("analytics.activity")}>
+          <div className="tick-frame relative">
+            <Figure n={1} label={t("analytics.activity")} actions={<Reading>Σ {totalActivity}</Reading>}>
+              <div
+                role="img"
+                aria-label={`${t("analytics.activity")}: Σ ${totalActivity} — ${activityData
+                  .map((d) => `${d.date} ${d.count}`)
+                  .join(", ")}`}
+              >
+                <ResponsiveContainer width="100%" height={220}>
+                  <AreaChart data={activityData} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.4)" />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontFamily: "var(--font-mono)" }}
+                      tickLine={false}
+                      interval={4}
+                    />
+                    <YAxis
+                      allowDecimals={false}
+                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontFamily: "var(--font-mono)" }}
+                      tickLine={false}
+                    />
+                    <Tooltip contentStyle={CHART_TOOLTIP_STYLE} labelStyle={{ color: "hsl(var(--foreground))" }} />
+                    <Area
+                      type="monotone"
+                      dataKey="count"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={2}
+                      fill="hsl(var(--primary))"
+                      fillOpacity={0.08}
+                      name={t("analytics.analyses")}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </Figure>
+          </div>
+        </DocSection>
 
-      {/* FIG.02 / FIG.03 — distributions */}
-      <div className="grid gap-5 xl:grid-cols-2">
-        {/* Language distribution */}
-        <Figure n={2} label={t("analytics.langDist")} actions={<Reading>{uniqueLangs}</Reading>}>
-          <div className="flex items-center justify-center gap-4">
-            <div
-              role="img"
-              style={{ width: "45%" }}
-              aria-label={`${t("analytics.langDist")}: ${data.language_dist
-                .map((d) => `${d.language} ${d.count}`)
-                .join(", ")}`}
-            >
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie
-                  data={data.language_dist}
-                  dataKey="count"
-                  nameKey="language"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  stroke="hsl(var(--card))"
-                  strokeWidth={1}
+        {/* §02 — Distributions: an asymmetric field of framed figures — language
+            and similarity split unevenly, the clone-type census running full width. */}
+        <DocSection n="02" title={t("analytics.distributions", { defaultValue: "Distributions" })}>
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+            {/* Language distribution */}
+            <Figure n={2} label={t("analytics.langDist")} actions={<Reading>{uniqueLangs}</Reading>}>
+              <div className="flex items-center justify-center gap-4">
+                <div
+                  role="img"
+                  style={{ width: "45%" }}
+                  aria-label={`${t("analytics.langDist")}: ${data.language_dist
+                    .map((d) => `${d.language} ${d.count}`)
+                    .join(", ")}`}
                 >
-                  {data.language_dist.map((_, i) => (
-                    <Cell key={i} fill={LANG_RAMP[i % LANG_RAMP.length]} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
-              </PieChart>
-            </ResponsiveContainer>
-            </div>
-            <dl className="flex-1 space-y-2">
-              {data.language_dist.slice(0, 7).map((d, i) => (
-                <div key={d.language} className="flex items-center justify-between gap-2 text-xs">
-                  <dt className="flex items-center gap-1.5">
-                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: LANG_RAMP[i % LANG_RAMP.length] }} />
-                    <span className="font-medium capitalize text-foreground">{d.language}</span>
-                  </dt>
-                  <dd className="font-mono tabular-nums text-muted-foreground">{d.count}</dd>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie
+                        data={data.language_dist}
+                        dataKey="count"
+                        nameKey="language"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        stroke="hsl(var(--card))"
+                        strokeWidth={1}
+                      >
+                        {data.language_dist.map((_, i) => (
+                          <Cell key={i} fill={LANG_RAMP[i % LANG_RAMP.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+                    </PieChart>
+                  </ResponsiveContainer>
                 </div>
+                <dl className="flex-1 space-y-2">
+                  {data.language_dist.slice(0, 7).map((d, i) => (
+                    <div key={d.language} className="flex items-center justify-between gap-2 text-xs">
+                      <dt className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: LANG_RAMP[i % LANG_RAMP.length] }} />
+                        <span className="font-medium capitalize text-foreground">{d.language}</span>
+                      </dt>
+                      <dd className="font-mono tabular-nums text-muted-foreground">{d.count}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            </Figure>
+
+            {/* Similarity distribution */}
+            <Figure n={3} label={t("analytics.simDist")}>
+              <div
+                role="img"
+                aria-label={`${t("analytics.simDist")}: ${data.similarity_dist
+                  .map((d) => `${d.range} ${d.count}`)
+                  .join(", ")}`}
+              >
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={data.similarity_dist} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.4)" />
+                    <XAxis
+                      dataKey="range"
+                      tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))", fontFamily: "var(--font-mono)" }}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      allowDecimals={false}
+                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontFamily: "var(--font-mono)" }}
+                      tickLine={false}
+                    />
+                    <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+                    <Bar dataKey="count" radius={0} name={t("analytics.count")}>
+                      {data.similarity_dist.map((d) => (
+                        <Cell
+                          key={d.range}
+                          fill={
+                            d.range === "75-100"
+                              ? "hsl(var(--destructive))"
+                              : d.range === "50-75"
+                              ? "hsl(var(--warning))"
+                              : "hsl(var(--success))"
+                          }
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </Figure>
+          </div>
+
+          {/* Clone-type frequency — full-width census below the split. */}
+          {data.clone_dist.length > 0 && (
+            <Figure
+              n={4}
+              label={t("analytics.cloneDist")}
+              actions={<Reading>{data.clone_dist.length}</Reading>}
+              className="mt-5"
+            >
+              <div
+                role="img"
+                aria-label={`${t("analytics.cloneDist")}: ${data.clone_dist
+                  .map((d) => `${d.name} ${d.count}`)
+                  .join(", ")}`}
+              >
+                <ResponsiveContainer width="100%" height={Math.max(200, data.clone_dist.length * 28)}>
+                  <BarChart data={data.clone_dist} layout="vertical" margin={{ top: 0, right: 8, left: 8, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.4)" horizontal={false} />
+                    <XAxis
+                      type="number"
+                      allowDecimals={false}
+                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontFamily: "var(--font-mono)" }}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      width={160}
+                      tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))", fontFamily: "var(--font-mono)" }}
+                      tickLine={false}
+                    />
+                    <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+                    <Bar dataKey="count" fill="hsl(var(--primary))" radius={0} name={t("analytics.count")} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </Figure>
+          )}
+        </DocSection>
+
+        {/* §03 — Top analyses: the ruled exhibit ledger, band-coloured ScoreMeter
+            per row, MAX/ROWS folded into the section annotation. */}
+        {data.top_analyses.length > 0 && (
+          <DocSection
+            n="03"
+            title={t("analytics.topAnalyses")}
+            actions={
+              <MetaStrip
+                items={[
+                  { label: "MAX", value: `${topScore.toFixed(1)}%` },
+                  { label: "ROWS", value: data.top_analyses.length },
+                ]}
+              />
+            }
+          >
+            <Ledger columns="2.75rem minmax(9rem,1fr) minmax(9rem,1fr) 6.5rem minmax(10rem,12rem)">
+              <LedgerHead
+                cells={[
+                  "#",
+                  `${t("analytics.source")} A`,
+                  `${t("analytics.source")} B`,
+                  t("analytics.language"),
+                  t("analytics.similarity"),
+                ]}
+                aligns={["start", "start", "start", "start", "end"]}
+              />
+              {data.top_analyses.map((a, i) => (
+                <LedgerRow key={a.id}>
+                  <LedgerCell>
+                    <Serial tone={i === 0 ? "primary" : "muted"}>{i + 1}</Serial>
+                  </LedgerCell>
+                  <LedgerCell mono className="truncate text-xs text-foreground">
+                    {a.sourceA}
+                  </LedgerCell>
+                  <LedgerCell mono className="truncate text-xs text-foreground">
+                    {a.sourceB}
+                  </LedgerCell>
+                  <LedgerCell>
+                    <Tag tone="neutral">{a.language}</Tag>
+                  </LedgerCell>
+                  <LedgerCell>
+                    <ScoreMeter value={a.similarity} />
+                  </LedgerCell>
+                </LedgerRow>
               ))}
-            </dl>
-          </div>
-        </Figure>
-
-        {/* Similarity distribution */}
-        <Figure n={3} label={t("analytics.simDist")}>
-          <div
-            role="img"
-            aria-label={`${t("analytics.simDist")}: ${data.similarity_dist
-              .map((d) => `${d.range} ${d.count}`)
-              .join(", ")}`}
-          >
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={data.similarity_dist} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.4)" />
-              <XAxis
-                dataKey="range"
-                tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))", fontFamily: "var(--font-mono)" }}
-                tickLine={false}
-              />
-              <YAxis
-                allowDecimals={false}
-                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontFamily: "var(--font-mono)" }}
-                tickLine={false}
-              />
-              <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
-              <Bar dataKey="count" radius={0} name={t("analytics.count")}>
-                {data.similarity_dist.map((d) => (
-                  <Cell
-                    key={d.range}
-                    fill={
-                      d.range === "75-100"
-                        ? "hsl(var(--destructive))"
-                        : d.range === "50-75"
-                        ? "hsl(var(--warning))"
-                        : "hsl(var(--success))"
-                    }
-                  />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-          </div>
-        </Figure>
-      </div>
-
-      {/* FIG.04 — clone type frequency */}
-      {data.clone_dist.length > 0 && (
-        <Figure n={4} label={t("analytics.cloneDist")} actions={<Reading>{data.clone_dist.length}</Reading>}>
-          <div
-            role="img"
-            aria-label={`${t("analytics.cloneDist")}: ${data.clone_dist
-              .map((d) => `${d.name} ${d.count}`)
-              .join(", ")}`}
-          >
-          <ResponsiveContainer width="100%" height={Math.max(200, data.clone_dist.length * 28)}>
-            <BarChart data={data.clone_dist} layout="vertical" margin={{ top: 0, right: 8, left: 8, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.4)" horizontal={false} />
-              <XAxis
-                type="number"
-                allowDecimals={false}
-                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontFamily: "var(--font-mono)" }}
-                tickLine={false}
-              />
-              <YAxis
-                type="category"
-                dataKey="name"
-                width={160}
-                tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))", fontFamily: "var(--font-mono)" }}
-                tickLine={false}
-              />
-              <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
-              <Bar dataKey="count" fill="hsl(var(--primary))" radius={0} name={t("analytics.count")} />
-            </BarChart>
-          </ResponsiveContainer>
-          </div>
-        </Figure>
-      )}
-
-      {/* Exhibit ledger — top analyses by similarity. A shared ruled Ledger with
-          a band-coloured ScoreMeter per row (fill encodes the amount), a titled
-          rule + MetaStrip summary, and a footer tally — not a hand-rolled table. */}
-      {data.top_analyses.length > 0 && (
-        <section className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-2">
-            <h2 className="t-label text-foreground">{t("analytics.topAnalyses")}</h2>
-            <MetaStrip
-              items={[
-                { label: "MAX", value: `${topScore.toFixed(1)}%` },
-                { label: "ROWS", value: data.top_analyses.length },
-              ]}
-            />
-          </div>
-          <Ledger columns="2.75rem minmax(9rem,1fr) minmax(9rem,1fr) 6.5rem minmax(10rem,12rem)">
-            <LedgerHead
-              cells={[
-                "#",
-                `${t("analytics.source")} A`,
-                `${t("analytics.source")} B`,
-                t("analytics.language"),
-                t("analytics.similarity"),
-              ]}
-              aligns={["start", "start", "start", "start", "end"]}
-            />
-            {data.top_analyses.map((a, i) => (
-              <LedgerRow key={a.id}>
-                <LedgerCell>
-                  <Serial tone={i === 0 ? "primary" : "muted"}>{i + 1}</Serial>
-                </LedgerCell>
-                <LedgerCell mono className="truncate text-xs text-foreground">
-                  {a.sourceA}
-                </LedgerCell>
-                <LedgerCell mono className="truncate text-xs text-foreground">
-                  {a.sourceB}
-                </LedgerCell>
-                <LedgerCell>
-                  <Tag tone="neutral">{a.language}</Tag>
-                </LedgerCell>
-                <LedgerCell>
-                  <ScoreMeter value={a.similarity} />
-                </LedgerCell>
-              </LedgerRow>
-            ))}
-            <LedgerFooter left="SHOWING" right={data.top_analyses.length} />
-          </Ledger>
-        </section>
-      )}
+              <LedgerFooter left="SHOWING" right={data.top_analyses.length} />
+            </Ledger>
+          </DocSection>
+        )}
+      </DocFrame>
     </div>
   );
 };

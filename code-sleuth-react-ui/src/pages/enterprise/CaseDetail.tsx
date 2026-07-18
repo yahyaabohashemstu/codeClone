@@ -21,10 +21,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
   Masthead,
-  Panel,
   Field,
   FieldSheet,
-  Figure,
   Serial,
   Reading,
   Meter,
@@ -38,7 +36,10 @@ import {
   LedgerCell,
   LedgerFooter,
   LedgerEmpty,
-  SectionRule,
+  DocFrame,
+  RailNav,
+  RailReadings,
+  DocSection,
 } from "@/components/dossier/Dossier";
 import { useLanguage } from "@/context/LanguageContext";
 import {
@@ -305,6 +306,10 @@ export default function CaseDetail() {
     { key: "hash", label: t("enterprise.caseDetail.hash", { defaultValue: "Norm. hash" }), a: aA?.normalizedHash, b: aB?.normalizedHash, ltr: true, hash: true },
   ].filter((r) => r.always || r.a || r.b);
 
+  // Contents-rail anchors — smooth-scroll the main column to a §-section by id.
+  const scrollToId = (id: string) => () =>
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6" dir={isRTL ? "rtl" : "ltr"}>
       {/* Back — mono file-return line */}
@@ -331,26 +336,6 @@ export default function CaseDetail() {
             <span className="font-mono font-medium text-foreground">{caseData.cloneType}</span>
           </>
         }
-        meta={[
-          { label: t("enterprise.caseDetail.similarity"), value: `${Math.round(match.similarityScore)}%` },
-          { label: t("enterprise.caseDetail.confidence"), value: `${confidence}%` },
-          {
-            label: t("enterprise.caseDetail.severity"),
-            value: (
-              <StatusTag tone={SEVERITY_TONE[caseData.severity]}>
-                {t(`enterprise.severity.${caseData.severity}`)}
-              </StatusTag>
-            ),
-          },
-          {
-            label: t("enterprise.caseDetail.status"),
-            value: (
-              <StatusTag tone={STATUS_TONE[caseData.status]}>
-                {t(`enterprise.status.${caseData.status}`)}
-              </StatusTag>
-            ),
-          },
-        ]}
         actions={
           <Button
             size="sm"
@@ -365,12 +350,56 @@ export default function CaseDetail() {
         }
       />
 
-      {/* FIG.01 — confidence assessment: dominant ring + verdict + calibrated meter sheet */}
-      <Figure
-        n={1}
-        label={t("enterprise.caseDetail.confidence")}
-        actions={<Reading label={t("enterprise.caseDetail.cloneType")} value={caseData.cloneType} />}
+      {/* Instrument-document body — contents index + case readings live in the margin
+          rail; the confidence band and ruled sections fill the wide main column. */}
+      <DocFrame
+        rail={
+          <>
+            <RailNav
+              ariaLabel={t("enterprise.caseDetail.contents", { defaultValue: "Contents" })}
+              label={t("enterprise.caseDetail.contents", { defaultValue: "Contents" })}
+              items={[
+                { n: "01", label: t("enterprise.caseDetail.confidence"), onClick: scrollToId("sec-confidence") },
+                { n: "02", label: t("enterprise.caseDetail.exhibits", { defaultValue: "Sources" }), onClick: scrollToId("sec-sources") },
+                { n: "03", label: t("enterprise.caseDetail.evidenceSection"), onClick: scrollToId("sec-evidence") },
+                { n: "04", label: t("enterprise.caseDetail.matchSection", { defaultValue: "Disposition" }), onClick: scrollToId("sec-disposition") },
+              ]}
+            />
+            <RailReadings
+              label={t("enterprise.caseDetail.caseId", { defaultValue: "Case" })}
+              items={[
+                { label: t("enterprise.caseDetail.confidence"), value: `${confidence}%`, tone: scoreBand(confidence) },
+                { label: t("enterprise.caseDetail.similarity"), value: `${Math.round(match.similarityScore)}%`, tone: scoreBand(Math.round(match.similarityScore)) },
+                {
+                  label: t("enterprise.caseDetail.severity"),
+                  value: (
+                    <StatusTag tone={SEVERITY_TONE[caseData.severity]}>
+                      {t(`enterprise.severity.${caseData.severity}`)}
+                    </StatusTag>
+                  ),
+                },
+                {
+                  label: t("enterprise.caseDetail.status"),
+                  value: (
+                    <StatusTag tone={STATUS_TONE[caseData.status]}>
+                      {t(`enterprise.status.${caseData.status}`)}
+                    </StatusTag>
+                  ),
+                },
+                { label: t("enterprise.caseDetail.cloneType"), value: <span className="font-mono">{caseData.cloneType}</span> },
+              ]}
+            />
+          </>
+        }
       >
+
+        {/* §01 — confidence assessment: dominant ring + verdict + calibrated meter sheet */}
+        <DocSection
+          n="01"
+          id="sec-confidence"
+          title={t("enterprise.caseDetail.confidence")}
+          actions={<Reading label={t("enterprise.caseDetail.cloneType")} value={caseData.cloneType} />}
+        >
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
           {/* Score dial — the dominant instrument, seated in a lightly gridded bezel
               (matching the Results verdict), stamped with the calibrated verdict below */}
@@ -450,16 +479,15 @@ export default function CaseDetail() {
             </FieldSheet>
           </div>
         </div>
-      </Figure>
+        </DocSection>
 
-      {/* Exhibits — one forensic compare sheet: A↔B side by side, divergence flagged */}
-      <section>
-        <SectionRule tick>
-          <span className="flex items-center gap-2">
-            {t("enterprise.caseDetail.exhibits", { defaultValue: "Sources" })}
-            <span className="font-mono text-primary">A ⇄ B</span>
-          </span>
-        </SectionRule>
+        {/* §02 — one forensic compare sheet: A↔B side by side, divergence flagged */}
+        <DocSection
+          n="02"
+          id="sec-sources"
+          title={t("enterprise.caseDetail.exhibits", { defaultValue: "Sources" })}
+          note={<span className="text-primary">A ⇄ B</span>}
+        >
         <FieldSheet className="px-5 sm:px-6">
           {/* Pinned exhibit heads, aligned over their value columns */}
           <div className="grid grid-cols-1 gap-x-8 gap-y-2 py-4 sm:grid-cols-[minmax(7rem,12rem)_1fr]">
@@ -487,11 +515,10 @@ export default function CaseDetail() {
             />
           ))}
         </FieldSheet>
-      </section>
+        </DocSection>
 
-      {/* Evidence — a ruled exhibit ledger with a running tally */}
-      <section>
-        <SectionRule tick>{t("enterprise.caseDetail.evidenceSection")}</SectionRule>
+        {/* §03 — a ruled exhibit ledger with a running tally */}
+        <DocSection n="03" id="sec-evidence" title={t("enterprise.caseDetail.evidenceSection")}>
         <Ledger columns="3.5rem 9rem minmax(0,1fr)">
           <LedgerHead
             cells={[
@@ -522,25 +549,27 @@ export default function CaseDetail() {
             </>
           )}
         </Ledger>
-      </section>
+        </DocSection>
 
-      {/* Disposition — current ruling as margin-label fields, review controls in the header */}
-      <Panel
-        label={t("enterprise.caseDetail.matchSection", { defaultValue: "Disposition" })}
-        actions={
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => setUpdateOpen(true)} className="gap-1.5">
-              <RefreshCw className="h-3.5 w-3.5" />
-              {t("enterprise.caseDetail.updateCase")}
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setFeedbackOpen(true)} className="gap-1.5">
-              <MessageSquare className="h-3.5 w-3.5" />
-              {t("enterprise.caseDetail.submitFeedback")}
-            </Button>
-          </div>
-        }
-        bodyClassName="px-5 sm:px-6 py-0"
-      >
+        {/* §04 — current ruling as margin-label fields, review controls in the header */}
+        <DocSection
+          n="04"
+          id="sec-disposition"
+          title={t("enterprise.caseDetail.matchSection", { defaultValue: "Disposition" })}
+          actions={
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={() => setUpdateOpen(true)} className="gap-1.5">
+                <RefreshCw className="h-3.5 w-3.5" />
+                {t("enterprise.caseDetail.updateCase")}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setFeedbackOpen(true)} className="gap-1.5">
+                <MessageSquare className="h-3.5 w-3.5" />
+                {t("enterprise.caseDetail.submitFeedback")}
+              </Button>
+            </div>
+          }
+        >
+        <FieldSheet className="px-5 sm:px-6">
         <Field label={t("enterprise.caseDetail.statusLabel")} align="center">
           <StatusTag tone={STATUS_TONE[caseData.status]}>{t(`enterprise.status.${caseData.status}`)}</StatusTag>
         </Field>
@@ -552,7 +581,9 @@ export default function CaseDetail() {
             {caseData.resolutionNotes?.trim() ? caseData.resolutionNotes : EM_DASH}
           </span>
         </Field>
-      </Panel>
+        </FieldSheet>
+        </DocSection>
+      </DocFrame>
 
       {/* Update Case Dialog — printed spec form: margin-label fields, not stacked cards */}
       <Dialog open={updateOpen} onOpenChange={setUpdateOpen}>

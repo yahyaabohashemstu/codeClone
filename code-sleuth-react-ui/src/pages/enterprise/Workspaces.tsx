@@ -17,7 +17,6 @@ import {
   FieldSheet,
   Field,
   Serial,
-  MetaStrip,
   Meter,
   Tag,
   Ledger,
@@ -28,6 +27,8 @@ import {
   LedgerEmpty,
   LedgerFault,
   LedgerSkeleton,
+  DocFrame,
+  RailReadings,
 } from "@/components/dossier/Dossier";
 import { useLanguage } from "@/context/LanguageContext";
 import { createOrganization, createWorkspace, listOrganizations, listWorkspaces } from "@/lib/enterpriseApi";
@@ -203,44 +204,32 @@ export default function Workspaces() {
         title={t("enterprise.workspaces.title")}
         description={t("enterprise.workspaces.subtitle")}
         actions={createDialog}
-        meta={[
-          { label: "INDEX", value: <span className="tabular-nums">{workspaces.length}</span> },
-          { label: t("enterprise.workspaces.region", { defaultValue: "Region" }), value: <span className="tabular-nums">{regionCount}</span> },
-          {
-            label: "STATUS",
-            value: loading ? (
-              <span className="text-warning">SYNC</span>
-            ) : error ? (
-              <span className="text-destructive">ERROR</span>
-            ) : (
-              <span className="text-success">LIVE</span>
-            ),
-          },
-        ]}
       />
 
-      {/* Case register — a titled, ruled ledger (never a bare card of rows) */}
-      <section className="space-y-3">
-        <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-2.5">
-          <div className="flex items-center gap-2.5">
-            <span className="h-px w-6 bg-primary" aria-hidden="true" />
-            <h2 className="t-label text-foreground">{t("enterprise.workspaces.title")}</h2>
-          </div>
-          <MetaStrip
+      {/* Instrument-document body — register readings live in the margin rail,
+          the ruled workspace ledger fills the wide main column. */}
+      <DocFrame
+        rail={
+          <RailReadings
+            label={t("enterprise.workspaces.registerLabel", { defaultValue: "Register" })}
             items={[
+              { label: "RECORDS", value: loading ? "…" : workspaces.length },
+              { label: t("enterprise.workspaces.region", { defaultValue: "Region" }), value: regionCount },
+              { label: "MEDIAN", value: `${medianThreshold}%` },
               {
-                label: "RECORDS",
-                value: <span className="tabular-nums">{loading ? "…" : workspaces.length}</span>,
+                label: "STATUS",
+                value: loading ? "SYNC" : error ? "ERROR" : "LIVE",
+                tone: loading ? "warning" : error ? "danger" : "success",
               },
             ]}
           />
-        </div>
-
+        }
+      >
         <Ledger columns={LEDGER_COLS}>
           <LedgerHead
             cells={[
               "#",
-              t("enterprise.workspaces.title"),
+              t("enterprise.workspaces.name", { defaultValue: "Name" }),
               t("enterprise.workspaces.threshold"),
               t("enterprise.workspaces.region"),
               t("enterprise.workspaces.yourRole"),
@@ -286,9 +275,9 @@ export default function Workspaces() {
 
                     {/* Name + description */}
                     <LedgerCell>
-                      <h3 className="truncate t-h5 transition-colors group-hover:text-primary">
+                      <span className="block truncate t-h5 transition-colors group-hover:text-primary">
                         {ws.name}
-                      </h3>
+                      </span>
                       {ws.description && (
                         <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
                           {ws.description}
@@ -356,7 +345,7 @@ export default function Workspaces() {
             </>
           )}
         </Ledger>
-      </section>
+      </DocFrame>
     </div>
   );
 }

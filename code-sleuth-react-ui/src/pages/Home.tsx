@@ -15,7 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { PageLoader } from "@/components/common/PageLoader";
 import { PageError } from "@/components/common/PageError";
-import { Figure, IndexRow, MetaStrip, Panel, Serial } from "@/components/dossier/Dossier";
+import { DocSection, Figure, IndexRow, MetaStrip, Serial } from "@/components/dossier/Dossier";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -184,7 +184,7 @@ const Home = () => {
           <div className="-mx-4 -mb-4 mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border px-5 py-3">
             {trustSignals.map((item) => (
               <div key={item} className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
-                <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+                <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground" />
                 {item}
               </div>
             ))}
@@ -192,9 +192,9 @@ const Home = () => {
         </Figure>
       </Link>
 
-      {/* ── Capability ledger — a numbered, hairline-ruled index with catalogue refs ── */}
-      <Panel label={t("home.featuresTitle")} bodyClassName="p-0">
-        <ul className="divide-y divide-border">
+      {/* ── §01 Capability index — a numbered, hairline-ruled register with catalogue refs ── */}
+      <DocSection n="01" title={t("home.featuresTitle")} note={`${features.length} MODULES`}>
+        <ul className="divide-y divide-border border-t border-border">
           {features.map((feature, i) => {
             const Icon = feature.Icon;
             return (
@@ -211,17 +211,21 @@ const Home = () => {
             );
           })}
         </ul>
-      </Panel>
+      </DocSection>
 
-      {/* ── Case footer — docket kicker + disposition + input readings, left-anchored ── */}
-      <footer className="flex flex-col gap-5 border-t border-border pt-6 lg:flex-row lg:items-end lg:justify-between">
+      {/* ── §02 Disposition — the closing call to open a case, with input readings ── */}
+      <DocSection
+        n="02"
+        title={t("home.ctaTitle")}
+        note={t("home.badge")}
+        actions={
+          <Button asChild size="lg" className="h-11 shrink-0 px-6">
+            <Link to={primaryHref}>{isAuthenticated ? t("home.ctaSignedIn") : t("home.ctaSignedOut")}</Link>
+          </Button>
+        }
+      >
         <div className="max-w-xl">
-          <div className="t-label flex items-center gap-2.5">
-            <span className="h-px w-6 bg-primary" />
-            {t("home.badge")}
-          </div>
-          <h2 className="mt-2.5 t-h3">{t("home.ctaTitle")}</h2>
-          <p className="mt-2 t-body">{t("home.ctaDescription")}</p>
+          <p className="t-body">{t("home.ctaDescription")}</p>
           <MetaStrip
             className="mt-4"
             items={[
@@ -230,10 +234,7 @@ const Home = () => {
             ]}
           />
         </div>
-        <Button asChild size="lg" className="h-11 shrink-0 px-6">
-          <Link to={primaryHref}>{isAuthenticated ? t("home.ctaSignedIn") : t("home.ctaSignedOut")}</Link>
-        </Button>
-      </footer>
+      </DocSection>
     </div>
   );
 };

@@ -6,8 +6,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import {
   Masthead,
-  MetaStrip,
-  Panel,
   Register,
   Serial,
   StatusTag,
@@ -22,6 +20,9 @@ import {
   LedgerEmpty,
   LedgerFault,
   LedgerSkeleton,
+  DocFrame,
+  RailReadings,
+  DocSection,
 } from "@/components/dossier/Dossier";
 import { useLanguage } from "@/context/LanguageContext";
 import { listWorkspaces, listCases } from "@/lib/enterpriseApi";
@@ -159,28 +160,6 @@ export default function ReviewCases() {
     };
   });
 
-  // Active-query readout — the live state of the console, in mono reading voice.
-  const queryMeta = [
-    { label: "STATUS", value: t(`enterprise.status.${statusFilter}`) },
-    {
-      label: "MATCH",
-      value: search.trim() ? (
-        <span className="font-mono normal-case">{search.trim()}</span>
-      ) : (
-        <span className="text-muted-foreground/60">—</span>
-      ),
-    },
-    {
-      label: "RESULTS",
-      value: (
-        <span className="tabular-nums">
-          {filtered.length}
-          <span className="text-muted-foreground/60"> / {cases.length}</span>
-        </span>
-      ),
-    },
-  ];
-
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-6" dir={isRTL ? "rtl" : "ltr"}>
       {/* Docket masthead — ruled header + live mono readings */}
@@ -188,59 +167,24 @@ export default function ReviewCases() {
         kicker={t("enterprise.cases.eyebrow", { defaultValue: "Review queue" })}
         title={t("enterprise.cases.title")}
         description={t("enterprise.cases.subtitle")}
-        meta={[
-          { label: "SCOPE", value: scopeLabel },
-          { label: "CASES", value: cases.length },
-          {
-            label: "SHOWN",
-            value: (
-              <span className="tabular-nums">
-                {filtered.length}
-                <span className="text-muted-foreground/60"> / {cases.length}</span>
-              </span>
-            ),
-          },
-          {
-            label: "CONFIRMED",
-            value:
-              confirmedCount > 0 ? (
-                <span className="text-destructive">{confirmedCount}</span>
-              ) : (
-                <span className="text-muted-foreground">0</span>
-              ),
-          },
-        ]}
       />
 
-      {/* Docket console + ruled ledger — the status filter is a visible tally, not a hidden dropdown */}
-      <div className="space-y-4">
-        <Panel
-          label={t("enterprise.cases.filterLabel", { defaultValue: "Filter cases" })}
-          bodyClassName="space-y-4"
-        >
-          {/* Status register — the whole distribution on one line */}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <span className="t-label shrink-0 text-muted-foreground/70">
-              {t("enterprise.cases.colStatus", { defaultValue: "Status" })}
-            </span>
-            <Register
-              items={registerItems}
-              active={statusFilter}
-              onSelect={(v) => setStatusFilter(v as CaseStatus | "all")}
-            />
-          </div>
-
-          {/* Scope + Find — margin-labelled controls, not naked toolbar widgets */}
-          <div className="flex flex-wrap items-end gap-4 border-t border-border pt-4">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="rc-scope" className="t-label text-muted-foreground/70">
+      {/* Instrument-document body — scope + status register + docket readings sit in
+          the margin rail; the ruled case ledger fills the wide main column. */}
+      <DocFrame
+        railWidth="16rem"
+        rail={
+          <>
+            {/* Scope — the cross-workspace fetch control */}
+            <div>
+              <div className="t-label mb-2.5 text-muted-foreground/80">
                 {t("enterprise.cases.workspace")}
-              </label>
+              </div>
               <Select value={selectedWs} onValueChange={setSelectedWs}>
                 <SelectTrigger
                   id="rc-scope"
                   aria-label={t("enterprise.cases.workspace")}
-                  className="h-9 w-52 bg-card font-mono text-xs"
+                  className="h-9 w-full bg-card font-mono text-xs"
                 >
                   <SelectValue placeholder={t("enterprise.cases.allWorkspaces")} />
                 </SelectTrigger>
@@ -253,28 +197,53 @@ export default function ReviewCases() {
               </Select>
             </div>
 
-            <div className="flex min-w-48 flex-1 flex-col gap-1.5">
-              <label htmlFor="rc-find" className="t-label text-muted-foreground/70">
-                {t("enterprise.cases.searchLabel", { defaultValue: "Find" })}
-              </label>
-              <div className="relative">
-                <Search className="pointer-events-none absolute start-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id="rc-find"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder={t("enterprise.cases.searchPlaceholder")}
-                  aria-label={t("enterprise.cases.searchPlaceholder")}
-                  className="h-9 bg-card font-mono text-xs ps-9"
-                />
+            {/* Status register — the whole distribution as a visible tally */}
+            <div>
+              <div className="t-label mb-2.5 text-muted-foreground/80">
+                {t("enterprise.cases.colStatus", { defaultValue: "Status" })}
               </div>
+              <Register
+                items={registerItems}
+                active={statusFilter}
+                onSelect={(v) => setStatusFilter(v as CaseStatus | "all")}
+              />
             </div>
-          </div>
 
-          {/* Live query readout */}
-          <MetaStrip items={queryMeta} className="border-t border-border pt-3" />
-        </Panel>
-
+            {/* Docket readings — live figures */}
+            <RailReadings
+              label={t("enterprise.cases.docketLabel", { defaultValue: "Docket" })}
+              items={[
+                { label: "SCOPE", value: scopeLabel },
+                { label: "STATUS", value: t(`enterprise.status.${statusFilter}`) },
+                { label: "CASES", value: cases.length },
+                { label: "SHOWN", value: `${filtered.length} / ${cases.length}` },
+                { label: "CONFIRMED", value: confirmedCount, tone: confirmedCount > 0 ? "danger" : "default" },
+              ]}
+            />
+          </>
+        }
+      >
+        <DocSection
+          title={t("enterprise.cases.docket", { defaultValue: "Case docket" })}
+          note={
+            !loading && !error && cases.length > 0
+              ? t("enterprise.cases.onDocket", { n: cases.length })
+              : undefined
+          }
+          actions={
+            <div className="relative w-full sm:w-72">
+              <Search className="pointer-events-none absolute start-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="rc-find"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={t("enterprise.cases.searchPlaceholder")}
+                aria-label={t("enterprise.cases.searchPlaceholder")}
+                className="h-9 bg-card font-mono text-xs ps-9"
+              />
+            </div>
+          }
+        >
         {/* Case docket — one ruled ledger; head is constant, states sit left-anchored beneath it */}
         <Ledger columns={LEDGER_COLS}>
           <LedgerHead
@@ -306,20 +275,24 @@ export default function ReviewCases() {
                 const pathA = c.match?.artifactA?.logicalPath ?? "—";
                 const pathB = c.match?.artifactB?.logicalPath ?? "—";
                 const score = Math.round(c.confidenceScore);
+                const severityText = t(`enterprise.severity.${c.severity}`, { defaultValue: c.severity });
                 return (
                   <LedgerRow key={c.id} to={`/enterprise/cases/${c.id}`}>
                     <LedgerCell>
                       <div className="flex items-center gap-2">
                         <span
                           role="img"
-                          aria-label={c.severity}
-                          title={c.severity}
+                          aria-label={severityText}
+                          title={severityText}
                           className={cn("h-2 w-2 shrink-0 rounded-full", SEVERITY_DOT[c.severity] ?? "bg-muted")}
                         />
                         <Serial tone={c.status === "confirmed_clone" ? "primary" : "muted"}>
                           C-{c.id}
                         </Serial>
                       </div>
+                      <span className="mt-1 block font-mono text-[9px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                        {severityText}
+                      </span>
                     </LedgerCell>
 
                     <LedgerCell>
@@ -373,7 +346,8 @@ export default function ReviewCases() {
             </>
           )}
         </Ledger>
-      </div>
+        </DocSection>
+      </DocFrame>
     </div>
   );
 }

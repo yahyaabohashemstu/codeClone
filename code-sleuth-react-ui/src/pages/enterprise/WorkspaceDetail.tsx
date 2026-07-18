@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ComponentProps, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ComponentProps } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -41,6 +41,10 @@ import {
   LedgerFault,
   LedgerSkeleton,
   Notice,
+  DocFrame,
+  RailNav,
+  RailReadings,
+  DocSection,
 } from "@/components/dossier/Dossier";
 import { useLanguage } from "@/context/LanguageContext";
 import {
@@ -78,19 +82,26 @@ const STATUS_TONE: Record<string, StampTone> = {
   dismissed: "muted",
 };
 
+// Membership role is a CATEGORY, not a status or severity — it must never borrow the
+// reserved semantic palette (primary/warning/destructive) that STATUS_TONE uses on this
+// same page, or an admin badge would read as an alarm-red confirmed clone. All roles
+// render neutral; the role TEXT carries the distinction.
 const ROLE_TONE: Record<string, StampTone> = {
-  owner: "primary",
-  admin: "danger",
-  manager: "warning",
-  reviewer: "accent",
+  owner: "neutral",
+  admin: "neutral",
+  manager: "neutral",
+  reviewer: "neutral",
   student: "muted",
 };
 
-// Severity → a compact triage dot in the case gutter (colour = meaning).
+// Severity → a compact triage dot in the case gutter (colour = meaning). high vs
+// medium never rely on opacity alone: high is a filled amber dot, medium a hollow
+// amber ring — a shape difference — and severity is also carried as text (the
+// visible token below the serial and the dot's aria-label), never colour alone.
 const SEVERITY_DOT: Record<string, string> = {
   critical: "bg-destructive",
   high: "bg-warning",
-  medium: "bg-warning/70",
+  medium: "border-2 border-warning bg-transparent",
   low: "bg-muted-foreground/50",
 };
 
@@ -119,19 +130,6 @@ function PathPair({ a, b }: { a: string; b: string }) {
       <PathText path={a} className="flex-1" />
       <span className="shrink-0 font-mono text-muted-foreground/60" aria-hidden="true">→</span>
       <PathText path={b} className="flex-1" />
-    </div>
-  );
-}
-
-// A ruled, mono-labelled section header with room for one action on the trailing edge.
-function TabHeader({ label, action }: { label: ReactNode; action?: ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-2.5">
-      <div className="flex items-center gap-2.5">
-        <span className="h-px w-6 bg-primary" aria-hidden="true" />
-        <h2 className="t-label text-foreground">{label}</h2>
-      </div>
-      {action != null && <div className="flex flex-wrap items-center gap-3">{action}</div>}
     </div>
   );
 }
@@ -369,8 +367,8 @@ export default function WorkspaceDetail() {
     });
   }, [cases, caseSearch]);
 
-  // Live case-file readings for the masthead — folds the old stat-card row in.
-  const meta = [
+  // Live case-file readings for the margin rail — folds the old stat-card row in.
+  const readings: ComponentProps<typeof RailReadings>["items"] = [
     { label: "SERIAL", value: `WS-${wsId}` },
     ...(workspace
       ? [
@@ -380,7 +378,7 @@ export default function WorkspaceDetail() {
       : []),
     { label: "REPOS", value: repos.length },
     { label: "CASES", value: cases.length },
-    { label: "FLAGGED", value: <span className="text-destructive">{flaggedCount}</span> },
+    { label: "FLAGGED", value: flaggedCount, tone: flaggedCount > 0 ? "danger" : "default" },
     { label: "REVIEWED", value: `${reviewedCount}/${cases.length}` },
   ];
 
@@ -400,54 +398,47 @@ export default function WorkspaceDetail() {
         <span className="font-medium text-foreground">{workspace?.name ?? `#${wsId}`}</span>
       </div>
 
-      {/* Workspace dossier masthead — identity + live readings, not a boxed hero */}
+      {/* Workspace dossier masthead — identity only; live readings move to the rail */}
       <Masthead
         kicker={t("enterprise.workspaceDetail.dossierKicker", { defaultValue: "Workspace" })}
         title={workspace?.name ?? `#${wsId}`}
         description={workspace?.description || undefined}
-        meta={meta}
       />
 
-      {/* Tabs — mono ledger selectors with live counts */}
-      <div className="border-b border-border">
-        <nav className="-mb-px flex gap-6" aria-label="Workspace tabs">
-          {tabs.map((tab) => {
-            const active = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  "flex items-center gap-2 border-b-2 pb-2.5 font-mono text-[11px] uppercase tracking-[0.14em] transition-colors",
-                  active
-                    ? "border-primary text-primary"
-                    : "border-transparent text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {tab.label}
-                <span className={cn("tabular-nums", active ? "text-primary/70" : "text-muted-foreground/50")}>
-                  {tabCounts[tab.id]}
-                </span>
-              </button>
-            );
-          })}
-        </nav>
-      </div>
-
-      {/* Tab content — each register is a ruled Ledger; loading / fault / empty
-          states sit left-anchored beneath a constant head, per the Dossier kit */}
-      {activeTab === "repositories" && (
-        <section className="space-y-3">
-          <TabHeader
-            label={t("enterprise.workspaceDetail.repositories")}
-            action={
+      {/* Instrument-document body — the tab index + workspace readings live in the
+          margin rail; the active register's ruled ledger fills the main column. */}
+      <DocFrame
+        rail={
+          <>
+            <RailNav
+              ariaLabel={t("enterprise.workspaceDetail.contents", { defaultValue: "Contents" })}
+              label={t("enterprise.workspaceDetail.contents", { defaultValue: "Contents" })}
+              items={tabs.map((tab, i) => ({
+                n: String(i + 1).padStart(2, "0"),
+                label: tab.label,
+                count: tabCounts[tab.id],
+                active: activeTab === tab.id,
+                onClick: () => setActiveTab(tab.id),
+              }))}
+            />
+            <RailReadings
+              label={t("enterprise.workspaceDetail.dossierKicker", { defaultValue: "Workspace" })}
+              items={readings}
+            />
+          </>
+        }
+      >
+        {activeTab === "repositories" && (
+          <DocSection
+            n="01"
+            title={t("enterprise.workspaceDetail.repositories")}
+            actions={
               <Button size="sm" className="h-8 gap-1.5" onClick={() => setRepoOpen(true)}>
                 <Plus className="h-3.5 w-3.5" />
                 {t("enterprise.workspaceDetail.addRepo")}
               </Button>
             }
-          />
+          >
           <Ledger columns={REPO_COLS}>
             <LedgerHead
               cells={[
@@ -517,14 +508,14 @@ export default function WorkspaceDetail() {
               </>
             )}
           </Ledger>
-        </section>
-      )}
+          </DocSection>
+        )}
 
-      {activeTab === "cases" && (
-        <section className="space-y-3">
-          <TabHeader
-            label={t("enterprise.workspaceDetail.cases")}
-            action={
+        {activeTab === "cases" && (
+          <DocSection
+            n="02"
+            title={t("enterprise.workspaceDetail.cases")}
+            actions={
               <div className="relative w-full sm:w-72">
                 <Search className="pointer-events-none absolute start-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -536,7 +527,7 @@ export default function WorkspaceDetail() {
                 />
               </div>
             }
-          />
+          >
           <Ledger columns={CASE_COLS}>
             <LedgerHead
               cells={[
@@ -564,20 +555,24 @@ export default function WorkspaceDetail() {
                   const pathA = c.match?.artifactA?.logicalPath ?? "—";
                   const pathB = c.match?.artifactB?.logicalPath ?? "—";
                   const score = Math.round(c.confidenceScore);
+                  const severityText = t(`enterprise.severity.${c.severity}`, { defaultValue: c.severity });
                   return (
                     <LedgerRow key={c.id} to={`/enterprise/cases/${c.id}`}>
                       <LedgerCell>
                         <div className="flex items-center gap-2">
                           <span
                             role="img"
-                            aria-label={c.severity}
-                            title={c.severity}
+                            aria-label={severityText}
+                            title={severityText}
                             className={cn("h-2 w-2 shrink-0 rounded-full", SEVERITY_DOT[c.severity] ?? "bg-muted")}
                           />
                           <Serial tone={c.status === "confirmed_clone" ? "primary" : "muted"}>
                             C-{c.id}
                           </Serial>
                         </div>
+                        <span className="mt-1 block font-mono text-[9px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                          {severityText}
+                        </span>
                       </LedgerCell>
                       <LedgerCell>
                         <PathPair a={pathA} b={pathB} />
@@ -612,20 +607,20 @@ export default function WorkspaceDetail() {
               </>
             )}
           </Ledger>
-        </section>
-      )}
+          </DocSection>
+        )}
 
-      {activeTab === "members" && (
-        <section className="space-y-3">
-          <TabHeader
-            label={t("enterprise.workspaceDetail.members")}
-            action={
+        {activeTab === "members" && (
+          <DocSection
+            n="03"
+            title={t("enterprise.workspaceDetail.members")}
+            actions={
               <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => setMemberOpen(true)}>
                 <Plus className="h-3.5 w-3.5" />
                 {t("enterprise.workspaceDetail.addMember")}
               </Button>
             }
-          />
+          >
           <Ledger columns={MEMBER_COLS}>
             <LedgerHead
               cells={[
@@ -666,8 +661,9 @@ export default function WorkspaceDetail() {
               </>
             )}
           </Ledger>
-        </section>
-      )}
+          </DocSection>
+        )}
+      </DocFrame>
 
       {/* Create repository dialog — margin-label fields */}
       <Dialog open={repoOpen} onOpenChange={setRepoOpen}>

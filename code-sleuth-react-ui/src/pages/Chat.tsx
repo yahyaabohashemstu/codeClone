@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { AnalysisChatPanel } from "@/components/results/AnalysisChatPanel";
-import { Masthead, Panel, FieldSheet, Field, Serial } from "@/components/dossier/Dossier";
+import { Masthead, Panel, StatusTag, DocFrame, RailReadings } from "@/components/dossier/Dossier";
 import { useAnalysis } from "@/context/AnalysisContext";
 import { useTranslation } from "react-i18next";
 import { PageLoader } from "@/components/common/PageLoader";
@@ -32,7 +32,7 @@ const Chat = () => {
           description={t("chat.noContextDescription")}
           meta={[
             { label: "MODE", value: t("chat.modeConsult") },
-            { label: "STATUS", value: <span className="text-warning">{t("chat.statusNoContext")}</span> },
+            { label: "STATUS", value: <span className="rounded bg-warning/15 px-1.5 py-0.5 text-foreground">{t("chat.statusNoContext")}</span> },
             { label: "GROUNDING", value: t("chat.groundingNone") },
           ]}
         />
@@ -58,7 +58,14 @@ const Chat = () => {
   const { source_labels, saved_analysis_id, language, analysis_structured } = currentResult;
   const contextLabel = `${source_labels.code1} ↔ ${source_labels.code2}`;
   const caseSerial = saved_analysis_id != null ? `#${saved_analysis_id}` : "UNSAVED";
+  const groundingAttached = saved_analysis_id != null;
   const risk = analysis_structured?.risk_level;
+  const riskTone: "danger" | "warning" | "default" =
+    risk === "critical" || risk === "high"
+      ? "danger"
+      : risk === "moderate"
+        ? "warning"
+        : "default";
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -66,56 +73,55 @@ const Chat = () => {
         kicker={t("chat.eyebrow", { defaultValue: "Grounded chat" })}
         title={t("chat.pageTitle")}
         description={t("chat.pageDescription")}
-        meta={[
-          { label: "CASE", value: caseSerial },
-          { label: "LANG", value: (language || "—").toUpperCase() },
-          { label: "MODE", value: t("chat.modeGrounded") },
-          ...(risk
-            ? [
+      />
+
+      {/* Instrument-document body — the grounding record sits in the margin rail;
+          the grounded consultation transcript is the document body. */}
+      <DocFrame
+        rail={
+          <>
+            {/* What this chat is grounded in — the record, read as margin readings */}
+            <RailReadings
+              label={t("chat.groundedOn", { defaultValue: "Grounded on" })}
+              items={[
                 {
-                  label: "RISK",
+                  label: t("chat.exhibitA", { defaultValue: "Source A" }),
                   value: (
-                    <span className={risk === "critical" || risk === "high" ? "text-destructive" : risk === "moderate" ? "text-warning" : "text-muted-foreground"}>
-                      {risk.toUpperCase()}
+                    <span dir="ltr" title={source_labels.code1} className="block max-w-[8rem] truncate">
+                      {source_labels.code1}
                     </span>
                   ),
                 },
-              ]
-            : []),
-        ]}
-      />
+                {
+                  label: t("chat.exhibitB", { defaultValue: "Source B" }),
+                  value: (
+                    <span dir="ltr" title={source_labels.code2} className="block max-w-[8rem] truncate">
+                      {source_labels.code2}
+                    </span>
+                  ),
+                },
+                { label: "CASE", value: caseSerial },
+                { label: "LANG", value: (language || "—").toUpperCase() },
+                ...(risk ? [{ label: "RISK", value: risk.toUpperCase(), tone: riskTone }] : []),
+              ]}
+            />
 
-      {/* What this consultation is grounded in — the two exhibits on the record */}
-      <FieldSheet>
-        <Field
-          label={
-            <span className="inline-flex items-center gap-2">
-              <Serial tone="primary">A</Serial>
-              {t("chat.exhibitA", { defaultValue: "Source A" })}
-            </span>
-          }
-          align="center"
-        >
-          <span dir="ltr" className="block truncate font-mono text-sm text-foreground">
-            {source_labels.code1}
-          </span>
-        </Field>
-        <Field
-          label={
-            <span className="inline-flex items-center gap-2">
-              <Serial tone="primary">B</Serial>
-              {t("chat.exhibitB", { defaultValue: "Source B" })}
-            </span>
-          }
-          align="center"
-        >
-          <span dir="ltr" className="block truncate font-mono text-sm text-foreground">
-            {source_labels.code2}
-          </span>
-        </Field>
-      </FieldSheet>
-
-      <AnalysisChatPanel analysisId={saved_analysis_id} contextLabel={contextLabel} />
+            {/* Grounding status — the record is on file, so the consultation is grounded */}
+            <div>
+              <div className="t-label mb-2.5 text-muted-foreground/80">
+                {t("chat.groundingLabel", { defaultValue: "Grounding" })}
+              </div>
+              {groundingAttached ? (
+                <StatusTag tone="ok">{t("chat.modeGrounded")}</StatusTag>
+              ) : (
+                <StatusTag tone="warn">{t("chat.statusNoContext")}</StatusTag>
+              )}
+            </div>
+          </>
+        }
+      >
+        <AnalysisChatPanel analysisId={saved_analysis_id} contextLabel={contextLabel} />
+      </DocFrame>
     </div>
   );
 };

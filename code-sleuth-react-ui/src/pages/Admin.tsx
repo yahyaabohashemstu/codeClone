@@ -11,9 +11,10 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Masthead, Panel, Figure, Serial, Field, FieldSheet, MetaStrip, Reading,
+  Masthead, Panel, Figure, Serial, Field, FieldSheet, Reading,
   StatusTag, Meter, SectionRule, Notice,
   Ledger, LedgerHead, LedgerRow, LedgerCell, LedgerFooter, LedgerEmpty,
+  DocFrame, RailNav, RailReadings, DocSection, ReadoutGrid, ReadoutRow,
 } from "@/components/dossier/Dossier";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/context/LanguageContext";
@@ -70,30 +71,6 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
       <SectionRule tick>{title}</SectionRule>
       {children}
     </section>
-  );
-}
-
-/** A spec band: numbers sit in a single bordered grid separated by hairlines,
- *  not one raised card per metric. The gap-px over a border-tinted background
- *  paints clean 1px rules even when the row wraps. */
-function StatBand({
-  items,
-  className,
-}: {
-  items: { label: string; value: React.ReactNode; sub?: string; tag?: React.ReactNode }[];
-  className?: string;
-}) {
-  return (
-    <dl className={cn("grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border md:grid-cols-4", className)}>
-      {items.map((it) => (
-        <div key={it.label} className="bg-card p-4">
-          <dt className="t-label">{it.label}</dt>
-          <dd className="mt-1.5 font-mono text-2xl font-semibold tracking-tight tabular-nums text-foreground">{it.value}</dd>
-          {it.tag != null && <dd className="mt-2">{it.tag}</dd>}
-          {it.sub && <dd className="mt-1 text-xs text-muted-foreground">{it.sub}</dd>}
-        </div>
-      ))}
-    </dl>
   );
 }
 
@@ -169,61 +146,47 @@ function OverviewTab() {
   if (!m) return <Spinner />;
   const apiPlanTotal = Object.values(m.apiPlanCounts).reduce((s, c) => s + c, 0);
   return (
-    <div className="space-y-6">
-      {/* Census — the soft counts read as a mono document-header line, not a tile grid */}
-      <Panel label={t("admin.tabs.overview")}>
-        <MetaStrip
-          className="gap-x-8 gap-y-3"
-          items={[
-            { label: t("admin.totalUsers"), value: m.totalUsers.toLocaleString() },
-            { label: t("admin.totalAnalyses"), value: m.totalAnalyses.toLocaleString() },
-            { label: t("admin.verified"), value: `${m.verifiedUsers.toLocaleString()} · ${m.unverifiedUsers.toLocaleString()} ${t("admin.unverified")}` },
-            { label: t("admin.twofa"), value: m.twofaUsers.toLocaleString() },
-            { label: t("admin.admins"), value: m.adminUsers.toLocaleString() },
-            { label: t("admin.estMrr"), value: money(m.estimatedMrrCents) },
-          ]}
-        />
-      </Panel>
+    <div>
+      {/* §01 Census — the soft counts as dense mono readouts, not a tile grid */}
+      <DocSection n="01" title={t("admin.tabs.overview")} note={t("admin.censusNote", { defaultValue: "Census" })}>
+        <ReadoutGrid>
+          <ReadoutRow label={t("admin.totalUsers")} value={m.totalUsers.toLocaleString()} />
+          <ReadoutRow label={t("admin.totalAnalyses")} value={m.totalAnalyses.toLocaleString()} />
+          <ReadoutRow label={t("admin.verified")} value={`${m.verifiedUsers.toLocaleString()} · ${m.unverifiedUsers.toLocaleString()} ${t("admin.unverified")}`} />
+          <ReadoutRow label={t("admin.twofa")} value={m.twofaUsers.toLocaleString()} />
+          <ReadoutRow label={t("admin.admins")} value={m.adminUsers.toLocaleString()} />
+          <ReadoutRow label={t("admin.estMrr")} value={money(m.estimatedMrrCents)} />
+        </ReadoutGrid>
+      </DocSection>
 
-      {/* The two security signals get their own weight, amber ink + an alarm stamp when hot */}
-      <StatBand
-        className="md:grid-cols-2"
-        items={[
-          {
-            label: t("admin.locked"),
-            value: <span className={m.lockedUsers > 0 ? "text-warning" : undefined}>{m.lockedUsers.toLocaleString()}</span>,
-            tag: m.lockedUsers > 0 ? <StatusTag tone="warning">{t("admin.locked")}</StatusTag> : undefined,
-          },
-          {
-            label: t("admin.failedLogins24h"),
-            value: <span className={m.failedLogins24h > 0 ? "text-warning" : undefined}>{m.failedLogins24h.toLocaleString()}</span>,
-            tag: m.failedLogins24h > 0 ? <StatusTag tone="warning">{t("admin.failedLogins")}</StatusTag> : undefined,
-          },
-        ]}
-      />
+      {/* §02 Signals — the number is the content, the stamp colour is the state */}
+      <DocSection n="02" title={t("admin.signalsTitle", { defaultValue: "Signals" })}>
+        <ReadoutGrid>
+          <ReadoutRow label={t("admin.locked")} value={signalTag(m.lockedUsers, "warning")} />
+          <ReadoutRow label={t("admin.failedLogins24h")} value={signalTag(m.failedLogins24h, "warning")} />
+        </ReadoutGrid>
+      </DocSection>
 
-      <div className="grid gap-5 md:grid-cols-2">
-        <Figure n={1} label={t("admin.planMix")} actions={<Reading label={t("admin.users")} value={m.totalUsers.toLocaleString()} />}>
-          <Bars items={PLANS.map((p) => ({ label: p, count: m.planCounts[p] ?? 0 }))} />
-        </Figure>
-        <Figure n={2} label={t("admin.apiPlanMix")} actions={<Reading label={t("admin.users")} value={apiPlanTotal.toLocaleString()} />}>
-          <Bars items={Object.entries(m.apiPlanCounts).map(([label, count]) => ({ label, count }))} />
-        </Figure>
-      </div>
+      {/* §03 Plan distribution — figure-framed bar readouts */}
+      <DocSection n="03" title={t("admin.planMix")}>
+        <div className="grid gap-5 md:grid-cols-2">
+          <Figure n={1} label={t("admin.planMix")} actions={<Reading label={t("admin.users")} value={m.totalUsers.toLocaleString()} />}>
+            <Bars items={PLANS.map((p) => ({ label: p, count: m.planCounts[p] ?? 0 }))} />
+          </Figure>
+          <Figure n={2} label={t("admin.apiPlanMix")} actions={<Reading label={t("admin.users")} value={apiPlanTotal.toLocaleString()} />}>
+            <Bars items={Object.entries(m.apiPlanCounts).map(([label, count]) => ({ label, count }))} />
+          </Figure>
+        </div>
+      </DocSection>
 
-      {/* Signups fold into one margin-labelled Field as a mono reading line */}
-      <FieldSheet>
-        <Field label={t("admin.newSignups")}>
-          <MetaStrip
-            className="gap-x-8"
-            items={[
-              { label: t("admin.today"), value: m.signups.today.toLocaleString() },
-              { label: t("admin.days7"), value: m.signups.last7d.toLocaleString() },
-              { label: t("admin.days30"), value: m.signups.last30d.toLocaleString() },
-            ]}
-          />
-        </Field>
-      </FieldSheet>
+      {/* §04 New signups — mono readouts */}
+      <DocSection n="04" title={t("admin.newSignups")}>
+        <ReadoutGrid>
+          <ReadoutRow label={t("admin.today")} value={m.signups.today.toLocaleString()} />
+          <ReadoutRow label={t("admin.days7")} value={m.signups.last7d.toLocaleString()} />
+          <ReadoutRow label={t("admin.days30")} value={m.signups.last30d.toLocaleString()} />
+        </ReadoutGrid>
+      </DocSection>
     </div>
   );
 }
@@ -613,12 +576,12 @@ function RevenueTab() {
   const { data: r, error, reload } = useLoad(() => api.getAdminRevenue());
   if (error) return <LoadError onRetry={reload} />;
   if (!r) return <Spinner />;
-  const planLedger = (rows: api.AdminRevenue["basePlans"], title: string) => {
+  const planLedger = (rows: api.AdminRevenue["basePlans"], n: string, title: string) => {
     const subs = rows.reduce((s, p) => s + p.subscribers, 0);
     const monthly = rows.reduce((s, p) => s + p.monthlyCents, 0);
     return (
-      <Panel label={title} bodyClassName="p-0">
-        <Ledger columns="2.5rem minmax(0,1fr) 6rem 6rem 7rem" className="rounded-none border-0 bg-transparent">
+      <DocSection n={n} title={title}>
+        <Ledger columns="2.5rem minmax(0,1fr) 6rem 6rem 7rem">
           <LedgerHead
             cells={["#", t("admin.plan"), t("admin.subscribers"), t("admin.price"), t("admin.monthly")]}
             aligns={["start", "start", "end", "end", "end"]}
@@ -634,49 +597,47 @@ function RevenueTab() {
           ))}
           <LedgerFooter left={`${t("admin.subscribers")} · ${subs.toLocaleString()}`} right={`Σ ${money(monthly)}`} />
         </Ledger>
-      </Panel>
+      </DocSection>
     );
   };
   return (
-    <div className="space-y-6">
+    <div>
       <Notice tone="warning">{t("admin.estimatedNote")}</Notice>
-      <StatBand
-        className="md:grid-cols-2"
-        items={[
-          { label: t("admin.estMrr"), value: money(r.estimatedMrrCents) },
-          { label: t("admin.usageRevenue"), value: money(r.estimatedUsageRevenueCents) },
-        ]}
-      />
-      <MetaStrip
-        className="px-1"
-        items={[
-          { label: t("admin.pastDue"), value: signalTag(r.pastDue, "warning") },
-          { label: t("admin.canceled"), value: signalTag(r.canceled, "danger") },
-        ]}
-      />
 
-      <section className="space-y-3">
-        <SectionRule tick>{t("admin.actualRevenueTitle")}</SectionRule>
+      {/* §01 Estimated — MRR + usage revenue + the past-due / canceled signals */}
+      <DocSection n="01" title={t("admin.estimatedRevenueTitle", { defaultValue: "Estimated" })}>
+        <ReadoutGrid>
+          <ReadoutRow label={t("admin.estMrr")} value={money(r.estimatedMrrCents)} />
+          <ReadoutRow label={t("admin.usageRevenue")} value={money(r.estimatedUsageRevenueCents)} />
+          <ReadoutRow label={t("admin.pastDue")} value={signalTag(r.pastDue, "warning")} />
+          <ReadoutRow label={t("admin.canceled")} value={signalTag(r.canceled, "danger")} />
+        </ReadoutGrid>
+      </DocSection>
+
+      {/* §02 Actual — collected from the Stripe payments ledger */}
+      <DocSection n="02" title={t("admin.actualRevenueTitle")}>
         {r.paymentsCount === 0 ? (
           <Notice tone="info">{t("admin.ledgerEmpty")}</Notice>
         ) : (
-          <StatBand
-            items={[
-              { label: t("admin.actualRevenue"), value: money(r.actualCollectedCents) },
-              { label: t("admin.grossPaid"), value: money(r.grossPaidCents) },
-              { label: t("admin.refunds"), value: money(r.refundsCents) },
-              {
-                label: t("admin.failedPayments"),
-                value: r.failedPaymentsCount,
-                sub: money(r.failedPaymentsCents),
-                tag: r.failedPaymentsCount > 0 ? <StatusTag tone="danger">{t("admin.failedPayments")}</StatusTag> : undefined,
-              },
-            ]}
-          />
+          <ReadoutGrid>
+            <ReadoutRow label={t("admin.actualRevenue")} value={money(r.actualCollectedCents)} />
+            <ReadoutRow label={t("admin.grossPaid")} value={money(r.grossPaidCents)} />
+            <ReadoutRow label={t("admin.refunds")} value={money(r.refundsCents)} />
+            <ReadoutRow
+              label={t("admin.failedPayments")}
+              value={
+                <span className="inline-flex items-center gap-2">
+                  <span className="text-muted-foreground">{money(r.failedPaymentsCents)}</span>
+                  {signalTag(r.failedPaymentsCount, "danger")}
+                </span>
+              }
+            />
+          </ReadoutGrid>
         )}
-      </section>
-      {planLedger(r.basePlans, t("admin.perPlan"))}
-      {planLedger(r.apiPlans, t("admin.apiRevenue"))}
+      </DocSection>
+
+      {planLedger(r.basePlans, "03", t("admin.perPlan"))}
+      {planLedger(r.apiPlans, "04", t("admin.apiRevenue"))}
     </div>
   );
 }
@@ -689,50 +650,51 @@ function UsageTab() {
   if (error) return <LoadError onRetry={reload} />;
   if (!u) return <Spinner />;
   return (
-    <div className="space-y-6">
-      {/* period is pulled out of the tile grid into the panel header; counts read as a strip */}
-      <Panel label={t("admin.tabs.usage")} actions={<Reading label={t("admin.period")} value={u.period} tone="primary" />}>
-        <MetaStrip
-          className="gap-x-8 gap-y-3"
-          items={[
-            { label: t("admin.interactiveAnalyses"), value: u.interactiveAnalyses.toLocaleString() },
-            { label: t("admin.apiCalls"), value: u.apiCalls.toLocaleString() },
-            { label: t("admin.apiPairs"), value: u.apiPairs.toLocaleString() },
-            { label: t("admin.overQuota"), value: signalTag(u.overQuotaUsers, "danger") },
-            { label: t("admin.nearQuota"), value: signalTag(u.nearQuotaUsers, "warning") },
-          ]}
-        />
-      </Panel>
+    <div>
+      {/* §01 Summary — the period-scoped counts + quota signals as dense readouts */}
+      <DocSection n="01" title={t("admin.tabs.usage")} actions={<Reading label={t("admin.period")} value={u.period} tone="primary" />}>
+        <ReadoutGrid>
+          <ReadoutRow label={t("admin.interactiveAnalyses")} value={u.interactiveAnalyses.toLocaleString()} />
+          <ReadoutRow label={t("admin.apiCalls")} value={u.apiCalls.toLocaleString()} />
+          <ReadoutRow label={t("admin.apiPairs")} value={u.apiPairs.toLocaleString()} />
+          <ReadoutRow label={t("admin.overQuota")} value={signalTag(u.overQuotaUsers, "danger")} />
+          <ReadoutRow label={t("admin.nearQuota")} value={signalTag(u.nearQuotaUsers, "warning")} />
+        </ReadoutGrid>
+      </DocSection>
 
-      <div className="grid gap-5 md:grid-cols-2">
-        <Figure n={1} label={t("admin.topInteractive")}>
-          {u.topInteractive.length === 0 ? <div className="text-sm text-muted-foreground">{t("admin.noData")}</div> : (
-            <Bars items={u.topInteractive.map((x) => ({ label: x.username, count: x.analyses }))} />
+      {/* §02 Top interactive — distribution readout, ruled not boxed */}
+      <DocSection n="02" title={t("admin.topInteractive")}>
+        {u.topInteractive.length === 0 ? (
+          <div className="text-sm text-muted-foreground">{t("admin.noData")}</div>
+        ) : (
+          <Bars items={u.topInteractive.map((x) => ({ label: x.username, count: x.analyses }))} />
+        )}
+      </DocSection>
+
+      {/* §03 Top API — ruled ledger with a Σ footer */}
+      <DocSection n="03" title={t("admin.topApi")}>
+        <Ledger columns="2.5rem minmax(0,1fr) 5rem 5rem">
+          <LedgerHead cells={["#", t("admin.username"), t("admin.calls"), t("admin.pairs")]} aligns={["start", "start", "end", "end"]} />
+          {u.topApi.map((x, i) => (
+            <LedgerRow key={x.userId}>
+              <LedgerCell><Serial tone={i === 0 ? "primary" : "muted"}>{i + 1}</Serial></LedgerCell>
+              <LedgerCell>{x.username}</LedgerCell>
+              <LedgerCell align="end" mono>{x.calls.toLocaleString()}</LedgerCell>
+              <LedgerCell align="end" mono>{x.pairs.toLocaleString()}</LedgerCell>
+            </LedgerRow>
+          ))}
+          {u.topApi.length === 0 ? (
+            <LedgerEmpty>{t("admin.noData")}</LedgerEmpty>
+          ) : (
+            <LedgerFooter
+              left={`${t("admin.calls")} / ${t("admin.pairs")}`}
+              right={`Σ ${u.topApi.reduce((s, x) => s + x.calls, 0).toLocaleString()} / ${u.topApi.reduce((s, x) => s + x.pairs, 0).toLocaleString()}`}
+            />
           )}
-        </Figure>
-        <Panel label={t("admin.topApi")} bodyClassName="p-0">
-          <Ledger columns="2.5rem minmax(0,1fr) 5rem 5rem" className="rounded-none border-0 bg-transparent">
-            <LedgerHead cells={["#", t("admin.username"), t("admin.calls"), t("admin.pairs")]} aligns={["start", "start", "end", "end"]} />
-            {u.topApi.map((x, i) => (
-              <LedgerRow key={x.userId}>
-                <LedgerCell><Serial tone={i === 0 ? "primary" : "muted"}>{i + 1}</Serial></LedgerCell>
-                <LedgerCell>{x.username}</LedgerCell>
-                <LedgerCell align="end" mono>{x.calls.toLocaleString()}</LedgerCell>
-                <LedgerCell align="end" mono>{x.pairs.toLocaleString()}</LedgerCell>
-              </LedgerRow>
-            ))}
-            {u.topApi.length === 0 ? (
-              <LedgerEmpty>{t("admin.noData")}</LedgerEmpty>
-            ) : (
-              <LedgerFooter
-                left={`${t("admin.calls")} / ${t("admin.pairs")}`}
-                right={`Σ ${u.topApi.reduce((s, x) => s + x.calls, 0).toLocaleString()} / ${u.topApi.reduce((s, x) => s + x.pairs, 0).toLocaleString()}`}
-              />
-            )}
-          </Ledger>
-        </Panel>
-      </div>
-      <div className="font-mono text-xs text-muted-foreground">{u.note}</div>
+        </Ledger>
+      </DocSection>
+
+      <div className="mt-6 font-mono text-xs text-muted-foreground">{u.note}</div>
     </div>
   );
 }
@@ -779,22 +741,21 @@ function SecurityTab() {
   if (error) return <LoadError onRetry={reload} />;
   if (!s) return <Spinner />;
   return (
-    <div className="space-y-6">
-      <Panel label={t("admin.tabs.security")}>
-        <MetaStrip
-          className="gap-x-8 gap-y-3"
-          items={[
-            { label: t("admin.locked"), value: signalTag(s.lockedCount, "warning") },
-            { label: t("admin.failedLogins24h"), value: signalTag(s.failedLogins24h, "warning") },
-            { label: t("admin.twofa"), value: s.twofaUsers.toLocaleString() },
-            { label: t("admin.dormantKeys"), value: s.dormantApiKeys.toLocaleString() },
-            { label: t("admin.revokedKeys"), value: s.revokedApiKeys.toLocaleString() },
-          ]}
-        />
-      </Panel>
+    <div>
+      {/* §01 Posture — the security counts + live alarm signals as dense readouts */}
+      <DocSection n="01" title={t("admin.tabs.security")}>
+        <ReadoutGrid>
+          <ReadoutRow label={t("admin.locked")} value={signalTag(s.lockedCount, "warning")} />
+          <ReadoutRow label={t("admin.failedLogins24h")} value={signalTag(s.failedLogins24h, "warning")} />
+          <ReadoutRow label={t("admin.twofa")} value={s.twofaUsers.toLocaleString()} />
+          <ReadoutRow label={t("admin.dormantKeys")} value={s.dormantApiKeys.toLocaleString()} />
+          <ReadoutRow label={t("admin.revokedKeys")} value={s.revokedApiKeys.toLocaleString()} />
+        </ReadoutGrid>
+      </DocSection>
 
-      <Panel label={t("admin.lockedAccounts")} bodyClassName="p-0">
-        <Ledger columns="2.5rem minmax(0,1fr) 7rem minmax(0,1fr)" className="rounded-none border-0 bg-transparent">
+      {/* §02 Locked accounts — ruled ledger with a Σ footer */}
+      <DocSection n="02" title={t("admin.lockedAccounts")}>
+        <Ledger columns="2.5rem minmax(0,1fr) 7rem minmax(0,1fr)">
           <LedgerHead cells={["#", t("admin.username"), t("admin.failedLogins"), t("admin.lockedUntil")]} aligns={["start", "start", "end", "end"]} />
           {s.lockedAccounts.map((a, i) => (
             <LedgerRow key={a.id}>
@@ -813,10 +774,11 @@ function SecurityTab() {
             />
           )}
         </Ledger>
-      </Panel>
+      </DocSection>
 
-      <Panel label={t("admin.adminActions")} bodyClassName="p-0">
-        <Ledger columns="2.5rem minmax(0,1fr) auto" className="rounded-none border-0 bg-transparent">
+      {/* §03 Admin actions — recent audit trail */}
+      <DocSection n="03" title={t("admin.adminActions")}>
+        <Ledger columns="2.5rem minmax(0,1fr) auto">
           <LedgerHead cells={["#", t("admin.action"), t("admin.when")]} aligns={["start", "start", "end"]} />
           {s.recentAdminActions.map((a, i) => (
             <LedgerRow key={a.id}>
@@ -830,7 +792,7 @@ function SecurityTab() {
           ))}
           {s.recentAdminActions.length === 0 && <LedgerEmpty>{t("admin.noData")}</LedgerEmpty>}
         </Ledger>
-      </Panel>
+      </DocSection>
     </div>
   );
 }
@@ -840,18 +802,13 @@ function SecurityTab() {
 const Admin = () => {
   const { t } = useTranslation("common");
   const [tab, setTab] = useState<Tab>("overview");
-  // A lightweight, always-on read powering the masthead's live console readings.
+  // A lightweight, always-on read powering the rail's live console readings.
   const { data: m } = useLoad(() => api.getAdminMetrics());
 
-  const meta = [
-    { label: t("admin.totalUsers"), value: m ? m.totalUsers.toLocaleString() : "—" },
-    { label: t("admin.estMrr"), value: m ? money(m.estimatedMrrCents) : "—" },
-    { label: t("admin.verified"), value: m ? m.verifiedUsers.toLocaleString() : "—" },
-    {
-      label: t("admin.locked"),
-      value: m ? signalTag(m.lockedUsers, "warning") : "—",
-    },
-  ];
+  // Live security signals — quiet (default) at zero, escalating when the alarm fires.
+  const lockedTone: "default" | "warning" = m && m.lockedUsers > 0 ? "warning" : "default";
+  const failedTone24h: "default" | "warning" | "danger" =
+    !m ? "default" : m.failedLogins24h >= 5 ? "danger" : m.failedLogins24h > 0 ? "warning" : "default";
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -859,41 +816,53 @@ const Admin = () => {
         kicker={t("admin.eyebrow", { defaultValue: "Operations console" })}
         title={t("admin.title")}
         description={t("admin.subtitle")}
-        meta={meta}
         actions={<span className="stamp">{t("admin.classification", { defaultValue: "Restricted" })}</span>}
       />
 
-      {/* Console section switch — a mono, ruled section index: NN + label, not
-          metaphor icons, so the rail reads like a case-file table of contents */}
-      <div className="flex flex-wrap gap-1 border-b border-border" role="tablist">
-        {TABS.map((tb, i) => {
-          const active = tab === tb;
-          return (
-            <button
-              key={tb}
-              role="tab"
-              aria-selected={active}
-              onClick={() => setTab(tb)}
-              className={cn(
-                "flex items-center gap-2 border-b-2 px-4 py-2 font-mono text-xs uppercase tracking-wide transition-colors",
-                active ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <span className={cn("text-[10px] tabular-nums", active ? "text-primary" : "text-muted-foreground/50")} aria-hidden="true">
-                {String(i + 1).padStart(2, "0")}
-              </span>
-              {t(`admin.tabs.${tb}`)}
-            </button>
-          );
-        })}
-      </div>
+      {/* Instrument-document layout: the console section index + live readings sit
+          in the margin rail; the active section's readouts/ledgers fill the wide main. */}
+      <DocFrame
+        rail={
+          <>
+            {/* Console section index — a mono §NN table of contents wired to the tab state */}
+            <RailNav
+              label={t("admin.sectionsLabel", { defaultValue: "Sections" })}
+              items={TABS.map((tb, i) => ({
+                n: String(i + 1).padStart(2, "0"),
+                label: t(`admin.tabs.${tb}`),
+                active: tab === tb,
+                onClick: () => setTab(tb),
+              }))}
+            />
 
-      {tab === "overview" && <OverviewTab />}
-      {tab === "users" && <UsersTab />}
-      {tab === "revenue" && <RevenueTab />}
-      {tab === "usage" && <UsageTab />}
-      {tab === "activity" && <ActivityTab />}
-      {tab === "security" && <SecurityTab />}
+            {/* Always-on census — folded out of the masthead into the margin */}
+            <RailReadings
+              label={t("admin.censusLabel", { defaultValue: "Census" })}
+              items={[
+                { label: t("admin.totalUsers"), value: m ? m.totalUsers.toLocaleString() : "—" },
+                { label: t("admin.estMrr"), value: m ? money(m.estimatedMrrCents) : "—" },
+                { label: t("admin.verified"), value: m ? m.verifiedUsers.toLocaleString() : "—" },
+              ]}
+            />
+
+            {/* Live security signals — the colour is the alarm, the number is the content */}
+            <RailReadings
+              label={t("admin.signalsLabel", { defaultValue: "Signals" })}
+              items={[
+                { label: t("admin.locked"), value: m ? m.lockedUsers.toLocaleString() : "—", tone: lockedTone },
+                { label: t("admin.failedLogins24h"), value: m ? m.failedLogins24h.toLocaleString() : "—", tone: failedTone24h },
+              ]}
+            />
+          </>
+        }
+      >
+        {tab === "overview" && <OverviewTab />}
+        {tab === "users" && <UsersTab />}
+        {tab === "revenue" && <RevenueTab />}
+        {tab === "usage" && <UsageTab />}
+        {tab === "activity" && <ActivityTab />}
+        {tab === "security" && <SecurityTab />}
+      </DocFrame>
     </div>
   );
 };

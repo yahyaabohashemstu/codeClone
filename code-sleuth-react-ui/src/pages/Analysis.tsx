@@ -23,16 +23,14 @@ import {
 } from "@/components/ui/select";
 import {
   Masthead,
-  FieldSheet,
-  Field,
   Serial,
-  MetaStrip,
   StatusTag,
-  Tag,
   Meter,
-  Panel,
   IndexRow,
   Notice,
+  DocFrame,
+  RailReadings,
+  DocSection,
 } from "@/components/dossier/Dossier";
 import { useAnalysis } from "@/context/AnalysisContext";
 import { useAuth } from "@/context/AuthContext";
@@ -305,6 +303,7 @@ function ExhibitPanel({
               value={source.excelRow}
               onChange={(event) => onChange({ ...source, excelRow: event.target.value })}
               placeholder="1"
+              aria-label={t("analysis.excelRow")}
               className="input-focus ms-auto h-8 w-20 rounded-sm border border-border bg-card px-2 font-mono text-foreground"
             />
           </div>
@@ -412,133 +411,139 @@ const Analysis = () => {
         description={t("analysis.subtitle")}
         meta={[
           { label: t("analysis.meta.mode"), value: t("analysis.meta.pairwise") },
-          {
-            label: t("analysis.meta.status"),
-            value: bothReady ? (
-              <StatusTag tone="ok">{t("analysis.meta.ready")}</StatusTag>
-            ) : (
-              <StatusTag tone="warn">
-                {t("analysis.meta.draft")} · {readyCount}/2
-              </StatusTag>
-            ),
-          },
           { label: t("analysis.meta.autosave"), value: t("analysis.meta.on") },
         ]}
       />
 
-      {/* Case parameters — a real spec sheet of margin-label fields */}
-      <FieldSheet>
-        <Field label={t("analysis.language")} align="center">
-          <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-            <SelectTrigger className="h-9 w-full max-w-[220px] rounded-sm border-border bg-card font-mono text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {languageOptions.map((option) => (
-                <SelectItem key={option} value={option} className="font-mono text-sm">
-                  {getProgrammingLanguageLabel(option)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-        <Field label={t("analysis.params.comparator", { defaultValue: "Comparator" })} align="center">
-          <span className="font-mono text-sm tabular-nums text-foreground">SRC.A ⇄ SRC.B</span>
-        </Field>
-        <Field label={t("analysis.params.method", { defaultValue: "Method" })} align="center">
-          <span className="font-mono text-sm uppercase tracking-wide text-muted-foreground">
-            {`A · ${sourceA.method}`}
-            <span className="px-2 text-border">/</span>
-            {`B · ${sourceB.method}`}
-          </span>
-        </Field>
-        <Field label={t("analysis.params.case", { defaultValue: "Case" })} align="center">
-          <Tag tone="signal">{t("analysis.meta.pairwise")}</Tag>
-        </Field>
-      </FieldSheet>
+      {/* Instrument-document body — case parameters + live comparator readings sit
+          in the margin rail; the two-exhibit examination bench is the main column. */}
+      <DocFrame
+        rail={
+          <>
+            {/* Case parameters — a compact margin block, not a full spec sheet */}
+            <div>
+              <div className="t-label mb-3 text-muted-foreground/80">
+                {t("analysis.params.label", { defaultValue: "Parameters" })}
+              </div>
+              <div className="flex flex-col gap-4">
+                <div>
+                  <span className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground/80">
+                    {t("analysis.language")}
+                  </span>
+                  <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+                    <SelectTrigger
+                      aria-label={t("analysis.language")}
+                      className="h-9 w-full rounded-sm border-border bg-card font-mono text-sm"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {languageOptions.map((option) => (
+                        <SelectItem key={option} value={option} className="font-mono text-sm">
+                          {getProgrammingLanguageLabel(option)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-      {errorMessage && (
-        <div role="alert" aria-live="assertive">
-          <Notice tone="danger">{errorMessage}</Notice>
-        </div>
-      )}
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground/80">
+                    {t("analysis.params.comparator", { defaultValue: "Comparator" })}
+                  </span>
+                  <span dir="ltr" className="font-mono text-[13px] tabular-nums text-foreground">SRC.A ⇄ SRC.B</span>
+                </div>
 
-      {/* Live comparator readout — a dense instrument strip, not stat tiles */}
-      <MetaStrip
-        className="border-y border-border bg-muted/20 px-4 py-3"
-        items={[
-          { label: "SRC.A", value: metricReadout(metricsA) },
-          { label: "SRC.B", value: metricReadout(metricsB) },
-          {
-            label: t("analysis.meta.ready"),
-            value: (
-              <StatusTag tone={bothReady ? "ok" : "warn"}>
-                {readyCount}/2
-              </StatusTag>
-            ),
-          },
-          { label: t("analysis.language"), value: getProgrammingLanguageLabel(selectedLanguage) },
-        ]}
-      />
+                <div>
+                  <span className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground/80">
+                    {t("analysis.params.method", { defaultValue: "Method" })}
+                  </span>
+                  <span dir="ltr" className="font-mono text-xs uppercase tracking-wide text-muted-foreground">
+                    {`A · ${sourceA.method}`}
+                    <span className="px-1.5 text-border">/</span>
+                    {`B · ${sourceB.method}`}
+                  </span>
+                </div>
+              </div>
+            </div>
 
-      {/* Two exhibits on the examination bench — framed either side of a live
-          A ⇄ B comparator axis, the way a case file pins two specimens for review. */}
-      <div className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1fr)_2.75rem_minmax(0,1fr)]">
-        <ExhibitPanel label="A" source={sourceA} onChange={setSourceA} />
-
-        {/* Comparator axis — a hairline run through an amber ⇄ node (vertical on wide,
-            horizontal when the exhibits stack) */}
-        <div className="flex items-center justify-center gap-3 xl:flex-col xl:gap-0" aria-hidden="true">
-          <span className="h-px flex-1 bg-border xl:h-auto xl:w-px" />
-          <span className="my-0 flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border border-primary/40 bg-primary/10 font-mono text-base font-bold text-primary xl:my-3">
-            ⇄
-          </span>
-          <span className="h-px flex-1 bg-border xl:h-auto xl:w-px" />
-        </div>
-
-        <ExhibitPanel label="B" source={sourceB} onChange={setSourceB} />
-      </div>
-
-      {/* Engine capabilities — a numbered module index, not a green checklist */}
-      <div>
-        <button
-          type="button"
-          onClick={() => setShowAdvanced((current) => !current)}
-          aria-expanded={showAdvanced}
-          aria-controls="engine-modules"
-          className="flex items-center gap-2 font-mono text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
-        >
-          {showAdvanced ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-          {t("analysis.capabilities.toggle")}
-        </button>
-
-        {showAdvanced && (
-          <div id="engine-modules">
-            <Panel
-              label={t("analysis.engine.label", { defaultValue: "Engine modules" })}
-              actions={
-                <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                  {CAPABILITY_KEYS.length}
-                </span>
-              }
-              bodyClassName="p-0"
-              className="mt-3"
-            >
-              <ul className="divide-y divide-border">
-                {CAPABILITY_KEYS.map((key, i) => (
-                  <li key={key}>
-                    <IndexRow
-                      serial={<Serial>{String(i + 1).padStart(2, "0")}</Serial>}
-                      title={t(`analysis.${key}`)}
-                      meta={<StatusTag tone="signal">{t("analysis.engine.online", { defaultValue: "Online" })}</StatusTag>}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </Panel>
+            {/* Live comparator measurement — dense readings, not stat tiles */}
+            <RailReadings
+              label={t("analysis.comparatorReadings", { defaultValue: "Comparator" })}
+              items={[
+                { label: "SRC.A", value: metricReadout(metricsA) },
+                { label: "SRC.B", value: metricReadout(metricsB) },
+                {
+                  label: t("analysis.meta.ready"),
+                  value: `${readyCount}/2`,
+                  tone: bothReady ? "success" : "warning",
+                },
+                { label: t("analysis.language"), value: getProgrammingLanguageLabel(selectedLanguage) },
+              ]}
+            />
+          </>
+        }
+      >
+        {errorMessage && (
+          <div role="alert" aria-live="assertive" className="mb-5">
+            <Notice tone="danger">{errorMessage}</Notice>
           </div>
         )}
-      </div>
+
+        {/* Two exhibits on the examination bench — framed either side of a live
+            A ⇄ B comparator axis, the way a case file pins two specimens for review. */}
+        <div className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1fr)_2.75rem_minmax(0,1fr)]">
+          <ExhibitPanel label="A" source={sourceA} onChange={setSourceA} />
+
+          {/* Comparator axis — a hairline run through an indigo ⇄ node (vertical on wide,
+              horizontal when the exhibits stack) */}
+          <div className="flex items-center justify-center gap-3 xl:flex-col xl:gap-0" aria-hidden="true">
+            <span className="h-px flex-1 bg-border xl:h-auto xl:w-px" />
+            <span className="my-0 flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border border-primary/40 bg-primary/10 font-mono text-base font-bold text-primary xl:my-3">
+              ⇄
+            </span>
+            <span className="h-px flex-1 bg-border xl:h-auto xl:w-px" />
+          </div>
+
+          <ExhibitPanel label="B" source={sourceB} onChange={setSourceB} />
+        </div>
+
+        {/* Engine capabilities — a numbered module index in a collapsible ruled section */}
+        <DocSection
+          title={t("analysis.engine.label", { defaultValue: "Engine modules" })}
+          note={t("analysis.engine.modules", {
+            count: CAPABILITY_KEYS.length,
+            defaultValue: "{{count}} modules",
+          })}
+          actions={
+            <button
+              type="button"
+              onClick={() => setShowAdvanced((current) => !current)}
+              aria-expanded={showAdvanced}
+              aria-controls="engine-modules"
+              className="flex items-center gap-1.5 font-mono text-[11px] font-semibold uppercase tracking-wide text-primary transition-colors hover:text-foreground"
+            >
+              {showAdvanced ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              {t("analysis.capabilities.toggle")}
+            </button>
+          }
+          className="mt-6"
+        >
+          {showAdvanced && (
+            <ul id="engine-modules" className="divide-y divide-border border-y border-border">
+              {CAPABILITY_KEYS.map((key, i) => (
+                <li key={key}>
+                  <IndexRow
+                    serial={<Serial>{String(i + 1).padStart(2, "0")}</Serial>}
+                    title={t(`analysis.${key}`)}
+                    meta={<StatusTag tone="signal">{t("analysis.engine.online", { defaultValue: "Online" })}</StatusTag>}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </DocSection>
+      </DocFrame>
 
       {/* Run footer — mono status line + semantic progress meter + actions */}
       <div className="sticky bottom-0 flex flex-col gap-3 rounded-lg border border-border bg-card p-4 lg:flex-row lg:items-center lg:justify-between">
