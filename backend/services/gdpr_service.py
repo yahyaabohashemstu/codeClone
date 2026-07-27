@@ -162,7 +162,7 @@ def hard_delete_user(uid: int) -> None:
     refusing to delete protected accounts (self, last admin, the tombstone).
     Safe no-op if the user is already gone.
     """
-    from backend.models import Analysis, ApiKey, User
+    from backend.models import Analysis, ApiKey, ChatConversation, ChatMessage, User
     from backend.services.cache_service import invalidate_cached_analysis_for_user
 
     if db.session.get(User, uid) is None:
@@ -178,7 +178,14 @@ def hard_delete_user(uid: int) -> None:
     except Exception:
         logger.exception("Enterprise GDPR purge failed for user %s — continuing core deletion.", uid)
 
-    # HARD DELETE the proprietary code data and API credentials.
+    # HARD DELETE the proprietary code data, API credentials, and the AI-analyst
+    # correspondence (transcripts are personal data — no tombstone merge).
+    conversation_ids = [row[0] for row in db.session.query(ChatConversation.id).filter_by(user_id=uid).all()]
+    if conversation_ids:
+        ChatMessage.query.filter(
+            ChatMessage.conversation_id.in_(conversation_ids),
+        ).delete(synchronize_session=False)
+        ChatConversation.query.filter_by(user_id=uid).delete(synchronize_session=False)
     Analysis.query.filter_by(user_id=uid).delete(synchronize_session=False)
     ApiKey.query.filter_by(user_id=uid).delete(synchronize_session=False)
 

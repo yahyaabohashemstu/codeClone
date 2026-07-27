@@ -1,65 +1,74 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { AnalysisChatPanel } from "@/components/results/AnalysisChatPanel";
-import { Masthead, Panel, FieldSheet, Field, Serial, SectionHead, SpecList } from "@/components/dossier/Dossier";
-import { useAnalysis } from "@/context/AnalysisContext";
+import { Plus, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { PageLoader } from "@/components/common/PageLoader";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { AnalysisChatPanel } from "@/components/results/AnalysisChatPanel";
+import { Masthead, RegMark } from "@/components/dossier/Dossier";
+import {
+  deleteConversation,
+  listConversations,
+  type ChatConversationSummary,
+} from "@/lib/chatApi";
+import { useAnalysis } from "@/context/AnalysisContext";
+import { useLanguage } from "@/context/LanguageContext";
+import { cn } from "@/lib/utils";
 
+/**
+ * The correspondence desk: the previous-threads drawer beside the live log.
+ * A fresh thread grounds on the currently loaded analysis when one is on
+ * file; every thread is persisted server-side and can be reopened, resumed
+ * (the model keeps its memory), or destroyed.
+ */
 const Chat = () => {
-  const { currentResult, loadCurrent } = useAnalysis();
+  const { currentResult } = useAnalysis();
   const { t } = useTranslation("common");
-  const [isLoading, setIsLoading] = useState(false);
+  const { formatDate, formatNumber } = useLanguage();
+
+  const [items, setItems] = useState<ChatConversationSummary[]>([]);
+  const [listLoaded, setListLoaded] = useState(false);
+  const [activeId, setActiveId] = useState<number | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ChatConversationSummary | null>(null);
+
+  const refreshList = useCallback(() => {
+    listConversations({})
+      .then((data) => setItems(data.items))
+      .catch(() => undefined)
+      .finally(() => setListLoaded(true));
+  }, []);
 
   useEffect(() => {
-    if (currentResult) return;
-    setIsLoading(true);
-    void loadCurrent().finally(() => setIsLoading(false));
-  }, [currentResult, loadCurrent]);
+    refreshList();
+  }, [refreshList]);
 
-  if (isLoading && !currentResult) {
-    return <PageLoader message={t("chat.loading")} />;
-  }
+  const active = activeId != null ? items.find((c) => c.id === activeId) ?? null : null;
 
-  // No grounded case on file — an unfiled consultation.
-  if (!currentResult) {
-    return (
-      <div className="animate-fade-in space-y-6">
-        <Masthead
-          kicker={t("chat.eyebrow", { defaultValue: "Grounded consultation" })}
-          title={t("chat.pageTitle")}
-          description={t("chat.noContextDescription")}
-          meta={[
-            { label: "MODE", value: "CONSULT" },
-            { label: "STATUS", value: <span className="rounded-sm bg-warning/20 px-1.5 py-0.5 text-foreground">NO CONTEXT</span> },
-            { label: "GROUNDING", value: "NONE" },
-          ]}
-        />
+  // A fresh thread inherits the grounding of whatever analysis is on file.
+  const freshAnalysisId = currentResult?.saved_analysis_id ?? null;
+  const contextLabel = currentResult
+    ? `${currentResult.source_labels.code1} ↔ ${currentResult.source_labels.code2}`
+    : t("chat.noContextLabel", { defaultValue: "general" });
 
-        {/* Unfiled consultation — an actionable panel, kept as a card. */}
-        <FieldSheet>
-          <Field label={t("chat.noContextTitle")}>
-            <p className="t-body">{t("chat.noContextDescription")}</p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <Button asChild size="sm" className="h-10 text-sm">
-                <Link to="/analysis">{t("buttons.runAnalysis")}</Link>
-              </Button>
-              <Button asChild variant="outline" size="sm" className="h-10 text-sm">
-                <Link to="/history">{t("chat.openHistory")}</Link>
-              </Button>
-            </div>
-          </Field>
-        </FieldSheet>
-      </div>
-    );
-  }
+  const executeDelete = async () => {
+    const target = deleteTarget;
+    setDeleteTarget(null);
+    if (!target) return;
+    try {
+      await deleteConversation(target.id);
+      if (activeId === target.id) setActiveId(null);
+      refreshList();
+    } catch {
+      // The list refresh below would surface a stale row; keep it simple.
+      refreshList();
+    }
+  };
 
-  const { source_labels, saved_analysis_id, language, analysis_structured } = currentResult;
-  const contextLabel = `${source_labels.code1} ↔ ${source_labels.code2}`;
-  const caseSerial = saved_analysis_id != null ? `#${saved_analysis_id}` : "UNSAVED";
-  const risk = analysis_structured?.risk_level;
-  const groundingAttached = saved_analysis_id != null;
+  const railDate = (c: ChatConversationSummary) =>
+    c.updatedAt ? formatDate(c.updatedAt, { dateStyle: "medium" }) : "—";
 
   return (
     <div className="animate-fade-in">
@@ -67,93 +76,158 @@ const Chat = () => {
         kicker={t("chat.eyebrow", { defaultValue: "Grounded consultation" })}
         title={t("chat.pageTitle")}
         description={t("chat.pageDescription")}
-        meta={[
-          { label: "CASE", value: caseSerial },
-          { label: "LANG", value: (language || "—").toUpperCase() },
-          { label: "MODE", value: "GROUNDED" },
-          ...(risk
-            ? [
-                {
-                  label: "RISK",
-                  value: (
-                    <span className={risk === "critical" || risk === "high" ? "text-destructive" : risk === "moderate" ? "text-foreground" : "text-muted-foreground"}>
-                      {risk.toUpperCase()}
-                    </span>
-                  ),
-                },
-              ]
-            : []),
-        ]}
+        actions={
+          <Button size="sm" className="h-9 gap-2" onClick={() => setActiveId(null)}>
+            <Plus className="h-4 w-4" />
+            {t("chat.newConversation", { defaultValue: "New thread" })}
+          </Button>
+        }
       />
 
-      {/* GROUNDING ON FILE — the record this consultation is annotated against.
-          A ruled §-section (not a card): the two exhibits on the record, then a
-          spec sheet of the consultation parameters. */}
-      <Panel
-        bare
-        marker="§"
-        label={t("chat.groundingTitle", { defaultValue: "Grounding on file" })}
-        className="mt-10"
-      >
-        <Field
-          label={
-            <span className="inline-flex items-center gap-2">
-              <Serial tone="plate-a">A</Serial>
-              {t("chat.exhibitA", { defaultValue: "Exhibit A" })}
+      <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">
+        {/* ── The correspondence drawer ── */}
+        <aside className="min-w-0 border border-border bg-card">
+          <div className="flex items-baseline justify-between gap-3 border-b border-border px-4 py-2.5">
+            <span className="t-label flex items-center gap-2 text-foreground">
+              <span className="reg-dot h-3 w-3 text-primary" aria-hidden />
+              {t("chat.previousTitle", { defaultValue: "Correspondence" })}
             </span>
-          }
-          align="center"
-        >
-          <span dir="ltr" className="block truncate font-mono text-sm text-foreground">
-            {source_labels.code1}
-          </span>
-        </Field>
-        <Field
-          label={
-            <span className="inline-flex items-center gap-2">
-              <Serial tone="plate-b">B</Serial>
-              {t("chat.exhibitB", { defaultValue: "Exhibit B" })}
-            </span>
-          }
-          align="center"
-        >
-          <span dir="ltr" className="block truncate font-mono text-sm text-foreground">
-            {source_labels.code2}
-          </span>
-        </Field>
+            <span className="press-slug tabular-nums">{formatNumber(items.length)}</span>
+          </div>
 
-        {/* Consultation parameters — the reading strip for this grounded session. */}
-        <div className="mt-6 border-t border-border pt-2">
-          <SpecList
-            rows={[
-              { label: t("chat.specCase", { defaultValue: "Case reference" }), value: caseSerial },
-              { label: t("chat.specLanguage", { defaultValue: "Language" }), value: (language || "—").toUpperCase() },
-              {
-                label: t("chat.specGrounding", { defaultValue: "Grounding" }),
-                value: (
-                  <span className="inline-flex items-center gap-2">
-                    <span className={groundingAttached ? "h-1.5 w-1.5 rounded-full bg-primary" : "h-1.5 w-1.5 rounded-full bg-muted-foreground/50"} />
-                    {groundingAttached
-                      ? t("chat.groundingAttached", { defaultValue: "Attached" })
-                      : t("chat.groundingUnsaved", { defaultValue: "Unsaved" })}
-                  </span>
-                ),
-              },
-            ]}
-          />
+          {/* New thread — the drawer's first slot */}
+          <button
+            type="button"
+            onClick={() => setActiveId(null)}
+            className={cn(
+              "flex w-full min-w-0 items-center gap-2.5 border-b border-border/60 px-4 py-3 text-start transition-colors",
+              activeId == null ? "nav-link-active" : "hover:bg-muted/60",
+            )}
+          >
+            <Plus className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[13px] font-semibold text-foreground">
+                {t("chat.newConversation", { defaultValue: "New thread" })}
+              </span>
+              <span className="press-slug mt-0.5 block text-[9px]">
+                {freshAnalysisId != null
+                  ? t("chat.groundsOnCase", { defaultValue: "Case #{{id}}", id: freshAnalysisId })
+                  : t("chat.ungrounded", { defaultValue: "Free consultation" })}
+              </span>
+            </span>
+          </button>
+
+          <div className="max-h-[520px] overflow-y-auto scrollbar-thin">
+            {!listLoaded ? (
+              <div className="flex items-center gap-2.5 px-4 py-4" role="status">
+                <RegMark className="h-3.5 w-3.5 animate-spin text-primary [animation-duration:1.6s]" aria-hidden />
+                <span className="press-slug">{t("status.loading")}</span>
+              </div>
+            ) : items.length === 0 ? (
+              <p className="px-4 py-5 text-xs leading-relaxed text-muted-foreground">
+                {t("chat.noThreadsYet", { defaultValue: "Nothing on file yet — your first exchange is saved automatically." })}
+              </p>
+            ) : (
+              items.map((c) => {
+                const isActive = c.id === activeId;
+                return (
+                  <div
+                    key={c.id}
+                    className={cn(
+                      "group relative border-b border-border/60 transition-colors last:border-b-0",
+                      isActive ? "nav-link-active" : "hover:bg-muted/60",
+                    )}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setActiveId(c.id)}
+                      className="block w-full min-w-0 px-4 py-3 pe-9 text-start"
+                    >
+                      <span className="block truncate text-[13px] font-medium text-foreground" dir="auto">
+                        {c.title || "…"}
+                      </span>
+                      <span className="press-slug mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[9px]">
+                        <span className="normal-case tracking-normal">{railDate(c)}</span>
+                        <span aria-hidden>·</span>
+                        <span className="tabular-nums">
+                          {formatNumber(c.messageCount ?? 0)} {t("chat.messagesShort", { defaultValue: "msgs" })}
+                        </span>
+                        {c.analysisId != null && (
+                          <>
+                            <span aria-hidden>·</span>
+                            <span className="text-primary">#{c.analysisId}</span>
+                          </>
+                        )}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeleteTarget(c)}
+                      aria-label={t("buttons.delete")}
+                      title={t("buttons.delete")}
+                      className="absolute end-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/60 opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 group-hover:opacity-100"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </aside>
+
+        {/* ── The live log ── */}
+        <div className="min-w-0">
+          {/* Context line for the open thread */}
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
+            <span className="press-slug flex min-w-0 items-center gap-2">
+              <span className="truncate normal-case tracking-normal" dir="auto">
+                {active ? active.title : t("chat.newConversation", { defaultValue: "New thread" })}
+              </span>
+            </span>
+            {(active?.analysisId ?? (activeId == null ? freshAnalysisId : null)) != null && (
+              <Link
+                to={`/results?analysisId=${active?.analysisId ?? freshAnalysisId}`}
+                className="press-slug text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary"
+              >
+                {t("chat.openCase", { defaultValue: "Case #{{id}}", id: active?.analysisId ?? freshAnalysisId })}
+              </Link>
+            )}
+          </div>
+
+          <div className="mt-4">
+            <AnalysisChatPanel
+              analysisId={activeId == null ? freshAnalysisId : undefined}
+              contextLabel={contextLabel}
+              conversationId={activeId}
+              onConversationChange={(id) => {
+                setActiveId(id);
+                refreshList();
+              }}
+              onTranscriptChange={refreshList}
+            />
+          </div>
         </div>
-      </Panel>
-
-      {/* CONSULTATION TRANSCRIPT — ruled section break; the message flow + composer
-          live inside the panel card below. */}
-      <div className="mt-12">
-        <SectionHead
-          marker="§"
-          title={t("chat.transcriptTitle", { defaultValue: "Consultation transcript" })}
-          aside={`Nº ${caseSerial}`}
-        />
-        <AnalysisChatPanel analysisId={saved_analysis_id} contextLabel={contextLabel} />
       </div>
+
+      <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("chat.deleteTitle", { defaultValue: "Delete this thread?" })}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("chat.deleteDescription", {
+                defaultValue: "The whole transcript is removed permanently. This cannot be undone.",
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("buttons.cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void executeDelete()}>
+              {t("buttons.delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

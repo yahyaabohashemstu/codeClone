@@ -2,6 +2,7 @@
 
 from backend.models.analysis import Analysis
 from backend.models.audit import ApiKey, AuditLog
+from backend.models.chat import ChatConversation, ChatMessage
 from backend.models.billing import (
     API_PLANS,
     PLANS,
@@ -21,4 +22,5 @@ __all__ = [
     "ApiSubscription", "Plan", "PLANS", "ApiPlan", "API_PLANS",
     "Payment", "SubscriptionEvent",
     "AuditLog", "ApiKey",
+    "ChatConversation", "ChatMessage",
 ]

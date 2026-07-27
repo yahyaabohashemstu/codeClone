@@ -272,7 +272,10 @@
       "speakerYou": "أنت",
       "thinking": "يقرأ البروفة…",
       "suggestionsLabel": "اسأل",
-      "send": "إرسال"
+      "send": "إرسال",
+      "loadFailed": "تعذّر فتح هذه المراسلة.",
+      "loadingThread": "يفتح الملف…",
+      "retry": "إعادة المحاولة"
     },
     "analysisReport": {
       "title": "تقرير التحليل بين الشيفرتين",

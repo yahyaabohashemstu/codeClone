@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
-import { AnalysisChatPanel } from "@/components/results/AnalysisChatPanel";
+import { GroundedThread } from "@/components/results/AnalysisChatPanel";
 import { AnalysisReport } from "@/components/results/AnalysisReport";
 import { AstGraphPanel } from "@/components/results/AstGraphPanel";
 import { DiffViewer } from "@/components/results/DiffViewer";
@@ -1488,7 +1488,7 @@ const Results = () => {
         </TabsContent>
 
         <TabsContent value="chat" className="mt-5">
-          <AnalysisChatPanel
+          <GroundedThread
             analysisId={result.saved_analysis_id}
             contextLabel={`${result.source_labels.code1} \u2194 ${result.source_labels.code2}`}
           />

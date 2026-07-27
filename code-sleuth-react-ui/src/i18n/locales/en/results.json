@@ -272,7 +272,10 @@
       "speakerYou": "You",
       "thinking": "Reading the proof…",
       "suggestionsLabel": "Ask",
-      "send": "Send"
+      "send": "Send",
+      "loadFailed": "Could not open this thread.",
+      "loadingThread": "Opening the file…",
+      "retry": "Retry"
     },
     "analysisReport": {
       "title": "Inter-Code Analysis Report",

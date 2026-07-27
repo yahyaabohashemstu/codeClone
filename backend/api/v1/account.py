@@ -12,7 +12,7 @@ from flask_login import current_user, login_required, logout_user
 
 from backend.api.v1 import v1_bp
 from backend.extensions import limiter
-from backend.models import Analysis, ApiKey, Subscription, UsageRecord
+from backend.models import Analysis, ApiKey, ChatConversation, Subscription, UsageRecord
 from backend.services.audit_service import record_audit
 
 
@@ -25,6 +25,7 @@ def account_export():
     sub = Subscription.query.filter_by(user_id=uid).first()
     usage = UsageRecord.query.filter_by(user_id=uid).all()
     keys = ApiKey.query.filter_by(user_id=uid).all()
+    conversations = ChatConversation.query.filter_by(user_id=uid).all()
 
     data = {
         "account": {
@@ -47,6 +48,14 @@ def account_export():
             "createdAt": a.date_created.isoformat() if a.date_created else None,
         } for a in analyses],
         "apiKeys": [{"prefix": k.prefix, "name": k.name, "revoked": k.revoked_at is not None} for k in keys],
+        "chatConversations": [{
+            "id": c.id, "title": c.title, "analysisId": c.analysis_id,
+            "createdAt": c.created_at.isoformat() if c.created_at else None,
+            "messages": [{
+                "role": m.role, "content": m.content, "grounded": bool(m.grounded),
+                "createdAt": m.created_at.isoformat() if m.created_at else None,
+            } for m in c.messages.all()],
+        } for c in conversations],
     }
     record_audit("account.export", user_id=uid)
     resp = jsonify({"success": True, "exportedAt": None, "data": data})
