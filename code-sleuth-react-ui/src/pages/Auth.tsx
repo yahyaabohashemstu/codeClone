@@ -202,16 +202,10 @@ const Auth = () => {
           </p>
         </div>
 
-        <div className="relative">
-          {/* Press annotation */}
-          <div className="border border-white/15 bg-white/[0.05] p-5 text-sm leading-[1.65] text-white/90">
-            {t("auth.quote")}
-            <div className="press-slug mt-3 text-white/55">{t("auth.quoteCite")}</div>
-          </div>
-          <div className="mt-6 flex items-center justify-between">
-            <ControlStrip className="border-white/20" />
-            <span className="press-slug text-white/45">EST. REG · A ⊕ B</span>
-          </div>
+        {/* Sheet edge — the ink legend signs off the panel */}
+        <div className="relative flex items-center justify-between">
+          <ControlStrip className="border-white/20" />
+          <span className="press-slug text-white/45">EST. REG · A ⊕ B</span>
         </div>
       </section>
 
