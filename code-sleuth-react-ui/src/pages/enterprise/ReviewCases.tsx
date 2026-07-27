@@ -11,7 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Masthead, Serial, SectionHead, SpecList } from "@/components/dossier/Dossier";
+import { Masthead, OverprintMeter, PlatePair, Serial, SectionHead, SpecList } from "@/components/dossier/Dossier";
 import { useLanguage } from "@/context/LanguageContext";
 import { listWorkspaces, listCases } from "@/lib/enterpriseApi";
 import type { EnterpriseCase, CaseStatus, EnterpriseWorkspace } from "@/types/enterprise";
@@ -29,8 +29,8 @@ const STATUS_BADGE: Record<CaseStatus, string> = {
 const SEVERITY_DOT: Record<string, string> = {
   critical: "bg-destructive",
   high: "bg-warning",
-  medium: "bg-warning/70",
-  low: "bg-primary",
+  medium: "bg-warning/60",
+  low: "bg-muted-foreground/50",
 };
 
 const ALL_STATUSES: Array<CaseStatus | "all"> = [
@@ -129,13 +129,6 @@ export default function ReviewCases() {
     }));
   }, [cases, t]);
   const readingsMid = Math.ceil(statusReadings.length / 2);
-
-  // Calibrated similarity scale (DESIGN §2), token-based so it tracks the theme.
-  const scoreColor = (score: number): string => {
-    if (score >= 80) return "hsl(var(--destructive))";
-    if (score >= 50) return "hsl(var(--warning))";
-    return "hsl(var(--muted-foreground))";
-  };
 
   return (
     <div className="mx-auto max-w-6xl space-y-12 p-6" dir={isRTL ? "rtl" : "ltr"}>
@@ -309,26 +302,12 @@ export default function ReviewCases() {
                         </div>
                       </td>
                       <td className="max-w-[280px] px-4 py-3 align-middle">
-                        <div className="space-y-0.5 text-xs">
-                          <div className="flex items-center gap-1.5">
-                            <span className="shrink-0 font-mono text-muted-foreground/60">A</span>
-                            <span className="truncate font-mono text-foreground">{pathA}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="shrink-0 font-mono text-muted-foreground/60">B</span>
-                            <span className="truncate font-mono text-foreground">{pathB}</span>
-                          </div>
-                        </div>
+                        <PlatePair mono a={pathA} b={pathB} />
                       </td>
                       <td className="px-4 py-3 align-middle">
                         <div className="flex items-center gap-2">
-                          <span className="h-1.5 w-14 overflow-hidden rounded-sm bg-muted">
-                            <span
-                              className="block h-full"
-                              style={{ width: `${score}%`, background: scoreColor(score) }}
-                            />
-                          </span>
-                          <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+                          <OverprintMeter value={score} className="h-2 w-16 shrink-0" label={`${score}%`} />
+                          <span className="font-display text-sm font-bold tabular-nums text-foreground" style={{ fontStretch: "108%" }}>
                             {score}%
                           </span>
                         </div>

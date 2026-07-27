@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { AtSign, CheckCircle2, Eye, EyeOff, Lock, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ControlStrip, RegMark } from "@/components/dossier/Dossier";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { cn } from "@/lib/utils";
@@ -162,47 +163,61 @@ const Auth = () => {
     : t("auth.signingIn");
 
   return (
-    <div
-      className="mx-auto grid w-full max-w-6xl overflow-hidden rounded-lg border border-border bg-card md:grid-cols-2"
-      style={{ minHeight: "640px", boxShadow: "var(--card-shadow-rest)" }}
-    >
-      {/* ── Brand side (fixed dark ink rail) ── */}
+    <div className="mx-auto grid w-full max-w-6xl overflow-hidden border border-border bg-card md:grid-cols-2" style={{ minHeight: "640px" }}>
+      {/* ── Brand side — the press room after hours, fixed dark in both themes ── */}
       <section
         className="relative flex flex-col justify-between overflow-hidden p-10 text-white"
         style={{ background: "hsl(var(--auth-ink))" }}
       >
+        {/* Oversized registration watermark */}
+        <RegMark
+          className="pointer-events-none absolute -bottom-24 -end-24 h-96 w-96 text-white/[0.05]"
+          aria-hidden
+        />
+
         <div className="relative">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-md bg-primary">
-              <img src="/brand/logo.png" alt="Clone Lens" className="h-10 w-10 object-contain" />
-            </div>
-            <span className="font-display text-lg font-bold tracking-tight">Clone Lens</span>
+            <span className="flex h-10 w-10 items-center justify-center bg-white text-[hsl(var(--auth-ink))]">
+              <RegMark className="h-5 w-5" />
+            </span>
+            <span className="font-display text-lg font-extrabold uppercase tracking-wide" style={{ fontStretch: "118%" }}>
+              Clone Lens
+            </span>
+          </div>
+
+          {/* The two plates, drawn as rules */}
+          <div className="mt-8 space-y-1" aria-hidden>
+            <span className="block h-0.5 w-16 bg-plate-a" />
+            <span className="block h-0.5 w-16 translate-x-2 bg-plate-b rtl:-translate-x-2" />
           </div>
 
           <h2
-            className="mt-10 font-display font-bold leading-[1.06] tracking-[-0.015em]"
-            style={{ fontSize: "clamp(1.9rem, 3vw, 2.6rem)" }}
+            className="mt-6 font-display font-bold leading-[1.08]"
+            style={{ fontSize: "clamp(1.8rem, 2.8vw, 2.4rem)", fontStretch: "108%", textWrap: "balance" }}
           >
             {t("auth.welcomeTitle")}
           </h2>
-          <p className="mt-4 max-w-[40ch] text-sm leading-[1.6] text-white/70">
+          <p className="mt-4 max-w-[42ch] text-sm leading-[1.65] text-white/70">
             {t("auth.welcomeSubtitle")}
           </p>
         </div>
 
-        {/* Highlighted evidence — hairline + amber tint, no 3px side-stripe. */}
-        <div
-          className="relative mt-10 rounded-lg border border-primary/25 p-5 text-sm leading-[1.6]"
-          style={{ background: "hsl(var(--primary) / 0.08)" }}
-        >
-          {t("auth.quote")}
-          <div className="mt-2 text-xs not-italic text-white/60">— {t("auth.quoteCite")}</div>
+        <div className="relative">
+          {/* Press annotation */}
+          <div className="border border-white/15 bg-white/[0.05] p-5 text-sm leading-[1.65] text-white/90">
+            {t("auth.quote")}
+            <div className="press-slug mt-3 text-white/55">{t("auth.quoteCite")}</div>
+          </div>
+          <div className="mt-6 flex items-center justify-between">
+            <ControlStrip className="border-white/20" />
+            <span className="press-slug text-white/45">EST. REG · A ⊕ B</span>
+          </div>
         </div>
       </section>
 
       {/* ── Form side ── */}
       <section className="flex flex-col justify-center p-10">
-        <div className="mb-6 flex items-center justify-end gap-2 text-xs text-muted-foreground">
+        <div className="press-slug mb-6 flex items-center justify-end gap-2">
           <Lock className="h-3.5 w-3.5" />
           {t("auth.secureAccess")}
         </div>

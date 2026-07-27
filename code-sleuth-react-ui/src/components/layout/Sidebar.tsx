@@ -22,6 +22,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ControlStrip, RegMark } from "@/components/dossier/Dossier";
 import { useAnalysis } from "@/context/AnalysisContext";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -55,6 +56,11 @@ const enterpriseItems: NavItem[] = [
   { labelKey: "nav.cases", icon: Scale, path: "/enterprise/cases" },
 ];
 
+/**
+ * The job rail. It lives on the deeper press-bed tone; the active route is a
+ * "pulled proof" — a sheet-white tab with a drawn hairline and a registration
+ * mark showing where the job currently sits.
+ */
 export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: boolean; onClose: () => void; collapsed: boolean; onCollapse: () => void }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -74,111 +80,90 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
     onClose();
   };
 
+  const renderItem = (item: NavItem, active: boolean) => {
+    const Icon = item.icon;
+    const label = t(item.labelKey);
+    const link = (
+      <Link
+        key={item.path}
+        to={item.path}
+        onClick={onClose}
+        className={cn(
+          "group flex items-center gap-3 border border-transparent px-3 py-2 text-[13px] font-medium transition-colors duration-150",
+          collapsed ? "justify-center px-2" : "",
+          active
+            ? "nav-link-active"
+            : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+        )}
+      >
+        <Icon className="h-4 w-4 shrink-0" />
+        {!collapsed && <span className="truncate">{label}</span>}
+        {!collapsed && active && <span className="reg-dot ms-auto h-2.5 w-2.5 text-primary" aria-hidden />}
+      </Link>
+    );
+
+    if (collapsed) {
+      return (
+        <Tooltip key={item.path} delayDuration={0}>
+          <TooltipTrigger asChild>{link}</TooltipTrigger>
+          <TooltipContent side={isRTL ? "left" : "right"} className="text-xs">{label}</TooltipContent>
+        </Tooltip>
+      );
+    }
+
+    return link;
+  };
+
   return (
     <>
-      {isOpen && <div className="fixed inset-0 z-30 bg-background/80 md:hidden" role="button" tabIndex={0} aria-label="Close navigation" onClick={onClose} onKeyDown={(e) => { if (e.key === "Escape" || e.key === "Enter") onClose(); }} />}
+      {isOpen && <div className="fixed inset-0 z-30 bg-foreground/40 md:hidden" role="button" tabIndex={0} aria-label="Close navigation" onClick={onClose} onKeyDown={(e) => { if (e.key === "Escape" || e.key === "Enter") onClose(); }} />}
 
       <aside
         className={cn(
           "fixed inset-y-0 z-40 flex flex-col bg-sidebar transition-[width,transform] duration-300 ease-in-out",
-          isRTL ? "right-0 border-l border-border/50" : "left-0 border-r border-border/50",
+          isRTL ? "right-0 border-l border-sidebar-border" : "left-0 border-r border-sidebar-border",
           collapsed ? "w-16" : "w-60",
           isOpen ? "translate-x-0" : isRTL ? "translate-x-full md:translate-x-0" : "-translate-x-full md:translate-x-0",
         )}
       >
-        <div className={cn("flex h-16 items-center border-b border-sidebar-border px-4", collapsed ? "justify-center" : "gap-3")}>
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-primary">
-            <img src="/brand/logo.png" alt="Clone Lens" className="h-9 w-9 object-contain" />
-          </div>
-          {!collapsed && (
-            <div className="min-w-0">
-              <span className="block truncate font-mono text-sm font-bold text-sidebar-accent-foreground">Clone Lens</span>
-              <span className="block font-mono text-[10px] uppercase tracking-wider text-sidebar-foreground">{t("platform")}</span>
-            </div>
+        {/* Brand block — the registration lockup */}
+        <Link
+          to="/"
+          className={cn(
+            "flex h-14 items-center border-b border-sidebar-border px-3",
+            collapsed ? "justify-center px-0" : "gap-2.5",
           )}
-        </div>
+        >
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center bg-primary text-primary-foreground">
+            <RegMark className="h-[18px] w-[18px]" />
+          </span>
+          {!collapsed && (
+            <span className="min-w-0 leading-none">
+              <span className="block truncate font-display text-[15px] font-extrabold uppercase tracking-wide text-sidebar-accent-foreground" style={{ fontStretch: "118%" }}>
+                Clone Lens
+              </span>
+              <span className="press-slug mt-1 block text-[9px] tracking-[0.14em]">{t("platform")}</span>
+            </span>
+          )}
+        </Link>
 
         <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2 pt-3 scrollbar-thin">
-          {navItems.map((item) => {
-            const active = isActivePath(location.pathname, item.path);
-            const Icon = item.icon;
-            const label = t(item.labelKey);
-            const link = (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={onClose}
-                className={cn(
-                  "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150",
-                  collapsed ? "justify-center px-2.5" : "",
-                  active
-                    ? "bg-primary/12 text-foreground"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                )}
-              >
-                <Icon className={cn("h-4 w-4 shrink-0", active ? "text-primary" : "")} />
-                {!collapsed && <span>{label}</span>}
-                {!collapsed && active && <span className="ms-auto h-1.5 w-1.5 rounded-full bg-primary" />}
-              </Link>
-            );
-
-            if (collapsed) {
-              return (
-                <Tooltip key={item.path} delayDuration={0}>
-                  <TooltipTrigger asChild>{link}</TooltipTrigger>
-                  <TooltipContent side="right" className="text-xs">{label}</TooltipContent>
-                </Tooltip>
-              );
-            }
-
-            return link;
-          })}
+          {navItems.map((item) => renderItem(item, isActivePath(location.pathname, item.path)))}
 
           {/* Enterprise section — admin-only routes, so hide the links from
               non-admins instead of letting them bounce off ProtectedRoute */}
           {user?.is_admin && (
-          <div className={cn("mt-3", collapsed ? "px-0" : "px-1")}>
-            {!collapsed && (
-              <p className="mb-1 px-2 font-mono text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground">
-                {t("nav.enterprise")}
-              </p>
-            )}
-            {collapsed && <div className="my-1 h-px bg-sidebar-border" />}
-            {enterpriseItems.map((item) => {
-              const active = location.pathname.startsWith(item.path);
-              const Icon = item.icon;
-              const label = t(item.labelKey);
-              const link = (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  onClick={onClose}
-                  className={cn(
-                    "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150",
-                    collapsed ? "justify-center px-2.5" : "",
-                    active
-                      ? "bg-primary/12 text-foreground"
-                      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                  )}
-                >
-                  <Icon className={cn("h-4 w-4 shrink-0", active ? "text-primary" : "")} />
-                  {!collapsed && <span>{label}</span>}
-                  {!collapsed && active && <span className="ms-auto h-1.5 w-1.5 rounded-full bg-primary" />}
-                </Link>
-              );
-
-              if (collapsed) {
-                return (
-                  <Tooltip key={item.path} delayDuration={0}>
-                    <TooltipTrigger asChild>{link}</TooltipTrigger>
-                    <TooltipContent side="right" className="text-xs">{label}</TooltipContent>
-                  </Tooltip>
-                );
-              }
-
-              return link;
-            })}
-          </div>
+            <div className={cn("mt-4", collapsed ? "px-0" : "")}>
+              {!collapsed ? (
+                <p className="press-slug mb-1.5 flex items-center gap-2 px-3 text-[9px]">
+                  <span className="h-px w-3 bg-sidebar-foreground/50" aria-hidden />
+                  {t("nav.enterprise")}
+                </p>
+              ) : (
+                <div className="mx-2 my-1 h-px bg-sidebar-border" />
+              )}
+              {enterpriseItems.map((item) => renderItem(item, location.pathname.startsWith(item.path)))}
+            </div>
           )}
         </nav>
 
@@ -186,16 +171,17 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
           {isAuthenticated ? (
             <>
               {!collapsed && (
-                <div className="rounded-lg border border-sidebar-border bg-sidebar-accent/40 px-3 py-2 text-xs text-sidebar-foreground">
-                  {t("header.signedInAs")} <span className="font-mono font-semibold text-sidebar-accent-foreground">{user?.username}</span>
+                <div className="border border-sidebar-border bg-sidebar-accent/50 px-3 py-2">
+                  <span className="press-slug block text-[9px]">{t("header.signedInAs")}</span>
+                  <span className="mt-0.5 block truncate text-xs font-semibold text-sidebar-accent-foreground">{user?.username}</span>
                 </div>
               )}
               <button
                 type="button"
                 onClick={() => void handleLogout()}
                 className={cn(
-                  "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                  collapsed ? "justify-center px-2.5" : "",
+                  "flex w-full items-center gap-3 px-3 py-2 text-[13px] font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                  collapsed ? "justify-center px-2" : "",
                 )}
               >
                 <LogOut className="h-4 w-4 shrink-0" />
@@ -207,8 +193,8 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
               to="/login"
               onClick={onClose}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                collapsed ? "justify-center px-2.5" : "",
+                "flex items-center gap-3 px-3 py-2 text-[13px] font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                collapsed ? "justify-center px-2" : "",
               )}
             >
               <LogIn className="h-4 w-4 shrink-0" />
@@ -233,6 +219,13 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
               </>
             )}
           </Button>
+
+          {/* The calibration strip — the rail signs off with the ink legend. */}
+          {!collapsed && (
+            <div className="flex justify-center pb-1 pt-1.5">
+              <ControlStrip />
+            </div>
+          )}
         </div>
       </aside>
     </>

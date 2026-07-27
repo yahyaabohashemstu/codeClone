@@ -188,7 +188,7 @@
     "noSavedOrActive": "No saved or active analysis is available yet.",
     "unableToLoad": "Unable to load the analysis result.",
     "unableToRerun": "Unable to rerun this analysis.",
-    "loading": "Loading analysis results\u2026",
+    "loading": "Loading analysis results…",
     "emptyTitle": "No analysis loaded",
     "unableToLoadTitle": "Unable to load analysis",
     "emptyDescription": "Run a fresh comparison or reopen one from history to populate the full results workspace.",
@@ -226,7 +226,7 @@
       "dominantSignalsDesc": "The most recurring rule IDs in this source review.",
       "priorityFindings": "Priority Findings",
       "line": "Line {{line}}",
-      "lineEmpty": "Line \u2014",
+      "lineEmpty": "Line —",
       "column": ", Column {{column}}",
       "reportedByLinter": "Reported by the linter as",
       "noStructuredFindings": "No structured findings surfaced",
@@ -267,7 +267,12 @@
       "suggestion2": "What clone type was detected and why?",
       "suggestion3": "Summarize the maintainability differences",
       "suggestion4": "What should be reviewed first?",
-      "placeholder": "Ask about the current comparison\u2026"
+      "placeholder": "Ask about the current comparison…",
+      "speakerAnalyst": "Analyst",
+      "speakerYou": "You",
+      "thinking": "Reading the proof…",
+      "suggestionsLabel": "Ask",
+      "send": "Send"
     },
     "analysisReport": {
       "title": "Inter-Code Analysis Report",
@@ -292,7 +297,7 @@
       "noLineMetadata": "No line metadata",
       "depthLevel": "Depth Level",
       "connections": "Connections",
-      "incomingOutgoing": "{{incoming}} incoming \u00b7 {{outgoing}} outgoing",
+      "incomingOutgoing": "{{incoming}} incoming · {{outgoing}} outgoing",
       "clickNodeTitle": "Click any node to inspect it",
       "clickNodeDescription": "Selecting a node reveals its identity, line range, depth, and structural connections without leaving the graph view.",
       "fullScreen": "Full Screen",
@@ -301,12 +306,15 @@
       "linesLabel": "Lines {{start}}-{{end}}",
       "zoomIn": "Zoom in",
       "zoomOut": "Zoom out",
-      "truncatedNotice": "Graph truncated \u2014 showing {{shown}} of {{total}} nodes."
+      "truncatedNotice": "Graph truncated — showing {{shown}} of {{total}} nodes.",
+      "legendRoot": "Root",
+      "legendBranch": "Branch",
+      "legendLeaf": "Leaf"
     },
     "diff": {
       "title": "Line-by-Line Diff",
       "description": "Direct side-by-side comparison showing exactly which lines match, differ, or were added.",
-      "loading": "Analyzing differences\u2026",
+      "loading": "Analyzing differences…",
       "matchRatio": "Match ratio",
       "linesA": "Source A lines",
       "linesB": "Source B lines",
@@ -315,7 +323,7 @@
       "legendInsert": "Added",
       "legendReplace": "Changed",
       "failedToLoad": "Failed to load diff.",
-      "showingLines": "Showing {{count}} lines \u2014 scroll to see all differences."
+      "showingLines": "Showing {{count}} lines — scroll to see all differences."
     },
     "metrics": {
       "title": "Metrics Comparison",
@@ -324,7 +332,8 @@
       "sourceA": "Source A",
       "sourceB": "Source B",
       "boolTrue": "True",
-      "boolFalse": "False"
+      "boolFalse": "False",
+      "deltaTitle": "Difference (B minus A)"
     },
     "pdfExport": {
       "title": "Export PDF Report",
@@ -332,7 +341,7 @@
       "selectAll": "Select All",
       "deselectAll": "Deselect All",
       "sectionTitle": "Report Sections",
-      "previewNote": "The report opens in a new tab \u2014 use Ctrl+P or the \u00abSave as PDF\u00bb button to export.",
+      "previewNote": "The report opens in a new tab — use Ctrl+P or the «Save as PDF» button to export.",
       "generate": "Generate Report",
       "generating": "Generating...",
       "cancel": "Cancel",
@@ -341,7 +350,7 @@
       "coverLabel": "Cover Page",
       "coverDesc": "Title, date, source labels, combined score gauge",
       "executiveSummaryLabel": "Executive Summary",
-      "executiveSummaryDesc": "Key KPIs \u2014 score, risk level, clone count, language",
+      "executiveSummaryDesc": "Key KPIs — score, risk level, clone count, language",
       "similarityMetricsLabel": "Similarity Metrics",
       "similarityMetricsDesc": "All similarity dimensions with visual bar charts",
       "cloneDetectionLabel": "Clone Detection",
@@ -357,7 +366,7 @@
     },
     "radar": {
       "title": "Similarity Radar",
-      "description": "All similarity dimensions at a glance \u2014 each axis is an independent measurement."
+      "description": "All similarity dimensions at a glance — each axis is an independent measurement."
     },
     "structured": {
       "verdict": "Verdict",

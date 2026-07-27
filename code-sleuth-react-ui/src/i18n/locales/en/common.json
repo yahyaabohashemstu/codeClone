@@ -47,9 +47,7 @@
     "/reset-password": "Reset Password",
     "/terms": "Terms of Service",
     "/privacy": "Privacy Policy",
-    "/status": "System Status",
-    "/reset-password": "Reset Password",
-    "/verify-email": "Verify Email"
+    "/status": "System Status"
   },
   "buttons": {
     "save": "Save",
@@ -132,13 +130,14 @@
     "title": "404",
     "heading": "Page Not Found",
     "description": "The page you are looking for doesn't exist or has been moved.",
-    "backHome": "Return to Home"
+    "backHome": "Return to Home",
+    "offRegister": "Off register"
   },
   "home": {
     "badge": "Multi-signal clone detection",
-    "titlePrefix": "Detect code similarity",
-    "titleHighlight": "with precision",
-    "description": "Compare two code sources across token, AST, clone-type, metrics, and AI analysis dimensions, then move through a structured review workflow built for serious technical inspection.",
+    "titlePrefix": "Lay two pieces of code",
+    "titleHighlight": "in register",
+    "description": "Clone Lens overlays two code sources like printing plates. Token, syntax-tree, fingerprint, and neural signals each lay down ink; where the impressions coincide, the verdict darkens — a calibrated similarity call with evidence you can defend line by line.",
     "primarySignedIn": "Start Analysis",
     "primarySignedOut": "Sign In to Start",
     "secondary": "View Latest Results",
@@ -146,8 +145,8 @@
     "dropHint": "or browse · .py .js .java .cpp",
     "pairwise": "Pairwise",
     "pasteCode": "Paste code",
-    "exhibitA": "Exhibit A",
-    "exhibitB": "Exhibit B",
+    "exhibitA": "Plate A",
+    "exhibitB": "Plate B",
     "trustSignals": [
       "History-aware workflow",
       "AST graphs included",
@@ -163,7 +162,7 @@
     },
     "featuresTitle": "Five similarity signals, one review verdict",
     "featuresDescription": "A working analytical surface driven by the real comparison engine — every figure on screen comes from your two sources.",
-    "ctaTitle": "Queue a pairwise comparison",
+    "ctaTitle": "Pull your first proof",
     "ctaDescription": "Paste two snippets or upload files, ZIP projects, and spreadsheet rows to launch a complete similarity review in seconds.",
     "ctaSignedIn": "Run Your First Analysis",
     "ctaSignedOut": "Open the Workspace",
@@ -254,7 +253,8 @@
       "score": "Score",
       "severity": "Severity",
       "date": "Date",
-      "actions": "Actions"
+      "actions": "Actions",
+      "pair": "Pair (A ⊕ B)"
     },
     "deleteTitle": "Delete Analysis",
     "deleteDescription": "Permanently delete analysis #{{id}}? This action cannot be undone.",

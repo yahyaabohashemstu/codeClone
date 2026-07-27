@@ -1,15 +1,17 @@
 import { useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Bell, LogOut, Menu, Search } from "lucide-react";
+import { LogOut, Menu, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { LanguageToggle } from "@/components/common/LanguageToggle";
+import { RegMark } from "@/components/dossier/Dossier";
 import { useAnalysis } from "@/context/AnalysisContext";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { cn } from "@/lib/utils";
 
+/** The instrument bar: route slug on the left, controls on the right, all on the press bed. */
 export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -48,7 +50,7 @@ export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
   }, [navigate]);
 
   return (
-    <header className="sticky top-0 z-50 flex h-16 items-center border-b border-border bg-background">
+    <header className="sticky top-0 z-50 flex h-14 items-center border-b border-border bg-background">
       <div className="flex flex-1 items-center gap-3 px-4">
         <Button
           variant="ghost"
@@ -60,15 +62,20 @@ export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
           <Menu className="h-4 w-4" />
         </Button>
 
-        <div className="flex items-center gap-2 md:hidden">
-          <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-md bg-primary">
-            <img src="/brand/logo.png" alt="Clone Lens" className="h-7 w-7 object-contain" />
-          </div>
-          <span className="t-h5">Clone Lens</span>
-        </div>
+        {/* Mobile brand — the registration lockup */}
+        <Link to="/" className="flex items-center gap-2 md:hidden">
+          <span className="flex h-7 w-7 items-center justify-center bg-primary text-primary-foreground">
+            <RegMark className="h-4 w-4" />
+          </span>
+          <span className="font-display text-sm font-extrabold uppercase tracking-wide" style={{ fontStretch: "118%" }}>
+            Clone Lens
+          </span>
+        </Link>
 
-        <div className="hidden items-center gap-2 text-sm md:flex">
-          <span className="font-medium text-foreground">{routeTitle}</span>
+        {/* Route slug — where on the job you are */}
+        <div className="hidden items-center gap-2.5 md:flex">
+          <span className="reg-dot h-2.5 w-2.5 text-muted-foreground" aria-hidden />
+          <span className="press-slug text-foreground">{routeTitle}</span>
         </div>
 
         {/* Search — visible on lg+ screens */}
@@ -76,7 +83,7 @@ export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
           type="button"
           onClick={() => navigate("/history")}
           className={cn(
-            "relative hidden h-9 w-80 items-center gap-2 rounded-md border border-transparent bg-muted/40 px-3 text-xs transition-colors hover:border-border hover:bg-muted/70 lg:flex",
+            "relative hidden h-8 w-80 items-center gap-2 border border-border bg-card px-3 text-xs transition-colors hover:border-foreground/40 lg:flex",
             isRTL ? "mr-auto" : "ml-auto",
           )}
           aria-label={t("header.historySearch")}
@@ -86,7 +93,7 @@ export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
           <span className="text-muted-foreground">{t("header.searchPlaceholder")}</span>
           <kbd
             className={cn(
-              "hidden items-center rounded border border-border/60 bg-card px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground md:inline-flex",
+              "hidden items-center border border-border bg-muted px-1.5 py-0.5 font-display text-[10px] font-semibold text-muted-foreground md:inline-flex",
               isRTL ? "mr-auto" : "ml-auto",
             )}
           >
@@ -96,37 +103,25 @@ export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
       </div>
 
       <div className="flex items-center gap-1 px-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-muted-foreground hover:text-foreground"
-          onClick={() => navigate("/help")}
-          aria-label={t("header.helpStatus")}
-          title={t("header.helpStatus")}
-        >
-          <Bell className="h-4 w-4" />
-        </Button>
-        <div className="mx-1 h-5 w-px bg-border/60" />
         <LanguageToggle />
         <ThemeToggle />
 
         {isAuthenticated ? (
           <div className={cn("hidden items-center gap-2 md:flex", isRTL ? "mr-3" : "ml-3")}>
-            <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-[11px]">
-              {/* Avatar */}
+            <div className="flex items-center gap-2 border border-border bg-card px-2.5 py-1.5">
               <span
-                className="flex h-6 w-6 items-center justify-center rounded-full bg-primary font-mono text-[10px] font-bold text-primary-foreground"
+                className="flex h-5 w-5 items-center justify-center bg-foreground font-display text-[10px] font-extrabold text-background"
+                style={{ fontStretch: "112%" }}
                 aria-hidden
               >
                 {(user?.username ?? "U").slice(0, 2).toUpperCase()}
               </span>
-              <span className="text-muted-foreground">{t("header.signedInAs")}</span>
-              <span className="font-mono font-semibold text-foreground">{user?.username}</span>
+              <span className="press-slug text-foreground">{user?.username}</span>
             </div>
             <Button
               size="sm"
               variant="outline"
-              className="h-8 gap-1.5 border-border/60 text-xs"
+              className="h-8 gap-1.5 text-xs"
               onClick={() => void handleLogout()}
             >
               <LogOut className="h-3.5 w-3.5" />
@@ -136,11 +131,7 @@ export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
         ) : (
           <div className={cn("hidden md:block", isRTL ? "mr-2" : "ml-2")}>
             <Link to="/login">
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 border-border/60 text-xs hover:border-primary/40 hover:text-primary"
-              >
+              <Button size="sm" className="h-8 text-xs">
                 {t("header.signIn")}
               </Button>
             </Link>

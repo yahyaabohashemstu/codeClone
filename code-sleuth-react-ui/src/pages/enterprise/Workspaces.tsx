@@ -28,10 +28,10 @@ import { cn } from "@/lib/utils";
 const REGIONS = ["global", "us-east", "us-west", "eu-west", "eu-central", "ap-southeast", "me-central"];
 
 const ROLE_BADGE: Record<string, string> = {
-  owner: "bg-primary/15 text-primary border-primary/30",
-  admin: "bg-destructive/15 text-destructive border-destructive/30",
-  manager: "bg-warning/15 text-foreground border-warning/30",
-  reviewer: "bg-accent/15 text-accent border-accent/30",
+  owner: "bg-primary/12 text-primary border-primary/35",
+  admin: "bg-destructive/10 text-destructive border-destructive/35",
+  manager: "bg-warning/16 text-foreground border-warning/50",
+  reviewer: "bg-plate-a/10 text-plate-a-deep border-plate-a/45",
   student: "bg-muted text-muted-foreground border-border",
 };
 
@@ -221,7 +221,7 @@ export default function Workspaces() {
               {t("enterprise.common.loading")}
             </div>
           ) : error ? (
-            <div className="flex items-center gap-2 border-s-2 border-destructive bg-destructive/5 px-4 py-5 text-sm text-destructive">
+            <div className="flex items-center gap-2 border border-destructive/35 bg-destructive/5 px-4 py-5 text-sm text-destructive">
               <AlertCircle className="h-4 w-4 shrink-0" />
               {error}
             </div>
@@ -275,10 +275,22 @@ export default function Workspaces() {
                       )}
                     </div>
 
-                    {/* Threshold */}
-                    <div className="font-mono text-sm tabular-nums text-foreground">
+                    {/* Threshold — where this workspace's flag line sits on the scale */}
+                    <div className="flex items-center gap-1.5 font-display text-sm font-bold tabular-nums text-foreground" style={{ fontStretch: "108%" }}>
                       <span className="t-label me-2 sm:hidden">{t("enterprise.workspaces.threshold")}</span>
-                      {Math.round(ws.defaultSimilarityThreshold * 100)}%
+                      <span
+                        aria-hidden
+                        className="h-2 w-2 shrink-0"
+                        style={{
+                          background:
+                            Math.round(ws.defaultSimilarityThreshold * 100) >= 80
+                              ? "hsl(var(--destructive))"
+                              : Math.round(ws.defaultSimilarityThreshold * 100) >= 50
+                                ? "hsl(var(--warning))"
+                                : "hsl(var(--success))",
+                        }}
+                      />
+                      ≥ {Math.round(ws.defaultSimilarityThreshold * 100)}%
                     </div>
 
                     {/* Region */}

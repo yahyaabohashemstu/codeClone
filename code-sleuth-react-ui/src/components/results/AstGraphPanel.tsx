@@ -1,8 +1,11 @@
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  Background,
+  BackgroundVariant,
   type Edge,
   Handle,
+  MiniMap,
   type Node,
   type NodeProps,
   type NodeTypes,
@@ -18,16 +21,16 @@ import { Cpu, Maximize2, MousePointerClick, ZoomIn, ZoomOut } from "lucide-react
 
 type GraphTone = "primary" | "accent";
 
-// Two-tone coding: primary side = ink navy (the one accent), suspect side =
-// terracotta. Both fully token-based (--primary / --accent-suspect) so they
-// track light/dark. Replaces the old hardcoded indigo/cyan neon.
+// Plate coding: the A graph prints in the cyan plate, the B graph in the
+// magenta plate (via --accent-suspect, which aliases plate B's deep cut).
+// Both fully token-based so they track light/dark.
 function getGraphToneColor(color: GraphTone) {
-  return color === "primary" ? "hsl(var(--primary))" : "hsl(var(--accent-suspect))";
+  return color === "primary" ? "hsl(var(--plate-a-deep))" : "hsl(var(--accent-suspect))";
 }
 
 function getGraphEdgePalette(color: GraphTone) {
   return color === "primary"
-    ? { base: "hsl(var(--primary) / 0.38)", highlighted: "hsl(var(--primary))" }
+    ? { base: "hsl(var(--plate-a-deep) / 0.38)", highlighted: "hsl(var(--plate-a-deep))" }
     : { base: "hsl(var(--accent-suspect) / 0.38)", highlighted: "hsl(var(--accent-suspect))" };
 }
 
@@ -56,11 +59,14 @@ type NormalizedGraph = {
   edges: RawEdgeEntry[];
 };
 
+type NodeKind = "root" | "branch" | "leaf";
+
 type AstFlowNodeData = {
   id: string;
   label: string;
   title: string;
   tone: GraphTone;
+  kind: NodeKind;
   isRoot: boolean;
   isPathNode: boolean;
   isPathTerminal: boolean;
@@ -192,19 +198,19 @@ function formatLineRange(start: RawPoint, end: RawPoint, t: (key: string, opts?:
   return t("results.astGraph.linesLabel", { start: startLine, end: endLine });
 }
 
-function estimateNodeBox(label: string) {
+function estimateNodeBox(label: string, hasRange: boolean) {
   const normalized = label.trim() || "node";
-  const width = Math.min(170, Math.max(84, normalized.length * 6.4 + 28));
-  const charsPerLine = Math.max(10, Math.floor((width - 20) / 6.15));
+  // Marker column (10px + gap) + label; the chip caps at two label lines.
+  const width = Math.min(190, Math.max(104, normalized.length * 6.6 + 46));
+  const charsPerLine = Math.max(10, Math.floor((width - 46) / 6.2));
   const lineCount = Math.min(2, Math.max(1, Math.ceil(normalized.length / charsPerLine)));
-  const labelHeight = lineCount === 1 ? 28 : 42;
-  const height = 18 + 8 + labelHeight;
+  const height = 9 + lineCount * 15 + (hasRange ? 14 : 0) + 9 + 2;
 
   return { width, height };
 }
 
-const TREE_LEVEL_GAP = 118;
-const TREE_SIBLING_GAP = 16;
+const TREE_LEVEL_GAP = 132;
+const TREE_SIBLING_GAP = 20;
 const TREE_LEVEL_TOP_PADDING = 18;
 const TREE_CANVAS_LEFT_PADDING = 24;
 
@@ -315,46 +321,58 @@ function buildTreeLayout(
   return baseNodes;
 }
 
+/**
+ * One engraved chip per syntax node. The marker teaches the grammar at a
+ * glance — ⊕ root (the plate's registration origin), ■ branch, □ leaf —
+ * and the chip carries the node's line range so the tree reads as a real
+ * schematic of the source, not a constellation of dots.
+ */
 const AstNode = memo(({ data, selected }: NodeProps<AstFlowNode>) => {
-  // The .ast-flow-* CSS now paints a flat token surface (no neon, no glow).
-  // We still set node tone (navy / suspect) and the selection/path border
-  // inline so a node's emphasis tracks the live theme tokens directly, in
-  // both light and dark.
   const toneColor = getGraphToneColor(data.tone);
   const isEmphasized = selected || data.isPathTerminal;
-  const cardStyle: CSSProperties = {
-    background: "hsl(var(--card))",
+  const chipStyle: CSSProperties = {
     borderColor: isEmphasized
       ? toneColor
       : data.isPathNode
-        ? "hsl(var(--foreground) / 0.35)"
+        ? "hsl(var(--foreground) / 0.45)"
         : "hsl(var(--border))",
-    boxShadow: "none",
-  };
-  const labelStyle: CSSProperties = { color: "hsl(var(--foreground))", textShadow: "none" };
-  const dotStyle: CSSProperties = {
-    background: toneColor,
-    borderColor: "hsl(var(--border))",
-    boxShadow: "none",
+    borderWidth: isEmphasized ? 2 : 1,
+    background: data.isRoot
+      ? `color-mix(in srgb, ${toneColor} 9%, hsl(var(--card)))`
+      : isEmphasized
+        ? `color-mix(in srgb, ${toneColor} 5%, hsl(var(--card)))`
+        : "hsl(var(--card))",
   };
 
   return (
     <div
-      className={cn(
-        "ast-flow-compact-node",
-        data.tone === "primary" ? "ast-flow-node-primary" : "ast-flow-node-accent",
-        data.isRoot && "ast-flow-node-root",
-        data.isPathNode && "ast-flow-node-in-path",
-        data.isPathTerminal && "ast-flow-node-terminal-path",
-        selected && "ast-flow-node-selected",
-      )}
+      className={cn("ast-chip", data.kind === "leaf" && "ast-chip-leaf", data.isRoot && "ast-chip-root")}
+      style={chipStyle}
       title={data.title || data.label}
     >
       <Handle type="target" position={Position.Top} className="ast-flow-handle ast-flow-handle-target" />
-      <div className="ast-flow-compact-dot" style={dotStyle} />
-      <div className="ast-flow-label-card" style={cardStyle}>
-        <div className="ast-flow-compact-label" style={labelStyle}>{data.label}</div>
-      </div>
+      {/* Kind marker */}
+      {data.isRoot ? (
+        <svg viewBox="0 0 24 24" fill="none" stroke={toneColor} strokeWidth="2.6" className="ast-chip-marker" aria-hidden>
+          <circle cx="12" cy="12" r="7" />
+          <line x1="12" y1="1" x2="12" y2="23" />
+          <line x1="1" y1="12" x2="23" y2="12" />
+        </svg>
+      ) : (
+        <span
+          className="ast-chip-marker"
+          aria-hidden
+          style={
+            data.kind === "branch"
+              ? { background: toneColor }
+              : { border: `1.5px solid ${toneColor}`, background: "transparent" }
+          }
+        />
+      )}
+      <span className="ast-chip-body">
+        <span className={cn("ast-chip-label", data.isRoot && "ast-chip-label-root")}>{data.label}</span>
+        {data.lineRange && <span className="ast-chip-range">{data.lineRange}</span>}
+      </span>
       <Handle type="source" position={Position.Bottom} className="ast-flow-handle ast-flow-handle-source" />
     </div>
   );
@@ -455,7 +473,28 @@ function GraphExplorer({
         )}
       </div>
 
-      <div className="flex flex-wrap items-center justify-end gap-2 border-b border-border/40 bg-background/70 px-5 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border/40 bg-background/70 px-5 py-3">
+        {/* The engraving legend — the chip grammar, taught once */}
+        <div className="press-slug flex flex-wrap items-center gap-x-4 gap-y-1 text-[9px]" aria-hidden>
+          <span className="flex items-center gap-1.5">
+            <svg viewBox="0 0 24 24" fill="none" stroke={getGraphToneColor(color)} strokeWidth="2.6" className="h-3 w-3">
+              <circle cx="12" cy="12" r="7" />
+              <line x1="12" y1="1" x2="12" y2="23" />
+              <line x1="1" y1="12" x2="23" y2="12" />
+            </svg>
+            {t("results.astGraph.legendRoot", { defaultValue: "Root" })}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2 w-2" style={{ background: getGraphToneColor(color) }} />
+            {t("results.astGraph.legendBranch", { defaultValue: "Branch" })}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2 w-2 border-[1.5px]" style={{ borderColor: getGraphToneColor(color) }} />
+            {t("results.astGraph.legendLeaf", { defaultValue: "Leaf" })}
+          </span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
         {onOpenFullscreen && (
           <Button variant="outline" size="sm" className="h-8 gap-1.5 border-border/60 text-xs" onClick={onOpenFullscreen}>
             <Maximize2 className="h-3.5 w-3.5" />
@@ -471,6 +510,7 @@ function GraphExplorer({
         <Button variant="outline" size="icon" className="h-8 w-8 border-border/60" onClick={zoomIn} aria-label={t("results.astGraph.zoomIn")} title={t("results.astGraph.zoomIn")}>
           <ZoomIn className="h-3.5 w-3.5" />
         </Button>
+        </div>
       </div>
 
       <div className="ast-graph-surface ast-flow-canvas" style={surfaceStyle}>
@@ -501,8 +541,34 @@ function GraphExplorer({
           panOnScroll
           minZoom={minZoom}
           maxZoom={2}
-          defaultEdgeOptions={{ type: "straight" }}
-        />
+          defaultEdgeOptions={{ type: "smoothstep" }}
+        >
+          {/* The light-table registration grid — a real canvas earns its grid */}
+          <Background
+            variant={BackgroundVariant.Dots}
+            gap={22}
+            size={1.1}
+            color={`color-mix(in srgb, ${getGraphToneColor(color)} 20%, transparent)`}
+          />
+          {/* Wayfinding for large engravings */}
+          {flowGraph.summary.nodeCount > 60 && (
+            <MiniMap
+              pannable
+              zoomable
+              position="bottom-right"
+              nodeColor={`color-mix(in srgb, ${getGraphToneColor(color)} 55%, transparent)`}
+              nodeStrokeWidth={0}
+              maskColor="hsl(var(--background) / 0.72)"
+              style={{
+                width: 140,
+                height: 92,
+                background: "hsl(var(--card))",
+                border: "1px solid hsl(var(--border))",
+                borderRadius: 0,
+              }}
+            />
+          )}
+        </ReactFlow>
       </div>
     </div>
   );
@@ -563,7 +629,7 @@ function buildFlowGraph(elements: unknown, color: GraphTone, t: (key: string, op
     const label = formatNodeLabel(node, index);
     const range = formatLineRange(node.data?.start, node.data?.end, t);
     const isRoot = (incomingCount.get(id) ?? 0) === 0;
-    const { width, height } = estimateNodeBox(label);
+    const { width, height } = estimateNodeBox(label, Boolean(range));
 
     return {
       id,
@@ -619,6 +685,7 @@ function buildFlowGraph(elements: unknown, color: GraphTone, t: (key: string, op
       label: node.label,
       title: node.title,
       tone: color,
+      kind: node.isRoot ? "root" : node.childCount > 0 ? "branch" : "leaf",
       isRoot: node.isRoot,
       isPathNode: false,
       isPathTerminal: false,
@@ -644,16 +711,18 @@ function buildFlowGraph(elements: unknown, color: GraphTone, t: (key: string, op
 
   const edgePalette = getGraphEdgePalette(color);
 
+  // Orthogonal schematic runs — the tree wires like a technical drawing,
+  // not a scatter of straight pins.
   const edges: Edge[] = parsedEdges.map((edge) => ({
     id: edge.id,
     source: edge.source,
     target: edge.target,
-    type: "straight",
+    type: "smoothstep",
     animated: false,
     style: {
       stroke: edgePalette.base,
-      strokeWidth: 1,
-      opacity: 0.88,
+      strokeWidth: 1.25,
+      opacity: 0.9,
     },
   }));
 

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { deleteAccount, exportAccountData } from "@/lib/accountApi";
-import { Masthead, Panel, Field, Serial } from "@/components/dossier/Dossier";
+import { Masthead, Panel, Field, Serial, Stamp } from "@/components/dossier/Dossier";
 
 type Stage = "idle" | "enrolling" | "recovery" | "disabling";
 
@@ -143,40 +143,49 @@ const Settings = () => {
         ]}
       />
 
-      {/* Identity — read-only case attributes, a ruled spec sheet (not a card) */}
-      <Panel bare marker="§" label={t("settings.identity", { defaultValue: "Identity" })}>
-        <Field label={t("settings.account", { defaultValue: "Account" })} align="center">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <span className="font-mono text-sm font-semibold text-foreground" dir="ltr">
-              {user?.username ?? "—"}
-            </span>
-            {user?.is_admin && <Serial tone="primary">ADM</Serial>}
-          </div>
-        </Field>
-        <Field label={t("settings.email", { defaultValue: "Email" })} align="center">
-          {hasEmail ? (
-            <div className="flex flex-wrap items-center gap-2.5">
-              <span className="font-mono text-sm text-foreground" dir="ltr">
-                {user?.email}
-              </span>
-              <span className={user?.email_verified ? "badge-success" : "badge-warning"}>
-                {user?.email_verified
-                  ? t("settings.verified", { defaultValue: "verified" })
-                  : t("settings.unverified", { defaultValue: "unverified" })}
-              </span>
-            </div>
-          ) : (
-            <span className="font-mono text-sm text-muted-foreground">—</span>
-          )}
-        </Field>
-        <Field label={t("settings.accessLevel", { defaultValue: "Access level" })} align="center">
-          <span className="font-mono text-sm font-semibold text-foreground">
+      {/* The operator's ID plate — who this docket belongs to */}
+      <section className="border border-border bg-card">
+        <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-2">
+          <span className="t-label flex items-center gap-2 text-foreground">
+            <span className="reg-dot h-3 w-3 text-primary" aria-hidden />
+            {t("settings.identity", { defaultValue: "Identity" })}
+          </span>
+          <Stamp band="neutral" className="px-1.5 text-[9px]">
             {user?.is_admin
               ? t("settings.roleAdmin", { defaultValue: "Administrator" })
               : t("settings.roleStandard", { defaultValue: "Standard" })}
-          </span>
-        </Field>
-      </Panel>
+          </Stamp>
+        </div>
+        <div className="grid sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+          <div className="border-b border-border p-5 sm:border-b-0 sm:border-e">
+            <span className="press-slug block">{t("settings.account", { defaultValue: "Account" })}</span>
+            <span
+              className="mt-1.5 block truncate font-display text-2xl font-extrabold text-foreground"
+              style={{ fontStretch: "116%" }}
+              dir="ltr"
+            >
+              {user?.username ?? "—"}
+            </span>
+          </div>
+          <div className="p-5">
+            <span className="press-slug block">{t("settings.email", { defaultValue: "Email" })}</span>
+            {hasEmail ? (
+              <div className="mt-1.5 flex flex-wrap items-center gap-2.5">
+                <span className="truncate font-mono text-sm text-foreground" dir="ltr">
+                  {user?.email}
+                </span>
+                <span className={user?.email_verified ? "badge-success" : "badge-warning"}>
+                  {user?.email_verified
+                    ? t("settings.verified", { defaultValue: "verified" })
+                    : t("settings.unverified", { defaultValue: "unverified" })}
+                </span>
+              </div>
+            ) : (
+              <span className="mt-1.5 block font-mono text-sm text-muted-foreground">—</span>
+            )}
+          </div>
+        </div>
+      </section>
 
       {/* Two-factor authentication */}
       <Panel
@@ -222,37 +231,55 @@ const Settings = () => {
         </div>
 
         {stage === "enrolling" && (
-          <div className="space-y-3 border-t border-border px-5 py-5 sm:px-6">
-            <p className="t-sm">{t("settings.scanOrEnter")}</p>
-            {otpauthUri && (
-              <div className="flex justify-center rounded-lg border border-border bg-white p-4">
-                <QRCodeSVG value={otpauthUri} size={168} level="M" includeMargin={false} />
-              </div>
-            )}
-            <p className="t-sm">{t("settings.manualEntry")}</p>
-            <div className="flex items-center gap-2">
-              <Input readOnly value={secret} dir="ltr" className="font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
-              <Button type="button" variant="outline" size="sm" className="gap-1.5" aria-label={t("settings.copySecret")} title={t("settings.copySecret")} onClick={() => copy(secret)}>
-                <Copy className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-            <Input
-              value={code}
-              dir="ltr"
-              inputMode="numeric"
-              placeholder="123456"
-              onChange={(e) => setCode(e.target.value)}
-              className="h-10 text-center font-mono tracking-[0.3em]"
-            />
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setStage("idle")}>
-                {t("settings.cancel")}
-              </Button>
-              <Button onClick={confirmEnable} disabled={busy || !code.trim()}>
-                {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {t("settings.confirmEnable")}
-              </Button>
-            </div>
+          /* The enrolment procedure — a genuine sequence, so the steps are numbered. */
+          <div className="border-t border-border px-5 py-5 sm:px-6">
+            <ol className="space-y-5">
+              <li className="grid grid-cols-[1.75rem_1fr] gap-x-3">
+                <span aria-hidden className="select-none font-display text-lg font-extrabold leading-snug text-muted-foreground" style={{ fontStretch: "120%" }}>1</span>
+                <div>
+                  <p className="t-sm">{t("settings.scanOrEnter")}</p>
+                  {otpauthUri && (
+                    <div className="mt-3 flex justify-center border border-border bg-white p-4">
+                      <QRCodeSVG value={otpauthUri} size={168} level="M" includeMargin={false} />
+                    </div>
+                  )}
+                </div>
+              </li>
+              <li className="grid grid-cols-[1.75rem_1fr] gap-x-3">
+                <span aria-hidden className="select-none font-display text-lg font-extrabold leading-snug text-muted-foreground" style={{ fontStretch: "120%" }}>2</span>
+                <div>
+                  <p className="t-sm">{t("settings.manualEntry")}</p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <Input readOnly value={secret} dir="ltr" className="font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
+                    <Button type="button" variant="outline" size="sm" className="gap-1.5" aria-label={t("settings.copySecret")} title={t("settings.copySecret")} onClick={() => copy(secret)}>
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </li>
+              <li className="grid grid-cols-[1.75rem_1fr] gap-x-3">
+                <span aria-hidden className="select-none font-display text-lg font-extrabold leading-snug text-muted-foreground" style={{ fontStretch: "120%" }}>3</span>
+                <div>
+                  <Input
+                    value={code}
+                    dir="ltr"
+                    inputMode="numeric"
+                    placeholder="123456"
+                    onChange={(e) => setCode(e.target.value)}
+                    className="h-10 text-center font-mono tracking-[0.3em]"
+                  />
+                  <div className="mt-3 flex justify-end gap-2">
+                    <Button variant="ghost" onClick={() => setStage("idle")}>
+                      {t("settings.cancel")}
+                    </Button>
+                    <Button onClick={confirmEnable} disabled={busy || !code.trim()}>
+                      {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      {t("settings.confirmEnable")}
+                    </Button>
+                  </div>
+                </div>
+              </li>
+            </ol>
           </div>
         )}
 
@@ -330,11 +357,15 @@ const Settings = () => {
         </Field>
       </Panel>
 
-      {/* Danger zone */}
+      {/* The void block — irreversible; set apart with the flag stamp */}
       {!user?.is_admin && (
         <Panel
-          label={<span className="text-destructive">{t("settings.dangerZone")}</span>}
-          className="border-destructive/40"
+          label={
+            <Stamp band="flag" className="px-1.5 text-[9px]">
+              {t("settings.dangerZone")}
+            </Stamp>
+          }
+          className="border-destructive/40 bg-destructive/[0.02]"
           bodyClassName="px-5 py-0 sm:px-6"
         >
           <Field label={t("settings.deleteButton")}>

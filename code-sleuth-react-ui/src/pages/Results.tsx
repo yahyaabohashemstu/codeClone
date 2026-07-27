@@ -32,7 +32,7 @@ import { MetricsComparison } from "@/components/results/MetricsComparison";
 import { PdfExportDialog } from "@/components/results/PdfExportDialog";
 import { SimilarityRadar } from "@/components/results/SimilarityRadar";
 import { StructuredReport } from "@/components/results/StructuredReport";
-import { Masthead, FieldSheet, Field, Panel, Figure, Serial, SectionHead } from "@/components/dossier/Dossier";
+import { FieldSheet, Field, Panel, Figure, Serial, SectionHead, OverprintMeter, PlatePair, RegMark, ScaleRuler, Stamp } from "@/components/dossier/Dossier";
 import { useAnalysis } from "@/context/AnalysisContext";
 import { useLanguage } from "@/context/LanguageContext";
 import type { AnalysisResult, CloneItem, SimilarityItem } from "@/types/api";
@@ -255,10 +255,13 @@ function SimilarityBars({ items }: { items: SimilarityItem[] }) {
           return (
             <div key={item.name} className="flex items-center gap-4 py-2.5">
               <span className="min-w-0 flex-1 truncate text-sm text-foreground">{translateSimilarityName(item.name, t)}</span>
-              <div className="metric-bar-track hidden w-28 shrink-0 sm:block lg:w-48">
-                <div className={cn("h-full rounded-full transition-all duration-700", barTone)} style={{ width: `${item.value}%` }} />
+              {/* Density track with the calibrated 50/80 threshold ticks drawn on */}
+              <div className="metric-bar-track relative hidden w-28 shrink-0 sm:block lg:w-48">
+                <div className={cn("h-full transition-all duration-700", barTone)} style={{ width: `${item.value}%` }} />
+                <span aria-hidden className="absolute inset-y-0 w-px bg-foreground/30" style={{ insetInlineStart: "50%" }} />
+                <span aria-hidden className="absolute inset-y-0 w-px bg-foreground/30" style={{ insetInlineStart: "80%" }} />
               </div>
-              <span className="w-16 shrink-0 text-end font-mono text-sm font-bold tabular-nums text-foreground">
+              <span className="w-16 shrink-0 text-end font-display text-sm font-bold tabular-nums text-foreground" style={{ fontStretch: "108%" }}>
                 {formatSimilarityValue(item)}
               </span>
             </div>
@@ -450,20 +453,20 @@ function CodeComparisonPanel({
   const { t } = useTranslation("results");
   const resolvedDescription = description || t("results.defaultComparisonDescription");
   const exhibits = [
-    { serial: "A", title: result.source_labels.code1, code: result.code1 },
-    { serial: "B", title: result.source_labels.code2, code: result.code2 },
+    { serial: "A", tone: "plate-a", title: result.source_labels.code1, code: result.code1 },
+    { serial: "B", tone: "plate-b", title: result.source_labels.code2, code: result.code2 },
   ] as const;
 
   return (
     <div className="space-y-4 p-5">
-      <p className="font-mono text-[11px] leading-relaxed text-muted-foreground/80">{resolvedDescription}</p>
+      <p className="text-xs leading-relaxed text-muted-foreground">{resolvedDescription}</p>
 
-      {/* Two numbered exhibits — ruled headers with serial markers, code kept LTR */}
+      {/* The two plates — ruled headers with plate identities, code kept LTR */}
       <div className="grid gap-5 xl:grid-cols-2">
         {exhibits.map((source) => (
-          <section key={source.serial} className="overflow-hidden rounded-lg border border-border bg-card">
+          <section key={source.serial} className="overflow-hidden border border-border bg-card">
             <div className="flex items-center gap-3 border-b border-border px-4 py-2.5">
-              <Serial>{source.serial}</Serial>
+              <Serial tone={source.tone}>{source.serial}</Serial>
               <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">{source.title}</span>
               <span className="shrink-0 font-mono text-[11px] uppercase tracking-[0.12em] tabular-nums text-muted-foreground/60">
                 {source.code ? source.code.split("\n").length : 0} LN
@@ -801,7 +804,7 @@ function QualitySourceCard({
       bodyClassName="p-0"
       label={
         <span className="flex items-center gap-2">
-          <span className={cn("h-2.5 w-2.5 rounded-full", accentClass)} />
+          <span className={cn("h-2.5 w-2.5", accentClass)} />
           {title}
         </span>
       }
@@ -945,7 +948,7 @@ function QualityPanel({ result }: { result: AnalysisResult }) {
     {
       id: "A",
       title: t("results.quality.sourceAReview"),
-      accentClass: "bg-primary text-primary",
+      accentClass: "bg-plate-a text-plate-a-deep",
       report: parseQualityReport(
         result.code_smell.code1_analysis,
         t("results.sourceA"),
@@ -956,7 +959,7 @@ function QualityPanel({ result }: { result: AnalysisResult }) {
     {
       id: "B",
       title: t("results.quality.sourceBReview"),
-      accentClass: "bg-accent text-accent",
+      accentClass: "bg-plate-b text-plate-b-deep",
       report: parseQualityReport(
         result.code_smell.code2_analysis,
         t("results.sourceB"),
@@ -1222,145 +1225,105 @@ const Results = () => {
         </div>
       )}
 
-      {/* CASE FILE — score ring as the exhibit, verdict readout as a mono meta strip */}
-      <section className="space-y-5">
-        <div className="flex flex-col gap-6 border-b border-border pb-6 lg:flex-row lg:items-start">
-          {/* Score ring — the dominant piece of evidence */}
-          <div className="relative h-32 w-32 shrink-0">
-            <svg
-              className="h-full w-full -rotate-90"
-              viewBox="0 0 128 128"
-              role="img"
-              aria-label={t("results.ring.aria", { score: overallScoreLabel, band: scoreTone.label })}
-            >
-              <circle cx="64" cy="64" r="56" fill="none" stroke="hsl(var(--muted))" strokeWidth="10" />
-              <circle
-                cx="64"
-                cy="64"
-                r="56"
-                fill="none"
-                stroke={scoreRingColor}
-                strokeWidth="10"
-                strokeLinecap="round"
-                strokeDasharray={2 * Math.PI * 56}
-                strokeDashoffset={2 * Math.PI * 56 * (1 - overallScore / 100)}
-                style={{ transition: "stroke-dashoffset 1s ease" }}
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
+      {/* THE PROOF BLOCK — one instrument band: readout ▸ pair & reading ▸ disposition,
+          closed by the graded scale the verdict is read against. */}
+      <section className="border border-border bg-card">
+        {/* Case slug along the sheet edge */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-5 py-2">
+          <span className="press-slug flex items-center gap-2 text-foreground">
+            <RegMark className="h-3 w-3 text-primary" />
+            {t("results.title")}
+            {result.saved_analysis_id ? <span className="text-muted-foreground">· #{result.saved_analysis_id}</span> : null}
+          </span>
+          <span className="press-slug">{getProgrammingLanguageLabel(result.language)}</span>
+        </div>
+
+        <div className="grid lg:grid-cols-[15rem_minmax(0,1fr)_auto]">
+          {/* 1 · Registration readout */}
+          <div
+            className="border-b border-border p-5 lg:border-b-0 lg:border-e"
+            role="img"
+            aria-label={t("results.ring.aria", { score: overallScoreLabel, band: scoreTone.label })}
+          >
+            <div className="flex items-baseline gap-1.5">
               <span
-                className="font-mono text-[2.125rem] font-bold leading-none tabular-nums text-foreground"
-                style={{ letterSpacing: "-0.04em" }}
+                className="font-display text-[3.4rem] font-extrabold leading-none tabular-nums"
+                style={{ fontStretch: "120%", color: scoreRingColor }}
               >
                 {overallScoreLabel}
               </span>
-              <span
-                className="mt-1 font-mono text-[11px] font-semibold text-muted-foreground"
-                style={{ letterSpacing: "0.04em" }}
-              >
-                {t("results.percentSimilar")}
-              </span>
+              <span className="font-display text-xl font-bold text-muted-foreground">%</span>
+            </div>
+            <span className="press-slug mt-1 block">{t("results.percentSimilar")}</span>
+            <OverprintMeter value={overallScore} className="mt-4" />
+            <div className="press-slug mt-2 flex items-center justify-between text-[9px]">
+              <span className="text-plate-a-deep">A</span>
+              <span aria-hidden>⊕</span>
+              <span className="text-plate-b-deep">B</span>
             </div>
           </div>
 
-          {/* Masthead — the verdict readout lives in the mono meta strip */}
-          <Masthead
-            className="min-w-0 flex-1 border-b-0 pb-0"
-            kicker={t("results.title")}
-            title={
-              <span className="block truncate">
-                {result.source_labels.code1} × {result.source_labels.code2}
-              </span>
-            }
-            description={
-              <>
-                {t(`results.verdictMeaning.${band}`)}
-                {confidence.advisory ? ` ${t("results.verdictMeaning.advisoryNote")}` : ""}
-              </>
-            }
-            meta={[
-              { label: "SIMILARITY", value: <span className="font-semibold text-foreground">{overallScoreLabel}%</span> },
-              { label: "VERDICT", value: <span className={scoreTone.badge}>{scoreTone.label}</span> },
-              {
-                label: "CONFIDENCE",
-                value: (
-                  <span
-                    className="inline-flex items-center gap-1.5"
-                    title={t("results.confidence.tooltip", {
-                      corroborating: confidence.corroborating,
-                      total: confidence.deterministicTotal,
-                    })}
-                  >
-                    <ShieldCheck className="h-3.5 w-3.5" />
-                    {confidenceLabel}
-                    {confidence.advisory && (
-                      <span className="ms-1 rounded-sm bg-warning/20 px-1.5 py-0.5 text-foreground">{t("results.confidence.advisoryTag")}</span>
-                    )}
-                  </span>
-                ),
-              },
-              { label: "LANG", value: getProgrammingLanguageLabel(result.language) },
-              ...(result.saved_analysis_id
-                ? [{ label: "CASE", value: `#${result.saved_analysis_id}` }]
-                : []),
-            ]}
-            actions={
-              <>
-                <Button size="sm" className="h-9 gap-2" onClick={() => setPdfOpen(true)}>
-                  <Download className="h-4 w-4" />
-                  {t("results.export.pdf")}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9 gap-2"
-                  onClick={() => setActiveTab("chat")}
-                >
-                  <MessageSquare className="h-4 w-4" />
-                  {t("results.askAnalyst", { defaultValue: "Ask analyst" })}
-                </Button>
-              </>
-            }
+          {/* 2 · The pair under comparison + the reading */}
+          <div className="min-w-0 border-b border-border p-5 lg:border-b-0 lg:border-e">
+            <PlatePair mono a={result.source_labels.code1} b={result.source_labels.code2} />
+            <p className="mt-3.5 max-w-[62ch] text-sm leading-relaxed text-foreground">
+              {t(`results.verdictMeaning.${band}`)}
+              {confidence.advisory ? ` ${t("results.verdictMeaning.advisoryNote")}` : ""}
+            </p>
+            <p
+              className="press-slug mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 normal-case tracking-normal"
+              title={t("results.confidence.tooltip", {
+                corroborating: confidence.corroborating,
+                total: confidence.deterministicTotal,
+              })}
+            >
+              <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
+              {confidenceLabel}
+              {confidence.advisory && (
+                <span className="bg-warning/20 px-1.5 py-0.5 uppercase tracking-[0.1em] text-foreground">
+                  {t("results.confidence.advisoryTag")}
+                </span>
+              )}
+            </p>
+          </div>
+
+          {/* 3 · Disposition — the stamp and the case actions */}
+          <div className="flex flex-row items-center gap-4 p-5 lg:flex-col lg:items-end lg:justify-between">
+            <Stamp band={band === "high" ? "flag" : band === "moderate" ? "review" : "pass"}>
+              {scoreTone.label}
+            </Stamp>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button size="sm" className="h-9 gap-2" onClick={() => setPdfOpen(true)}>
+                <Download className="h-4 w-4" />
+                {t("results.export.pdf")}
+              </Button>
+              <Button variant="outline" size="sm" className="h-9 gap-2" onClick={() => setActiveTab("chat")}>
+                <MessageSquare className="h-4 w-4" />
+                {t("results.askAnalyst", { defaultValue: "Ask analyst" })}
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* The graded scale — the needle sits where this pair printed */}
+        <div className="border-t border-border px-5 pb-2 pt-4" role="group" aria-label={t("results.legend.aria")}>
+          <ScaleRuler
+            value={overallScore}
+            label={t("results.ring.aria", { score: overallScoreLabel, band: scoreTone.label })}
           />
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 pb-1.5">
+            <span className="press-slug text-[9px]">
+              {t("results.legend.low")} &lt; 50 · {t("results.legend.moderate")} 50–79 · {t("results.legend.high")} ≥ 80
+            </span>
+            <span className="press-slug text-[9px]">{t("results.legend.gateNote")}</span>
+          </div>
         </div>
 
-        {/* Threshold legend — the scale the verdict is read against, plus the CI gate */}
-        <div
-          className="flex flex-wrap items-center gap-1.5"
-          role="group"
-          aria-label={t("results.legend.aria")}
-        >
-          {(
-            [
-              { key: "low", range: "< 50", token: "success" },
-              { key: "moderate", range: "50–79", token: "warning" },
-              { key: "high", range: "≥ 80", token: "destructive" },
-            ] as const
-          ).map((seg) => {
-            const isActive = band === seg.key;
-            return (
-              <span
-                key={seg.key}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px]",
-                  isActive ? "border-current font-semibold" : "border-border text-muted-foreground",
-                )}
-                style={isActive ? { color: `hsl(var(--${seg.token}))` } : undefined}
-              >
-                <span className="h-2 w-2 rounded-full" style={{ background: `hsl(var(--${seg.token}))` }} />
-                {t(`results.legend.${seg.key}`)}
-                <span className="font-mono tabular-nums opacity-80">{seg.range}</span>
-              </span>
-            );
-          })}
-          <span className="text-[11px] text-muted-foreground">{t("results.legend.gateNote")}</span>
-        </div>
-
-        {/* Utility strip — case handling actions, read as a mono row */}
-        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+        {/* Utility edge — case handling */}
+        <div className="flex flex-wrap items-center gap-2 border-t border-border px-3 py-2">
           <Link to="/analysis">
             <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs">
-              <ChevronLeft className="h-3.5 w-3.5" />
+              <ChevronLeft className="h-3.5 w-3.5 rtl:rotate-180" />
               {t("buttons.backToAnalysis", { defaultValue: "Back" })}
             </Button>
           </Link>
@@ -1408,14 +1371,14 @@ const Results = () => {
       {/* Accessible tablist (Radix): role=tab/tablist, aria-selected, and
           arrow-key roving focus come for free; value is mirrored to the URL. */}
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as ResultTab)}>
-        <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto rounded-none border-b border-border bg-transparent p-0 text-muted-foreground">
+        <TabsList className="press-tabs-list h-auto w-full justify-start overflow-x-auto rounded-none text-muted-foreground">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             return (
               <TabsTrigger
                 key={tab.id}
                 value={tab.id}
-                className="-mb-px flex items-center gap-2 whitespace-nowrap rounded-none border-b-2 border-transparent bg-transparent px-4 py-3 text-sm font-medium text-muted-foreground shadow-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-0 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                className="press-tab whitespace-nowrap rounded-none shadow-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-0 data-[state=active]:bg-card data-[state=active]:shadow-none"
               >
                 <Icon className="h-4 w-4" />
                 {tab.label}

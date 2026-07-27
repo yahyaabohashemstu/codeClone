@@ -12,7 +12,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Masthead, Panel, Figure, Serial, SpecList } from "@/components/dossier/Dossier";
+import { Masthead, Panel, Figure, SpecList } from "@/components/dossier/Dossier";
 import { cn } from "@/lib/utils";
 import * as api from "@/lib/adminApi";
 
@@ -74,6 +74,21 @@ function MetricLedger({
         <SpecList rows={rows.slice(mid)} className="sm:border-s sm:border-border sm:ps-12" />
       )}
     </div>
+  );
+}
+
+/** Press-log line number for ledger rows. */
+function LogNo({ n, flagged = false }: { n: number; flagged?: boolean }) {
+  return (
+    <span
+      className={cn(
+        "font-display text-base font-extrabold tabular-nums leading-none",
+        flagged ? "text-destructive" : "text-muted-foreground",
+      )}
+      style={{ fontStretch: "118%" }}
+    >
+      {String(n).padStart(2, "0")}
+    </span>
   );
 }
 
@@ -468,7 +483,7 @@ function UsersTab() {
             <tbody>
               {(data?.items ?? []).map((u, i) => (
                 <tr key={u.id} className="cursor-pointer border-b border-border/50 last:border-b-0 hover:bg-muted/40" onClick={() => setDetailId(u.id)}>
-                  <td className="px-4 py-2 align-middle"><Serial tone={u.locked ? "primary" : "muted"}>{(page - 1) * perPage + i + 1}</Serial></td>
+                  <td className="px-4 py-2 align-middle"><LogNo n={(page - 1) * perPage + i + 1} flagged={u.locked} /></td>
                   <td className="px-4 py-2 font-medium text-foreground">{u.username}{u.isAdmin && <span className="ms-1 text-xs text-muted-foreground">★</span>}{u.locked && <Lock className="ms-1 inline h-3 w-3 text-destructive" />}</td>
                   <td className="px-4 py-2 text-muted-foreground">{u.email || "—"}</td>
                   <td className="px-4 py-2">{u.emailVerified ? "✓" : "—"}</td>
@@ -526,7 +541,7 @@ function RevenueTab() {
           <tbody>
             {rows.map((p, i) => (
               <tr key={p.code} className="border-b border-border/50 last:border-b-0">
-                <td className="py-2 pe-4 align-middle"><Serial>{i + 1}</Serial></td>
+                <td className="py-2 pe-4 align-middle"><LogNo n={i + 1} /></td>
                 <td className="py-2 pe-4 font-medium">{p.name}</td>
                 <td className="py-2 pe-4 font-mono tabular-nums">{p.subscribers}</td>
                 <td className="py-2 pe-4 font-mono">{money(p.priceCents)}</td>
@@ -610,7 +625,7 @@ function UsageTab() {
                 <tbody>
                   {u.topApi.map((x, i) => (
                     <tr key={x.userId} className="border-b border-border/50 last:border-b-0">
-                      <td className="py-2 pe-4 align-middle"><Serial>{i + 1}</Serial></td>
+                      <td className="py-2 pe-4 align-middle"><LogNo n={i + 1} /></td>
                       <td className="py-2 pe-4">{x.username}</td>
                       <td className="py-2 pe-4 font-mono tabular-nums">{x.calls}</td>
                       <td className="py-2 pe-4 font-mono tabular-nums">{x.pairs}</td>
@@ -698,7 +713,7 @@ function SecurityTab() {
               <tbody>
                 {s.lockedAccounts.map((a, i) => (
                   <tr key={a.id} className="border-b border-border/50 last:border-b-0">
-                    <td className="py-2 pe-4 align-middle"><Serial tone="primary">{i + 1}</Serial></td>
+                    <td className="py-2 pe-4 align-middle"><LogNo n={i + 1} flagged /></td>
                     <td className="py-2 pe-4">{a.username}</td>
                     <td className="py-2 pe-4 font-mono tabular-nums">{a.failedLoginCount}</td>
                     <td className="py-2 pe-4 text-muted-foreground">{fmtDateTime(a.lockedUntil)}</td>
@@ -714,7 +729,7 @@ function SecurityTab() {
           <ol className="divide-y divide-border text-sm">
             {s.recentAdminActions.map((a, i) => (
               <li key={a.id} className="flex items-center gap-3 py-2.5">
-                <Serial>{i + 1}</Serial>
+                <LogNo n={i + 1} />
                 <span className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">{a.action}{a.detail ? <span className="text-muted-foreground"> · {a.detail}</span> : null}</span>
                 <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">{fmtDateTime(a.createdAt)}</span>
               </li>
@@ -758,7 +773,7 @@ const Admin = () => {
       />
 
       {/* Console section switch — mono, ruled, like a log filter rail */}
-      <div className="flex flex-wrap gap-1 border-b border-border" role="tablist">
+      <div className="press-tabs-list flex-wrap" role="tablist">
         {TABS.map((tb) => {
           const Icon = TAB_ICON[tb];
           const active = tab === tb;
@@ -767,11 +782,9 @@ const Admin = () => {
               key={tb}
               role="tab"
               aria-selected={active}
+              data-state={active ? "active" : "inactive"}
               onClick={() => setTab(tb)}
-              className={cn(
-                "flex items-center gap-2 border-b-2 px-4 py-2 font-mono text-xs uppercase tracking-wide transition-colors",
-                active ? "border-primary font-semibold text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
-              )}
+              className="press-tab focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             >
               <Icon className="h-3.5 w-3.5" />
               {t(`admin.tabs.${tb}`)}

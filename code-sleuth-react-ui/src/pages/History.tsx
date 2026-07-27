@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Masthead, Serial } from "@/components/dossier/Dossier";
+import { Masthead, OverprintMeter, PlatePair, Stamp } from "@/components/dossier/Dossier";
 import { apiFetch } from "@/lib/api";
 import { downloadText } from "@/lib/download";
 import { useAnalysis } from "@/context/AnalysisContext";
@@ -25,21 +25,6 @@ import { sanitizeHtml } from "@/lib/sanitize";
 import { PageLoader } from "@/components/common/PageLoader";
 import { PageError } from "@/components/common/PageError";
 import { EmptyState } from "@/components/common/EmptyState";
-
-function severityBadge(severity: HistorySummary["severity"]) {
-  if (severity === "high") return "badge-error";
-  if (severity === "moderate") return "badge-warning";
-  return "badge-success";
-}
-
-// The calibrated similarity scale (DESIGN §2): green <50 / amber 50–79 / red ≥80.
-// Used for the score BAR fill; the number itself stays neutral ink so small
-// amber text never falls below AA on paper.
-function scoreColor(score: number): string {
-  if (score >= 80) return "hsl(var(--destructive))";
-  if (score >= 50) return "hsl(var(--warning))";
-  return "hsl(var(--success))";
-}
 
 const History = () => {
   const navigate = useNavigate();
@@ -324,17 +309,17 @@ const History = () => {
           </select>
         </div>
 
-        <div className="flex h-9 rounded-sm border border-border bg-card">
+        <div className="flex h-9 border border-border bg-card">
           {(["date", "score"] as const).map((mode) => (
             <button
               key={mode}
               type="button"
               onClick={() => setSortBy(mode)}
               className={cn(
-                "border-e border-border px-3 font-mono text-[11px] uppercase tracking-wide transition-colors last:border-e-0",
+                "press-slug border-e border-border px-3 transition-colors last:border-e-0",
                 sortBy === mode
-                  ? "bg-primary/10 font-semibold text-foreground"
-                  : "text-muted-foreground hover:text-foreground",
+                  ? "bg-primary/10 font-bold text-foreground"
+                  : "hover:text-foreground",
               )}
             >
               {mode === "date" ? t("history.byDate") : t("history.byScore")}
@@ -342,7 +327,7 @@ const History = () => {
           ))}
         </div>
 
-        <span className={cn("font-mono text-xs tabular-nums text-muted-foreground", isRTL ? "mr-1" : "ml-1")}>
+        <span className={cn("press-slug tabular-nums", isRTL ? "mr-1" : "ml-1")}>
           {formatNumber(filteredItems.length)} / {formatNumber(items.length)}
         </span>
       </div>
@@ -360,29 +345,16 @@ const History = () => {
           <div className="overflow-x-auto scrollbar-thin">
             <table className="w-full min-w-[980px] text-sm">
               <thead>
-                <tr>
-                  <th className={cn("w-12 border-b-2 border-foreground px-4 py-2.5 font-mono text-[11px] font-semibold text-muted-foreground", isRTL ? "text-right" : "text-left")}>
-                    #
+                <tr className="border-b-2 border-foreground">
+                  <th className="press-slug w-14 px-4 py-2.5 text-start">#</th>
+                  <th className="press-slug px-4 py-2.5 text-start">
+                    {t("history.table.pair", { defaultValue: "A ⊕ B" })}
                   </th>
-                  <th className={cn("border-b-2 border-foreground px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
-                    {t("history.table.sourceA")}
-                  </th>
-                  <th className={cn("border-b-2 border-foreground px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
-                    {t("history.table.sourceB")}
-                  </th>
-                  <th className={cn("border-b-2 border-foreground px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
-                    {t("history.table.language")}
-                  </th>
-                  <th className={cn("border-b-2 border-foreground px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
-                    {t("history.table.score")}
-                  </th>
-                  <th className={cn("border-b-2 border-foreground px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
-                    {t("history.table.severity")}
-                  </th>
-                  <th className={cn("border-b-2 border-foreground px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-right" : "text-left")}>
-                    {t("history.table.date")}
-                  </th>
-                  <th className={cn("border-b-2 border-foreground px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", isRTL ? "text-left" : "text-right")}>
+                  <th className="press-slug px-4 py-2.5 text-start">{t("history.table.language")}</th>
+                  <th className="press-slug px-4 py-2.5 text-start">{t("history.table.score")}</th>
+                  <th className="press-slug px-4 py-2.5 text-start">{t("history.table.severity")}</th>
+                  <th className="press-slug px-4 py-2.5 text-start">{t("history.table.date")}</th>
+                  <th className={cn("press-slug px-4 py-2.5", isRTL ? "text-left" : "text-right")}>
                     {t("history.table.actions")}
                   </th>
                 </tr>
@@ -395,42 +367,39 @@ const History = () => {
                       key={item.id}
                       className="border-b border-border/40 transition-colors last:border-b-0 hover:bg-muted/30"
                     >
-                      <td className="px-4 py-3 align-middle">
-                        <Serial>{formatNumber(index + 1)}</Serial>
-                      </td>
-                      <td className="max-w-[200px] px-4 py-3 align-middle">
-                        <span className="truncate font-mono text-xs text-foreground">{item.sourceA}</span>
-                      </td>
-                      <td className="max-w-[200px] px-4 py-3 align-middle">
-                        <span className="truncate font-mono text-xs text-foreground">{item.sourceB}</span>
-                      </td>
-                      <td className="px-4 py-3 align-middle">
-                        <span className="inline-flex items-center rounded-sm border border-primary/25 bg-primary/10 px-2 py-0.5 font-mono text-[11px] font-medium text-foreground">
-                          {getProgrammingLanguageLabel(item.language)}
+                      {/* Log line number */}
+                      <td className="px-4 py-3 align-top">
+                        <span
+                          className="font-display text-lg font-extrabold tabular-nums leading-none text-muted-foreground"
+                          style={{ fontStretch: "118%" }}
+                        >
+                          {String(index + 1).padStart(2, "0")}
                         </span>
                       </td>
+                      {/* The pair, printed as its two plates */}
+                      <td className="max-w-[300px] px-4 py-3 align-middle">
+                        <PlatePair mono a={item.sourceA} b={item.sourceB} />
+                      </td>
                       <td className="px-4 py-3 align-middle">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="h-1.5 w-14 overflow-hidden rounded-sm"
-                            style={{ background: "hsl(var(--muted))" }}
-                          >
-                            <span
-                              className="block h-full"
-                              style={{ width: `${score}%`, background: scoreColor(score) }}
-                            />
-                          </span>
-                          <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+                        <span className="badge-info">{getProgrammingLanguageLabel(item.language)}</span>
+                      </td>
+                      <td className="px-4 py-3 align-middle">
+                        <div className="flex items-center gap-2.5">
+                          <OverprintMeter value={score} className="h-2 w-16 shrink-0" label={`${score.toFixed(1)}%`} />
+                          <span className="font-display text-sm font-bold tabular-nums text-foreground" style={{ fontStretch: "108%" }}>
                             {score.toFixed(1)}%
                           </span>
                         </div>
                       </td>
                       <td className="px-4 py-3 align-middle">
-                        <span className={cn(severityBadge(item.severity), "capitalize")}>
+                        <Stamp
+                          band={item.severity === "high" ? "flag" : item.severity === "moderate" ? "review" : "pass"}
+                          className="px-1.5 text-[9px]"
+                        >
                           {severityLabel(item.severity)}
-                        </span>
+                        </Stamp>
                       </td>
-                      <td className="px-4 py-3 align-middle text-xs text-muted-foreground">
+                      <td className="press-slug px-4 py-3 align-middle normal-case tracking-normal">
                         {getDisplayDate(item)}
                       </td>
                       <td className="px-4 py-3">

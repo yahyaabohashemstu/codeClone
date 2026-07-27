@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { GitCompare, Loader2 } from "lucide-react";
+import { OverprintMeter } from "@/components/dossier/Dossier";
 import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -166,36 +167,40 @@ export function DiffViewer({
 
   return (
     <div className="space-y-4">
-      <div className="card-premium overflow-hidden">
-        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border/50 px-5 py-4">
-          <div>
-            <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <GitCompare className="h-4 w-4 text-primary" />
+      <div className="overflow-hidden border border-border bg-card">
+        {/* The light-table readout: title, then the match measured on the meter */}
+        <div className="border-b border-border px-5 py-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+            <h3 className="t-label flex items-center gap-2 text-foreground">
+              <GitCompare className="h-3.5 w-3.5 text-primary" />
               {t("results.diff.title")}
             </h3>
-            <p className="mt-1 text-xs text-muted-foreground">{t("results.diff.description")}</p>
+            <span className="press-slug tabular-nums">
+              A {data.total_lines_a} · B {data.total_lines_b}
+            </span>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="rounded-lg border border-border/50 bg-muted/20 px-4 py-2 text-center">
-              <div className="text-lg font-bold text-foreground">{data.match_ratio}%</div>
-              <div className="text-[10px] text-muted-foreground">{t("results.diff.matchRatio")}</div>
-            </div>
-            <div className="rounded-lg border border-border/50 bg-muted/20 px-4 py-2 text-center">
-              <div className="text-lg font-bold text-foreground">{data.total_lines_a}</div>
-              <div className="text-[10px] text-muted-foreground">{t("results.diff.linesA")}</div>
-            </div>
-            <div className="rounded-lg border border-border/50 bg-muted/20 px-4 py-2 text-center">
-              <div className="text-lg font-bold text-foreground">{data.total_lines_b}</div>
-              <div className="text-[10px] text-muted-foreground">{t("results.diff.linesB")}</div>
-            </div>
+          <p className="mt-1 max-w-[70ch] text-xs leading-relaxed text-muted-foreground">{t("results.diff.description")}</p>
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+            <span
+              className="font-display text-2xl font-extrabold leading-none tabular-nums text-foreground"
+              style={{ fontStretch: "118%" }}
+            >
+              {data.match_ratio}%
+            </span>
+            <OverprintMeter
+              value={data.match_ratio}
+              className="h-2.5 min-w-36 max-w-72 flex-1"
+              label={`${t("results.diff.matchRatio")}: ${data.match_ratio}%`}
+            />
+            <span className="press-slug">{t("results.diff.matchRatio")}</span>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-3 border-b border-border/40 bg-muted/10 px-5 py-2">
+        <div className="flex flex-wrap gap-x-4 gap-y-1.5 border-b border-border bg-muted/20 px-5 py-2">
           {(["equal", "delete", "insert", "replace"] as const).map((legendType) => (
-            <span key={legendType} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span key={legendType} className="press-slug flex items-center gap-1.5 normal-case tracking-normal">
               <span
-                className={cn("h-2.5 w-2.5 rounded-sm",
+                className={cn("h-2.5 w-2.5",
                   legendType === "equal" && "bg-muted-foreground/30",
                   legendType === "delete" && "bg-destructive/60",
                   legendType === "insert" && "bg-success/60",
@@ -207,18 +212,18 @@ export function DiffViewer({
           ))}
         </div>
 
-        {/* Column headers (kept outside the scroll area so they stay put). */}
-        <div className="grid grid-cols-1 border-b border-border/40 md:grid-cols-2 md:divide-x md:divide-border/40">
+        {/* Column headers — the two plates (kept outside the scroll area so they stay put). */}
+        <div className="grid grid-cols-1 border-b border-border md:grid-cols-2 md:divide-x md:divide-border rtl:md:divide-x-reverse">
           <div className="bg-card px-3 py-2">
             <span className="flex items-center gap-1.5 font-mono text-xs font-semibold text-foreground">
-              <span className="h-2 w-2 rounded-full bg-primary" />
-              {labelA}
+              <span className="h-2 w-2 shrink-0 bg-plate-a" aria-hidden />
+              <span className="truncate" dir="auto">{labelA}</span>
             </span>
           </div>
           <div className="hidden bg-card px-3 py-2 md:block">
             <span className="flex items-center gap-1.5 font-mono text-xs font-semibold text-foreground">
-              <span className="h-2 w-2 rounded-full bg-accent-suspect" />
-              {labelB}
+              <span className="h-2 w-2 shrink-0 bg-plate-b" aria-hidden />
+              <span className="truncate" dir="auto">{labelB}</span>
             </span>
           </div>
         </div>

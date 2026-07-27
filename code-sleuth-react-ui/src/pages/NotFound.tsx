@@ -1,29 +1,32 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
+import { Stamp } from "@/components/dossier/Dossier";
 
+/** The misprint: this sheet came off the press with its plates apart. */
 const NotFound = () => {
   const { t } = useTranslation("common");
 
   return (
     <div className="flex min-h-[72vh] items-center justify-center p-6">
-      <div className="w-full max-w-xl rounded-lg border border-border bg-card p-10 text-center">
-        <div className="flex flex-col items-center gap-5">
-          <div className="t-label flex items-center gap-2.5">
-            <span className="h-px w-6 bg-primary" />
-            <span>{t("notFound.title")}</span>
-          </div>
+      <div className="flex w-full max-w-xl flex-col items-center gap-6 text-center">
+        <Stamp band="neutral">{t("notFound.offRegister", { defaultValue: "Off register" })}</Stamp>
 
-          {/* Exhibit number as the motif — a mono error code, not a generic icon. */}
-          <span className="t-stat text-primary">404</span>
+        {/* The error code printed with its plates split apart */}
+        <span
+          aria-hidden
+          className="misreg select-none font-display font-extrabold leading-none text-foreground"
+          style={{ fontSize: "clamp(6rem, 18vw, 11rem)", fontStretch: "122%" }}
+        >
+          404
+        </span>
 
-          <h1 className="t-h2">{t("notFound.heading")}</h1>
-          <p className="max-w-md t-body">{t("notFound.description")}</p>
+        <h1 className="t-h2">{t("notFound.heading")}</h1>
+        <p className="t-body max-w-md">{t("notFound.description")}</p>
 
-          <Button asChild size="lg" className="mt-2">
-            <Link to="/">{t("notFound.backHome")}</Link>
-          </Button>
-        </div>
+        <Button asChild size="lg" className="mt-1">
+          <Link to="/">{t("notFound.backHome")}</Link>
+        </Button>
       </div>
     </div>
   );

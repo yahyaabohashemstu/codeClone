@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Masthead, FieldSheet, Field, Panel, Serial, Figure, SpecList } from "@/components/dossier/Dossier";
+import { Masthead, FieldSheet, Field, Panel, Serial, Figure, SpecList, Stamp } from "@/components/dossier/Dossier";
 import { useLanguage } from "@/context/LanguageContext";
 import {
   createApiKey,
@@ -170,19 +170,18 @@ function KeysTab() {
 
       {/* One-time token reveal — the issued credential, framed as a warning-toned exhibit */}
       {freshToken && (
-        <Figure
-          label={
-            <span className="flex items-center gap-2">
-              <TriangleAlert className="h-4 w-4 text-warning" />
+        /* The hand-off slip — the credential is issued ONCE, on a detachable card */
+        <div className="border-2 border-dashed border-warning bg-warning/[0.05] p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Stamp band="review" className="px-1.5 text-[10px]">
+              <TriangleAlert className="h-3.5 w-3.5" aria-hidden />
               {t("apiKeys.keys.tokenTitle")}
-            </span>
-          }
-          actions={<CopyButton text={freshToken} label={t("apiKeys.keys.copy")} />}
-          className="border-warning/50"
-        >
-          <p className="mb-3 text-sm text-muted-foreground">{t("apiKeys.keys.tokenWarning")}</p>
+            </Stamp>
+            <CopyButton text={freshToken} label={t("apiKeys.keys.copy")} />
+          </div>
+          <p className="mt-3 max-w-[64ch] text-sm text-foreground">{t("apiKeys.keys.tokenWarning")}</p>
           <code
-            className="block overflow-x-auto rounded-md border border-border bg-background px-3 py-2 font-mono text-xs"
+            className="mt-3 block overflow-x-auto border border-border bg-card px-3 py-2.5 font-mono text-xs text-foreground"
             dir="ltr"
           >
             {freshToken}
@@ -190,7 +189,7 @@ function KeysTab() {
           <Button variant="ghost" size="sm" className="mt-3" onClick={() => setFreshToken("")}>
             {t("apiKeys.keys.done")}
           </Button>
-        </Figure>
+        </div>
       )}
 
       {/* Register — a ruled ledger §-section, not a card box */}
@@ -228,7 +227,12 @@ function KeysTab() {
                     className={cn("border-b border-border/60 last:border-b-0", k.revoked && "opacity-60")}
                   >
                     <td className="px-4 py-3 align-top">
-                      <Serial tone={k.revoked ? "muted" : "primary"}>{String(i + 1).padStart(2, "0")}</Serial>
+                      <span
+                        className="font-display text-lg font-extrabold tabular-nums leading-none text-muted-foreground"
+                        style={{ fontStretch: "118%" }}
+                      >
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
                     </td>
                     <td className="px-4 py-3 align-top">
                       <div className="flex items-center gap-2">
@@ -425,11 +429,19 @@ function UsageTab() {
             {u.pairs.toLocaleString()} / {u.includedPairs.toLocaleString()}
           </span>
         </div>
-        <div className="h-2 overflow-hidden rounded-sm bg-muted">
+        <div className="relative h-2.5 overflow-hidden border border-border bg-muted">
           <div
             className={cn("h-full transition-all", u.overagePairs > 0 || u.atLimit ? "bg-warning" : "bg-primary")}
             style={{ width: `${pct}%` }}
           />
+          {[25, 50, 75].map((tick) => (
+            <span
+              key={tick}
+              aria-hidden
+              className="absolute inset-y-0 w-px bg-foreground/20"
+              style={{ insetInlineStart: `${tick}%` }}
+            />
+          ))}
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
           {t("apiKeys.usage.remaining", { n: u.remainingIncluded.toLocaleString() })}
@@ -633,7 +645,7 @@ X-API-Key: csk_xxxxxxxx.YOUR_SECRET`} copyLabel={copy} />
 }
 
 function Mono({ children }: { children: ReactNode }) {
-  return <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[12px] text-foreground" dir="ltr">{children}</code>;
+  return <code className="bg-muted px-1.5 py-0.5 font-mono text-[12px] text-foreground" dir="ltr">{children}</code>;
 }
 
 function DocTable({ head, rows }: { head: string[]; rows: string[][] }) {
@@ -694,8 +706,8 @@ export default function ApiKeys() {
         ]}
       />
 
-      {/* Ruled section tabs — left-anchored, mono */}
-      <div className="flex border-b border-border">
+      {/* Press file tabs — the active tab joins the sheet */}
+      <div className="press-tabs-list" role="tablist">
         {tabs.map((tabItem) => {
           const Icon = tabItem.icon;
           const active = tab === tabItem.id;
@@ -703,13 +715,11 @@ export default function ApiKeys() {
             <button
               key={tabItem.id}
               type="button"
+              role="tab"
+              aria-selected={active}
+              data-state={active ? "active" : "inactive"}
               onClick={() => setTab(tabItem.id)}
-              className={cn(
-                "-mb-px flex items-center gap-2 border-b-2 px-4 py-2.5 font-mono text-[11px] uppercase tracking-wide transition-colors",
-                active
-                  ? "border-primary text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground",
-              )}
+              className="press-tab focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             >
               <Icon className="h-3.5 w-3.5" />
               {tabItem.label}

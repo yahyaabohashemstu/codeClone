@@ -1,71 +1,71 @@
 ---
 name: Clone Lens
-description: Evidence-dossier code-similarity workspace — a calibrated verdict that shows its work, printed on warm paper in a forensic mono voice.
+description: Press Check — every screen is a registration proof. Two code sources are two printing plates (A prints cyan, B magenta); where they coincide the ink overprints into the violet verdict.
 colors:
-  ink-navy: "#23508b"           # --primary · hsl(214 60% 34%) · the single signal: primary actions, selection, focus, focused evidence
-  ink: "#25211d"                # --foreground · hsl(30 14% 13%) · body + heading text on paper
-  slate-mute: "#655d54"         # --muted-foreground · hsl(34 9% 37%) · secondary text, labels
-  paper: "#f4efe6"              # --background · hsl(42 30% 95%) · app body (warm paper)
-  card: "#faf6ee"               # --card / --surface-1 · hsl(40 36% 97%) · panels, cards
-  hairline: "#d8d2c6"           # --border · hsl(38 17% 82%) · dividers, borders (structure is drawn, not shadowed)
-  olive-clear: "#438a52"        # --success · hsl(130 32% 33%) · low similarity / pass
-  amber-review: "#e08a0f"       # --warning · hsl(38 92% 45%) · mid similarity / needs review
-  oxblood-flag: "#b23a2b"       # --destructive · hsl(8 64% 42%) · high similarity / flagged
-  terracotta-suspect: "#b9663a" # --accent-suspect · hsl(16 58% 46%) · the second exhibit's identity tone (AST B, diff B)
+  overprint: "#3E2C8C"          # --primary · hsl(251 52% 36%) · cyan×magenta laid down together — the one action colour
+  ink: "#131B24"                # --foreground · hsl(216 25% 10%) · rich black with a cyan lean
+  press-slate: "#525A66"        # --muted-foreground · hsl(215 12% 36%) · secondary text, slugs
+  press-bed: "#E3E7EB"          # --background · hsl(210 14% 91%) · the machine-grey ground chrome sits on
+  proof-sheet: "#FCFDFD"        # --card · hsl(210 20% 99%) · the bright sheet all content is laid on
+  hairline: "#C6CCD3"           # --border · hsl(212 14% 80%) · structure is drawn, never shadowed
+  plate-a: "#00A0D1"            # --plate-a · hsl(194 100% 41%) · process cyan — source A's printed identity
+  plate-a-deep: "#00577A"       # --plate-a-deep · hsl(197 100% 26%) · text-capable cyan (≥4.5:1)
+  plate-b: "#E90C82"            # --plate-b · hsl(328 90% 48%) · process magenta — source B's printed identity
+  plate-b-deep: "#970F51"       # --plate-b-deep · hsl(331 85% 32%) · text-capable magenta; also --accent-suspect
+  pass-viridian: "#12684B"      # --success · hsl(160 70% 24%) · low similarity / passed
+  review-amber: "#E09A00"       # --warning · hsl(41 100% 44%) · mid similarity / review (never small text)
+  flag-red: "#BA261C"           # --destructive · hsl(4 74% 42%) · high similarity / flagged
 typography:
   hero:
-    fontFamily: "JetBrains Mono, Fira Code, ui-monospace, monospace"
-    fontSize: "4.5rem"
-    fontWeight: 700
-    lineHeight: 1.05
-    letterSpacing: "-0.02em"
+    fontFamily: "Archivo, system-ui, sans-serif"
+    fontStretch: "122%"
+    fontSize: "clamp(2.4rem, 6.4vw, 5.5rem)"
+    fontWeight: 800
+    lineHeight: 0.96
+    letterSpacing: "-0.01em"
+    textTransform: "uppercase"
   headline:
-    fontFamily: "JetBrains Mono, Fira Code, ui-monospace, monospace"
-    fontSize: "3rem→2rem"
+    fontFamily: "Archivo, system-ui, sans-serif"
+    fontStretch: "118%"
+    fontSize: "2.6rem→1.9rem"
+    fontWeight: 800
+    lineHeight: 1.04
+    textTransform: "uppercase"
+  title:
+    fontFamily: "Archivo, system-ui, sans-serif"
+    fontStretch: "106%"
+    fontSize: "1.4rem→1.05rem"
     fontWeight: 700
     lineHeight: 1.2
-    letterSpacing: "-0.015em"
-  title:
-    fontFamily: "JetBrains Mono, Fira Code, ui-monospace, monospace"
-    fontSize: "1.5rem→1.25rem"
-    fontWeight: 600
-    lineHeight: 1.25
-    letterSpacing: "-0.01em"
   body:
-    fontFamily: "Inter, system-ui, sans-serif"
+    fontFamily: "Archivo, system-ui, sans-serif"
     fontSize: "1rem"
     fontWeight: 400
     lineHeight: 1.6
-    letterSpacing: "normal"
-  label:
-    fontFamily: "JetBrains Mono, Fira Code, ui-monospace, monospace"
-    fontSize: "0.75rem"
+  slug:
+    fontFamily: "Archivo, system-ui, sans-serif"
+    fontStretch: "106–108%"
+    fontSize: "0.6875rem"
     fontWeight: 600
-    lineHeight: 1.45
-    letterSpacing: "0.08em"
+    letterSpacing: "0.1–0.12em"
     textTransform: "uppercase"
+    fontVariantNumeric: "tabular-nums"
   stat:
-    fontFamily: "JetBrains Mono, Fira Code, ui-monospace, monospace"
+    fontFamily: "Archivo, system-ui, sans-serif"
+    fontStretch: "120%"
     fontSize: "3rem"
-    fontWeight: 700
+    fontWeight: 800
     lineHeight: 1
     fontVariantNumeric: "tabular-nums"
   mono:
-    fontFamily: "JetBrains Mono, Fira Code, monospace"
-    fontSize: "0.875rem"
-    fontWeight: 400
-    lineHeight: 1.5
-    letterSpacing: "normal"
+    fontFamily: "JetBrains Mono, ui-monospace, monospace"
+    note: "Code only — diffs, hashes, pasted sources. Mono is no longer the display voice."
   arabic:
-    fontFamily: "IBM Plex Sans Arabic, Inter, system-ui, sans-serif"
-    note: "Under html[lang=ar] the mono display voice is replaced by IBM Plex Sans Arabic for every heading/label/stat — JetBrains Mono has no Arabic glyphs."
+    fontFamily: "IBM Plex Sans Arabic, system-ui, sans-serif"
+    note: "Under html[lang=ar] every display element falls back to the Arabic face at normal width (Archivo has no Arabic glyphs; Plex Arabic has no width axis). Handled centrally in index.css."
 rounded:
-  sm: "2px"
-  md: "3px"
-  lg: "0.35rem"    # --radius, the base
-  xl: "0.5rem"
-  2xl: "0.625rem"
-  full: "9999px"   # dots and the score ring only
+  all: "0px"        # press geometry — everything trims flush
+  full: "9999px"    # dots, avatars, and the registration ring only
 spacing:
   xs: "4px"
   sm: "8px"
@@ -76,195 +76,270 @@ spacing:
   3xl: "64px"
 components:
   button-primary:
-    backgroundColor: "{colors.ink-navy}"
-    textColor: "#f6f1e6"        # near-white paper on navy — navy is a dark hue and takes a light foreground (7.6:1)
-    rounded: "{rounded.lg}"
+    backgroundColor: "{colors.overprint}"
+    textColor: "{colors.proof-sheet}"
+    rounded: "0"
     padding: "10px 16px"
-  button-primary-hover:
-    backgroundColor: "#1b3f6c"
-    textColor: "#f6f1e6"
   button-secondary:
-    backgroundColor: "{colors.card}"
+    backgroundColor: "{colors.press-bed}"
     textColor: "{colors.ink}"
-    rounded: "{rounded.lg}"
-    padding: "10px 16px"
-  button-ghost:
-    backgroundColor: "transparent"
-    textColor: "{colors.slate-mute}"
-    rounded: "{rounded.lg}"
-    padding: "10px 16px"
+    border: "1px solid {colors.hairline}"
+    rounded: "0"
   card:
-    backgroundColor: "{colors.card}"
+    backgroundColor: "{colors.proof-sheet}"
     textColor: "{colors.ink}"
-    rounded: "{rounded.lg}"
+    rounded: "0"
     padding: "20px"
     border: "1px solid {colors.hairline}"
-    shadow: "none"              # border OR shadow, never both — flat by default
+    shadow: "none"              # structure is drawn, never shadowed
   input:
-    backgroundColor: "{colors.card}"
+    backgroundColor: "{colors.proof-sheet}"
     textColor: "{colors.ink}"
-    rounded: "{rounded.lg}"
-    padding: "8px 12px"
+    rounded: "0"
+    border: "1px solid hsl(212 14% 74%)"
   badge:
-    backgroundColor: "hsl(var(--warning) / 0.18)"   # 14–18% tint of the semantic hue
-    textColor: "{colors.ink}"   # ink on amber tint (never small amber text on paper)
-    rounded: "{rounded.sm}"     # squared evidence label, NOT a pill
-    padding: "2px 8px"
-    fontFamily: "{typography.label.fontFamily}"
-    fontSize: "11px"
+    style: "squared press label — Archivo 11px, stretch 108%, caps, 12–16% tint + same-hue 1px border"
+    variants: "success · warning (ink text on amber tint) · error · info · plate-a · plate-b"
+  stamp:
+    style: "2px currentColor border, Archivo 800 stretch 116%, caps 0.14em — the verdict, pressed on the proof"
+    variants: "pass (viridian) · review (amber border, ink text) · flag (red) · neutral"
 ---
 
 # Design System: Clone Lens
 
 ## 1. Overview
 
-**Creative North Star: "The Evidence Dossier"**
+**Creative North Star: "Press Check" — the registration proof.**
 
-Clone Lens is a case file, not a marketing surface. Every screen is an exhibit: it states what was measured, on what scale, and with how much confidence, then lays the evidence beside the number so a reviewer can act on the call and defend it. The interface recedes and the evidence steps forward. "Premium" is carried by precision, spacing, and typographic care — never by decoration.
+The product's mechanism *is* the metaphor: Clone Lens lays two pieces of code
+over each other and reports where they coincide, which is precisely what a
+pressman does at a register check. So the interface is a pre-press proof
+sheet. **Source A is a printing plate that prints process cyan; source B
+prints process magenta; where the two plates put ink down together the colour
+overprints into a deep violet — and that violet is the product's one action
+colour.** Agreement is literally rendered as overprint.
 
-The material metaphor is **warm paper and ink**: a calibrated off-white ground (`--background`), warm-ink text (`--foreground`), and a single **ink-navy** signal that stands in for "the thing worth looking at." The type has a **forensic mono display voice** — headings, labels, and figures are set in JetBrains Mono so the product reads as an authored instrument rather than a generic dashboard — while long prose stays in Inter (and the full Arabic RTL surface in IBM Plex Sans Arabic) so it reads as a document, not a terminal. Depth is nearly flat; structure is drawn with a 1px hairline and tonal surface steps, not shadow.
+The spatial model is **sheet-on-bed**: chrome (the job rail, the instrument
+bar, the footer slug) sits on a cool machine-grey *press bed*; every route's
+content is laid on a bright *proof sheet* with crop marks at its corners.
+Structure is drawn with 1px hairlines and 2px rules — never shadowed — and
+**everything trims square** (base radius 0). The press vocabulary supplies
+the signature elements: registration crosshairs (⊕), crop marks, the ink
+**calibration strip**, slug lines, verdict **stamps**, and a **misregistration
+fringe** reserved for the 404 misprint.
 
-This system **explicitly rejects the "premium glow SaaS" costume** it inherited: coloured glow (`--shadow-glow-*`, neon drop-shadows), frosted glassmorphism, gradient text, indigo/cyan neon, and rounded-blob geometry. Those patterns read as machine-generated and undercut the instrument's credibility. They are **retired**, not the target. The target is the opposite: quiet paper surfaces, hairline structure, sharp corners, and colour used only to carry meaning.
+Dark mode is **The Negative** — the same proof read on a light table with the
+room lights off. Grounds go to film-dark; the plate inks turn luminous; the
+overprint brightens to a light violet with dark text.
 
-**Key Characteristics:**
-- Warm-paper canvas with a single **ink-navy** signal (light) / **Ink & Ember** near-black ground with a brighter navy (dark). One deliberate voice, spent sparingly.
-- **Mono display voice** (JetBrains Mono) for headings, labels, and stats; Inter for body prose; IBM Plex Sans Arabic for the whole Arabic RTL surface.
-- Near-flat elevation: a single restrained **uncoloured** hairline/shadow marks true elevation, never a coloured glow.
-- Sharp, technical geometry — base radius `0.35rem`; over-rounding retired.
-- Semantic similarity scale — green (low) → amber (review) → red (high) — applied consistently to scores, badges, and rings, and always paired with text/icon.
-- Bilingual and RTL-correct by construction; code and data stay left-to-right inside an Arabic layout.
+This system replaces the "Evidence Dossier" identity (warm paper, ink-navy,
+JetBrains Mono display voice) wholesale. Nothing cream, nothing glowing,
+nothing glass, no gradient text, no mono-as-costume: mono belongs to code
+alone now, and the display voice is **Archivo across its width axis**.
+
+**Key characteristics:**
+- Cool press-bed ground + proof-sheet surfaces; hairline-drawn structure; flat depth.
+- One Latin family (Archivo variable, wdth 62.5–125%) in three width cuts:
+  expanded-heavy caps for display, near-normal for working headings and body,
+  tracked small caps ("the slug voice") for labels. JetBrains Mono only where
+  the content is code. IBM Plex Sans Arabic owns the entire RTL surface.
+- The two-plate identity system: **A = cyan, B = magenta**, everywhere the
+  two sources appear (upload panels, diff legends, AST graphs, exhibit chips).
+- The **overprint violet** as the single action colour — buttons, active
+  states, focus rings, progress fills.
+- Square geometry throughout; `rounded-full` only for dots and the ⊕ ring.
+- The similarity scale (green < 50 / amber 50–79 / red ≥ 80) unchanged in
+  *meaning*, re-inked as pass-viridian / review-amber / flag-red.
 
 ## 2. Colors
 
-A warm-paper ground with a single ink-navy signal, a terracotta "second exhibit" identity tone, and a three-stop similarity scale. Colour is a measurement, not a mood.
+### The plates and the overprint
+- **Overprint** (`--primary`): the colour of "both plates down" — cyan ×
+  magenta multiplied. It is the only action colour: primary buttons, focus
+  rings, selection, the overlap band of every OverprintMeter. Fills take a
+  near-white foreground (≈9:1). As text on the sheet it clears AA easily.
+- **Plate A / Plate B** (`--plate-a`, `--plate-b`): full-strength process
+  inks for marks, bars, chips, and graphics. **Never body text** — for text
+  use the `-deep` cuts (`--plate-a-deep`, `--plate-b-deep`), which clear
+  4.5:1 on the sheet. `--accent-suspect` is kept as a legacy alias of plate
+  B's deep cut because the AST graph and diff components consume it.
+- **The Plate Identity Rule.** Anywhere the two sources appear side by side,
+  A is cyan and B is magenta — chips, panel headers, graph nodes, diff dots.
+  The pairing is the product's premise; do not swap or restyle it locally.
 
-### Primary
-- **Ink Navy** (`--primary` · `hsl(214 60% 34%)` light, `hsl(210 72% 64%)` dark): the one action-and-state colour — primary buttons, current selection, focus rings, the focused piece of evidence. It reads as the fountain-pen/ledger ink a physical case file is signed in — the interface's single deliberate voice; spend it sparingly. **Navy is a dark hue — any navy *fill* takes a light (near-white) foreground** (`--primary-foreground`), the reverse of the amber it replaced. And because it is dark, navy **clears contrast as small text** (7.4:1 on paper), so the accent may be used directly for links, the active-nav label, and `Serial`/`FIG.NN` markers.
+### Neutrals
+- **Ink** (`--foreground`): rich black with a cyan lean; all reading text.
+- **Press Slate** (`--muted-foreground`): secondary text and slugs; ≥4.5:1 on
+  both bed and sheet. Never dilute text with `/60`-style opacity.
+- **Press Bed** (`--background`) vs **Proof Sheet** (`--card`): the bed is
+  visibly grey so the sheet reads as a physical object on it. Panels within a
+  sheet stay sheet-white and are separated by hairlines, not tone.
 
-### Second Exhibit
-- **Terracotta Suspect** (`--accent-suspect` · `hsl(16 58% 46%)`): the identity tone of the *second* thing being compared — the "B" side AST graph, the second exhibit. It partners with the navy signal to represent "two things being compared," which is the product's whole premise. It is warm and distinct from both the navy signal and the oxblood alarm. Fully token-based so it tracks light/dark. Not decorative: if it is not marking the second exhibit, it should not appear.
-
-### Neutral (paper & ink)
-- **Ink** (`--foreground` · `hsl(30 14% 13%)`): all body copy and headings. Clears AA/AAA on paper even at small sizes.
-- **Slate Mute** (`--muted-foreground` · `hsl(34 9% 37%)`): secondary text, captions, labels. Verified ≥4.5:1 on the card surface — **never lighten it "for elegance"** (no `/60`, `/50`, `/40` opacity dilutions on text).
-- **Paper** (`--background` · `hsl(42 30% 95%)`): the app body ground. Dark: `hsl(30 12% 8%)` (Ink & Ember).
-- **Card / Surface** (`--card` · `hsl(40 36% 97%)`): cards, panels, inputs. Tonal steps `--surface-1/2/3` layer panels without shadow.
-- **Hairline** (`--border` · `hsl(38 17% 82%)`): borders and dividers. Structure is drawn with a 1px hairline, not a shadow.
-
-### Semantic — the Similarity Scale
-- **Olive Clear** (`--success` · `hsl(130 32% 33%)`): low similarity, pass, healthy state.
-- **Amber Review** (`--warning` · `hsl(38 92% 45%)`): mid similarity, needs review.
-- **Oxblood Flag** (`--destructive` · `hsl(8 64% 42%)`): high similarity, fail, flagged.
+### The similarity scale
+- **Pass Viridian** (`--success`) · low similarity, healthy, passed.
+- **Review Amber** (`--warning`) · mid similarity. **Amber never appears as
+  small text** — it is shown as ink text on an amber tint, or as an amber
+  border/bar beside ink.
+- **Flag Red** (`--destructive`) · high similarity, failed, irreversible
+  actions. Distinct in hue from plate-B magenta; the two must never be
+  conflated (magenta = identity, red = verdict).
+- **The Calibrated Scale Rule.** The three bands map to the same thresholds
+  everywhere (< 50 / 50–79 / ≥ 80) and colour is always paired with a text
+  label or stamp.
 
 ### Charts
-- **`--chart-1..5`**: a categorical palette (ink-navy, terracotta, olive, warm slate, muted plum) for *categorical* series (languages, single-series activity). For *semantic* bands (a similarity distribution) use the similarity scale (`--success`/`--warning`/`--destructive`) directly, never the categorical palette. Never hand-write raw `hsl(...)` literals in a chart — reference the tokens.
-
-### Named Rules
-**The One Signal Rule.** The navy signal carries no more than ~10% of any screen's pixels. It marks the one primary action or the current selection, then stops. Its rarity is what makes it read as "important," so a screen with three navy buttons has none.
-
-**The Meaning-Only Colour Rule.** Every non-neutral colour must encode a fact — an action, a state, a similarity band, an exhibit identity, a chart series. If a colour is present only to look premium, delete it. Premium is the spacing and the type, not the hue.
-
-**The Legible-Accent Rule.** Navy is a dark hue: any element *filled* with `--primary` takes a **light** foreground (`--primary-foreground`, near-white paper). Because navy is dark it also clears contrast as text (7.4:1 on paper), so — unlike the amber it replaced — the accent may be used directly for links, the active-nav label, `Serial`/`FIG.NN` markers, and small labels. (This retires the old "never accent-as-text" workaround, which existed only because amber failed.)
-
-**The Amber-Is-Warning-Only Rule.** Amber now appears **only** as `--warning` — the mid-similarity / review band of the Similarity Scale. Amber still fails as small text on paper (~2.4:1), so a warning is shown as **ink text on an amber tint** (`.badge-warning`, and the `DRAFT`/`NO DATA`/`Awaiting` chips) or as an amber dot/bar beside ink — never as small amber reading or status text.
-
-**The Calibrated Scale Rule.** Green → amber → red always maps to the same similarity bands (roughly <50 / 50–79 / ≥80), everywhere: score ring, badges, radar dots, history rows, distribution charts. A reviewer learns the scale once.
+`--chart-1..5` = cyan-deep, magenta-deep, viridian, press slate, overprint —
+the printed-ink legend. For *semantic* similarity bands use the similarity
+scale directly, never the categorical palette.
 
 ## 3. Typography
 
-**Display / Heading / Label / Stat voice:** JetBrains Mono (`--font-display`, with `Fira Code, ui-monospace, monospace`) — the forensic voice.
-**Body / Prose / UI Font:** Inter (`--font-sans`, with `system-ui, -apple-system, sans-serif`).
-**Code Font:** JetBrains Mono (`--font-mono`).
-**Arabic Font:** IBM Plex Sans Arabic (loaded for `html[lang="ar"]`, weights 400–700) — **replaces the mono display voice** for every heading/label/stat under RTL.
+**One Latin family, three widths.** Archivo (variable, `wght` + `wdth`)
+carries display, UI, body, and labels; the *width axis* is the display voice:
 
-**Character:** The product speaks in two registers. Structural elements that name or measure — headings, labels, figures, badges, the score — are set in **JetBrains Mono** via the `.t-hero / .t-h1…t-h5 / .t-label / .t-stat` utilities, giving an engineered, authored read. Everything you *read as a sentence* — descriptions, analysis prose, help text — stays in **Inter** for comfort. Mono is the voice of "this is a value or a name"; Inter is the voice of "this is an explanation." This split is deliberate: forcing mono onto long prose would read as a developer-tool cliché, and forcing Inter onto the figures would erase the instrument character.
+- **`.t-hero` / `.t-h1` / `.t-h2`** — expanded (114–122%), weight 750–800,
+  UPPERCASE: the press-poster cut. Page titles are short; caps are the stamp
+  voice, not shouting. **Never case-transform user content** (file names,
+  code labels get `normal-case`).
+- **`.t-h3`–`.t-h5`** — near-normal width, sentence case: working headings.
+- **`.t-body` / `.t-sm` / `.t-xs`** — normal width; prose caps at ~65–75ch.
+- **`.press-slug`** — the signature label voice: 11px caps, stretch ~106%,
+  tracking 0.1em, tabular figures. Replaces the old mono meta entirely; used
+  for field labels, table heads, job lines, and edge annotations.
+- **`.t-stat`** — expanded 800 tabular numerals for scores and counters.
+- **`.t-mono`** — JetBrains Mono, **code only** (diffs, hashes, pasted
+  sources, code blocks). Mono used for anything that is not code is a defect.
 
-### Hierarchy (utilities in `index.css`)
-- **`.t-hero`** (mono, 700, 4.5rem, lh 1.05, -0.02em): marketing Home hero only. Never inside the product shell.
-- **`.t-h1 / .t-h2`** (mono, 700, 3rem→2rem, lh 1.15–1.2): page titles and major section heads.
-- **`.t-h3 / .t-h4 / .t-h5`** (mono, 600, 1.5rem→1.125rem): card and panel headings.
-- **`.t-body / .t-sm / .t-xs`** (Inter): prose and descriptions; cap analysis prose at ~65–75ch.
-- **`.t-label`** (mono, 600, 0.75rem, 0.08em, UPPERCASE): field labels and column heads — a utility, not a section eyebrow.
-- **`.t-stat`** (mono, 700, tabular-nums): the big figures (score, KPIs).
-- **`.t-mono`** (mono, 0.875rem): code, diffs, hashes.
+**The Arabic Exemption.** Under `html[lang="ar"]` every display class
+(`.t-*`, `.press-slug`, `.stamp`, `.font-display`) falls back to IBM Plex
+Sans Arabic at `font-stretch: normal`, `letter-spacing: 0` — handled once in
+`index.css`. Code and data stay LTR inside the RTL layout.
 
-### Named Rules
-**The Two-Register Rule.** Headings, labels, and figures speak in mono (`.t-*` display utilities); body prose speaks in Inter. Do not set a paragraph in mono, and do not set a heading in Inter (a raw `text-2xl font-semibold` heading is a defect — use `.t-h4` / `font-[family:var(--font-display)]`).
+## 4. Elevation & Geometry
 
-**The Fixed-Scale Rule.** Product type is fixed rem, never fluid `clamp()`. Only the Home hero may be fluid.
+- **Flat.** Surfaces are separated by hairlines and the bed/sheet tone step.
+  The single neutral shadow (`--card-shadow-*`) exists only for true
+  overlays (menus, dialogs). Border **or** shadow, never both.
+- **Square.** `--radius: 0` and the whole Tailwind radius scale points at
+  0px tokens. `rounded-full` survives only for dots, avatars, spinners, and
+  the registration ring.
+- **Rules carry hierarchy.** A page's masthead sits above a **double rule**
+  (4px `double` in foreground); sections open with a single 2px rule;
+  everything else is a 1px hairline.
 
-**The Arabic-Exemption Rule.** JetBrains Mono has no Arabic glyphs. Under `html[lang="ar"]` every display element falls back to IBM Plex Sans Arabic (handled centrally in `index.css`). Never hardcode a mono `font-family` on a heading in a way that bypasses this.
+## 5. The Press Kit (composition primitives)
 
-## 4. Elevation
+All in `src/components/dossier/Dossier.tsx` (path kept for its 15 importers):
 
-Flat by default, with structural shadows only. Surfaces rest flat, separated by the hairline border and tonal layering (`--surface-1/2/3`). A single restrained, **uncoloured** neutral shadow appears only where an element genuinely floats above the page — dropdowns, dialogs, popovers. Depth marks structure, never adds atmosphere.
+- **`Masthead`** — job header: slug kicker with a ⊕ reg-dot, expanded-caps
+  title, slug meta line, actions; closed by the double rule.
+- **`SectionHead` / `Panel bare`** — 2px-ruled section openers.
+- **`Panel` / `Figure`** — hairline sheets with slug header strips; figures
+  carry `FIG NN` captions.
+- **`Field` / `FieldSheet` / `SpecList` / `MetaStrip`** — printed-form rows
+  and density readouts in the slug voice.
+- **`Serial`** — plate/serial chip; tones `plate-a`, `plate-b`, `primary`,
+  `muted`.
+- **`RegMark`** — the ⊕ crosshair SVG. Brand mark (in an overprint square),
+  seam marker between the two sources, active-nav indicator, and — rotating —
+  the loading spinner.
+- **`ControlStrip`** — the ink calibration bar (9 chips: C, M, overprint, K,
+  tints, semantic inks). Decorative signature: sidebar foot, sheet footer,
+  section asides. Always `aria-hidden`.
+- **`OverprintMeter`** — the flagship instrument. Plate A's band prints from
+  the left, plate B's from the right, each spanning `50% + score/2`, so the
+  violet overlap is **exactly the similarity score**. At 0 the plates barely
+  meet; at 100 they lie in perfect register. Used on the Results verdict,
+  History rows, and the Home demo. Pass `label` for standalone use; omit it
+  when a labelled parent already announces the value.
+- **`Stamp`** — the verdict, pressed on the proof: `pass` / `review` /
+  `flag` / `neutral`. The label text carries the meaning; colour is never
+  alone.
+- **`ScaleRuler`** — the graded 0–100 instrument the verdict is read against:
+  band-tinted track (pass/review/flag), threshold ticks at 0/50/80/100, and a
+  needle at the measured value. The score is POSITIONED, not merely labelled.
+- **`PlatePair`** — the compact A-over-B lockup (ink swatch + name per plate).
+  The standard way to print "this pair" in ledgers, headers, and grounding
+  blocks. `mono` when the labels are file names/code.
+- **`.press-tabs-list` / `.press-tab`** — squared folder tabs cut into a
+  sheet edge; the active tab joins the content sheet below it (bottom edge
+  opens into the panel). Works with Radix triggers (`data-state`) and plain
+  buttons. Wraps on narrow viewports.
+- **`CropMarks`** — corner ticks for a `relative` sheet container (the
+  MainLayout content sheet, hero panels).
+- **`.misreg`** — cyan/magenta split text-shadow: the plates coming apart.
+  Reserved for the 404 misprint and at most one hero moment. Never body text.
 
-### Shadow Vocabulary
-- **Rest** (`--card-shadow-rest`: `0 1px 2px hsl(30 24% 18% / 0.05)`): a single hairline shadow. Most cards use the 1px border *instead* — border **or** shadow, never both.
-- **Hover / Float** (`--card-shadow-hover`): a slightly deeper version for true floating layers (menus, dialogs). Interactive cards deepen their **border** on hover rather than lifting.
+## 5b. Page compositions (each surface's printed form)
 
-### Retired (do not use in new work)
-- **Coloured glow** — `--shadow-glow-*`, `--glow-shadow-*`, neon drop-shadows, `pulse-glow`. Aliased to `none` so legacy call sites render flat; do not add new ones.
-- **Glassmorphism** — `backdrop-blur` + translucent `bg-*/50` as a resting surface. Use a solid fill + hairline.
-- **Gradient fills / text** — `--gradient-brand` is aliased to a solid; `.text-gradient-brand` renders as one solid colour.
+Every section has its own press-artifact structure — recolouring a generic
+layout is a defect. The register:
 
-### Named Rules
-**The No-Glow Rule.** Shadows are neutral and structural. A shadow tinted with a brand hue, or any glow used as decoration, is forbidden. If it looks like the element is emitting light, it is wrong.
+- **Home** — the specimen poster: registration hero (three-layer key phrase),
+  impression counters, the overlay demo with a live meter + stamp, the
+  ink-legend signals index, the drenched overprint colophon.
+- **Analysis** — the imposition desk: the two plates on the table joined at a
+  dotted registration seam; the **job ticket** rail (language, plate
+  readiness, engine checklist) travels beside them; sticky press-control bar.
+- **Results** — the proof report: one **proof block** (readout ▸ pair &
+  reading ▸ stamped disposition) closed by the **ScaleRuler**; press file
+  tabs; drivers as deep-link chips; density bars with 50/80 ticks; metrics as
+  the **registration table** (Metric · A · B · Δ); quality as A/B plate
+  dockets; the chat as a correspondence log.
+- **History** — the press log: log-numeral lines, PlatePair cells, overprint
+  meters, verdict stamps, slug dates.
+- **Analytics** — the gauge board: a 4-cell **gauge bank** behind shared
+  rules; figures as a contact sheet (activity area, language **ink-coverage
+  bar** + ledger, banded similarity bars); top pairs as a PlatePair ledger.
+- **Chat** — the grounded consultation: grounding docket (plate serials +
+  spec rows) above the correspondence log (ruled annotation entries with
+  speaker slugs — never messenger bubbles).
+- **Billing** — the subscription statement (plan block ▸ ink-coverage gauge
+  with quarter ticks) and the **rate card**: tiers as columns, attributes as
+  rows, the current tier stamped.
+- **API Keys** — the key cabinet: press tabs; issue form; the one-time token
+  on a dashed **hand-off slip** with a review stamp; the register as a
+  log-numeral ledger; docs as ruled spec sheets with numbered exhibits.
+- **Settings** — the account docket: the **ID plate** (operator name +
+  role stamp + email), the 2FA enrolment as a numbered procedure (a genuine
+  sequence), access/data control rows, and the flag-stamped **void block**.
+- **Help** — the operator's manual: contents rail with ⊕ bullets (named, not
+  numbered), the support **directory**, the route list, and the printed
+  **Q./A.** reference in plate colours.
+- **Admin** — the control room: live masthead readings, press tabs, census
+  ledgers, figure bars, and log-numeral tables (flagged rows read red).
+- **Enterprise** — Workspaces as the registry ledger (threshold shown as a
+  banded scale position); Review Cases as the case docket (PlatePair
+  artifacts, overprint meters, disposition tallies).
 
-**The Structure-Over-Shadow Rule.** Reach for a 1px hairline or a tonal surface step before a shadow. A shadow must justify itself by marking a real z-layer.
+## 6. Motion
 
-## 5. Components
+- Product surfaces: 150–300ms colour/width transitions; state, not
+  choreography. Loading is the rotating RegMark, skeletons stay quiet.
+- The one entrance: the Home hero's key phrase prints three times (cyan
+  layer, magenta layer, black impression) and slides into near-register over
+  0.9s (`animate-register-a/b`) — the brand moment, Home only.
+- The global `prefers-reduced-motion` contract in `index.css` collapses all
+  animation and pins the hero layers at their static offsets
+  (`motion-reduce:translate-x-*`).
 
-### Buttons
-- **Shape:** sharp, base radius `--radius` (`0.35rem`). Never pill-round a rectangular action button.
-- **Primary:** solid Ink Navy, **near-white text** (`--primary-foreground`), 10px×16px padding. One primary action per view.
-- **Hover / Focus:** hover darkens the fill with a 150ms transition; focus shows a 2px navy ring at 40% (`--ring`), never removed. `:active` settles the fill; no transform bounce.
-- **Secondary:** card fill, ink text, 1px hairline. **Ghost:** transparent, slate-mute text, hairline on hover. **Destructive:** Oxblood fill for irreversible actions only.
-- **States are non-negotiable:** default, hover, focus-visible, active, disabled (55% opacity), and loading (inline spinner, **label retained**) all ship together, plus the global `prefers-reduced-motion` contract.
+## 7. Do's and Don'ts
 
-### Cards / Containers
-- **Corner Style:** base radius `--radius` (`0.35rem`) for cards and panels; `--radius-xl` (`0.5rem`) only for large feature containers. Never a `rounded-2xl`/`3xl` blob.
-- **Background:** `--card`, or a subtle `--surface-1`→`--surface-2` step for stat/premium cards. **Solid fills only** — no glass.
-- **Border:** 1px hairline is the default separator. **Border or shadow, never both.**
-- **Shadow Strategy:** flat at rest; interactive cards deepen the **border** on hover (`.card-premium:hover`), they do not lift-and-glow. Static cards stay flat.
-- **Internal Padding:** ~20px; never nest a card inside a card.
+### Do
+- Keep A = cyan and B = magenta wherever the two sources meet.
+- Spend the overprint violet on one primary action per view; let the
+  hairlines and type carry everything else.
+- Draw structure (hairline / 2px rule / double rule); trim everything square.
+- Use `.press-slug` for labels and annotations; keep mono strictly for code.
+- Pair every band colour with its label or stamp; keep the < 50 / 50–79 /
+  ≥ 80 thresholds identical everywhere.
+- Preserve the Arabic exemption and LTR code inside RTL.
 
-### Inputs / Fields
-- **Style:** card fill, 1px `--input` border, `--radius`, ink text; label above in `.t-label`.
-- **Focus:** 2px navy ring at 40% + border shift to navy at 60% (`.input-focus`), 150ms. No glow.
-- **Error:** Oxblood border + a red helper line beneath; never colour-only (pair with text/icon). **Disabled:** muted fill, 55% text.
-
-### Navigation (Sidebar)
-- **Style:** quiet vertical list; item label in body weight, slate-mute at rest.
-- **Active:** ink text on a 12%-navy tint fill (`.nav-link-active`), full-width. **No `border-left` side-stripe** — the full background tint carries the state.
-- **Hover:** subtle surface tint. The enterprise nav section is hidden entirely for non-admins.
-
-### Badges / Status (evidence labels, not pills)
-- **Style:** **squared** (`--radius-sm`), **mono** (`--font-display`), 11px, a 14–18% tint of the semantic hue with a same-hue 1px border. Variants: info (neutral), success (olive), warning (**ink** text on amber tint — see the Amber-Is-Warning-Only rule), error (oxblood). Mapped to the Similarity Scale. Never a `rounded-full` pill.
-
-### Similarity Score Ring (signature)
-The flagship readout on the results page: an SVG progress ring showing combined similarity 0–100, stroke coloured by the Similarity Scale (green <50 / amber 50–79 / red ≥80), with the number in `.t-stat` mono at the centre. The single most important "instrument dial" in the product — it must read instantly and its colour must always agree with the verdict text beside it.
-
-### AST Graph (two exhibits)
-- Nodes are flat token cards (solid `--card` fill + hairline), **no glow, no glass, no neon**. The "A" graph is toned ink navy (`--primary`); the "B" graph is toned terracotta (`--accent-suspect`). Selection and ancestry-path emphasis are carried by a **border-colour change only** — no transform, no coloured drop-shadow — which keeps the graph calm and reduced-motion friendly.
-
-## 6. Do's and Don'ts
-
-### Do:
-- **Do** keep the navy signal to ≤10% of any screen — one primary action or the current selection, then stop (The One Signal Rule).
-- **Do** put a **light** foreground on any navy fill; amber appears only as `--warning`, shown as **ink on an amber tint** (never small amber text on paper).
-- **Do** draw structure with a 1px hairline and tonal surface steps before reaching for any shadow (border **or** shadow, never both).
-- **Do** set body and secondary text in Ink / Slate Mute at full strength, verified ≥4.5:1 — never lighten body/label text with `/60`,`/50`,`/40` opacity.
-- **Do** speak in two registers: mono (`.t-*` display) for headings/labels/figures, Inter for prose; IBM Plex Sans Arabic for the whole Arabic surface.
-- **Do** map every semantic colour to the same similarity band everywhere (green/amber/red), and always pair colour with text or icon so it survives colour blindness.
-- **Do** ship every interactive component with default, hover, focus-visible, active, disabled, and loading states — the global `@media (prefers-reduced-motion: reduce)` block in `index.css` is the app-wide motion contract; new components inherit it.
-- **Do** keep code, diffs, and data left-to-right inside the Arabic RTL layout.
-
-### Don't:
-- **Don't** use decorative glow or neon — `--shadow-glow-*`, coloured drop-shadows, and `pulse-glow` are retired. If an element looks like it emits light, it's wrong.
-- **Don't** use glassmorphism (`backdrop-blur` + translucent fill) as a resting surface — use a solid fill + hairline.
-- **Don't** use gradient text or gradient fills — `--gradient-brand`/`.text-gradient-brand` are aliased to a solid; emphasise with weight, size, and one solid colour.
-- **Don't** build the interchangeable SaaS template — identical icon-card grids, an "AI-Powered Platform" badge, "Everything you need…" / "Ready to…?" copy, or generic `Sparkles`/`Zap`/`Shield` metaphor icons. Use domain-specific labels and icons.
-- **Don't** use a `border-left`/`border-right` greater than 1px as a coloured accent stripe — use a full background tint.
-- **Don't** round cards past `--radius-xl` or use `rounded-full` on anything but dots and the score ring; over-rounding reads as toy, not instrument.
-- **Don't** introduce a second sans or set long prose in mono; don't set a heading in Inter.
+### Don't
+- Don't reintroduce the retired costumes: no glow, no glass, no gradient
+  text, no cream paper, no mono headings, no rounded blobs.
+- Don't use full-strength plate inks as small text (use the `-deep` cuts).
+- Don't put amber on small text, ever.
+- Don't case-transform user content in display styles.
+- Don't use `.misreg` outside the misprint (404) context.
+- Don't shadow a bordered surface or nest sheets inside sheets.

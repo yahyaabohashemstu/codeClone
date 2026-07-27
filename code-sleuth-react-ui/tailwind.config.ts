@@ -19,9 +19,9 @@ export default {
 		},
 		extend: {
 			fontFamily: {
-				sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-				mono: ['JetBrains Mono', 'Fira Code', 'Cascadia Code', 'monospace'],
-				display: ['JetBrains Mono', 'Fira Code', 'ui-monospace', 'monospace'],
+				sans: ['Archivo', 'system-ui', '-apple-system', 'sans-serif'],
+				mono: ['JetBrains Mono', 'ui-monospace', 'Cascadia Code', 'monospace'],
+				display: ['Archivo', 'system-ui', 'sans-serif'],
 			},
 			colors: {
 				border: 'hsl(var(--border))',
@@ -58,6 +58,16 @@ export default {
 					foreground: 'hsl(var(--warning-foreground))'
 				},
 				'accent-suspect': 'hsl(var(--accent-suspect))',
+				/* The two plates: source A prints cyan, source B magenta.
+				   The -deep cuts clear contrast as text. */
+				'plate-a': {
+					DEFAULT: 'hsl(var(--plate-a))',
+					deep: 'hsl(var(--plate-a-deep))'
+				},
+				'plate-b': {
+					DEFAULT: 'hsl(var(--plate-b))',
+					deep: 'hsl(var(--plate-b-deep))'
+				},
 				chart: {
 					'1': 'hsl(var(--chart-1))',
 					'2': 'hsl(var(--chart-2))',
@@ -84,12 +94,14 @@ export default {
 					ring: 'hsl(var(--sidebar-ring))'
 				},
 			},
+			/* Press geometry: everything trims square. The scale stays wired to
+			   tokens so the whole app follows a single knob. */
 			borderRadius: {
-				lg: 'var(--radius)',
-				md: 'calc(var(--radius) - 2px)',
-				sm: 'calc(var(--radius) - 4px)',
-				xl: '0.5rem',
-				'2xl': '0.625rem',
+				lg: 'var(--radius-lg)',
+				md: 'var(--radius-md)',
+				sm: 'var(--radius-sm)',
+				xl: 'var(--radius-xl)',
+				'2xl': 'var(--radius-2xl)',
 			},
 			keyframes: {
 				'accordion-down': {
@@ -100,17 +112,28 @@ export default {
 					from: { height: 'var(--radix-accordion-content-height)' },
 					to: { height: '0' }
 				},
-				/* Quiet, opacity-only entrance — no upward slide. Structural
-				   content should appear, not perform. */
+				/* Quiet, opacity-only entrance — structural content should
+				   appear, not perform. */
 				'fade-in': {
 					from: { opacity: '0' },
 					to: { opacity: '1' }
+				},
+				/* The two plates sliding into register — Home hero only. */
+				'register-a': {
+					from: { transform: 'translate(-0.14em, 0)' },
+					to: { transform: 'translate(-0.045em, 0)' }
+				},
+				'register-b': {
+					from: { transform: 'translate(0.14em, 0)' },
+					to: { transform: 'translate(0.045em, 0)' }
 				},
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out',
 				'fade-in': 'fade-in 0.24s ease-out',
+				'register-a': 'register-a 0.9s cubic-bezier(0.22, 1, 0.36, 1) both',
+				'register-b': 'register-b 0.9s cubic-bezier(0.22, 1, 0.36, 1) both',
 			},
 		}
 	},

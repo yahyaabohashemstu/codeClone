@@ -8,8 +8,6 @@ import {
   Bar,
   BarChart,
   Cell,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -19,8 +17,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { PageLoader } from "@/components/common/PageLoader";
 import { PageError } from "@/components/common/PageError";
-import { Masthead, Figure, Panel, Serial, SpecList } from "@/components/dossier/Dossier";
+import { Masthead, Figure, Panel, PlatePair } from "@/components/dossier/Dossier";
 import { apiFetch } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import type { HistorySummary } from "@/types/api";
 
 interface AnalyticsData {
@@ -153,26 +152,35 @@ const Analytics = () => {
         }
       />
 
-      {/* Summary readings — a ruled evidence readout, not a 4-up card band */}
+      {/* The gauge bank — one instrument band, four readings behind shared rules */}
       <Panel
         bare
         marker="§"
         label={t("analytics.summary", { defaultValue: "Summary readings" })}
         className="mt-10"
       >
-        <SpecList
-          rows={readings.map((r) => ({
-            label: (
-              <span className="block">
-                {r.label}
-                <span className="mt-0.5 block font-sans text-[10px] normal-case tracking-normal text-muted-foreground/70">
-                  {r.sub}
-                </span>
+        <div className="grid grid-cols-2 border border-border bg-card lg:grid-cols-4">
+          {readings.map((r, i) => (
+            <div
+              key={r.label}
+              className={cn(
+                "border-border p-4 sm:p-5",
+                i % 2 === 0 ? "border-e" : "",
+                i < 2 ? "border-b lg:border-b-0" : "",
+                "lg:border-b-0 lg:border-e lg:last:border-e-0",
+              )}
+            >
+              <span className="press-slug block">{r.label}</span>
+              <span
+                className="mt-2 block font-display text-[2.1rem] font-extrabold leading-none tabular-nums text-foreground"
+                style={{ fontStretch: "118%" }}
+              >
+                {r.value}
               </span>
-            ),
-            value: r.value,
-          }))}
-        />
+              <span className="mt-1.5 block text-[10px] leading-snug text-muted-foreground">{r.sub}</span>
+            </div>
+          ))}
+        </div>
       </Panel>
 
       {/* Exhibits — figure-framed charts under a ruled § break */}
@@ -218,41 +226,42 @@ const Analytics = () => {
 
       {/* FIG.02 / FIG.03 — distributions */}
       <div className="grid gap-5 xl:grid-cols-2">
-        {/* Language distribution */}
+        {/* Language distribution — ink coverage: one proportional bar + a ruled ledger */}
         <Figure n={2} label={t("analytics.langDist")} actions={<Reading>{uniqueLangs}</Reading>}>
-          <div className="flex flex-col items-center gap-4 sm:flex-row">
-            <div role="img" aria-label={`${t("analytics.langDist")}: ${data.language_dist.slice(0, 7).map((d) => `${d.language} ${d.count}`).join(", ")}`} className="w-full sm:w-[45%]">
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie
-                  data={data.language_dist.slice(0, 7)}
-                  dataKey="count"
-                  nameKey="language"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={70}
-                  strokeWidth={0}
-                >
-                  {data.language_dist.slice(0, 7).map((_, i) => (
-                    <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
+          {(() => {
+            const langs = data.language_dist.slice(0, 7);
+            const langTotal = langs.reduce((sum, d) => sum + d.count, 0) || 1;
+            return (
+              <div
+                role="img"
+                aria-label={`${t("analytics.langDist")}: ${langs.map((d) => `${d.language} ${d.count}`).join(", ")}`}
+              >
+                {/* The coverage bar — each language's share of the printed record */}
+                <div className="flex h-6 w-full overflow-hidden border border-border" aria-hidden>
+                  {langs.map((d, i) => (
+                    <span
+                      key={d.language}
+                      className="h-full border-e border-card last:border-e-0"
+                      style={{ width: `${(d.count / langTotal) * 100}%`, background: PALETTE[i % PALETTE.length] }}
+                    />
                   ))}
-                </Pie>
-                <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
-              </PieChart>
-            </ResponsiveContainer>
-            </div>
-            <dl className="flex-1 space-y-2">
-              {data.language_dist.slice(0, 7).map((d, i) => (
-                <div key={d.language} className="flex items-center justify-between gap-2 text-xs">
-                  <dt className="flex items-center gap-1.5">
-                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: PALETTE[i % PALETTE.length] }} />
-                    <span className="font-medium capitalize text-foreground">{d.language}</span>
-                  </dt>
-                  <dd className="font-mono tabular-nums text-muted-foreground">{d.count}</dd>
                 </div>
-              ))}
-            </dl>
-          </div>
+                <dl className="mt-3 divide-y divide-border/60" aria-hidden>
+                  {langs.map((d, i) => (
+                    <div key={d.language} className="flex items-center justify-between gap-2 py-1.5 text-xs">
+                      <dt className="flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 shrink-0" style={{ background: PALETTE[i % PALETTE.length] }} />
+                        <span className="font-medium capitalize text-foreground">{d.language}</span>
+                      </dt>
+                      <dd className="press-slug tabular-nums">
+                        {d.count} · {Math.round((d.count / langTotal) * 100)}%
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            );
+          })()}
         </Figure>
 
         {/* Similarity distribution */}
@@ -335,21 +344,12 @@ const Analytics = () => {
             <table className="w-full min-w-[600px] text-sm">
               <thead>
                 <tr className="border-b-2 border-foreground">
-                  <th className="w-12 px-4 py-2.5 text-start text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    #
+                  <th className="press-slug w-12 px-4 py-2.5 text-start">#</th>
+                  <th className="press-slug px-4 py-2.5 text-start">
+                    {t("analytics.source")} A ⊕ B
                   </th>
-                  <th className="px-4 py-2.5 text-start text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    {t("analytics.source")} A
-                  </th>
-                  <th className="px-4 py-2.5 text-start text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    {t("analytics.source")} B
-                  </th>
-                  <th className="px-4 py-2.5 text-start text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    {t("analytics.language")}
-                  </th>
-                  <th className="px-4 py-2.5 text-end text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    {t("analytics.similarity")}
-                  </th>
+                  <th className="press-slug px-4 py-2.5 text-start">{t("analytics.language")}</th>
+                  <th className="press-slug px-4 py-2.5 text-end">{t("analytics.similarity")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -360,18 +360,27 @@ const Analytics = () => {
                       : "hsl(var(--success))";
                   return (
                     <tr key={a.id} className="transition-colors hover:bg-muted/30">
-                      <td className="px-4 py-3">
-                        <Serial tone={i === 0 ? "primary" : "muted"}>{i + 1}</Serial>
+                      <td className="px-4 py-3 align-top">
+                        <span
+                          className="font-display text-lg font-extrabold tabular-nums leading-none text-muted-foreground"
+                          style={{ fontStretch: "118%" }}
+                        >
+                          {String(i + 1).padStart(2, "0")}
+                        </span>
                       </td>
-                      <td className="max-w-[200px] truncate px-4 py-3 font-mono text-xs text-foreground">{a.sourceA}</td>
-                      <td className="max-w-[200px] truncate px-4 py-3 font-mono text-xs text-foreground">{a.sourceB}</td>
-                      <td className="px-4 py-3">
+                      <td className="max-w-[320px] px-4 py-3">
+                        <PlatePair mono a={a.sourceA} b={a.sourceB} />
+                      </td>
+                      <td className="px-4 py-3 align-middle">
                         <span className="badge-info capitalize">{a.language}</span>
                       </td>
-                      <td className="px-4 py-3 text-end">
-                        {/* Ink value + a band-coloured dot (the dot carries the scale, the number stays legible). */}
-                        <span className="inline-flex items-center justify-end gap-1.5 font-mono text-sm font-bold tabular-nums text-foreground">
-                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: scoreColorValue }} />
+                      <td className="px-4 py-3 text-end align-middle">
+                        {/* Ink value + a band-coloured square (the square carries the scale, the number stays legible). */}
+                        <span
+                          className="inline-flex items-center justify-end gap-1.5 font-display text-sm font-bold tabular-nums text-foreground"
+                          style={{ fontStretch: "108%" }}
+                        >
+                          <span className="h-2 w-2" style={{ background: scoreColorValue }} />
                           {a.similarity.toFixed(1)}%
                         </span>
                       </td>

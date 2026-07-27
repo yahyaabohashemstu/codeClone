@@ -1,8 +1,11 @@
-/* Self-hosted brand fonts from /public/fonts (non-render-blocking via font-display: swap) */
+/* Self-hosted brand fonts from /public/fonts (non-render-blocking via font-display: swap).
+   Archivo carries the whole Latin voice (its wdth axis gives the expanded display cut);
+   JetBrains Mono is reserved for actual code; IBM Plex Sans Arabic owns the RTL surface. */
 @font-face {
-  font-family: 'Inter';
-  src: url('/fonts/Inter-VariableFont_opsz_wght.ttf') format('truetype-variations');
+  font-family: 'Archivo';
+  src: url('/fonts/Archivo-VariableFont_wdth_wght.ttf') format('truetype-variations');
   font-weight: 100 900;
+  font-stretch: 62.5% 125%;
   font-style: normal;
   font-display: swap;
 }
@@ -50,98 +53,107 @@
   :root {
     color-scheme: light;
 
-    /* Evidence Dossier — warm paper & ink, a single ink-navy signal, forensic mono voice */
-    --background: 42 30% 95%;          /* warm paper */
-    --foreground: 30 14% 13%;          /* warm ink */
+    /* ============================================================
+       PRESS CHECK — the registration proof.
+       Two code sources are two printing plates: PLATE A prints in
+       process cyan, PLATE B in magenta. Where they agree, the ink
+       overprints into a deep violet — the one action colour. The
+       ground is a cool press bed; content sits on bright proof
+       sheets; structure is drawn with hairlines and crop marks.
+       ============================================================ */
 
-    --card: 40 36% 97%;
-    --card-foreground: 30 14% 13%;
+    --background: 210 14% 91%;         /* press bed — cool machine grey */
+    --foreground: 216 25% 10%;         /* rich black (ink with a cyan lean) */
 
-    --popover: 40 36% 98%;
-    --popover-foreground: 30 14% 13%;
+    --card: 210 20% 99%;               /* proof sheet */
+    --card-foreground: 216 25% 10%;
 
-    --primary: 214 60% 34%;            /* ink navy (Prussian) — the one signal colour */
-    --primary-foreground: 44 40% 96%;  /* near-white paper on navy (7.6:1) */
+    --popover: 210 20% 99%;
+    --popover-foreground: 216 25% 10%;
 
-    --secondary: 40 22% 90%;
-    --secondary-foreground: 30 14% 22%;
+    --primary: 251 52% 36%;            /* OVERPRINT — cyan×magenta laid down together */
+    --primary-foreground: 210 20% 99%; /* sheet-white on overprint (≈9:1) */
 
-    --muted: 40 20% 91%;
-    --muted-foreground: 34 9% 37%;
+    --secondary: 210 16% 94%;
+    --secondary-foreground: 216 25% 14%;
 
-    --accent: 40 24% 88%;              /* warm neutral hover tint */
-    --accent-foreground: 30 14% 20%;
+    --muted: 210 14% 94%;
+    --muted-foreground: 215 12% 36%;
 
-    --success: 130 32% 33%;            /* muted olive — low similarity / safe */
-    --success-foreground: 44 42% 96%;
+    --accent: 210 18% 92%;             /* neutral hover tint */
+    --accent-foreground: 216 25% 12%;
 
-    --warning: 38 92% 45%;             /* amber — needs review */
-    --warning-foreground: 32 34% 10%;
+    /* The two plates. Full-strength process ink is for marks, bars and
+       graphics; the -deep cut clears 4.5:1 and may be used as text. */
+    --plate-a: 194 100% 41%;           /* process cyan — source A */
+    --plate-a-deep: 197 100% 26%;
+    --plate-b: 328 90% 48%;            /* process magenta — source B */
+    --plate-b-deep: 331 85% 32%;
 
-    --destructive: 8 64% 42%;          /* oxblood — high similarity / flagged */
-    --destructive-foreground: 44 42% 96%;
+    /* Similarity scale — the press verdict. Same three bands everywhere. */
+    --success: 160 70% 24%;            /* passed — low similarity */
+    --success-foreground: 210 20% 99%;
+    --warning: 41 100% 44%;            /* review — mid similarity (never small text) */
+    --warning-foreground: 216 25% 10%;
+    --destructive: 4 74% 42%;          /* flagged — high similarity */
+    --destructive-foreground: 210 20% 99%;
 
-    /* Second-exhibit identity tone — warm terracotta, distinct from the amber
-       signal and the oxblood alarm. Used for the "other side" AST graph. */
-    --accent-suspect: 16 58% 46%;
+    /* Second-exhibit identity tone — PLATE B's text-capable cut. Kept under
+       its legacy name because the AST graph and diff components consume it. */
+    --accent-suspect: 331 85% 32%;
 
-    --border: 38 17% 82%;
-    --input: 38 17% 85%;
-    --ring: 214 60% 34%;
+    --border: 212 14% 80%;
+    --input: 212 14% 74%;
+    --ring: 251 52% 42%;
 
-    --radius: 0.35rem;                 /* sharp, technical — not rounded-blob */
+    --radius: 0rem;                    /* trimmed flush — press geometry has no corners */
 
-    --sidebar-background: 42 30% 96%;
-    --sidebar-foreground: 34 10% 33%;
-    --sidebar-primary: 214 60% 34%;
-    --sidebar-primary-foreground: 44 40% 96%;
-    --sidebar-accent: 40 24% 90%;
-    --sidebar-accent-foreground: 30 14% 22%;
-    --sidebar-border: 38 17% 86%;
-    --sidebar-ring: 214 60% 34%;
+    --sidebar-background: 210 13% 88%;
+    --sidebar-foreground: 215 12% 32%;
+    --sidebar-primary: 251 52% 36%;
+    --sidebar-primary-foreground: 210 20% 99%;
+    --sidebar-accent: 210 14% 92%;
+    --sidebar-accent-foreground: 216 25% 12%;
+    --sidebar-border: 212 13% 79%;
+    --sidebar-ring: 251 52% 42%;
 
-    --surface-1: 40 36% 97%;
-    --surface-2: 42 28% 94%;
-    --surface-3: 40 20% 90%;
+    --surface-1: 210 20% 99%;
+    --surface-2: 210 17% 96%;
+    --surface-3: 210 14% 93%;
 
-    --code-surface: 40 30% 96%;
-    --code-surface-foreground: 30 14% 16%;
-    --code-surface-border: 38 17% 84%;
+    --code-surface: 202 30% 97%;
+    --code-surface-foreground: 216 25% 13%;
+    --code-surface-border: 206 16% 84%;
 
-    /* Categorical chart palette — warm, on-paper hues (not the raw indigo/cyan
-       neon). For SEMANTIC similarity bands use --success/--warning/--destructive. */
-    --chart-1: 214 60% 34%;  /* ink navy (primary) */
-    --chart-2: 16 58% 46%;   /* terracotta */
-    --chart-3: 130 32% 33%;  /* olive */
-    --chart-4: 30 9% 45%;    /* warm slate */
-    --chart-5: 284 22% 54%;  /* muted plum — kept clear of the navy primary */
+    /* Categorical chart palette — the plate inks plus press neutrals.
+       For SEMANTIC similarity bands use --success/--warning/--destructive. */
+    --chart-1: 197 100% 26%;  /* cyan plate (deep) */
+    --chart-2: 331 85% 32%;   /* magenta plate (deep) */
+    --chart-3: 160 70% 24%;   /* viridian */
+    --chart-4: 215 12% 40%;   /* press slate */
+    --chart-5: 251 52% 42%;   /* overprint violet */
 
-    /* Fixed dark "ink" rail — the auth brand panel is always dark in both
-       themes (defined once in :root, not overridden by .dark). */
-    --auth-ink: 30 14% 10%;
+    /* Fixed dark rail — the auth brand panel is always dark in both themes:
+       the darkened press room, one lamp on the proof. */
+    --auth-ink: 250 30% 10%;
 
-    /* Flat by default — one hairline shadow, reserved for true overlays. */
-    --card-shadow-rest: 0 1px 2px hsl(30 24% 18% / 0.05);
-    --card-shadow-hover: 0 2px 8px hsl(30 24% 18% / 0.09);
-    /* Glow shadows retired to none — kept as no-op aliases so the existing
-       var(--*-glow-*) call sites across the app resolve to a flat surface.
-       See DESIGN.md "The No-Glow Rule". */
+    /* Flat by default — a single neutral shadow reserved for true overlays. */
+    --card-shadow-rest: 0 1px 2px hsl(216 30% 12% / 0.06);
+    --card-shadow-hover: 0 2px 12px hsl(216 30% 12% / 0.12);
+    /* Retired decoration kept as no-op aliases for legacy call sites. */
     --glow-shadow-sm: none;
     --glow-shadow-md: none;
     --shadow-glow-sm: none;
     --shadow-glow-md: none;
     --shadow-glow-lg: none;
-
-    /* Brand gradient retired to a solid amber. Kept as a no-op alias so
-       existing var(--gradient-brand) fills render flat, not gradient. */
     --gradient-brand: hsl(var(--primary));
 
-    /* Radius scale — sharp; over-rounding retired */
-    --radius-sm: 2px;
-    --radius-md: 3px;
-    --radius-lg: var(--radius);
-    --radius-xl: 0.5rem;
-    --radius-2xl: 0.625rem;
+    /* Radius scale — everything trims square. Dots and rings stay round. */
+    --radius-sm: 0px;
+    --radius-md: 0px;
+    --radius-lg: 0px;
+    --radius-xl: 0px;
+    --radius-2xl: 0px;
     --radius-full: 9999px;
 
     /* Spatial scale (4-pt grid) */
@@ -164,27 +176,27 @@
     --dur-base: 200ms;
     --dur-slow: 300ms;
 
-    /* Typography: font stacks. Mono is promoted to the brand DISPLAY voice —
-       a code-forensics tool that speaks in monospace reads as authored. */
-    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-    --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
-    --font-display: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
-    --font-arabic: 'IBM Plex Sans Arabic', 'Inter', system-ui, sans-serif;
+    /* Typography: one Latin family in many cuts. Width + weight carry the
+       display voice; monospace appears only where the content is code. */
+    --font-sans: 'Archivo', system-ui, -apple-system, sans-serif;
+    --font-display: 'Archivo', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', monospace;
+    --font-arabic: 'IBM Plex Sans Arabic', system-ui, sans-serif;
 
     /* Typography: scale */
-    --fs-hero: 4.5rem;
-    --fs-h1: 3rem;
-    --fs-h2: 2rem;
-    --fs-h3: 1.5rem;
-    --fs-h4: 1.25rem;
-    --fs-h5: 1.125rem;
+    --fs-hero: 4.25rem;
+    --fs-h1: 2.6rem;
+    --fs-h2: 1.9rem;
+    --fs-h3: 1.4rem;
+    --fs-h4: 1.2rem;
+    --fs-h5: 1.05rem;
     --fs-body: 1rem;
     --fs-sm: 0.875rem;
     --fs-xs: 0.75rem;
     --fs-micro: 0.625rem;
 
-    --lh-tight: 1.1;
-    --lh-heading: 1.25;
+    --lh-tight: 1.05;
+    --lh-heading: 1.2;
     --lh-body: 1.6;
     --lh-code: 1.5;
 
@@ -199,68 +211,72 @@
   .dark {
     color-scheme: dark;
 
-    /* Ink & Ember — warm near-black ground, amber signal */
-    --background: 30 12% 8%;
-    --foreground: 42 22% 88%;
+    /* THE NEGATIVE — the same proof read on a light table with the room
+       lights off. Grounds go to film; the plate inks turn luminous. */
+    --background: 222 18% 7%;
+    --foreground: 210 14% 88%;
 
-    --card: 30 12% 11%;
-    --card-foreground: 42 22% 88%;
+    --card: 220 16% 10%;
+    --card-foreground: 210 14% 88%;
 
-    --popover: 30 12% 10%;
-    --popover-foreground: 42 22% 88%;
+    --popover: 220 16% 11%;
+    --popover-foreground: 210 14% 88%;
 
-    --primary: 210 72% 64%;
-    --primary-foreground: 214 45% 12%;
+    --primary: 252 92% 78%;
+    --primary-foreground: 252 60% 12%;
 
-    --secondary: 30 10% 17%;
-    --secondary-foreground: 42 16% 78%;
+    --secondary: 219 14% 15%;
+    --secondary-foreground: 210 12% 80%;
 
-    --muted: 30 9% 15%;
-    --muted-foreground: 38 10% 58%;
+    --muted: 219 14% 14%;
+    --muted-foreground: 213 10% 64%;
 
-    --accent: 30 10% 19%;
-    --accent-foreground: 42 20% 84%;
+    --accent: 219 14% 17%;
+    --accent-foreground: 210 12% 86%;
 
-    --success: 128 34% 46%;
-    --success-foreground: 30 22% 8%;
+    --plate-a: 192 90% 60%;
+    --plate-a-deep: 192 80% 66%;
+    --plate-b: 329 95% 70%;
+    --plate-b-deep: 329 92% 74%;
 
-    --warning: 40 92% 54%;
-    --warning-foreground: 32 40% 8%;
+    --success: 158 52% 56%;
+    --success-foreground: 160 60% 8%;
+    --warning: 43 96% 58%;
+    --warning-foreground: 40 60% 8%;
+    --destructive: 4 82% 64%;
+    --destructive-foreground: 350 40% 8%;
 
-    --destructive: 8 66% 52%;
-    --destructive-foreground: 44 30% 94%;
+    --accent-suspect: 329 92% 74%;
 
-    --accent-suspect: 16 66% 58%;
+    --border: 218 13% 20%;
+    --input: 218 13% 24%;
+    --ring: 252 92% 78%;
 
-    --border: 30 9% 19%;
-    --input: 30 9% 17%;
-    --ring: 210 72% 64%;
+    --sidebar-background: 222 18% 6%;
+    --sidebar-foreground: 213 10% 62%;
+    --sidebar-primary: 252 92% 78%;
+    --sidebar-primary-foreground: 252 60% 12%;
+    --sidebar-accent: 219 14% 13%;
+    --sidebar-accent-foreground: 210 12% 86%;
+    --sidebar-border: 218 13% 16%;
+    --sidebar-ring: 252 92% 78%;
 
-    --sidebar-background: 30 12% 7%;
-    --sidebar-foreground: 38 10% 60%;
-    --sidebar-primary: 210 72% 64%;
-    --sidebar-primary-foreground: 214 45% 12%;
-    --sidebar-accent: 30 10% 15%;
-    --sidebar-accent-foreground: 42 20% 84%;
-    --sidebar-border: 30 9% 15%;
-    --sidebar-ring: 210 72% 64%;
+    --surface-1: 220 16% 10%;
+    --surface-2: 219 15% 13%;
+    --surface-3: 219 14% 16%;
 
-    --surface-1: 30 12% 10%;
-    --surface-2: 30 11% 13%;
-    --surface-3: 30 10% 16%;
+    --code-surface: 205 28% 7%;
+    --code-surface-foreground: 205 14% 84%;
+    --code-surface-border: 210 15% 18%;
 
-    --code-surface: 30 14% 6%;
-    --code-surface-foreground: 42 18% 82%;
-    --code-surface-border: 30 9% 18%;
-
-    --chart-1: 210 72% 64%;
-    --chart-2: 16 66% 58%;
-    --chart-3: 128 34% 46%;
-    --chart-4: 38 10% 58%;
-    --chart-5: 284 30% 66%;
+    --chart-1: 192 80% 66%;
+    --chart-2: 329 92% 74%;
+    --chart-3: 158 52% 56%;
+    --chart-4: 213 10% 64%;
+    --chart-5: 252 92% 78%;
 
     --card-shadow-rest: 0 1px 2px hsl(0 0% 0% / 0.4);
-    --card-shadow-hover: 0 2px 10px hsl(0 0% 0% / 0.55);
+    --card-shadow-hover: 0 2px 12px hsl(0 0% 0% / 0.55);
     --glow-shadow-sm: none;
     --glow-shadow-md: none;
   }
@@ -282,8 +298,9 @@
     font-family: var(--font-arabic);
   }
 
-  /* The mono display voice is Latin-only (JetBrains Mono has no Arabic glyphs).
-     Under Arabic, headings/labels/stats keep the proper Arabic typeface. */
+  /* The expanded display voice is Latin-only (Archivo has no Arabic glyphs
+     and Plex Arabic has no width axis). Under Arabic, every display element
+     falls back to the Arabic face at normal width. */
   html[lang="ar"] .t-hero,
   html[lang="ar"] .t-h1,
   html[lang="ar"] .t-h2,
@@ -292,13 +309,16 @@
   html[lang="ar"] .t-h5,
   html[lang="ar"] .t-label,
   html[lang="ar"] .t-stat,
+  html[lang="ar"] .stamp,
+  html[lang="ar"] .press-slug,
   html[lang="ar"] .font-display {
     font-family: var(--font-arabic);
+    font-stretch: normal;
+    letter-spacing: 0;
   }
 
-  /* Compat shim: legacy buttons hardcode text-white but the brand is now amber.
-     Force readable dark ink on any element still filled with the brand colour,
-     until each is migrated to <Button variant="default">. */
+  /* Compat shim: anything still filled with the legacy brand alias takes a
+     readable foreground until migrated to <Button variant="default">. */
   .bg-gradient-brand,
   [style*="gradient-brand"] {
     color: hsl(var(--primary-foreground)) !important;
@@ -307,7 +327,6 @@
   body {
     @apply text-foreground;
     min-height: 100vh;
-    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
     background: hsl(var(--background));
   }
 
@@ -328,14 +347,12 @@
   }
 
   ::selection {
-    background: hsl(var(--primary) / 0.3);
+    background: hsl(var(--plate-a) / 0.35);
     color: hsl(var(--foreground));
   }
 
-  /* Global reduced-motion contract (DESIGN.md §6). One declaration honours the
-     user's OS setting for every animation and transition in the app: entrances,
-     skeleton pulses, infinite spinners, hover/width/transform tweens, and the
-     smooth-scroll. Individual components no longer need their own guard. */
+  /* Global reduced-motion contract. One declaration honours the user's OS
+     setting for every animation and transition in the app. */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -359,30 +376,122 @@
 }
 
 @layer utilities {
-  /* Brand fill retired to a solid — no gradient, no glow. */
+  /* Legacy brand fill/text aliases — resolve to the overprint solid. */
   .bg-gradient-brand {
     background: hsl(var(--primary));
   }
 
-  /* Gradient text retired; emphasis is weight + size + one solid color. */
   .text-gradient-brand {
     color: hsl(var(--primary));
   }
 
-  /* Panel surface — flat dossier card: solid fill + hairline border, NO shadow
-     (border OR shadow, never both). Hover deepens the border, no lift. */
+  /* ============================================================
+     Type scale — Archivo in three widths.
+     Display (t-hero…t-h2) speaks EXPANDED + heavy + caps: the
+     press poster cut. Working headings (t-h3…t-h5) are near-normal
+     width. Labels are the slug voice: small caps-tracked Archivo,
+     not monospace. Mono belongs to code alone.
+     ============================================================ */
+  .t-hero { font-family: var(--font-display); font-stretch: 122%; font-size: var(--fs-hero); font-weight: 800; line-height: 0.96; letter-spacing: -0.01em; text-transform: uppercase; }
+  .t-h1   { font-family: var(--font-display); font-stretch: 118%; font-size: var(--fs-h1);   font-weight: 800; line-height: 1.04; letter-spacing: -0.01em; text-transform: uppercase; }
+  .t-h2   { font-family: var(--font-display); font-stretch: 114%; font-size: var(--fs-h2);   font-weight: 750; line-height: 1.1; letter-spacing: -0.005em; text-transform: uppercase; }
+  .t-h3   { font-family: var(--font-display); font-stretch: 106%; font-size: var(--fs-h3);   font-weight: 700; line-height: 1.2; }
+  .t-h4   { font-family: var(--font-display); font-stretch: 104%; font-size: var(--fs-h4);   font-weight: 650; line-height: 1.3; }
+  .t-h5   { font-family: var(--font-display); font-stretch: 102%; font-size: var(--fs-h5);   font-weight: 650; line-height: 1.4; }
+  .t-body { font-size: var(--fs-body); font-weight: var(--fw-regular); line-height: var(--lh-body); color: hsl(var(--muted-foreground)); }
+  .t-sm   { font-size: var(--fs-sm);   font-weight: var(--fw-regular); line-height: 1.55; color: hsl(var(--muted-foreground)); }
+  .t-xs   { font-size: var(--fs-xs);   font-weight: var(--fw-medium);  line-height: 1.45; color: hsl(var(--muted-foreground)); }
+  .t-label{ font-family: var(--font-display); font-stretch: 108%; font-size: 0.6875rem; font-weight: 650; letter-spacing: 0.12em; text-transform: uppercase; color: hsl(var(--muted-foreground)); }
+  .t-mono { font-family: var(--font-mono); font-size: var(--fs-sm); line-height: var(--lh-code); }
+  .t-stat { font-family: var(--font-display); font-stretch: 120%; font-size: 3rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+
+  /* The press slug — the job-info line set along a sheet's edge:
+     small tracked caps with tabular figures. Replaces the old mono meta. */
+  .press-slug {
+    font-family: var(--font-display);
+    font-stretch: 106%;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
+    color: hsl(var(--muted-foreground));
+  }
+
+  /* Verdict stamp — a rubber stamp pressed on the proof. Colour comes from
+     the semantic band via the modifier classes (never colour alone: the
+     label text IS the meaning). */
+  .stamp {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45em;
+    border: 2px solid currentColor;
+    padding: 0.18em 0.65em;
+    font-family: var(--font-display);
+    font-stretch: 116%;
+    font-weight: 800;
+    font-size: 0.8125rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    line-height: 1.35;
+  }
+  .stamp-pass { color: hsl(var(--success)); background: hsl(var(--success) / 0.07); }
+  .stamp-review { color: hsl(var(--foreground)); border-color: hsl(var(--warning)); background: hsl(var(--warning) / 0.14); }
+  .stamp-flag { color: hsl(var(--destructive)); background: hsl(var(--destructive) / 0.07); }
+  .stamp-neutral { color: hsl(var(--muted-foreground)); border-color: hsl(var(--border)); background: transparent; }
+
+  /* Misregistration fringe — the plates split apart. Reserved for the 404
+     page and a single hero moment; never on body text. */
+  .misreg {
+    text-shadow:
+      0.045em 0 0 hsl(var(--plate-a) / 0.85),
+      -0.045em 0 0 hsl(var(--plate-b) / 0.85);
+  }
+
+  /* Registration crosshair drawn in CSS — a ring with a centred cross.
+     Used as a bullet/marker; size via width/height on the element. */
+  .reg-dot {
+    position: relative;
+    display: inline-block;
+    border: 1.5px solid currentColor;
+    border-radius: 9999px;
+    flex: none;
+  }
+  .reg-dot::before,
+  .reg-dot::after {
+    content: "";
+    position: absolute;
+    background: currentColor;
+  }
+  .reg-dot::before {
+    left: 50%;
+    top: -22%;
+    bottom: -22%;
+    width: 1.5px;
+    transform: translateX(-50%);
+  }
+  .reg-dot::after {
+    top: 50%;
+    left: -22%;
+    right: -22%;
+    height: 1.5px;
+    transform: translateY(-50%);
+  }
+
+  /* Sheet panel — the proof sheet: solid bright fill + hairline. Structure
+     is drawn, never shadowed. Hover deepens the line, nothing lifts. */
   .card-premium {
-    @apply rounded-lg border border-border transition-colors duration-200;
+    @apply border border-border transition-colors duration-200;
     background: hsl(var(--card));
   }
 
   .card-premium:hover {
-    border-color: hsl(var(--foreground) / 0.22);
+    border-color: hsl(var(--foreground) / 0.3);
   }
 
   /* Code surface */
   .code-surface {
-    @apply rounded-lg font-mono text-sm;
+    @apply font-mono text-sm;
     background: hsl(var(--code-surface));
     border: 1px solid hsl(var(--code-surface-border));
     color: hsl(var(--code-surface-foreground));
@@ -390,12 +499,12 @@
 
   /* Stat card — flat, border-only. */
   .stat-card {
-    @apply rounded-lg border border-border p-5 transition-colors duration-200;
+    @apply border border-border p-5 transition-colors duration-200;
     background: hsl(var(--card));
   }
 
   .stat-card:hover {
-    border-color: hsl(var(--foreground) / 0.22);
+    border-color: hsl(var(--foreground) / 0.3);
   }
 
   /* Scrollbar */
@@ -415,48 +524,148 @@
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
     background: hsl(var(--border));
-    border-radius: 2px;
   }
 
-  /* Status tags — squared, mono, evidence-label feel (not pills). */
+  /* Status tags — squared press labels in the slug voice (not pills, not mono). */
   .badge-success {
-    @apply inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[11px] font-semibold;
+    @apply inline-flex items-center gap-1 px-2 py-0.5;
     font-family: var(--font-display);
-    background: hsl(var(--success) / 0.14);
+    font-stretch: 108%;
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: hsl(var(--success) / 0.12);
     color: hsl(var(--success));
-    border: 1px solid hsl(var(--success) / 0.3);
+    border: 1px solid hsl(var(--success) / 0.35);
   }
 
   .badge-warning {
-    @apply inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[11px] font-semibold;
+    @apply inline-flex items-center gap-1 px-2 py-0.5;
     font-family: var(--font-display);
-    background: hsl(var(--warning) / 0.18);
+    font-stretch: 108%;
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: hsl(var(--warning) / 0.16);
     color: hsl(var(--foreground));
-    border: 1px solid hsl(var(--warning) / 0.42);
+    border: 1px solid hsl(var(--warning) / 0.5);
   }
 
   .badge-error {
-    @apply inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[11px] font-semibold;
+    @apply inline-flex items-center gap-1 px-2 py-0.5;
     font-family: var(--font-display);
-    background: hsl(var(--destructive) / 0.14);
+    font-stretch: 108%;
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: hsl(var(--destructive) / 0.1);
     color: hsl(var(--destructive));
-    border: 1px solid hsl(var(--destructive) / 0.3);
+    border: 1px solid hsl(var(--destructive) / 0.35);
   }
 
   .badge-info {
-    @apply inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[11px] font-semibold;
+    @apply inline-flex items-center gap-1 px-2 py-0.5;
     font-family: var(--font-display);
+    font-stretch: 108%;
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
     background: hsl(var(--secondary));
     color: hsl(var(--muted-foreground));
     border: 1px solid hsl(var(--border));
   }
 
-  /* Sidebar link active — amber tint fill + ink label (legible), amber carried
-     by the icon/dot, not the text. No side-stripe. */
+  /* Plate identity chips — source A prints cyan, source B magenta. */
+  .badge-plate-a {
+    @apply inline-flex items-center gap-1 px-2 py-0.5;
+    font-family: var(--font-display);
+    font-stretch: 108%;
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: hsl(var(--plate-a) / 0.1);
+    color: hsl(var(--plate-a-deep));
+    border: 1px solid hsl(var(--plate-a) / 0.45);
+  }
+
+  .badge-plate-b {
+    @apply inline-flex items-center gap-1 px-2 py-0.5;
+    font-family: var(--font-display);
+    font-stretch: 108%;
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: hsl(var(--plate-b) / 0.1);
+    color: hsl(var(--plate-b-deep));
+    border: 1px solid hsl(var(--plate-b) / 0.45);
+  }
+
+  /* Sidebar active state — the pulled proof: the current item sits on a
+     sheet-white tab with a drawn hairline. No colour needed to say "here". */
   .nav-link-active {
-    background: hsl(var(--primary) / 0.12);
+    background: hsl(var(--card));
     color: hsl(var(--foreground));
+    border: 1px solid hsl(var(--border));
+    font-weight: 650;
+  }
+
+  /* Press file tabs — squared folder tabs cut into the sheet edge. Apply
+     .press-tabs-list to a Radix TabsList and .press-tab to each trigger:
+     the active tab joins the content sheet below it (its bottom edge opens
+     into the panel), inactive tabs sit back on the bed tone. */
+  .press-tabs-list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 4px;
+    border-bottom: 1px solid hsl(var(--border));
+    background: transparent;
+    padding: 0;
+  }
+
+  .press-tab {
+    position: relative;
+    margin-bottom: -1px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border: 1px solid transparent;
+    border-bottom-color: hsl(var(--border));
+    background: transparent;
+    padding: 0.6rem 0.9rem;
+    font-family: var(--font-display);
+    font-stretch: 106%;
+    font-size: 0.75rem;
     font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+    transition: color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+  }
+
+  .press-tab:hover {
+    color: hsl(var(--foreground));
+    background: hsl(var(--muted) / 0.6);
+  }
+
+  .press-tab[data-state="active"] {
+    border-color: hsl(var(--border));
+    border-bottom-color: hsl(var(--card));
+    background: hsl(var(--card));
+    color: hsl(var(--foreground));
+    font-weight: 700;
+  }
+
+  html[lang="ar"] .press-tab {
+    font-family: var(--font-arabic);
+    font-stretch: normal;
+    letter-spacing: 0;
   }
 
   /* Input focus ring */
@@ -471,7 +680,7 @@
 
   /* Drop zone */
   .drop-zone {
-    @apply rounded-xl border-2 border-dashed border-border/50 bg-muted/20 transition-all duration-200;
+    @apply border-2 border-dashed border-border/70 bg-muted/20 transition-all duration-200;
   }
 
   .drop-zone:hover,
@@ -479,26 +688,26 @@
     @apply border-primary/50 bg-primary/5;
   }
 
-  /* Metric progress bar */
+  /* Metric progress bar — a printed density bar: square ends, drawn track. */
   .metric-bar-track {
-    @apply h-1.5 rounded-full overflow-hidden;
-    background: hsl(var(--border));
+    @apply h-1.5 overflow-hidden;
+    background: hsl(var(--border) / 0.6);
   }
 
   .metric-bar-fill {
-    @apply h-full rounded-full transition-all duration-700;
+    @apply h-full transition-all duration-700;
     background: hsl(var(--primary));
   }
 
-  /* Chat bubbles — sharp dossier radius, not blobby. */
+  /* Chat bubbles — square-cut press notes. */
   .chat-bubble-user {
-    @apply rounded-lg rounded-br-sm px-4 py-2.5 text-sm max-w-[80%];
+    @apply px-4 py-2.5 text-sm max-w-[80%];
     background: hsl(var(--primary));
     color: hsl(var(--primary-foreground));
   }
 
   .chat-bubble-ai {
-    @apply rounded-lg rounded-bl-sm px-4 py-2.5 text-sm max-w-[80%];
+    @apply px-4 py-2.5 text-sm max-w-[80%];
     background: hsl(var(--muted));
     color: hsl(var(--foreground));
     border: 1px solid hsl(var(--border) / 0.6);
@@ -509,35 +718,14 @@
     @apply pb-6 mb-6 border-b border-border/40;
   }
 
-  /* Skeleton — flat muted fill with a quiet pulse. (No 200% sweep gradient:
-     it never animated, since only animate-pulse was applied.) */
+  /* Skeleton — flat muted fill with a quiet pulse. */
   .skeleton {
-    @apply animate-pulse rounded-md;
+    @apply animate-pulse;
     background: hsl(var(--muted));
   }
 }
 
 @layer utilities {
-  /* Typography scale utilities — match new design system.
-     Prefixed t-h1..t-h5 / t-hero (not h-*) because Tailwind's own height
-     utilities (h-1..h-6 = 0.25rem..1.5rem) already own that namespace; a
-     same-named class here would add font-size alongside Tailwind's height
-     on the same element instead of overriding it, collapsing the box and
-     overlapping the next element's text. */
-  /* Headings, labels, and data speak in the mono display voice. Body stays Inter. */
-  .t-hero { font-family: var(--font-display); font-size: var(--fs-hero); font-weight: var(--fw-bold); line-height: 1.05; letter-spacing: -0.02em; }
-  .t-h1   { font-family: var(--font-display); font-size: var(--fs-h1);   font-weight: var(--fw-bold); line-height: 1.15; letter-spacing: -0.02em; }
-  .t-h2   { font-family: var(--font-display); font-size: var(--fs-h2);   font-weight: var(--fw-bold); line-height: 1.2; letter-spacing: -0.015em; }
-  .t-h3   { font-family: var(--font-display); font-size: var(--fs-h3);   font-weight: var(--fw-semibold); line-height: 1.25; letter-spacing: -0.01em; }
-  .t-h4   { font-family: var(--font-display); font-size: var(--fs-h4);   font-weight: var(--fw-semibold); line-height: 1.3; }
-  .t-h5   { font-family: var(--font-display); font-size: var(--fs-h5);   font-weight: var(--fw-semibold); line-height: 1.4; }
-  .t-body { font-size: var(--fs-body); font-weight: var(--fw-regular); line-height: var(--lh-body); color: hsl(var(--muted-foreground)); }
-  .t-sm   { font-size: var(--fs-sm);   font-weight: var(--fw-regular); line-height: 1.55; color: hsl(var(--muted-foreground)); }
-  .t-xs   { font-size: var(--fs-xs);   font-weight: var(--fw-medium);  line-height: 1.45; color: hsl(var(--muted-foreground)); }
-  .t-label{ font-family: var(--font-display); font-size: var(--fs-xs); font-weight: var(--fw-semibold); letter-spacing: 0.08em; text-transform: uppercase; color: hsl(var(--muted-foreground)); }
-  .t-mono { font-family: var(--font-mono); font-size: var(--fs-sm); line-height: var(--lh-code); }
-  .t-stat { font-family: var(--font-display); font-size: var(--fs-h1); font-weight: var(--fw-bold); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
-
   .shadow-glow-sm {
     box-shadow: var(--glow-shadow-sm);
   }
@@ -553,7 +741,6 @@
   .ast-graph-surface {
     height: 560px;
     width: 100%;
-    /* Flat paper surface — no radial glow, no tonal gradient. */
     background: hsl(var(--surface-1));
   }
 
@@ -587,41 +774,48 @@
     padding: 0 !important;
   }
 
-  .ast-flow-compact-node {
+  /* The engraved node chip — one unified sheet piece per syntax node:
+     a kind marker (⊕ root / ■ branch / □ leaf) beside the label and its
+     line range. Plate tone, emphasis border, and root tint are applied
+     inline by AstNode so they track the live theme tokens. */
+  .ast-chip {
     position: relative;
     display: flex;
     width: 100%;
     height: 100%;
-    flex-direction: column;
     align-items: center;
-    justify-content: flex-start;
-    gap: 8px;
-    background: transparent;
-  }
-
-  /* Flat dossier node: solid card fill + hairline, no glass, no glow. Node
-     tone (navy / suspect) and selection border are applied inline by AstNode
-     so they track the token themes; this class owns layout + resting surface. */
-  .ast-flow-label-card {
-    width: 100%;
-    min-height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 6px 10px;
-    border-radius: var(--radius-md);
+    gap: 7px;
+    padding: 4px 9px 4px 8px;
     border: 1px solid hsl(var(--border));
+    border-style: solid;
     background: hsl(var(--card));
+    transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
   }
 
-  .ast-flow-compact-label {
-    width: 100%;
+  .ast-chip-marker {
+    width: 10px;
+    height: 10px;
+    flex: 0 0 auto;
+  }
+
+  svg.ast-chip-marker {
+    width: 13px;
+    height: 13px;
+  }
+
+  .ast-chip-body {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .ast-chip-label {
     font-size: 11px;
-    line-height: 1.2;
+    line-height: 15px;
     font-weight: 600;
-    text-align: center;
     color: hsl(var(--foreground));
-    text-transform: none;
     overflow-wrap: anywhere;
     word-break: break-word;
     display: -webkit-box;
@@ -630,25 +824,36 @@
     overflow: hidden;
   }
 
-  /* Node marker — solid token dot, no coloured glow ring. AstNode sets the
-     navy / suspect fill inline; this is the neutral resting fallback. */
-  .ast-flow-compact-dot {
-    width: 14px;
-    height: 14px;
-    flex: 0 0 auto;
-    border-radius: 9999px;
-    border: 1px solid hsl(var(--border));
-    background: hsl(var(--muted-foreground));
+  .ast-chip-label-root {
+    font-family: var(--font-display);
+    font-stretch: 110%;
+    font-size: 10.5px;
+    font-weight: 750;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
   }
 
-  .ast-flow-node-root .ast-flow-compact-dot {
-    width: 16px;
-    height: 16px;
+  .ast-chip-range {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    line-height: 14px;
+    font-variant-numeric: tabular-nums;
+    color: hsl(var(--muted-foreground));
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  /* Selection & ancestry-path emphasis is carried by the inline border colour
-     AstNode already sets (navy / suspect) — no transform, no neon box-shadow,
-     no white text. Keeps the graph calm and reduced-motion friendly. */
+  .ast-chip-leaf .ast-chip-label {
+    font-weight: 500;
+    color: hsl(var(--foreground) / 0.85);
+  }
+
+  html[lang="ar"] .ast-chip-label-root {
+    font-family: var(--font-arabic);
+    font-stretch: normal;
+    letter-spacing: 0;
+  }
 
   .ast-flow-handle {
     width: 6px;
@@ -665,24 +870,20 @@
   }
 
   .ast-flow-handle-source {
-    top: 13px !important;
-    bottom: auto !important;
+    top: auto !important;
+    bottom: -1px !important;
   }
 
-  /* Edge highlight = stroke colour + width only (set inline by the component).
-     The neon drop-shadow glow filters are retired. */
   .ast-flow-canvas .react-flow__edge-path {
     stroke-linecap: round;
     stroke-linejoin: round;
     transition: opacity 180ms ease, stroke-width 180ms ease;
   }
 
-  /* Node-detail panel — solid dossier surfaces, hairline structure, sharp
-     radius. No glass gradients, no over-rounding, no neon dots. */
+  /* Node-detail panel — solid sheet surfaces, hairline structure, square cut. */
   .ast-node-detail-panel {
     border: 1px solid hsl(var(--border));
     background: hsl(var(--card));
-    border-radius: var(--radius);
     padding: 1rem;
   }
 
@@ -692,7 +893,6 @@
     gap: 0.875rem;
     border: 1px dashed hsl(var(--border));
     background: hsl(var(--surface-1));
-    border-radius: var(--radius);
     padding: 1rem;
   }
 
@@ -703,7 +903,6 @@
     flex: 0 0 auto;
     align-items: center;
     justify-content: center;
-    border-radius: var(--radius-md);
     border: 1px solid hsl(var(--border));
     background: hsl(var(--surface-2));
     color: hsl(var(--primary));
@@ -712,11 +911,12 @@
   .ast-node-detail-card {
     border: 1px solid hsl(var(--border));
     background: hsl(var(--surface-1));
-    border-radius: var(--radius-md);
     padding: 0.8rem 0.9rem;
   }
 
   .ast-node-detail-label {
+    font-family: var(--font-display);
+    font-stretch: 108%;
     font-size: 0.65rem;
     font-weight: 700;
     letter-spacing: 0.12em;
@@ -740,7 +940,7 @@
   }
 
   .ast-node-detail-dot.is-primary {
-    background: hsl(var(--primary));
+    background: hsl(var(--plate-a-deep));
   }
 
   .ast-node-detail-dot.is-accent {
@@ -760,16 +960,16 @@
   .analysis-markdown h3 {
     color: hsl(var(--foreground));
     font-family: var(--font-display);
+    font-stretch: 106%;
     font-weight: 700;
     line-height: 1.3;
   }
 
-  /* JetBrains Mono has no Arabic glyphs — keep report headings in the Arabic
-     face under RTL so the mono display voice never mangles Arabic script. */
   html[lang="ar"] .analysis-markdown h1,
   html[lang="ar"] .analysis-markdown h2,
   html[lang="ar"] .analysis-markdown h3 {
     font-family: var(--font-arabic);
+    font-stretch: normal;
   }
 
   .analysis-markdown h1 {
@@ -816,7 +1016,6 @@
   .analysis-markdown code {
     border: 1px solid hsl(var(--border) / 0.6);
     background: hsl(var(--surface-1));
-    border-radius: var(--radius-sm);
     padding: 0.1rem 0.35rem;
     color: hsl(var(--foreground));
     font-size: 0.85em;
@@ -824,7 +1023,6 @@
 
   .analysis-markdown pre {
     @apply scrollbar-thin overflow-x-auto border p-4;
-    border-radius: var(--radius);
     border-color: hsl(var(--border) / 0.7);
     background: hsl(var(--code-surface));
     color: hsl(var(--code-surface-foreground));
@@ -841,7 +1039,6 @@
     width: 100%;
     border-collapse: collapse;
     overflow: hidden;
-    border-radius: var(--radius);
     border: 1px solid hsl(var(--border) / 0.6);
   }
 
@@ -864,16 +1061,90 @@
 
   .analysis-markdown th {
     color: hsl(var(--foreground));
-    font-size: 0.78rem;
+    font-family: var(--font-display);
+    font-stretch: 108%;
+    font-size: 0.72rem;
+    font-weight: 650;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.08em;
   }
 
   .analysis-markdown blockquote {
     border: 1px solid hsl(var(--primary) / 0.25);
     background: hsl(var(--primary) / 0.05);
     padding: 0.85rem 1rem;
-    border-radius: var(--radius);
     color: hsl(var(--foreground));
+  }
+
+  /* Chat-tuned markdown — the analyst writes in the proof's margin, so the
+     report typography tightens: smaller headings, closer rhythm, compact
+     code mounts. Apply WITH .analysis-markdown. */
+  .chat-markdown {
+    font-size: 0.875rem;
+    line-height: 1.65;
+  }
+
+  .chat-markdown > * + * {
+    margin-top: 0.6rem;
+  }
+
+  .chat-markdown > :first-child {
+    margin-top: 0;
+  }
+
+  .chat-markdown h1,
+  .chat-markdown h2,
+  .chat-markdown h3,
+  .chat-markdown h4 {
+    font-stretch: 108%;
+    letter-spacing: 0.01em;
+  }
+
+  .chat-markdown h1 { font-size: 1rem; }
+
+  .chat-markdown h2 {
+    font-size: 0.9375rem;
+    margin-top: 1rem;
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .chat-markdown h3 { font-size: 0.875rem; margin-top: 0.85rem; }
+  .chat-markdown h4 { font-size: 0.8125rem; color: hsl(var(--foreground)); }
+
+  .chat-markdown p,
+  .chat-markdown li {
+    color: hsl(var(--foreground) / 0.92);
+  }
+
+  .chat-markdown pre {
+    padding: 0.75rem;
+    font-size: 0.75rem;
+  }
+
+  .chat-markdown table {
+    font-size: 0.8125rem;
+  }
+
+  .chat-markdown th,
+  .chat-markdown td {
+    padding: 0.45rem 0.6rem;
+  }
+
+  .chat-markdown hr {
+    border: 0;
+    border-top: 1px solid hsl(var(--border));
+    margin: 0.85rem 0;
+  }
+
+  .chat-markdown a {
+    color: hsl(var(--primary));
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-color: hsl(var(--primary) / 0.4);
+  }
+
+  .chat-markdown a:hover {
+    text-decoration-color: hsl(var(--primary));
   }
 }

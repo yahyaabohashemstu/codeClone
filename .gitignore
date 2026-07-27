@@ -84,8 +84,10 @@ code-sleuth-react-ui/.playwright/
 # Claude Code local settings (may contain sensitive paths)
 .claude/
 
-# Local working materials (raw font downloads + design-spec kit), not runtime code
-fonts/
+# Local working materials (raw font downloads + design-spec kit), not runtime code.
+# Anchored to the repo root: an unanchored "fonts/" also swallowed the SHIPPED
+# webfonts in code-sleuth-react-ui/public/fonts, which are runtime assets.
+/fonts/
 new design/
 
 # Local developer tooling binaries (e.g. the Stripe CLI) — never commit binaries

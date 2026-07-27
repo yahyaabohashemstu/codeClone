@@ -1,9 +1,11 @@
 import { useTranslation } from "react-i18next";
+import { RegMark } from "@/components/dossier/Dossier";
 
 interface PageLoaderProps {
   message?: string;
 }
 
+/** The press finding register — a slowly rotating registration crosshair. */
 export function PageLoader({ message }: PageLoaderProps) {
   const { t } = useTranslation("common");
   const label = message ?? t("status.loading");
@@ -14,11 +16,8 @@ export function PageLoader({ message }: PageLoaderProps) {
       role="status"
       aria-live="polite"
     >
-      <div className="relative h-10 w-10">
-        <div className="absolute inset-0 rounded-full border-4 border-primary/20" />
-        <div className="absolute inset-0 animate-spin rounded-full border-4 border-transparent border-t-primary" />
-      </div>
-      <p className="text-sm text-muted-foreground">{label}</p>
+      <RegMark className="h-9 w-9 animate-spin text-primary [animation-duration:1.6s]" />
+      <p className="press-slug">{label}</p>
     </div>
   );
 }

@@ -12,13 +12,17 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Masthead, FieldSheet, Field, SectionHead, Serial } from "@/components/dossier/Dossier";
+import { Masthead, RegMark, SectionHead } from "@/components/dossier/Dossier";
 
 interface FaqItem {
   question: string;
   answer: string;
 }
 
+/**
+ * The operator's manual: a contents rail, a service directory, a route list,
+ * and a printed Q./A. reference — sections named, never numbered.
+ */
 const Help = () => {
   const { t } = useTranslation("help");
 
@@ -58,21 +62,18 @@ const Help = () => {
   const sections = [
     {
       id: "support",
-      n: "01",
       label: t("help.support.title", { defaultValue: "Support channels" }),
-      tally: `${String(supportCards.length).padStart(2, "0")} CHANNELS`,
+      tally: String(supportCards.length).padStart(2, "0"),
     },
     {
       id: "navigation",
-      n: "02",
       label: t("help.quickLinks.title"),
-      tally: `${String(quickLinks.length).padStart(2, "0")} LINKS`,
+      tally: String(quickLinks.length).padStart(2, "0"),
     },
     {
       id: "faq",
-      n: "03",
       label: t("help.faq.title"),
-      tally: `${String(faqItems.length).padStart(2, "0")} ENTRIES`,
+      tally: String(faqItems.length).padStart(2, "0"),
     },
   ];
 
@@ -82,26 +83,21 @@ const Help = () => {
         kicker={t("help.eyebrow", { defaultValue: "Support & docs" })}
         title={t("help.title")}
         description={t("help.subtitle")}
-        meta={[
-          { label: "SECTIONS", value: String(sections.length).padStart(2, "0") },
-          { label: "ENTRIES", value: String(faqItems.length).padStart(2, "0") },
-          { label: "CHANNELS", value: String(supportCards.length).padStart(2, "0") },
-        ]}
         actions={
           <Button asChild size="sm" className="h-9 gap-1.5 text-sm">
             <Link to="/chat">
               {t("help.support.chat.action")}
-              <ArrowRight className="h-3.5 w-3.5" />
+              <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
             </Link>
           </Button>
         }
       />
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,11rem)_1fr] lg:gap-12">
-        {/* Left mono index — editorial contents ledger */}
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,12rem)_1fr] lg:gap-12">
+        {/* The manual's contents rail */}
         <nav aria-label={t("help.title")} className="hidden lg:block">
-          <div className="sticky top-6">
-            <p className="t-label mb-2.5 border-b-2 border-foreground pb-2 text-foreground">
+          <div className="sticky top-20">
+            <p className="t-label mb-1 border-b-2 border-foreground pb-2 text-foreground">
               {t("help.contents", { defaultValue: "Contents" })}
             </p>
             <ol className="divide-y divide-border">
@@ -109,15 +105,13 @@ const Help = () => {
                 <li key={section.id}>
                   <a
                     href={`#${section.id}`}
-                    className="group flex flex-col gap-1 border-s-2 border-transparent -ms-0.5 py-2.5 ps-3 transition-colors hover:border-primary"
+                    className="group flex items-baseline gap-2.5 py-3 transition-colors hover:bg-muted/60"
                   >
-                    <span className="flex items-baseline gap-2 font-mono text-xs text-muted-foreground transition-colors group-hover:text-foreground">
-                      <span className="tabular-nums">{section.n}</span>
-                      <span className="truncate">{section.label}</span>
+                    <RegMark className="h-2.5 w-2.5 shrink-0 translate-y-px text-muted-foreground transition-colors group-hover:text-primary" />
+                    <span className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground transition-colors group-hover:text-foreground">
+                      {section.label}
                     </span>
-                    <span className="ps-6 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                      {section.tally}
-                    </span>
+                    <span className="press-slug text-[9px]">{section.tally}</span>
                   </a>
                 </li>
               ))}
@@ -125,99 +119,97 @@ const Help = () => {
           </div>
         </nav>
 
-        {/* Right column — numbered reference sections */}
-        <div className="min-w-0 space-y-10">
-          {/* §01 — Support channels as a margin-label spec sheet (interactive → kept as a card) */}
-          <section id="support" className="scroll-mt-6">
+        <div className="min-w-0 space-y-12">
+          {/* Support channels — the service directory */}
+          <section id="support" className="scroll-mt-20">
             <SectionHead
-              marker="§01"
               title={t("help.support.title", { defaultValue: "Support channels" })}
               aside={sections[0].tally}
             />
-            <FieldSheet>
-              {supportCards.map((card, i) => {
+            <div className="divide-y divide-border border border-border bg-card">
+              {supportCards.map((card) => {
                 const Icon = card.icon;
                 const action = (
                   <>
                     {t(card.actionKey)}
-                    {card.mailto ? <ExternalLink className="h-3 w-3" /> : <ArrowRight className="h-3 w-3" />}
+                    {card.mailto ? <ExternalLink className="h-3 w-3" /> : <ArrowRight className="h-3 w-3 rtl:rotate-180" />}
                   </>
                 );
                 return (
-                  <Field
-                    key={card.titleKey}
-                    label={
-                      <span className="flex items-center gap-2">
-                        <Serial>{String(i + 1).padStart(2, "0")}</Serial>
-                        <span className="min-w-0 truncate">{t(card.titleKey)}</span>
-                      </span>
-                    }
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <p className="flex max-w-[52ch] items-start gap-2.5 t-sm leading-relaxed">
-                        <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                        {t(card.descKey)}
-                      </p>
-                      {card.href ? (
-                        <Button asChild variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 text-xs">
-                          <Link to={card.href}>{action}</Link>
-                        </Button>
-                      ) : card.mailto ? (
-                        <Button asChild variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 text-xs">
-                          <a href={card.mailto}>{action}</a>
-                        </Button>
-                      ) : (
-                        <Button variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 text-xs">
-                          {action}
-                        </Button>
-                      )}
+                  <div key={card.titleKey} className="grid gap-x-6 gap-y-2 p-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                    <div className="min-w-0">
+                      <h3 className="t-h5 flex items-center gap-2.5 text-foreground">
+                        <Icon className="h-4 w-4 shrink-0 text-primary" />
+                        {t(card.titleKey)}
+                      </h3>
+                      <p className="t-sm mt-1.5 max-w-[56ch] leading-relaxed">{t(card.descKey)}</p>
                     </div>
-                  </Field>
+                    {card.href ? (
+                      <Button asChild variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 justify-self-start text-xs sm:justify-self-end">
+                        <Link to={card.href}>{action}</Link>
+                      </Button>
+                    ) : card.mailto ? (
+                      <Button asChild variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 justify-self-start text-xs sm:justify-self-end">
+                        <a href={card.mailto}>{action}</a>
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 justify-self-start text-xs sm:justify-self-end">
+                        {action}
+                      </Button>
+                    )}
+                  </div>
                 );
               })}
-            </FieldSheet>
+            </div>
           </section>
 
-          {/* §02 — Quick links as a bare ruled ledger (heavy-rule head + hairline rows) */}
-          <section id="navigation" className="scroll-mt-6">
-            <SectionHead marker="§02" title={t("help.quickLinks.title")} aside={sections[1].tally} />
+          {/* Quick links — the route list */}
+          <section id="navigation" className="scroll-mt-20">
+            <SectionHead title={t("help.quickLinks.title")} aside={sections[1].tally} />
             <div className="divide-y divide-border border-b border-border">
-              {quickLinks.map((link, i) => {
+              {quickLinks.map((link) => {
                 const Icon = link.icon;
                 return (
                   <Link
                     key={link.labelKey}
                     to={link.href}
-                    className="group -mx-2 flex items-center gap-3.5 rounded-sm px-2 py-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="group flex items-center gap-3.5 py-3 text-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
                   >
-                    <Serial>{String(i + 1).padStart(2, "0")}</Serial>
                     <Icon className="h-4 w-4 shrink-0 text-primary" />
-                    <span className="min-w-0 truncate font-mono text-xs uppercase tracking-[0.08em]">
-                      {t(link.labelKey)}
-                    </span>
-                    <ArrowRight className="ms-auto h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
+                    <span className="press-slug min-w-0 truncate text-foreground">{t(link.labelKey)}</span>
+                    <ArrowRight className="ms-auto h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 rtl:rotate-180" />
                   </Link>
                 );
               })}
             </div>
           </section>
 
-          {/* §03 — FAQ as a bare ruled definition list (dt/dd), numbered Q-exhibits */}
-          <section id="faq" className="scroll-mt-6">
-            <SectionHead marker="§03" title={t("help.faq.title")} aside={sections[2].tally} />
+          {/* FAQ — printed Q./A. reference */}
+          <section id="faq" className="scroll-mt-20">
+            <SectionHead title={t("help.faq.title")} aside={sections[2].tally} />
             <dl className="divide-y divide-border border-b border-border">
               {faqItems.map((item, i) => (
-                <div
-                  key={i}
-                  className="grid grid-cols-1 gap-x-5 gap-y-2 py-5 sm:grid-cols-[minmax(3rem,4rem)_1fr]"
-                >
-                  <div className="pt-0.5">
-                    <Serial tone="primary">{`Q${String(i + 1).padStart(2, "0")}`}</Serial>
-                  </div>
-                  <div className="min-w-0">
-                    <dt className="t-h5 text-foreground">{item.question}</dt>
-                    <dd className="mt-2 t-sm leading-relaxed text-muted-foreground">{item.answer}</dd>
-                  </div>
+                <div key={i} className="py-6">
+                  <dt className="grid grid-cols-[2.25rem_1fr] gap-x-3">
+                    <span
+                      aria-hidden
+                      className="select-none font-display text-xl font-extrabold leading-tight text-plate-a-deep"
+                      style={{ fontStretch: "122%" }}
+                    >
+                      Q
+                    </span>
+                    <span className="t-h5 text-foreground" style={{ textWrap: "balance" }}>{item.question}</span>
+                  </dt>
+                  <dd className="mt-2.5 grid grid-cols-[2.25rem_1fr] gap-x-3">
+                    <span
+                      aria-hidden
+                      className="select-none font-display text-xl font-extrabold leading-tight text-plate-b-deep"
+                      style={{ fontStretch: "122%" }}
+                    >
+                      A
+                    </span>
+                    <span className="t-sm max-w-[68ch] leading-relaxed">{item.answer}</span>
+                  </dd>
                 </div>
               ))}
             </dl>

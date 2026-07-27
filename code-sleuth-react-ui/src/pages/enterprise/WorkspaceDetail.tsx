@@ -52,7 +52,7 @@ import { cn } from "@/lib/utils";
 type Tab = "repositories" | "cases" | "members";
 
 const STATUS_META: Record<string, { cls: string }> = {
-  open:            { cls: "bg-accent/15 text-accent border-accent/30" },
+  open:            { cls: "bg-plate-a/10 text-plate-a-deep border-plate-a/45" },
   in_review:       { cls: "bg-warning/15 text-foreground border-warning/30" },
   confirmed_clone: { cls: "bg-destructive/15 text-destructive border-destructive/30" },
   false_positive:  { cls: "bg-muted text-muted-foreground border-border/60" },
@@ -64,14 +64,14 @@ const SEV_META: Record<string, { cls: string }> = {
   critical: { cls: "bg-destructive/15 text-destructive border-destructive/30" },
   high:     { cls: "bg-warning/15 text-foreground border-warning/30" },
   medium:   { cls: "bg-warning/12 text-foreground border-warning/25" },
-  low:      { cls: "bg-accent/15 text-accent border-accent/30" },
+  low:      { cls: "bg-muted text-muted-foreground border-border" },
 };
 
 const ROLE_CLS: Record<string, string> = {
   owner:    "bg-primary/15 text-primary border-primary/25",
   admin:    "bg-destructive/15 text-destructive border-destructive/25",
   manager:  "bg-warning/15 text-foreground border-warning/25",
-  reviewer: "bg-accent/15 text-accent border-accent/25",
+  reviewer: "bg-plate-a/10 text-plate-a-deep border-plate-a/45",
   student:  "bg-muted text-muted-foreground border-border/60",
 };
 

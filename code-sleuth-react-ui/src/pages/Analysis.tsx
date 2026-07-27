@@ -5,8 +5,6 @@ import { toast } from "sonner";
 import {
   ArrowRight,
   CheckCircle2,
-  ChevronDown,
-  ChevronUp,
   Code2,
   FileArchive,
   FileCode,
@@ -23,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Masthead, Serial } from "@/components/dossier/Dossier";
+import { Masthead, RegMark, Serial } from "@/components/dossier/Dossier";
 import { useAnalysis } from "@/context/AnalysisContext";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -152,25 +150,29 @@ function ExhibitPanel({
     });
   };
 
+  const plateTone = label === "A" ? "plate-a" : "plate-b";
+  const plateTextClass = label === "A" ? "text-plate-a-deep" : "text-plate-b-deep";
+  const plateTabClass = label === "A" ? "bg-plate-a/10" : "bg-plate-b/10";
+
   return (
-    <section className="overflow-hidden rounded-lg border border-border bg-card">
-      {/* Exhibit header — serial marker + label + status */}
+    <section className="overflow-hidden border border-border bg-card">
+      {/* Plate header — identity marker + label + status */}
       <div className="flex items-center gap-3 border-b border-border px-4 py-2.5">
-        <Serial tone={isReady ? "primary" : "muted"}>{label}</Serial>
-        <h2 className="t-label flex-1 text-foreground">{t("analysis.sourceTitle", { label })}</h2>
+        <Serial tone={isReady ? plateTone : "muted"}>{label}</Serial>
+        <h2 className={cn("t-label flex-1", isReady ? plateTextClass : "text-foreground")}>
+          {t("analysis.sourceTitle", { label })}
+        </h2>
         {isReady ? (
           <span className="badge-success">
             <CheckCircle2 className="h-3.5 w-3.5" />
             {t("analysis.ready")}
           </span>
         ) : (
-          <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-            {t("analysis.empty", { defaultValue: "empty" })}
-          </span>
+          <span className="press-slug">{t("analysis.empty", { defaultValue: "empty" })}</span>
         )}
       </div>
 
-      {/* Segmented mono method control — an instrument switch, not four cards */}
+      {/* Segmented method control — an instrument switch, not four cards */}
       <div className="flex border-b border-border">
         {inputMethods.map((method) => {
           const Icon = method.icon;
@@ -181,8 +183,8 @@ function ExhibitPanel({
               type="button"
               onClick={() => setMethod(method.id)}
               className={cn(
-                "flex-1 border-e border-border py-2 text-center font-mono text-[11px] uppercase tracking-wide transition-colors last:border-e-0",
-                active ? "bg-primary/10 font-semibold text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                "press-slug flex-1 border-e border-border py-2 text-center transition-colors last:border-e-0",
+                active ? cn(plateTabClass, "font-bold text-foreground") : "hover:bg-muted hover:text-foreground",
               )}
             >
               <Icon className="mx-auto mb-1 h-3.5 w-3.5" />
@@ -304,7 +306,6 @@ const Analysis = () => {
   const { localizeRuntimeMessage, getProgrammingLanguageLabel } = useLanguage();
   const { t } = useTranslation("analysis");
   const [selectedLanguage, setSelectedLanguage] = useState("python");
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [sourceA, setSourceA] = useState<SourceState>(() => createEmptySource());
   const [sourceB, setSourceB] = useState<SourceState>(() => createEmptySource());
@@ -380,39 +381,11 @@ const Analysis = () => {
         kicker={t("analysis.eyebrow", { defaultValue: "Pairwise analysis" })}
         title={t("analysis.title")}
         description={t("analysis.subtitle")}
-        meta={[
-          { label: "MODE", value: "PAIRWISE" },
-          {
-            label: "STATUS",
-            value: bothReady ? (
-              <span className="text-success">READY</span>
-            ) : (
-              <span className="rounded-sm bg-warning/20 px-1.5 py-0.5 text-foreground">DRAFT · {readyCount}/2</span>
-            ),
-          },
-        ]}
-        actions={
-          <label className="flex items-center gap-2.5">
-            <span className="t-label text-muted-foreground">{t("analysis.language")}</span>
-            <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-              <SelectTrigger className="h-9 w-[176px] rounded-sm border-border bg-card font-mono text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {languageOptions.map((option) => (
-                  <SelectItem key={option} value={option} className="font-mono text-sm">
-                    {getProgrammingLanguageLabel(option)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
-        }
       />
 
       {errorMessage && (
         <div
-          className="flex items-start gap-3 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"
+          className="flex items-start gap-3 border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"
           role="alert"
         >
           <Info className="mt-0.5 h-4 w-4 shrink-0" />
@@ -420,57 +393,112 @@ const Analysis = () => {
         </div>
       )}
 
-      {/* Pairwise specimens — A vs B framed as the case exhibits, joined by a central seam */}
-      <div>
-        <div className="flex items-baseline justify-between gap-4 border-b border-border pb-2">
-          <span className="t-label text-muted-foreground">{t("home.pairwise", { ns: "common", defaultValue: "Pairwise" })}</span>
-          <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">A · B</span>
-        </div>
-        <div className="mt-5 grid items-stretch gap-5 xl:grid-cols-[1fr_auto_1fr]">
-          <ExhibitPanel label="A" source={sourceA} onChange={setSourceA} />
-          <div className="flex items-center justify-center" aria-hidden>
-            <span className="rounded-sm bg-primary px-2.5 py-1.5 font-display text-xs font-bold text-primary-foreground">vs</span>
+      {/* The imposition desk: plates on the table, the job ticket clipped beside them */}
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_17rem]">
+        {/* ── The two plates, joined at the registration seam ── */}
+        <div>
+          <div className="flex items-baseline justify-between gap-4 border-b border-border pb-2">
+            <span className="t-label text-muted-foreground">{t("home.pairwise", { ns: "common", defaultValue: "Pairwise" })}</span>
+            <span className="press-slug">A ⊕ B</span>
           </div>
-          <ExhibitPanel label="B" source={sourceB} onChange={setSourceB} />
+          <div className="mt-5 grid items-stretch gap-5 lg:grid-cols-[1fr_auto_1fr]">
+            <ExhibitPanel label="A" source={sourceA} onChange={setSourceA} />
+            {/* The seam — a dotted registration column between the plates */}
+            <div className="relative hidden items-center justify-center px-1 lg:flex" aria-hidden>
+              <span className="absolute inset-y-2 start-1/2 w-px border-s border-dashed border-border" />
+              <RegMark
+                className={cn(
+                  "relative z-[1] h-7 w-7 bg-card py-0.5 transition-colors",
+                  bothReady ? "text-primary" : "text-muted-foreground/60",
+                )}
+              />
+            </div>
+            <div className="flex items-center justify-center lg:hidden" aria-hidden>
+              <RegMark className={cn("h-6 w-6 transition-colors", bothReady ? "text-primary" : "text-muted-foreground/60")} />
+            </div>
+            <ExhibitPanel label="B" source={sourceB} onChange={setSourceB} />
+          </div>
         </div>
-      </div>
 
-      {/* Engine capabilities — collapsed spec list */}
-      <div>
-        <button
-          type="button"
-          onClick={() => setShowAdvanced((current) => !current)}
-          className="flex items-center gap-2 font-mono text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
-        >
-          {showAdvanced ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-          {t("analysis.capabilities.toggle")}
-        </button>
+        {/* ── The job ticket — the spec that travels with this run ── */}
+        <aside className="border border-border bg-card">
+          <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+            <span className="t-label flex items-center gap-2 text-foreground">
+              <span className="reg-dot h-3 w-3 text-primary" aria-hidden />
+              {t("analysis.jobTicket", { defaultValue: "Job ticket" })}
+            </span>
+            {bothReady ? (
+              <span className="badge-success">{t("analysis.ready")}</span>
+            ) : (
+              <span className="badge-warning">{readyCount}/2</span>
+            )}
+          </div>
 
-        {showAdvanced && (
-          <dl className="mt-3 grid gap-x-10 overflow-hidden rounded-lg border border-border bg-card px-5 py-1 sm:grid-cols-2">
-            {CAPABILITY_KEYS.map((key) => (
-              <div
-                key={key}
-                className="flex items-center gap-2.5 border-b border-border/70 py-2.5 text-xs last:border-b-0"
-              >
-                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-success" />
-                <dt className="font-mono text-muted-foreground">{t(`analysis.${key}`)}</dt>
+          <div className="px-4">
+            <div className="grid grid-cols-1 gap-y-1 border-b border-border py-3.5">
+              <span className="t-label">{t("analysis.language")}</span>
+              <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+                <SelectTrigger className="mt-1 h-9 w-full border-border bg-card font-mono text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {languageOptions.map((option) => (
+                    <SelectItem key={option} value={option} className="font-mono text-sm">
+                      {getProgrammingLanguageLabel(option)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Plate readiness — the ticket's checkboxes */}
+            <div className="border-b border-border py-3.5">
+              <span className="t-label">{t("home.pairwise", { ns: "common", defaultValue: "Pairwise" })}</span>
+              <div className="mt-2 space-y-1.5">
+                {([["A", sourceReady(sourceA)], ["B", sourceReady(sourceB)]] as const).map(([plate, ready]) => (
+                  <div key={plate} className="flex items-center gap-2">
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "h-2.5 w-2.5",
+                        plate === "A" ? (ready ? "bg-plate-a" : "border border-plate-a/50") : ready ? "bg-plate-b" : "border border-plate-b/50",
+                      )}
+                    />
+                    <span className="press-slug text-foreground">{t("analysis.sourceTitle", { label: plate })}</span>
+                    <span className="press-slug ms-auto">
+                      {ready ? t("analysis.ready") : t("analysis.empty", { defaultValue: "empty" })}
+                    </span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </dl>
-        )}
+            </div>
+
+            {/* What this run prints — the engine checklist, always on the ticket */}
+            <div className="py-3.5">
+              <span className="t-label">{t("analysis.capabilities.toggle")}</span>
+              <dl className="mt-2">
+                {CAPABILITY_KEYS.map((key) => (
+                  <div key={key} className="flex items-center gap-2 border-b border-border/50 py-1.5 text-xs last:border-b-0">
+                    <CheckCircle2 className="h-3 w-3 shrink-0 text-success" />
+                    <dt className="text-muted-foreground">{t(`analysis.${key}`)}</dt>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          </div>
+        </aside>
       </div>
 
-      {/* Run footer — mono status line + actions */}
-      <div className="sticky bottom-0 flex flex-col gap-3 rounded-lg border border-border bg-card p-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="min-w-0 font-mono text-[11px] text-muted-foreground">
+      {/* Run footer — the press control: status slug + actions */}
+      <div className="sticky bottom-0 flex flex-col gap-3 border border-border bg-card p-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
           {isAnalyzing && analysisProgress ? (
             <div className="flex items-center gap-3">
-              <span className="uppercase tracking-wide text-foreground">
+              <span className="press-slug text-foreground">
                 {localizeRuntimeMessage(analysisProgress.stage)}
                 {progressPercent !== null && <span className="tabular-nums"> · {progressPercent}%</span>}
               </span>
-              <div className="h-1 w-40 overflow-hidden rounded-sm bg-muted">
+              <div className="h-1.5 w-40 overflow-hidden border border-border bg-muted">
                 <div
                   className="h-full bg-primary transition-[width] duration-500"
                   style={{ width: `${progressPercent ?? 20}%` }}
@@ -478,7 +506,7 @@ const Analysis = () => {
               </div>
             </div>
           ) : (
-            <span className="uppercase tracking-wide">{t("analysis.autoSave")}</span>
+            <span className="press-slug">{t("analysis.autoSave")}</span>
           )}
         </div>
 

@@ -98,7 +98,7 @@ const Chat = () => {
         <Field
           label={
             <span className="inline-flex items-center gap-2">
-              <Serial tone="primary">A</Serial>
+              <Serial tone="plate-a">A</Serial>
               {t("chat.exhibitA", { defaultValue: "Exhibit A" })}
             </span>
           }
@@ -111,7 +111,7 @@ const Chat = () => {
         <Field
           label={
             <span className="inline-flex items-center gap-2">
-              <Serial tone="primary">B</Serial>
+              <Serial tone="plate-b">B</Serial>
               {t("chat.exhibitB", { defaultValue: "Exhibit B" })}
             </span>
           }

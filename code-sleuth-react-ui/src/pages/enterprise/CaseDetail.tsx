@@ -354,9 +354,9 @@ export default function CaseDetail() {
               return (
                 <Field key={label} label={label} align="center">
                   <div className="flex items-center gap-4">
-                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted" dir="ltr">
+                    <div className="h-1.5 flex-1 overflow-hidden bg-muted" dir="ltr">
                       <div
-                        className="h-full rounded-full"
+                        className="h-full"
                         style={{ width: `${pct}%`, backgroundColor: metricColor(pct) }}
                       />
                     </div>

@@ -8,7 +8,9 @@ export default defineConfig(() => ({
     host: "::",
     port: 8080,
     proxy: {
-      "/api": {
+      // Regex key: only /api/* is the backend — a bare "/api" prefix would
+      // also swallow SPA routes like /api-keys and serve Flask's stale build.
+      "^/api/": {
         target: "http://127.0.0.1:5000",
         changeOrigin: true,
       },
