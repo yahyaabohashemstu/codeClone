@@ -5,6 +5,7 @@ import { AtSign, CheckCircle2, Eye, EyeOff, Lock, UserRound } from "lucide-react
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ControlStrip, RegMark } from "@/components/dossier/Dossier";
+import { BrandMark } from "@/components/brand/BrandMark";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { cn } from "@/lib/utils";
@@ -177,9 +178,7 @@ const Auth = () => {
 
         <div className="relative">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center bg-white text-[hsl(var(--auth-ink))]">
-              <RegMark className="h-5 w-5" />
-            </span>
+            <BrandMark className="h-10 shrink-0" lens="hsl(252 92% 78%)" letter="#FCFDFD" />
             <span className="font-display text-lg font-extrabold uppercase tracking-wide" style={{ fontStretch: "118%" }}>
               Clone Lens
             </span>

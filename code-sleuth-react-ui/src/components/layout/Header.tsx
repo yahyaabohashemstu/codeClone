@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { LanguageToggle } from "@/components/common/LanguageToggle";
-import { RegMark } from "@/components/dossier/Dossier";
+import { BrandMark } from "@/components/brand/BrandMark";
 import { useAnalysis } from "@/context/AnalysisContext";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -64,9 +64,7 @@ export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
 
         {/* Mobile brand — the registration lockup */}
         <Link to="/" className="flex items-center gap-2 md:hidden">
-          <span className="flex h-7 w-7 items-center justify-center bg-primary text-primary-foreground">
-            <RegMark className="h-4 w-4" />
-          </span>
+          <BrandMark className="h-7 shrink-0" />
           <span className="font-display text-sm font-extrabold uppercase tracking-wide" style={{ fontStretch: "118%" }}>
             Clone Lens
           </span>

@@ -270,6 +270,30 @@ All in `src/components/dossier/Dossier.tsx` (path kept for its 15 importers):
 - **`.misreg`** — cyan/magenta split text-shadow: the plates coming apart.
   Reserved for the 404 misprint and at most one hero moment. Never body text.
 
+## 5a. The mark
+
+The logo is a **C+L monogram that is also a lens**: the C is the optic's ring,
+the L sits in its field of view, and the handle completes the instrument. It
+ships as approved artwork — two inks, no gradients, no effects:
+
+- **Lens + handle** — the overprint violet `#3e2c8c`, i.e. `--primary` exactly.
+- **The L** — ink; it takes `--foreground`, so it inverts to a light letter in
+  dark mode rather than disappearing.
+
+Use `<BrandMark>` (`components/brand/BrandMark.tsx`), never an `<img>`: the
+inline SVG lets both inks track the live theme tokens. **Size it by height and
+let the width follow** — the artwork is 245.98 : 187.74 (≈1.31:1), so a
+square box will distort it. Pass explicit `lens` / `letter` colours only where
+the surface is fixed regardless of theme (the auth rail, which is always dark).
+
+The mark appears at brand moments only — the sidebar head, the mobile header,
+the auth panel, the favicon, and the PDF cover. **`RegMark` (the ⊕ crosshair)
+is a different thing**: a design-system motif for seams, loaders, nav state
+and section markers. The two coexist; do not substitute one for the other.
+
+Assets: `public/brand/clone-lens.svg` (the artwork) and `public/brand/mark.svg`
+(square favicon; its L flips light under `prefers-color-scheme: dark`).
+
 ## 5b. Page compositions (each surface's printed form)
 
 Every section has its own press-artifact structure — recolouring a generic

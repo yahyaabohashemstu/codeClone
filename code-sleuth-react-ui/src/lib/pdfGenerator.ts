@@ -320,7 +320,7 @@ function radarSvg(items: Array<{ name: string; value: number }>, lang: Lang): st
   const dots = pts
     .map((p, i) => {
       const [x, y] = coord(i, (clamp(p.value) / 100) * R);
-      return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.6" fill="#23508b"/>`;
+      return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.6" fill="#3e2c8c"/>`;
     })
     .join("");
   const labels = pts
@@ -334,7 +334,7 @@ function radarSvg(items: Array<{ name: string; value: number }>, lang: Lang): st
     .join("");
   return `<svg viewBox="0 0 350 320" width="100%" height="auto" style="max-width:360px" role="img" aria-label="${esc(LABELS[lang].radar)}">
     ${rings}${axes}
-    <polygon points="${valuePoly}" fill="rgba(35,80,139,.18)" stroke="#23508b" stroke-width="2"/>
+    <polygon points="${valuePoly}" fill="rgba(62,44,140,.18)" stroke="#3e2c8c" stroke-width="2"/>
     ${dots}${labels}
   </svg>`;
 }
@@ -457,7 +457,12 @@ export function buildReportHtml(result: AnalysisResult, sections: PdfSections, l
       <header class="cover">
         <div class="cover-band">
           <div class="cover-head">
-            <div class="brand-mark">◇ Clone Lens</div>
+            <div class="brand-mark">
+              <svg viewBox="0 0 245.98 187.74" width="26" height="20" aria-hidden="true" style="vertical-align:-3px;margin-inline-end:7px">
+                <path fill="#fff" d="M235.51,175.82l-85.88-41.6h0c5.78-11.94,20.15-16.93,32.08-11.14l64.27,31.13-10.47,21.61Z"/>
+                <path fill="#fff" d="M187.75,93.61l-28.71.08c-.02-7.24-1.24-14.37-3.61-21.2-5.67-16.31-17.46-29.5-33.22-37.13-9.19-4.45-19.03-6.68-28.87-6.63-7.03.03-14.06,1.22-20.85,3.58-1.07.37-2.12.77-3.16,1.19-14.85,6.03-26.84,17.3-33.97,32.03-7.63,15.75-8.72,33.41-3.05,49.72,11.79,33.95,49,51.97,82.94,40.18,6.84-2.38,13.19-5.85,18.88-10.32l17.74,22.59c-8.2,6.44-17.35,11.44-27.19,14.86-23.56,8.18-49.01,6.64-71.67-4.34-22.66-10.97-39.65-29.99-47.83-53.54C-3,101.12-1.46,75.67,9.51,53.01,20.49,30.35,39.51,13.36,63.06,5.18c2.08-.72,4.17-1.36,6.27-1.93C77.23,1.11,85.29.03,93.34,0c14.13-.05,28.23,3.14,41.39,9.51,11.33,5.49,21.24,12.99,29.34,22.06,8.1,9.07,14.4,19.71,18.49,31.49,3.42,9.85,5.17,20.13,5.19,30.55Z"/>
+                <path fill="#fff" fill-opacity=".62" d="M141.15,93.87c0,6.63-2.69,12.63-7.04,16.98-4.34,4.34-10.35,7.03-16.98,7.03h-47.8V3.25C77.23,1.11,85.29.03,93.34,0v93.87h47.81Z"/>
+              </svg>Clone Lens</div>
             <div class="cover-meta-inline">${esc(L.analysisId)}: <b>#${esc(result.saved_analysis_id ?? "—")}</b></div>
           </div>
           <h1>${esc(L.title)}</h1>
@@ -481,7 +486,7 @@ export function buildReportHtml(result: AnalysisResult, sections: PdfSections, l
     const kpis = [
       kpi(L.combined, `${score.toFixed(0)}%`, strengthColor(score), strengthLabel(score, L)),
       kpi(L.risk, riskLabel(risk, L), riskColor),
-      kpi(L.kpiClones, `${detectedClones}/${clones.length || 0}`, "#23508b"),
+      kpi(L.kpiClones, `${detectedClones}/${clones.length || 0}`, "#3e2c8c"),
       kpi(L.kpiFindings, String(findingCount), findingCount ? "#ea580c" : "#059669"),
       kpi(L.language, esc(result.language), "#0f172a"),
       strongest
@@ -542,7 +547,7 @@ export function buildReportHtml(result: AnalysisResult, sections: PdfSections, l
         L.cloneDetection,
         `<div class="coverage">
           <div class="coverage-head"><span>${esc(L.coverage)}</span><b>${detectedClones} / ${clones.length} ${esc(L.activated)}</b></div>
-          <div class="bar-track"><div class="bar-fill" style="width:${coverage.toFixed(1)}%;background:#23508b"></div></div>
+          <div class="bar-track"><div class="bar-fill" style="width:${coverage.toFixed(1)}%;background:#3e2c8c"></div></div>
         </div>
         <div class="chips">${chips}</div>`,
       ),
@@ -607,21 +612,22 @@ export function buildReportHtml(result: AnalysisResult, sections: PdfSections, l
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>${esc(L.title)}</title>
 <style>
-  :root { --brand:#23508b; --brand2:#1c395f; --ink:#25211d; --muted:#6b6459; --line:#e4ddd0; --soft:#faf6ee; }
+  :root { --brand:#3e2c8c; --brand2:#2b1e63; --ink:#131b24; --muted:#525a66; --line:#c6ccd3; --soft:#f2f4f6;
+           --plate-a:#00a0d1; --plate-b:#e90c82; }
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   html { -webkit-text-size-adjust: 100%; }
   body { font-family: -apple-system, "Segoe UI", Roboto, "Noto Sans Arabic", "Noto Naskh Arabic", sans-serif;
-    color: var(--ink); margin: 0; background: #f4efe6; line-height: 1.55; font-size: 14px; }
-  .page { max-width: 940px; margin: 24px auto; background: #fff; box-shadow: 0 6px 24px rgba(37,33,29,.12);
-    border-radius: 6px; overflow: hidden; }
+    color: var(--ink); margin: 0; background: #e3e7eb; line-height: 1.55; font-size: 14px; }
+  .page { max-width: 940px; margin: 24px auto; background: #fcfdfd; border: 1px solid var(--line);
+    overflow: hidden; }
   .page-inner { padding: 0 40px 40px; }
   a { color: var(--brand); }
 
   /* Cover */
-  .cover-band { background: linear-gradient(135deg, var(--brand) 0%, var(--brand2) 100%); color: #fff;
+  .cover-band { background: var(--brand); color: #fff;
     padding: 28px 40px 32px; margin: 0 -40px; }
   .cover-head { display: flex; justify-content: space-between; align-items: center; opacity: .92; font-size: 12px; }
-  .brand-mark { font-weight: 800; letter-spacing: .5px; }
+  .brand-mark { font-weight: 800; letter-spacing: .5px; display: flex; align-items: center; }
   .cover-band h1 { font-size: 30px; margin: 16px 0 4px; font-weight: 800; line-height: 1.15; }
   .cover-sub { margin: 0; opacity: .85; font-size: 13px; }
   .cover-hero { display: flex; gap: 26px; align-items: center; margin-top: 22px; flex-wrap: wrap; }
@@ -633,14 +639,14 @@ export function buildReportHtml(result: AnalysisResult, sections: PdfSections, l
   .fact em { opacity: .7; font-style: normal; }
   .risk-pill { display: inline-block; padding: 2px 12px; border-radius: 999px; background: rgba(255,255,255,.2);
     border: 1px solid rgba(255,255,255,.6); font-weight: 700; font-size: 13px; }
-  .verdict-banner { margin: 18px 0 0; padding: 14px 18px; background: var(--soft); border: 1px solid var(--line);
-    border-inline-start: 4px solid var(--brand); border-radius: 10px; font-size: 14px; }
+  .verdict-banner { margin: 18px 0 0; padding: 14px 18px; background: var(--soft);
+    border: 1px solid var(--brand); font-size: 14px; }
   .v-tag { font-weight: 800; color: var(--brand); text-transform: uppercase; font-size: 11px; letter-spacing: .5px; margin-inline-end: 6px; }
 
   /* Sections */
   .sec { margin-top: 30px; break-inside: avoid; }
   .sec h2 { font-size: 17px; font-weight: 800; color: var(--ink); margin: 0 0 14px; display: flex; align-items: center; gap: 9px; }
-  .sec-dot { width: 9px; height: 20px; border-radius: 3px; background: linear-gradient(var(--brand), var(--brand2)); display: inline-block; }
+  .sec-dot { width: 9px; height: 20px; background: var(--brand); display: inline-block; }
   h3 { font-size: 13px; font-weight: 700; margin: 18px 0 8px; color: #334155; }
   .lead { font-size: 14px; color: #334155; margin: 4px 0 0; }
   .muted { color: var(--muted); }

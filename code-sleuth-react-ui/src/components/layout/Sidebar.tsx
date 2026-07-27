@@ -22,7 +22,8 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ControlStrip, RegMark } from "@/components/dossier/Dossier";
+import { ControlStrip } from "@/components/dossier/Dossier";
+import { BrandMark } from "@/components/brand/BrandMark";
 import { useAnalysis } from "@/context/AnalysisContext";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -134,9 +135,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
             collapsed ? "justify-center px-0" : "gap-2.5",
           )}
         >
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center bg-primary text-primary-foreground">
-            <RegMark className="h-[18px] w-[18px]" />
-          </span>
+          <BrandMark className={cn("shrink-0", collapsed ? "h-7" : "h-8")} />
           {!collapsed && (
             <span className="min-w-0 leading-none">
               <span className="block truncate font-display text-[15px] font-extrabold uppercase tracking-wide text-sidebar-accent-foreground" style={{ fontStretch: "118%" }}>
