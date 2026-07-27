@@ -19,17 +19,22 @@
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Clone Lens — put two pieces of code in register" />
     <meta property="og:description" content="Detect code clones across 15 languages and read the verdict as a registration proof — five similarity signals, one calibrated call." />
-    <meta property="og:image" content="/brand/mark.svg" />
-    <meta name="twitter:card" content="summary" />
+    <!-- Social scrapers do not render SVG — the card must be a raster. -->
+    <meta property="og:image" content="/brand/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Clone Lens — lay two pieces of code in register." />
+    <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Clone Lens — put two pieces of code in register" />
     <meta name="twitter:description" content="Detect code clones across 15 languages and read the verdict as a registration proof." />
-    <meta name="twitter:image" content="/brand/mark.svg" />
+    <meta name="twitter:image" content="/brand/og.png" />
 
     <!-- The SVG mark is the primary icon (it adapts to light/dark browser
-         chrome); the .ico stays as the fallback for older browsers. -->
+         chrome); the .ico stays as the fallback for older browsers. iOS wants
+         a square PNG for apple-touch-icon and ignores SVG, so that hint is
+         left off rather than pointed at a file iOS cannot use. -->
     <link rel="icon" type="image/svg+xml" href="/brand/mark.svg" />
     <link rel="alternate icon" href="/favicon.ico" />
-    <link rel="apple-touch-icon" href="/brand/mark.svg" />
     <link rel="preload" href="/fonts/Archivo-VariableFont_wdth_wght.ttf" as="font" type="font/ttf" crossorigin />
     <link rel="preload" href="/fonts/JetBrainsMono-VariableFont_wght.ttf" as="font" type="font/ttf" crossorigin />
   </head>
