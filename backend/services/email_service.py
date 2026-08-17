@@ -19,10 +19,33 @@ from __future__ import annotations
 import logging
 import smtplib
 from email.message import EmailMessage
+from email.utils import formataddr, parseaddr
 
 from flask import current_app
 
+from backend.services.email_templates import BRAND
+
 logger = logging.getLogger(__name__)
+
+
+def _with_display_name(raw_sender: str) -> str:
+    """Give the From header a human display name.
+
+    Inboxes show the display name; with a bare address Gmail falls back to the
+    local part, so ``hello@clonelens.com`` renders as just "hello". The name
+    lives here rather than in ``EMAIL_FROM`` because a value carrying spaces and
+    angle brackets does not survive Coolify's env-var validation — the edit is
+    rejected and the field silently reverts to the previous value.
+
+    A sender that already carries a name is left exactly as the operator wrote
+    it. Only the display half is touched: SMTP still authenticates as, and
+    envelopes the message from, the bare address, so SPF/DKIM alignment is
+    unaffected.
+    """
+    name, address = parseaddr(raw_sender)
+    if not address:
+        return raw_sender  # unparseable — pass through rather than mangle it
+    return formataddr((name or BRAND, address))
 
 
 def send_email(to_address: str, subject: str, body: str, html_body: str | None = None) -> bool:
@@ -31,7 +54,7 @@ def send_email(to_address: str, subject: str, body: str, html_body: str | None =
     Never raises: transactional email is best-effort from the caller's view.
     """
     provider = current_app.config.get("EMAIL_PROVIDER", "console").lower()
-    sender = current_app.config.get("EMAIL_FROM", "no-reply@clonelens.com")
+    sender = _with_display_name(current_app.config.get("EMAIL_FROM", "no-reply@clonelens.com"))
 
     if not to_address:
         return False

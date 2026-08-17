@@ -89,7 +89,7 @@ class TestSmtpProvider:
         assert len(server.sent) == 1
         msg = server.sent[0]
         assert msg["To"] == "to@example.com"
-        assert msg["From"] == "from@codesimilar.test"
+        assert msg["From"] == "Clone Lens <from@codesimilar.test>"
         assert msg["Subject"] == "Subject line"
 
     def test_smtp_without_host_fails_gracefully(self, app, monkeypatch):
@@ -129,3 +129,41 @@ class TestSmtpProvider:
         server = _FakeSMTP.instances[0]
         assert server.tls is False
         assert server.login_args is None  # no login attempted without a username
+
+
+class TestSenderDisplayName:
+    """The From header carries a readable name, not a bare address.
+
+    Coolify's env-var validation rejects values containing spaces and angle
+    brackets, so EMAIL_FROM holds the bare address and the name is applied in
+    code. Without this, Gmail shows the local part alone ("hello").
+    """
+
+    def _from_header(self, app, monkeypatch, email_from):
+        monkeypatch.setattr(smtplib, "SMTP", _FakeSMTP)
+        from backend.services.email_service import send_email
+
+        with app.app_context():
+            app.config.update(
+                EMAIL_PROVIDER="smtp", EMAIL_FROM=email_from,
+                SMTP_HOST="smtp.example.com", SMTP_USE_TLS=False,
+                SMTP_USERNAME="", SMTP_PASSWORD="",
+            )
+            assert send_email("to@example.com", "S", "B") is True
+        return _FakeSMTP.instances[0].sent[0]["From"]
+
+    def test_bare_address_gains_the_brand_name(self, app, monkeypatch):
+        header = self._from_header(app, monkeypatch, "hello@clonelens.com")
+        assert header == "Clone Lens <hello@clonelens.com>"
+
+    def test_existing_display_name_is_left_alone(self, app, monkeypatch):
+        sender = "Clone Lens Support <hello@clonelens.com>"
+        assert self._from_header(app, monkeypatch, sender) == sender
+
+    def test_envelope_address_is_untouched(self, app, monkeypatch):
+        # SPF/DKIM alignment keys off the address; the display name must never
+        # change which mailbox the message claims to come from.
+        from email.utils import parseaddr
+
+        header = self._from_header(app, monkeypatch, "hello@clonelens.com")
+        assert parseaddr(header)[1] == "hello@clonelens.com"
