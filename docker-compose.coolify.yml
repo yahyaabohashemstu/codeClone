@@ -68,8 +68,19 @@ services:
       # Production email MUST NOT be 'console' (it would log live reset tokens);
       # ProductionConfig refuses to boot with console. Use smtp, or disabled.
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-disabled}
-      EMAIL_FROM: ${EMAIL_FROM:-no-reply@codeclone.local}
+      # Must be a real mailbox on the sending domain. The retired
+      # codeclone.local default failed SPF/DMARC alignment outright, and a
+      # provider will often refuse a From address it does not own — while
+      # send_email swallows delivery errors by design, so the whole failure is
+      # silent. Set the address only; the display name is applied in code
+      # (email_service._with_display_name), because Coolify's env validation
+      # rejects values containing spaces and angle brackets.
+      EMAIL_FROM: ${EMAIL_FROM:-hello@clonelens.com}
       SMTP_HOST: ${SMTP_HOST:-}
+      # 587 + STARTTLS. The code has no implicit-TLS branch, so 465 hangs to
+      # timeout. SMTP_USE_TLS is deliberately absent: the code already defaults
+      # it on, which is what 587 needs — setting it in Coolify does nothing
+      # unless it is forwarded here first.
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
