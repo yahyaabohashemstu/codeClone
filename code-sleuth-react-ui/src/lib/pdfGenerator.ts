@@ -248,14 +248,14 @@ const RISK_COLORS: Record<string, string> = {
   high: "#ea580c",
   moderate: "#d97706",
   low: "#059669",
-  none: "#64748b",
+  none: "#525a66",
 };
 const SEV_COLORS: Record<string, string> = {
   critical: "#b91c1c",
   high: "#ea580c",
   medium: "#d97706",
   low: "#2563eb",
-  info: "#64748b",
+  info: "#525a66",
 };
 
 function riskLabel(level: string, L: Record<string, string>): string {
@@ -305,13 +305,13 @@ function radarSvg(items: Array<{ name: string; value: number }>, lang: Lang): st
       const poly = pts
         .map((_, i) => coord(i, (ring / 100) * R).map((x) => x.toFixed(1)).join(","))
         .join(" ");
-      return `<polygon points="${poly}" fill="none" stroke="#e2e8f0" stroke-width="1"/>`;
+      return `<polygon points="${poly}" fill="none" stroke="#c6ccd3" stroke-width="1"/>`;
     })
     .join("");
   const axes = pts
     .map((_, i) => {
       const [x, y] = coord(i, R);
-      return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#e2e8f0" stroke-width="1"/>`;
+      return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#c6ccd3" stroke-width="1"/>`;
     })
     .join("");
   const valuePoly = pts
@@ -329,7 +329,7 @@ function radarSvg(items: Array<{ name: string; value: number }>, lang: Lang): st
       const anchor = Math.abs(x - cx) < 6 ? "middle" : x > cx ? "start" : "end";
       const short = simName(p.name, lang).replace(/\s*\([^)]*\)/g, "");
       const text = short.length > 22 ? short.slice(0, 21) + "…" : short;
-      return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anchor}" font-size="9.5" fill="#475569" dominant-baseline="middle">${esc(text)}</text>`;
+      return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anchor}" font-size="9.5" fill="#525a66" dominant-baseline="middle">${esc(text)}</text>`;
     })
     .join("");
   return `<svg viewBox="0 0 350 320" width="100%" height="auto" style="max-width:360px" role="img" aria-label="${esc(LABELS[lang].radar)}">
@@ -488,7 +488,7 @@ export function buildReportHtml(result: AnalysisResult, sections: PdfSections, l
       kpi(L.risk, riskLabel(risk, L), riskColor),
       kpi(L.kpiClones, `${detectedClones}/${clones.length || 0}`, "#3e2c8c"),
       kpi(L.kpiFindings, String(findingCount), findingCount ? "#ea580c" : "#059669"),
-      kpi(L.language, esc(result.language), "#0f172a"),
+      kpi(L.language, esc(result.language), "#131b24"),
       strongest
         ? kpi(L.kpiStrongest, `${clamp(Number(strongest.value)).toFixed(0)}%`, strengthColor(Number(strongest.value)), simName(strongest.name, lang))
         : "",
@@ -613,12 +613,13 @@ export function buildReportHtml(result: AnalysisResult, sections: PdfSections, l
 <title>${esc(L.title)}</title>
 <style>
   :root { --brand:#3e2c8c; --brand2:#2b1e63; --ink:#131b24; --muted:#525a66; --line:#c6ccd3; --soft:#f2f4f6;
+           --bed:#e3e7eb; --sheet:#fcfdfd; --code-fg:#dce0e5;
            --plate-a:#00a0d1; --plate-b:#e90c82; }
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   html { -webkit-text-size-adjust: 100%; }
   body { font-family: -apple-system, "Segoe UI", Roboto, "Noto Sans Arabic", "Noto Naskh Arabic", sans-serif;
-    color: var(--ink); margin: 0; background: #e3e7eb; line-height: 1.55; font-size: 14px; }
-  .page { max-width: 940px; margin: 24px auto; background: #fcfdfd; border: 1px solid var(--line);
+    color: var(--ink); margin: 0; background: var(--bed); line-height: 1.55; font-size: 14px; }
+  .page { max-width: 940px; margin: 24px auto; background: var(--sheet); border: 1px solid var(--line);
     overflow: hidden; }
   .page-inner { padding: 0 40px 40px; }
   a { color: var(--brand); }
@@ -637,7 +638,7 @@ export function buildReportHtml(result: AnalysisResult, sections: PdfSections, l
   .fact span { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; opacity: .8; }
   .fact b { font-size: 14px; font-weight: 600; }
   .fact em { opacity: .7; font-style: normal; }
-  .risk-pill { display: inline-block; padding: 2px 12px; border-radius: 999px; background: rgba(255,255,255,.2);
+  .risk-pill { display: inline-block; padding: 2px 12px; background: rgba(255,255,255,.2);
     border: 1px solid rgba(255,255,255,.6); font-weight: 700; font-size: 13px; }
   .verdict-banner { margin: 18px 0 0; padding: 14px 18px; background: var(--soft);
     border: 1px solid var(--brand); font-size: 14px; }
@@ -647,16 +648,16 @@ export function buildReportHtml(result: AnalysisResult, sections: PdfSections, l
   .sec { margin-top: 30px; break-inside: avoid; }
   .sec h2 { font-size: 17px; font-weight: 800; color: var(--ink); margin: 0 0 14px; display: flex; align-items: center; gap: 9px; }
   .sec-dot { width: 9px; height: 20px; background: var(--brand); display: inline-block; }
-  h3 { font-size: 13px; font-weight: 700; margin: 18px 0 8px; color: #334155; }
-  .lead { font-size: 14px; color: #334155; margin: 4px 0 0; }
+  h3 { font-size: 13px; font-weight: 700; margin: 18px 0 8px; color: var(--ink); }
+  .lead { font-size: 14px; color: var(--muted); margin: 4px 0 0; }
   .muted { color: var(--muted); }
 
   /* KPI cards */
   .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-  .kpi { background: var(--soft); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .kpi { background: var(--soft); border: 1px solid var(--line); padding: 14px 16px; }
   .kpi-val { font-size: 24px; font-weight: 800; line-height: 1.1; }
   .kpi-label { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin-top: 4px; }
-  .kpi-sub { font-size: 12px; color: #475569; margin-top: 3px; }
+  .kpi-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
 
   /* Bars */
   .charts-row { display: flex; gap: 26px; align-items: flex-start; flex-wrap: wrap; }
@@ -666,18 +667,18 @@ export function buildReportHtml(result: AnalysisResult, sections: PdfSections, l
   .bar-row { font-size: 12.5px; }
   .bar-head { display: flex; justify-content: space-between; margin-bottom: 3px; }
   .bar-val { font-weight: 700; font-variant-numeric: tabular-nums; }
-  .bar-track { height: 8px; background: #eef2f7; border-radius: 6px; overflow: hidden; }
-  .bar-fill { height: 100%; border-radius: 6px; }
+  .bar-track { height: 8px; background: var(--bed); overflow: hidden; }
+  .bar-fill { height: 100%; }
 
-  .callout { margin: 16px 0 0; padding: 12px 15px; background: #eef2ff; border: 1px solid #dbe0ff;
-    border-radius: 10px; font-size: 13px; color: #1e293b; }
+  .callout { margin: 16px 0 0; padding: 12px 15px; background: color-mix(in srgb, var(--brand) 7%, #fff);
+    border: 1px solid color-mix(in srgb, var(--brand) 28%, #fff); font-size: 13px; color: var(--ink); }
   .callout.refactor { background: #ecfdf5; border-color: #bbf7d0; }
 
   /* Tables */
   table { width: 100%; border-collapse: collapse; margin: 8px 0 0; font-size: 13px; }
   th, td { border-bottom: 1px solid var(--line); padding: 8px 10px; text-align: ${dir === "rtl" ? "right" : "left"}; }
-  thead th { background: var(--soft); font-weight: 700; font-size: 12px; color: #475569; border-bottom: 2px solid var(--line); }
-  .mtable tbody tr:nth-child(even) { background: #fbfcfe; }
+  thead th { background: var(--soft); font-weight: 700; font-size: 12px; color: var(--muted); border-bottom: 2px solid var(--line); }
+  .mtable tbody tr:nth-child(even) { background: var(--soft); }
   .numc { text-align: ${dir === "rtl" ? "left" : "right"}; font-variant-numeric: tabular-nums; }
   .delta-up { color: #dc2626; font-weight: 700; }
   .delta-down { color: #059669; font-weight: 700; }
@@ -687,48 +688,50 @@ export function buildReportHtml(result: AnalysisResult, sections: PdfSections, l
   .coverage { margin-bottom: 16px; }
   .coverage-head { display: flex; justify-content: space-between; font-size: 12.5px; margin-bottom: 5px; }
   .chips { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-  .chip { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 10px; font-size: 12.5px;
-    border: 1px solid var(--line); background: #fff; }
-  .chip-dot { width: 9px; height: 9px; border-radius: 50%; background: #cbd5e1; flex: 0 0 auto; }
+  .chip { display: flex; align-items: center; gap: 8px; padding: 9px 12px; font-size: 12.5px;
+    border: 1px solid var(--line); background: var(--sheet); }
+  /* The dot stays a circle: it is the registration mark, the one round form the
+     press identity keeps (see .reg-dot in index.css). */
+  .chip-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line); flex: 0 0 auto; }
   .chip.on { border-color: #fecaca; background: #fef2f2; font-weight: 600; }
   .chip.on .chip-dot { background: #dc2626; }
   .chip-state { margin-inline-start: auto; font-size: 11px; color: var(--muted); }
   .chip.on .chip-state { color: #dc2626; }
 
   /* Findings */
-  .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700;
+  .badge { display: inline-block; padding: 2px 9px; font-size: 11px; font-weight: 700;
     text-transform: capitalize; color: var(--bc); border: 1px solid var(--bc); background: color-mix(in srgb, var(--bc) 10%, #fff); }
-  .finding { border: 1px solid var(--line); border-inline-start: 4px solid var(--fc); border-radius: 10px;
+  .finding { border: 1px solid var(--line); border-inline-start: 4px solid var(--fc);
     padding: 12px 15px; margin-top: 10px; break-inside: avoid; }
   .finding-head { display: flex; align-items: center; gap: 9px; margin-bottom: 5px; }
   .finding-head b { font-size: 13.5px; }
-  .finding p { margin: 0; font-size: 13px; color: #334155; }
+  .finding p { margin: 0; font-size: 13px; color: var(--muted); }
 
   /* Prose (AI narrative) */
-  .prose { font-size: 13.5px; color: #1e293b; }
+  .prose { font-size: 13.5px; color: var(--ink); }
   .prose h1, .prose h2, .prose h3 { color: var(--ink); }
   .prose p { margin: 8px 0; }
-  .prose pre, pre { background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 12px 14px; overflow-x: auto;
+  .prose pre, pre { background: var(--ink); color: var(--code-fg); padding: 12px 14px; overflow-x: auto;
     white-space: pre-wrap; word-break: break-word; font-size: 12px; line-height: 1.5;
     font-family: "SF Mono", "Cascadia Code", Consolas, monospace; direction: ltr; text-align: left; }
   .analysis-text { background: var(--soft); color: var(--ink); border: 1px solid var(--line); }
 
   /* Quality + source */
   .quality-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  .quality-card { border: 1px solid var(--line); border-radius: 10px; padding: 4px 14px 14px; background: #fff; break-inside: avoid; }
-  pre.code { background: #0f172a; color: #e2e8f0; }
+  .quality-card { border: 1px solid var(--line); padding: 4px 14px 14px; background: var(--sheet); break-inside: avoid; }
+  pre.code { background: var(--ink); color: var(--code-fg); }
 
   .footer { margin-top: 34px; padding-top: 14px; border-top: 1px solid var(--line); display: flex;
     justify-content: space-between; font-size: 11px; color: var(--muted); }
 
   .print-btn { position: fixed; top: 16px; ${dir === "rtl" ? "left" : "right"}: 16px; z-index: 10;
-    background: var(--brand); color: #fff; border: 0; padding: 10px 16px; border-radius: 8px; cursor: pointer;
-    font-size: 13px; font-weight: 600; box-shadow: 0 6px 20px rgba(35,80,139,.4); }
-  .print-btn:hover { background: #4338ca; }
+    background: var(--brand); color: #fff; border: 0; padding: 10px 16px; cursor: pointer;
+    font-size: 13px; font-weight: 600; letter-spacing: .03em; }
+  .print-btn:hover { background: var(--brand2); }
 
   @media print {
     body { background: #fff; }
-    .page { box-shadow: none; border-radius: 0; margin: 0; max-width: none; }
+    .page { margin: 0; max-width: none; }
     .print-btn { display: none; }
     .sec, .finding, .quality-card, .kpi { break-inside: avoid; }
   }
