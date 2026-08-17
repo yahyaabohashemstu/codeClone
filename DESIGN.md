@@ -294,6 +294,30 @@ and section markers. The two coexist; do not substitute one for the other.
 Assets: `public/brand/clone-lens.svg` (the artwork) and `public/brand/mark.svg`
 (square favicon; its L flips light under `prefers-color-scheme: dark`).
 
+**App icons** are derived from the 1026×783 master in `brand/`, never redrawn:
+the mark centred on an opaque proof-sheet ground (`#FCFDFD`) — platforms
+reject transparency, and the sheet keeps the approved two inks true rather
+than knocking the artwork out to one colour. `favicon.ico` is multi-resolution
+(16→256); `apple-touch-icon.png` is 180×180 with no alpha (iOS requirement);
+`icon-192/512.png` and `icon-maskable-512.png` serve the manifest, the maskable
+one drawn at 54% so Android's circular mask never clips the lens. Regenerate
+them from the master if the mark ever changes — do not resample the icons.
+
+## 5a-bis. Language
+
+**English is the default; Arabic is a first-class alternative**, complete to
+the last string and mirrored RTL — not a partial translation. The resolution
+order is: stored choice → Arabic browser locale → English. Three places
+implement that one rule and must stay in agreement: the pre-paint script in
+`index.html`, `getInitialLanguage` in `LanguageContext`, and i18next's
+detector (`localStorage`, then `navigator`).
+
+The pre-paint script exists because `lang`/`dir` set only by React's effect
+arrive one frame late: an Arabic visitor would see an LTR frame snap to RTL.
+Setting them in `<head>` also lets `html[lang="ar"]` pick the Arabic face
+before first paint. Keep the script and `getInitialLanguage` in lockstep —
+if they ever disagree, the page flips direction on hydration.
+
 ## 5b. Page compositions (each surface's printed form)
 
 Every section has its own press-artifact structure — recolouring a generic

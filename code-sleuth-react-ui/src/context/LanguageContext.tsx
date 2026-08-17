@@ -127,18 +127,25 @@ function isSupportedLanguage(value: string | null | undefined): value is AppLang
   return value === "en" || value === "ar";
 }
 
+/** The product's default language. Arabic is a first-class alternative, not
+ *  the default: it is reached by an explicit choice or an Arabic browser. */
+export const DEFAULT_LANGUAGE: AppLanguage = "en";
+
 function getInitialLanguage(): AppLanguage {
   if (typeof window === "undefined") {
-    return "en";
+    return DEFAULT_LANGUAGE;
   }
 
+  // Stored choice wins; then the browser locale; then the default.
+  // The pre-paint script in index.html applies the SAME rule so lang/dir are
+  // already correct on the first frame — keep the two in sync.
   const storedValue = window.localStorage.getItem(STORAGE_KEY);
   if (isSupportedLanguage(storedValue)) {
     return storedValue;
   }
 
   const browserLanguage = window.navigator.language.toLowerCase();
-  return browserLanguage.startsWith("ar") ? "ar" : "en";
+  return browserLanguage.startsWith("ar") ? "ar" : DEFAULT_LANGUAGE;
 }
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {

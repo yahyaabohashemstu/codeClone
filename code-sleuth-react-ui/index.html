@@ -11,12 +11,36 @@
     <meta name="author" content="Clone Lens" />
     <meta name="robots" content="noindex, nofollow" />
 
+    <!-- Resolve the language BEFORE first paint: stored choice, else an Arabic
+         browser locale, else English. Without this an Arabic visitor's first
+         frame renders LTR and then snaps to RTL once React mounts. Mirrors
+         getInitialLanguage() in context/LanguageContext.tsx — keep in sync. -->
+    <script>
+      (function () {
+        try {
+          var stored = window.localStorage.getItem("codesimilar.language");
+          var lang =
+            stored === "en" || stored === "ar"
+              ? stored
+              : (navigator.language || "").toLowerCase().indexOf("ar") === 0
+                ? "ar"
+                : "en";
+          document.documentElement.lang = lang;
+          document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+        } catch (e) {
+          /* private mode / storage blocked — the English default already stands */
+        }
+      })();
+    </script>
+
     <!-- Match the browser chrome to the press bed / negative grounds -->
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#e3e7eb" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0e1116" />
 
     <!-- Social cards -->
     <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="ar_AR" />
     <meta property="og:title" content="Clone Lens — put two pieces of code in register" />
     <meta property="og:description" content="Detect code clones across 15 languages and read the verdict as a registration proof — five similarity signals, one calibrated call." />
     <!-- Social scrapers do not render SVG — the card must be a raster. -->
@@ -29,12 +53,14 @@
     <meta name="twitter:description" content="Detect code clones across 15 languages and read the verdict as a registration proof." />
     <meta name="twitter:image" content="/brand/og.png" />
 
-    <!-- The SVG mark is the primary icon (it adapts to light/dark browser
-         chrome); the .ico stays as the fallback for older browsers. iOS wants
-         a square PNG for apple-touch-icon and ignores SVG, so that hint is
-         left off rather than pointed at a file iOS cannot use. -->
+    <!-- Icons. The SVG mark leads (it adapts to light/dark browser chrome); the
+         multi-resolution .ico covers older browsers; iOS takes only an opaque
+         square PNG; the manifest carries the PWA/adaptive set. -->
     <link rel="icon" type="image/svg+xml" href="/brand/mark.svg" />
-    <link rel="alternate icon" href="/favicon.ico" />
+    <link rel="alternate icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+
     <link rel="preload" href="/fonts/Archivo-VariableFont_wdth_wght.ttf" as="font" type="font/ttf" crossorigin />
     <link rel="preload" href="/fonts/JetBrainsMono-VariableFont_wght.ttf" as="font" type="font/ttf" crossorigin />
   </head>

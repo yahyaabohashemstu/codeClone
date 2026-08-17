@@ -68,8 +68,8 @@ void i18n
     },
 
     detection: {
-      // Check localStorage first (matching the existing LanguageContext key),
-      // then browser navigator language
+      // Mirrors getInitialLanguage() in LanguageContext: the stored choice
+      // first, then the browser locale (an Arabic browser opens in Arabic).
       order: ["localStorage", "navigator"],
       lookupLocalStorage: "codesimilar.language",
       caches: ["localStorage"],
