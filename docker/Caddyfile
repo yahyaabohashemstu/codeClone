@@ -1,6 +1,6 @@
 # Caddy reverse proxy with automatic HTTPS (Let's Encrypt).
 #
-# SITE_ADDRESS is your domain, e.g. codesimilar.com — Caddy obtains and renews
+# SITE_ADDRESS is your domain, e.g. clonelens.com — Caddy obtains and renews
 # the TLS certificate automatically once the domain's DNS points at this host.
 # For a local test without a public domain use SITE_ADDRESS=localhost (Caddy
 # issues a local self-signed cert).

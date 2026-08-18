@@ -1,4 +1,4 @@
-"""Separate API billing plan: hard-capped free tier, metered paid tiers, atomic
+"""Separate API billing plan: all tiers hard-capped at their allowance, atomic
 enforcement in /ci/check, the usage/plans endpoints, and GDPR erasure.
 """
 
@@ -71,18 +71,23 @@ def test_free_tier_is_hard_capped_atomically(app):
         assert api_usage_summary(uid)["estimatedCostCents"] == 0  # free tier never bills
 
 
-# ── Paid tiers meter overage ─────────────────────────────────────────────────
+# ── Paid tiers are hard-capped at their allowance (upgrade for more) ──────────
 
-def test_paid_tier_meters_overage(app):
+def test_paid_tier_hard_caps_at_allowance(app):
     uid = _make_user(app)
     with app.app_context():
-        set_api_plan(uid, "api_starter")                 # 10,000 included, $2.00/1,000 overage
+        set_api_plan(uid, "api_starter")                 # 10,000 included, hard cap
         s = api_usage_summary(uid)
-        assert s["apiPlan"] == "api_starter" and s["includedPairs"] == 10000 and s["allowsOverage"] is True
+        assert s["apiPlan"] == "api_starter" and s["includedPairs"] == 10000
+        assert s["allowsOverage"] is False and s["hardCapped"] is True
 
-        r = api_reserve_usage(uid, 10_500)               # 500 pairs of overage
-        assert r["allowed"] is True and r["overagePairs"] == 500
-        assert r["estimatedCostCents"] == 100            # 500 * 200 / 1000 = 100 cents
+        assert api_reserve_usage(uid, 9_000)["allowed"] is True       # within allowance
+        r = api_reserve_usage(uid, 1_500)                             # 9,000+1,500 > 10,000
+        assert r["allowed"] is False                                  # refused
+        assert api_usage_summary(uid)["pairs"] == 9_000               # counter untouched
+        assert api_reserve_usage(uid, 1_000)["allowed"] is True       # exactly fills the cap
+        assert api_usage_summary(uid)["atLimit"] is True
+        assert api_usage_summary(uid)["estimatedCostCents"] == 0      # no overage billing
 
 
 def test_canceled_paid_plan_drops_to_free_hard_cap(app):

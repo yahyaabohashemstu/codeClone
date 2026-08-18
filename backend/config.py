@@ -161,6 +161,27 @@ class BaseConfig:
     BILLING_SUCCESS_URL: str = os.environ.get("BILLING_SUCCESS_URL", "")
     BILLING_CANCEL_URL: str = os.environ.get("BILLING_CANCEL_URL", "")
 
+    # --- Billing provider selection & Lemon Squeezy (Merchant of Record) ----
+    # Regions where Stripe cannot onboard the business (e.g. Türkiye) sell through
+    # a Merchant of Record, which remits global tax and pays out locally. The
+    # provider is auto-selected when LEMONSQUEEZY_API_KEY is set; force one with
+    # BILLING_PROVIDER=stripe|lemonsqueezy. See docs/DEPLOYMENT.md §3.
+    #
+    # A plan maps to a Lemon Squeezy *variant* (the priced row of a product), not
+    # to the product. Test mode is a store-level toggle in the dashboard: it has
+    # its own products, so switching to live means swapping these variant ids —
+    # the API key stays the same.
+    BILLING_PROVIDER: str = os.environ.get("BILLING_PROVIDER", "")
+    LEMONSQUEEZY_API_KEY: str = os.environ.get("LEMONSQUEEZY_API_KEY", "")
+    LEMONSQUEEZY_STORE_ID: str = os.environ.get("LEMONSQUEEZY_STORE_ID", "")
+    LEMONSQUEEZY_WEBHOOK_SECRET: str = os.environ.get("LEMONSQUEEZY_WEBHOOK_SECRET", "")
+    LEMONSQUEEZY_VARIANT_PRO: str = os.environ.get("LEMONSQUEEZY_VARIANT_PRO", "")
+    LEMONSQUEEZY_VARIANT_TEAM: str = os.environ.get("LEMONSQUEEZY_VARIANT_TEAM", "")
+    # Public-API plans, hard-capped at launch. See API_PLANS.
+    LEMONSQUEEZY_VARIANT_API_STARTER: str = os.environ.get("LEMONSQUEEZY_VARIANT_API_STARTER", "")
+    LEMONSQUEEZY_VARIANT_API_GROWTH: str = os.environ.get("LEMONSQUEEZY_VARIANT_API_GROWTH", "")
+    LEMONSQUEEZY_VARIANT_API_SCALE: str = os.environ.get("LEMONSQUEEZY_VARIANT_API_SCALE", "")
+
     # --- Email delivery ------------------------------------------------------
     # Provider: "console" (log to stdout, dev default), "smtp", or "disabled".
     EMAIL_PROVIDER: str = os.environ.get("EMAIL_PROVIDER", "console").lower()

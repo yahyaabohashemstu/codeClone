@@ -12,7 +12,7 @@ list). Nothing below requires editing source code.
 ## 0. Prerequisites
 
 - A host with Docker + Docker Compose (any VPS, or a PaaS like Coolify).
-- A domain you control (e.g. `codesimilar.com`).
+- A domain you control (e.g. `clonelens.com`).
 - ~2 GB RAM (the GraphCodeBERT model loads into memory).
 
 Generate the two secrets you'll need:
@@ -39,8 +39,8 @@ secure cookies work.
 2. **Create `docker/.env`:**
 
    ```ini
-   SITE_ADDRESS=codesimilar.com
-   APP_BASE_URL=https://codesimilar.com
+   SITE_ADDRESS=clonelens.com
+   APP_BASE_URL=https://clonelens.com
    SECRET_KEY=<from step 0>
    ENTERPRISE_DATA_KEY=<from step 0>
    MISTRAL_API_KEY=<optional, for AI narratives>
@@ -56,11 +56,11 @@ secure cookies work.
    already sets `TRUST_PROXY_HEADERS=1` and `SESSION_COOKIE_SECURE=1`, so the
    https scheme, secure cookies, and per-client rate limiting all work.
 
-4. **Verify:** open `https://codesimilar.com` — you should see the app with a
+4. **Verify:** open `https://clonelens.com` — you should see the app with a
    valid certificate. Check readiness:
 
    ```bash
-   curl https://codesimilar.com/api/v1/health/readiness
+   curl https://clonelens.com/api/v1/health/readiness
    ```
 
    `database: true` confirms it's live. `rateLimitBackend`, `billingConfigured`,
@@ -95,7 +95,7 @@ testing, not for real users).
 
    ```ini
    EMAIL_PROVIDER=smtp
-   EMAIL_FROM=no-reply@codesimilar.com
+   EMAIL_FROM=no-reply@clonelens.com
    SMTP_HOST=smtp.your-provider.com
    SMTP_PORT=587
    SMTP_USERNAME=<provider username / "apikey">
@@ -147,9 +147,15 @@ the upgrade buttons return a friendly 503, and everyone stays on the free plan
    ```
 
 5. **Configure the webhook** (Dashboard → Developers → Webhooks → Add endpoint):
-   - Endpoint URL: `https://codesimilar.com/api/v1/billing/webhook`
-   - Events: `checkout.session.completed`, `customer.subscription.updated`,
-     `customer.subscription.deleted`
+   - Endpoint URL: `https://clonelens.com/api/v1/billing/webhook`
+   - Events — subscribe to **all seven**; the handler acts on each, and omitting
+     the invoice/refund events leaves the admin payments ledger / LTV empty:
+     `checkout.session.completed`, `customer.subscription.updated`,
+     `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_succeeded`,
+     `invoice.payment_failed`, `charge.refunded`
+   - **Enable the Customer portal** (Settings → Billing → Customer portal → Save)
+     *in this same mode*, or "Manage subscription" fails with
+     "No configuration provided". Portal config is per-mode (test vs live).
    - Copy the signing secret (`whsec_...`) into `docker/.env`:
 
      ```ini
@@ -175,15 +181,111 @@ the upgrade buttons return a friendly 503, and everyone stays on the free plan
    Locally you can forward webhooks with the Stripe CLI:
 
    ```bash
-   stripe listen --forward-to https://codesimilar.com/api/v1/billing/webhook
+   stripe listen --forward-to https://clonelens.com/api/v1/billing/webhook
    stripe trigger checkout.session.completed
    ```
 
 ### 3b. Go live
 
-Repeat 3a with **live** keys (`sk_live_...`, live `price_...`, a live webhook
-endpoint + its `whsec_...`). Complete Stripe's business/identity activation
-first. That's the only change — no code edits.
+No code changes — the same env vars with **live** values, in this order:
+
+1. **Activate the account** (Stripe → *Activate your account*: business details,
+   identity, payout bank). Live charges are refused until this is complete.
+2. Switch the dashboard to **Live mode** and **recreate** the products/prices
+   there — test prices/keys do not carry over. Copy the live `price_...` ids.
+3. Set live values in `docker/.env`: `STRIPE_SECRET_KEY=sk_live_...`, live
+   `STRIPE_PRICE_PRO`/`STRIPE_PRICE_TEAM` (and live `STRIPE_PRICE_API_*` only if
+   you sell the metered public API), plus the live `STRIPE_WEBHOOK_SECRET` from
+   step 4.
+4. Add a **live** webhook endpoint (`https://clonelens.com/api/v1/billing/webhook`)
+   with the **same seven events**, and **enable the Customer portal in Live mode**.
+   Its `whsec_...` differs from the test one.
+5. **Confirm the `stripe` package is in the running image** (step 6 above). With
+   the key set but the package missing, readiness reports billing configured while
+   every checkout/webhook raises — a readiness lie.
+6. Redeploy; check `/api/v1/health/readiness` → `billingConfigured: true`; then run
+   **one real** low-price checkout end to end, confirm the plan upgrades and a row
+   lands in the admin payments ledger, and **refund it** to confirm the ledger
+   folds the refund back.
+
+### 3c. Lemon Squeezy (Merchant of Record — for regions Stripe can't onboard, e.g. Türkiye)
+
+Stripe locks an account to its signup country and needs a local entity + bank;
+where that's impossible, sell through **Lemon Squeezy** — a Merchant of Record
+that remits global tax/VAT and pays out locally. The app supports both providers;
+Lemon Squeezy is auto-selected when `LEMONSQUEEZY_API_KEY` is set (or force it
+with `BILLING_PROVIDER=lemonsqueezy`). It needs **no extra package** — the
+integration is plain JSON over `requests`, already a core dependency, so the
+readiness trap that bites Stripe (package missing from the image) cannot happen.
+
+**Build the whole thing in test mode.** A new store is in test mode by default and
+stays there until identity verification completes, so this is the real order of
+work, not a rehearsal. Two facts decide everything below:
+
+- A plan maps to a **variant** (the priced row of a product), never to the product
+  itself. `LEMONSQUEEZY_VARIANT_PRO` wants a *variant* id.
+- **Test mode has its own products.** Going live swaps the variant ids; the API key
+  and store id do not change.
+
+1. **Products** (test mode on): create Pro and Team as *subscription* products at
+   the prices shown on the public rate card ($19 and $99 monthly), and **publish**
+   them — an unpublished product cannot be checked out even in test mode.
+2. **Variant ids:** open a product → its variant; the id is the trailing number of
+   the URL (`.../products/<product>/variants/<variant>`).
+3. **API key:** Settings → API → create a key.
+4. **Store id:** Settings → Stores — the numeric id, not the subdomain.
+5. **Add to `docker/.env`:**
+
+   ```ini
+   BILLING_PROVIDER=lemonsqueezy
+   LEMONSQUEEZY_API_KEY=...
+   LEMONSQUEEZY_STORE_ID=<numeric store id>
+   LEMONSQUEEZY_VARIANT_PRO=<test-mode variant id>
+   LEMONSQUEEZY_VARIANT_TEAM=<test-mode variant id>
+   ```
+
+6. **Webhook** (Settings → Webhooks → new):
+   - URL: `https://clonelens.com/api/v1/billing/webhook`
+   - Signing secret: any random 6–40 character string; put the same value in
+     `docker/.env` as `LEMONSQUEEZY_WEBHOOK_SECRET`. Every request is verified as
+     an HMAC-SHA256 of the raw body against the `X-Signature` header, and a
+     mismatch answers 400 — so a wrong secret reads in the logs exactly like an
+     attack. Check this first when webhooks "silently do nothing".
+   - Events: `subscription_created`, `subscription_updated`,
+     `subscription_cancelled`, `subscription_expired`, `subscription_resumed`,
+     `subscription_paused`, `subscription_unpaused`, `order_created`,
+     `order_refunded`, `subscription_payment_success`,
+     `subscription_payment_failed`, `subscription_payment_refunded`.
+
+     `subscription_updated` is a catch-all carrying the whole current object, so
+     the plan state would survive on it alone; the rest keep the payment ledger
+     and the churn history complete.
+7. **Delivering webhooks before deploy:** Lemon Squeezy can only POST to a public
+   URL. While working locally, point the webhook at a tunnel
+   (`cloudflared tunnel --url http://localhost:5000`, or `ngrok http 5000`) and
+   repoint it at the real domain afterwards.
+8. **Run a test purchase:** sign in → Billing → Pro → pay with a test card (Visa
+   `4242 4242 4242 4242`, any future expiry such as `12/35`, any CVC). Then check,
+   in order:
+   - you land back on `/billing?status=success` and the plan reads **Pro**;
+   - the charge appears in the admin payments ledger;
+   - **Manage subscription** opens the Lemon Squeezy customer portal;
+   - upgrading to Team changes the subscription **in place** (Lemon Squeezy
+     prorates) rather than opening a second checkout;
+   - refunding the order in the dashboard folds the ledger row to `refunded`
+     while keeping the original charge amount.
+
+   In test mode every receipt email goes to you and your team regardless of the
+   address entered at checkout — do not read that as the app's own mail failing.
+9. **Cancel is not expiry.** Cancelling in the portal keeps the plan: Lemon Squeezy
+   grants a grace period the customer has already paid for, and the account only
+   drops to free once the subscription reaches `expired`. This is deliberate —
+   confirm it rather than filing it as a bug.
+10. **Go live** after identity verification activates the store: turn test mode
+    off, recreate and publish the two products in live mode, and swap **only**
+    `LEMONSQUEEZY_VARIANT_PRO` / `_TEAM` to the live variant ids. Add a live
+    webhook — test-mode webhooks do not fire for live orders — and set its secret.
+    Then run one real low-price checkout end to end and refund it.
 
 ### Comping / adjusting a plan manually
 

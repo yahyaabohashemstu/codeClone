@@ -48,12 +48,13 @@ def health_readiness():
         db_ok = False
 
     redis_url = cfg.get("RATELIMIT_STORAGE_URI", "memory://")
-    # billingConfigured must reflect what will actually WORK: the key being set
-    # is not enough if the image ships without the optional 'stripe' package.
-    from backend.services.stripe_service import billing_operational
+    # billingConfigured must reflect what will actually WORK for the ACTIVE
+    # provider: the key being set is not enough if the image ships without the
+    # optional provider package (stripe; Lemon Squeezy needs none).
+    from backend.services.billing_provider import get_billing_provider
     checks = {
         "database": db_ok,
-        "billingConfigured": billing_operational(),
+        "billingConfigured": get_billing_provider().billing_operational(),
         "emailProvider": cfg.get("EMAIL_PROVIDER", "console"),
         "sentryConfigured": bool(cfg.get("SENTRY_DSN")),
         "rateLimitBackend": "redis" if str(redis_url).startswith("redis") else "memory",

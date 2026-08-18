@@ -4,11 +4,12 @@ Billing / subscription routes for API v1.
 Endpoints:
     GET  /api/v1/billing/plans      -- public list of plans
     GET  /api/v1/billing/summary    -- current user's plan + usage (login)
-    POST /api/v1/billing/checkout   -- start a Stripe Checkout (login; 503 if unconfigured)
-    POST /api/v1/billing/webhook    -- Stripe webhook (public, signature-verified)
+    POST /api/v1/billing/checkout   -- start a hosted checkout (login; 503 if unconfigured)
+    POST /api/v1/billing/webhook    -- provider webhook (public, signature-verified)
 
-Quotas work with or without Stripe.  When Stripe is not configured, checkout
-returns 503 and everyone remains on the free plan.
+The active payment provider (Stripe or Lemon Squeezy) is chosen by ``billing_provider``.
+Quotas work with or without a provider: when none is configured, checkout returns
+503 and everyone remains on the free plan.
 """
 
 from __future__ import annotations
@@ -18,21 +19,21 @@ from flask_login import current_user, login_required
 
 from backend.api.v1 import v1_bp
 from backend.extensions import limiter
-from backend.services import billing_service, stripe_service
-from backend.services.stripe_service import StripeNotConfigured
+from backend.services import billing_service
+from backend.services.billing_provider import get_billing_provider
 
 
 @v1_bp.route("/billing/plans", methods=["GET"])
 def api_billing_plans():
     return jsonify({"success": True, "plans": billing_service.public_plans(),
-                    "billingEnabled": stripe_service.is_configured()})
+                    "billingEnabled": get_billing_provider().is_configured()})
 
 
 @v1_bp.route("/billing/summary", methods=["GET"])
 @login_required
 def api_billing_summary():
     summary = billing_service.quota_summary(current_user.id)
-    summary["billingEnabled"] = stripe_service.is_configured()
+    summary["billingEnabled"] = get_billing_provider().is_configured()
     return jsonify({"success": True, **summary})
 
 
@@ -57,27 +58,29 @@ def api_billing_checkout():
             "message": "You can only upgrade to a higher plan.",
         }), 400
 
-    # An existing (non-canceled) Stripe subscriber changes plan IN PLACE — modify
-    # the single subscription's price rather than opening a second checkout, which
-    # would create a duplicate subscription and double-bill. This covers active AND
-    # every live-but-delinquent status (past_due / trialing / unpaid / incomplete);
-    # only a fully canceled subscription falls through to a fresh checkout.
+    provider = get_billing_provider()
+
+    # An existing (non-canceled) subscriber changes plan IN PLACE — modify the
+    # single subscription's product/price rather than opening a second checkout,
+    # which would create a duplicate subscription and double-bill. This covers
+    # active AND every live-but-delinquent status (past_due / trialing / unpaid /
+    # incomplete); only a fully canceled subscription falls through to checkout.
     if sub.stripe_subscription_id and sub.status != "canceled":
         try:
-            stripe_service.change_subscription_plan(sub.stripe_subscription_id, plan_code)
-        except StripeNotConfigured as exc:
+            provider.change_subscription_plan(sub.stripe_subscription_id, plan_code)
+        except provider.NotConfiguredError as exc:
             return jsonify({"success": False, "message": str(exc), "code": "billing_not_configured"}), 503
-        # Reflect immediately for a snappy UI; the subscription.updated webhook
-        # (price -> plan) confirms the same change moments later.
+        # Reflect immediately for a snappy UI; the subscription webhook confirms
+        # the same change (product -> plan) moments later.
         billing_service.set_plan(current_user.id, plan_code, status=sub.status)
         return jsonify({"success": True, "changed": True})
 
-    # No Stripe subscription yet (free, or an admin-granted plan) → new checkout.
+    # No provider subscription yet (free, or an admin-granted plan) → new checkout.
     success_url = current_app.config.get("BILLING_SUCCESS_URL") or _fallback_url("/billing?status=success")
     cancel_url = current_app.config.get("BILLING_CANCEL_URL") or _fallback_url("/billing?status=cancel")
     try:
-        url = stripe_service.create_checkout_session(current_user, plan_code, success_url, cancel_url)
-    except StripeNotConfigured as exc:
+        url = provider.create_checkout_session(current_user, plan_code, success_url, cancel_url)
+    except provider.NotConfiguredError as exc:
         return jsonify({"success": False, "message": str(exc), "code": "billing_not_configured"}), 503
     return jsonify({"success": True, "checkoutUrl": url})
 
@@ -86,28 +89,29 @@ def api_billing_checkout():
 @limiter.limit("10 per minute")
 @login_required
 def api_billing_portal():
-    """Open the Stripe billing portal for the current user to manage/cancel."""
+    """Open the active provider's billing portal for the user to manage/cancel."""
     from backend.services.billing_service import get_or_create_subscription
 
+    provider = get_billing_provider()
     sub = get_or_create_subscription(current_user.id)
     return_url = current_app.config.get("BILLING_SUCCESS_URL") or _fallback_url("/billing")
     try:
-        url = stripe_service.create_billing_portal_session(sub.stripe_customer_id or "", return_url)
-    except StripeNotConfigured as exc:
+        url = provider.create_billing_portal_session(sub.stripe_customer_id or "", return_url)
+    except provider.NotConfiguredError as exc:
         return jsonify({"success": False, "message": str(exc), "code": "billing_not_configured"}), 503
     return jsonify({"success": True, "portalUrl": url})
 
 
 @v1_bp.route("/billing/webhook", methods=["POST"])
 def api_billing_webhook():
-    signature = request.headers.get("Stripe-Signature", "")
+    provider = get_billing_provider()
     try:
-        event = stripe_service.verify_and_parse_webhook(request.get_data(), signature)
-    except StripeNotConfigured:
+        event = provider.verify_webhook(request.get_data(), request.headers)
+    except provider.NotConfiguredError:
         return jsonify({"success": False, "message": "Billing is not configured."}), 503
     if event is None:
         return jsonify({"success": False, "message": "Invalid webhook signature."}), 400
-    handled = stripe_service.apply_webhook_event(event)
+    handled = provider.apply_webhook_event(event)
     return jsonify({"success": True, "handled": handled})
 
 

@@ -41,14 +41,14 @@ def api_key_usage():
 @login_required
 def api_key_plans():
     """The API's own pricing ladder + the caller's current API subscription."""
-    from backend.services import stripe_service
     from backend.services.api_billing_service import api_usage_summary, public_api_plans
+    from backend.services.billing_provider import get_billing_provider
 
     return jsonify({
         "success": True,
         "plans": public_api_plans(),
         "current": api_usage_summary(current_user.id),
-        "billingEnabled": stripe_service.is_configured(),
+        "billingEnabled": get_billing_provider().is_configured(),
     })
 
 
@@ -56,21 +56,47 @@ def api_key_plans():
 @limiter.limit("10 per minute")
 @login_required
 def api_key_checkout():
-    """Start a Stripe Checkout for a paid API plan (separate from the base plan)."""
+    """Start a hosted checkout for a paid API plan, or change an existing paid API
+    subscription IN PLACE — never open a second one, which would create a duplicate
+    subscription and bill BOTH every period (separate from the base plan)."""
     from backend.models.billing import API_PLANS
-    from backend.services import stripe_service
-    from backend.services.stripe_service import StripeNotConfigured
+    from backend.services.api_billing_service import get_or_create_api_subscription, set_api_plan
+    from backend.services.billing_provider import get_billing_provider
 
     payload = request.get_json(silent=True) or {}
     plan_code = (payload.get("plan") or "").strip().lower()
     if plan_code not in API_PLANS or plan_code == "api_free":
         return jsonify({"success": False, "message": "Choose a valid paid API plan."}), 400
 
+    provider = get_billing_provider()
+    sub = get_or_create_api_subscription(current_user.id)
+
+    # Upgrade-only: refuse a tier that is not strictly higher than the current one.
+    _order = list(API_PLANS)
+
+    def _rank(code: str) -> int:
+        return _order.index(code) if code in _order else 0
+
+    if _rank(plan_code) <= _rank(sub.api_plan_code):
+        return jsonify({"success": False, "code": "not_an_upgrade",
+                        "message": "You can only upgrade to a higher API plan."}), 400
+
+    # An existing (non-canceled) paid API subscriber changes tier IN PLACE — modify
+    # the single subscription rather than opening a second checkout, which would
+    # duplicate the subscription and double-bill (see billing.py for the base plan).
+    if sub.stripe_subscription_id and sub.status != "canceled":
+        try:
+            provider.change_subscription_plan(sub.stripe_subscription_id, plan_code, is_api=True)
+        except provider.NotConfiguredError as exc:
+            return jsonify({"success": False, "message": str(exc), "code": "billing_not_configured"}), 503
+        set_api_plan(current_user.id, plan_code, status=sub.status)
+        return jsonify({"success": True, "changed": True})
+
     success_url = _base_url("/api-keys?status=success")
     cancel_url = _base_url("/api-keys?status=cancel")
     try:
-        url = stripe_service.create_api_checkout_session(current_user, plan_code, success_url, cancel_url)
-    except StripeNotConfigured as exc:
+        url = provider.create_api_checkout_session(current_user, plan_code, success_url, cancel_url)
+    except provider.NotConfiguredError as exc:
         return jsonify({"success": False, "message": str(exc), "code": "billing_not_configured"}), 503
     return jsonify({"success": True, "checkoutUrl": url})
 
@@ -79,15 +105,15 @@ def api_key_checkout():
 @limiter.limit("10 per minute")
 @login_required
 def api_key_portal():
-    """Open the Stripe billing portal for the caller's API subscription."""
-    from backend.services import stripe_service
+    """Open the active provider's billing portal for the caller's API subscription."""
     from backend.services.api_billing_service import get_or_create_api_subscription
-    from backend.services.stripe_service import StripeNotConfigured
+    from backend.services.billing_provider import get_billing_provider
 
+    provider = get_billing_provider()
     sub = get_or_create_api_subscription(current_user.id)
     try:
-        url = stripe_service.create_billing_portal_session(sub.stripe_customer_id or "", _base_url("/api-keys"))
-    except StripeNotConfigured as exc:
+        url = provider.create_billing_portal_session(sub.stripe_customer_id or "", _base_url("/api-keys"))
+    except provider.NotConfiguredError as exc:
         return jsonify({"success": False, "message": str(exc), "code": "billing_not_configured"}), 503
     return jsonify({"success": True, "portalUrl": url})
 

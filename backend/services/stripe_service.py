@@ -23,6 +23,11 @@ class StripeNotConfigured(RuntimeError):
     pass
 
 
+# Uniform name so the billing routes can do ``except provider.NotConfiguredError``
+# for whichever provider is active (lemonsqueezy_service exposes the same alias).
+NotConfiguredError = StripeNotConfigured
+
+
 def is_configured() -> bool:
     return bool(current_app.config.get("STRIPE_SECRET_KEY"))
 
@@ -160,6 +165,12 @@ def verify_and_parse_webhook(payload: bytes, signature_header: str):
     except Exception:
         logger.warning("Stripe webhook signature verification failed.")
         return None
+
+
+def verify_webhook(payload: bytes, headers):
+    """Provider-uniform seam: read the Stripe-Signature header and verify."""
+    signature = headers.get("Stripe-Signature", "") if headers else ""
+    return verify_and_parse_webhook(payload, signature)
 
 
 def apply_webhook_event(event) -> bool:

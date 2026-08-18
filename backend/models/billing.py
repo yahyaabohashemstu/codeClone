@@ -63,13 +63,15 @@ class ApiPlan:
 
 
 # The public API's own pricing ladder — NOT tied to the base free/pro/team plan.
-# api_free is a hard-capped trial tier; paid tiers include an allowance and then
-# meter overage at a decreasing per-1,000 rate.
+# All tiers are hard-capped at their monthly allowance (overage_cents_per_1000 = 0):
+# requests beyond it are refused until the user upgrades to a higher tier. Metered
+# overage billing is a future enhancement — it needs provider usage-metering (e.g.
+# provider usage meters); the ``ApiPlan`` model still supports a positive rate.
 API_PLANS: dict[str, ApiPlan] = {
-    "api_free":    ApiPlan("api_free",    "API Free",    200,        0,     0,   "STRIPE_PRICE_API_FREE"),
-    "api_starter": ApiPlan("api_starter", "API Starter", 10_000,     2900,  200, "STRIPE_PRICE_API_STARTER"),
-    "api_growth":  ApiPlan("api_growth",  "API Growth",  100_000,    9900,  150, "STRIPE_PRICE_API_GROWTH"),
-    "api_scale":   ApiPlan("api_scale",   "API Scale",   1_000_000,  39900, 100, "STRIPE_PRICE_API_SCALE"),
+    "api_free":    ApiPlan("api_free",    "API Free",    200,        0,     0, "STRIPE_PRICE_API_FREE"),
+    "api_starter": ApiPlan("api_starter", "API Starter", 10_000,     2900,  0, "STRIPE_PRICE_API_STARTER"),
+    "api_growth":  ApiPlan("api_growth",  "API Growth",  100_000,    9900,  0, "STRIPE_PRICE_API_GROWTH"),
+    "api_scale":   ApiPlan("api_scale",   "API Scale",   1_000_000,  39900, 0, "STRIPE_PRICE_API_SCALE"),
 }
 
 DEFAULT_API_PLAN_CODE = "api_free"
