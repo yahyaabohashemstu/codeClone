@@ -15,6 +15,7 @@ from flask import g
 
 from backend.extensions import db
 from backend.models import Payment, SubscriptionEvent, Subscription, User
+from backend.models.billing import PLANS
 from backend.services import billing_service
 from backend.services.stripe_service import apply_webhook_event
 
@@ -174,4 +175,4 @@ class TestMrrActiveOnly:
         active_mrr = admin_client.get("/api/v1/admin/metrics").get_json()["estimatedMrrCents"]
         # Flipping the SAME pro sub canceled -> active adds exactly one Pro price;
         # i.e. the canceled sub contributed 0 to MRR.
-        assert active_mrr - canceled_mrr == 1900
+        assert active_mrr - canceled_mrr == PLANS["pro"].price_cents

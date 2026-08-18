@@ -7,7 +7,7 @@ import { PageLoader } from "@/components/common/PageLoader";
 import { PageError } from "@/components/common/PageError";
 import { ControlStrip, OverprintMeter, RegMark, Serial, Stamp } from "@/components/dossier/Dossier";
 import { apiFetch } from "@/lib/api";
-import { getPlans, type BillingPlan } from "@/lib/billingApi";
+import { formatPlanPrice, getPlans, type BillingPlan } from "@/lib/billingApi";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import type { HomeResponse } from "@/types/api";
@@ -302,7 +302,7 @@ const Home = () => {
                     <td key={plan.code} className="border-s border-border px-5 py-4">
                       <span className="flex items-baseline gap-1 tabular-nums">
                         <span className="font-display text-2xl font-extrabold text-foreground" style={{ fontStretch: "118%" }}>
-                          {plan.priceCents === 0 ? t("billing.free") : `$${(plan.priceCents / 100).toFixed(0)}`}
+                          {plan.priceCents === 0 ? t("billing.free") : formatPlanPrice(plan.priceCents)}
                         </span>
                         {plan.priceCents > 0 && <span className="press-slug">{t("billing.perMonth")}</span>}
                       </span>

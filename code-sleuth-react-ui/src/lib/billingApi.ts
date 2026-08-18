@@ -53,3 +53,14 @@ export async function openBillingPortal(): Promise<string> {
   });
   return res.portalUrl;
 }
+
+/**
+ * Render a plan price for the rate cards.
+ *
+ * Cents show only when they exist, so $19.99 keeps them while a whole $29 tier
+ * is not padded to $29.00. Rounding them away would be worse than ugly: the
+ * page would advertise $20 while the provider charges $19.99.
+ */
+export function formatPlanPrice(cents: number): string {
+  return `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
+}

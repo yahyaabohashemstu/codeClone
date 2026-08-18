@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { PageError } from "@/components/common/PageError";
 import { Masthead, Panel, Stamp } from "@/components/dossier/Dossier";
 import {
+  formatPlanPrice,
   getBillingSummary,
   getPlans,
   openBillingPortal,
@@ -321,7 +322,7 @@ const Billing = () => {
                       <td key={plan.code} className={cn("border-s border-border px-5 py-4", isCurrent && "bg-primary/5")}>
                         <span className="flex items-baseline gap-1 tabular-nums">
                           <span className="font-display text-2xl font-extrabold text-foreground" style={{ fontStretch: "118%" }}>
-                            {plan.priceCents === 0 ? t("billing.free") : `$${(plan.priceCents / 100).toFixed(0)}`}
+                            {plan.priceCents === 0 ? t("billing.free") : formatPlanPrice(plan.priceCents)}
                           </span>
                           {plan.priceCents > 0 && (
                             <span className="press-slug">{t("billing.perMonth")}</span>

@@ -228,7 +228,7 @@ work, not a rehearsal. Two facts decide everything below:
   and store id do not change.
 
 1. **Products** (test mode on): create Pro and Team as *subscription* products at
-   the prices shown on the public rate card ($19 and $99 monthly), and **publish**
+   the prices shown on the public rate card ($19.99 and $99.99 monthly), and **publish**
    them — an unpublished product cannot be checked out even in test mode.
 2. **Variant ids:** open a product → its variant; the id is the trailing number of
    the URL (`.../products/<product>/variants/<variant>`).

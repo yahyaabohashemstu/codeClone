@@ -32,8 +32,8 @@ class Plan:
 # public API is billed under a SEPARATE plan — see ``ApiPlan`` / ``API_PLANS``.
 PLANS: dict[str, Plan] = {
     "free": Plan("free", "Free", 50, 0, "STRIPE_PRICE_FREE"),
-    "pro": Plan("pro", "Pro", 1000, 1900, "STRIPE_PRICE_PRO"),
-    "team": Plan("team", "Team", -1, 9900, "STRIPE_PRICE_TEAM"),
+    "pro": Plan("pro", "Pro", 1000, 1999, "STRIPE_PRICE_PRO"),
+    "team": Plan("team", "Team", -1, 9999, "STRIPE_PRICE_TEAM"),
 }
 
 DEFAULT_PLAN_CODE = "free"

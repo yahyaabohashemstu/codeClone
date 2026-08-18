@@ -13,7 +13,7 @@ import pytest
 from backend.extensions import db
 from backend.models import Analysis, AuditLog, Subscription, User
 from backend.models.audit import ApiKey
-from backend.models.billing import ApiSubscription, ApiUsageRecord, UsageRecord
+from backend.models.billing import PLANS, ApiSubscription, ApiUsageRecord, UsageRecord
 from backend.services import billing_service
 
 
@@ -49,7 +49,7 @@ class TestAdminMetrics:
         with app.app_context():
             billing_service.set_plan(test_user.id, "pro")
         after = admin_client.get("/api/v1/admin/metrics").get_json()["estimatedMrrCents"]
-        assert after - before == 1900  # Pro list price in cents
+        assert after - before == PLANS["pro"].price_cents
 
     def test_requires_admin(self, auth_client):
         assert auth_client.get("/api/v1/admin/metrics").status_code == 403
