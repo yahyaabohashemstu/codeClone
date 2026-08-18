@@ -7,7 +7,7 @@ Endpoints:
     POST /api/v1/billing/checkout   -- start a hosted checkout (login; 503 if unconfigured)
     POST /api/v1/billing/webhook    -- provider webhook (public, signature-verified)
 
-The active payment provider (Stripe or Lemon Squeezy) is chosen by ``billing_provider``.
+The active payment provider (Stripe, Lemon Squeezy or Paddle) is chosen by ``billing_provider``.
 Quotas work with or without a provider: when none is configured, checkout returns
 503 and everyone remains on the free plan.
 """

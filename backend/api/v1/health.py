@@ -50,7 +50,7 @@ def health_readiness():
     redis_url = cfg.get("RATELIMIT_STORAGE_URI", "memory://")
     # billingConfigured must reflect what will actually WORK for the ACTIVE
     # provider: the key being set is not enough if the image ships without the
-    # optional provider package (stripe; Lemon Squeezy needs none).
+    # optional provider package (stripe; Lemon Squeezy and Paddle need none).
     from backend.services.billing_provider import get_billing_provider
     checks = {
         "database": db_ok,

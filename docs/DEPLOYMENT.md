@@ -287,6 +287,86 @@ work, not a rehearsal. Two facts decide everything below:
     webhook — test-mode webhooks do not fire for live orders — and set its secret.
     Then run one real low-price checkout end to end and refund it.
 
+### 3d. Paddle (the other Merchant of Record)
+
+Paddle is the same kind of answer as Lemon Squeezy — a Merchant of Record that
+remits global tax/VAT and pays out locally, so it works where Stripe cannot
+onboard the business. Like Lemon Squeezy it needs **no extra package** (plain JSON
+over `requests`), so the readiness trap that bites Stripe cannot happen here.
+
+**Only one provider is live at a time.** In auto-detection Lemon Squeezy wins, so
+adding `PADDLE_API_KEY` to a deployment already selling through Lemon Squeezy
+changes nothing — deliberately, so a half-configured Paddle account can't take over
+live billing. Set `BILLING_PROVIDER=paddle` to actually switch.
+
+Four Paddle facts decide everything below:
+
+- A plan maps to a **price** (`pri_...`), never to a product. `PADDLE_PRICE_PRO`
+  wants a *price* id.
+- **Sandbox and live are different hosts with different keys.** The host is
+  inferred from the key prefix (`pdl_sdbx_` → sandbox), so going live means
+  swapping the key, the price ids *and* the webhook secret together. Crossing them
+  403s every call without saying why.
+- **Paddle needs a payment link to build a checkout URL.** Unlike Lemon Squeezy it
+  has no ready-made hosted checkout page: it returns `{payment link}?_ptxn=...`,
+  where the payment link is a page of yours running Paddle.js. Without one
+  configured, Paddle returns no checkout URL and `/billing/checkout` answers 503.
+- **`canceled` really ends access** — the opposite of Lemon Squeezy. A mid-period
+  cancel keeps the subscription `active` and adds a `scheduled_change`; the status
+  flips to `canceled` only when that date arrives.
+
+1. **Products and prices** (sandbox first): create Pro and Team as recurring
+   monthly prices at the public rate card ($19.99 and $99.99). Copy the `pri_...`
+   ids — from the *price*, not the product.
+2. **API key:** Paddle > Developer tools > Authentication → new API key. Set it as
+   `PADDLE_API_KEY`. Leave `PADDLE_ENVIRONMENT` blank; the prefix picks the host.
+3. **Payment link:** Paddle > Checkout > Checkout settings → set the default
+   payment link to the page that hosts your Paddle.js checkout, or set
+   `PADDLE_CHECKOUT_URL` to it. This is the step whose absence looks like "my key
+   works but nothing can be bought".
+4. **Notification destination** (Paddle > Developer tools > Notifications → new):
+   - URL: `https://clonelens.com/api/v1/billing/webhook`, type `Webhook`.
+   - Copy the **secret** (`pdl_ntfset_...`) into `PADDLE_WEBHOOK_SECRET`. It is
+     shown once, and it is **not** the API key — mixing the two rejects every
+     delivery, which reads in the logs exactly like an attack.
+   - Events: `subscription.created`, `subscription.updated`,
+     `subscription.activated`, `subscription.canceled`, `subscription.past_due`,
+     `subscription.paused`, `subscription.resumed`, `transaction.completed`,
+     `transaction.payment_failed`, `adjustment.created`, `adjustment.updated`.
+
+     Every subscription event carries the whole current object, so plan state would
+     survive on `subscription.updated` alone; the rest keep the payment ledger and
+     churn history complete. **`adjustment.updated` is not optional** — a live
+     refund is created `pending_approval` and only becomes real on approval, which
+     arrives as an update.
+5. **Signature check:** each request is an HMAC-SHA256 over `{timestamp}:{raw
+   body}` (not the body alone) in `Paddle-Signature`. Events older than
+   `PADDLE_SIGNATURE_TOLERANCE` seconds are refused; the default is 300 rather
+   than Paddle's own 5 because five seconds of host clock skew would otherwise
+   reject *every* webhook. Set it to `0` only to debug.
+6. **Delivering webhooks before deploy:** Paddle can only POST to a public URL.
+   While working locally, point the destination at a tunnel (`cloudflared tunnel
+   --url http://localhost:5000`, or `ngrok http 5000`) and repoint it afterwards.
+   Paddle > Developer tools > Simulations replays events without a real purchase.
+7. **Run a test purchase** with a sandbox card, then check in order:
+   - the plan reads **Pro** and the charge appears in the admin payments ledger;
+   - **Manage subscription** opens the Paddle customer portal (the URL is one-time
+     and short-lived — it is minted per click, so a stale one failing is correct);
+   - upgrading to Team changes the subscription **in place** (Paddle prorates)
+     rather than opening a second checkout;
+   - refunding in the dashboard folds the ledger row to `refunded` while keeping
+     the original charge amount. In sandbox, Paddle approves refunds on a ~10
+     minute cycle — the ledger will not move until it does. That delay is the
+     `pending_approval` guard working, not a dropped webhook.
+8. **Cancel is not immediate.** Cancelling in the portal keeps the plan until the
+   scheduled date; the account drops to free when the status reaches `canceled`.
+   Confirm this rather than filing it as a bug.
+9. **Go live:** recreate the prices in the live account, then swap
+   `PADDLE_API_KEY` (to `pdl_live_...`), `PADDLE_PRICE_PRO`/`_TEAM`, and add a
+   **live** notification destination with its own secret. Sandbox destinations do
+   not fire for live purchases. Then run one real low-price checkout end to end and
+   refund it.
+
 ### Comping / adjusting a plan manually
 
 ```bash

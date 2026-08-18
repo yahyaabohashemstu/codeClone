@@ -191,6 +191,25 @@ def find_subscription_row(user_id=None, subscription_id=None, customer_id=None):
     return None
 
 
+def known_customer_id(user_id):
+    """Return any provider customer id already on file for a user, or None.
+
+    A person can hold both a base and an API subscription against the *same*
+    provider customer, so a checkout should reuse the id we already have rather
+    than letting the provider mint a second customer for them. Base first: it is
+    the one that exists in the common case.
+    """
+    from backend.models.billing import ApiSubscription, Subscription
+
+    if not user_id:
+        return None
+    for model in (Subscription, ApiSubscription):
+        row = model.query.filter_by(user_id=user_id).first()
+        if row is not None and row.stripe_customer_id:
+            return row.stripe_customer_id
+    return None
+
+
 def resolve_account(customer_id, subscription_id):
     """Return ``(user_id, product)`` for a provider customer/subscription.
 

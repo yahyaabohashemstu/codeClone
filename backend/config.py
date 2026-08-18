@@ -182,6 +182,33 @@ class BaseConfig:
     LEMONSQUEEZY_VARIANT_API_GROWTH: str = os.environ.get("LEMONSQUEEZY_VARIANT_API_GROWTH", "")
     LEMONSQUEEZY_VARIANT_API_SCALE: str = os.environ.get("LEMONSQUEEZY_VARIANT_API_SCALE", "")
 
+    # --- Billing provider: Paddle (the other Merchant of Record option) ------
+    # Selected with BILLING_PROVIDER=paddle, or automatically when PADDLE_API_KEY
+    # is set AND no Lemon Squeezy key is (Lemon Squeezy keeps priority so adding a
+    # Paddle key can never silently move live billing). See docs/DEPLOYMENT.md §3d.
+    #
+    # A plan maps to a Paddle *price* (pri_...), not to a product. Sandbox and live
+    # are separate hosts with separate keys, prices and webhook secrets; the host is
+    # inferred from the key prefix (pdl_sdbx_ = sandbox) unless PADDLE_ENVIRONMENT
+    # says otherwise, so a sandbox key can never be pointed at live by accident.
+    PADDLE_API_KEY: str = os.environ.get("PADDLE_API_KEY", "")
+    PADDLE_ENVIRONMENT: str = os.environ.get("PADDLE_ENVIRONMENT", "")
+    PADDLE_WEBHOOK_SECRET: str = os.environ.get("PADDLE_WEBHOOK_SECRET", "")
+    # Paddle builds the checkout URL from a payment link. Set this to the page that
+    # hosts your Paddle.js checkout to override the dashboard's default payment
+    # link; with neither configured Paddle returns no checkout URL at all.
+    PADDLE_CHECKOUT_URL: str = os.environ.get("PADDLE_CHECKOUT_URL", "")
+    # Replay window for the Paddle-Signature timestamp, in seconds (0 disables).
+    # Paddle's SDKs use 5s; that is too tight to run unattended, since host clock
+    # skew would then reject every webhook and look exactly like a forged request.
+    PADDLE_SIGNATURE_TOLERANCE: int = int(os.environ.get("PADDLE_SIGNATURE_TOLERANCE", "300"))
+    PADDLE_PRICE_PRO: str = os.environ.get("PADDLE_PRICE_PRO", "")
+    PADDLE_PRICE_TEAM: str = os.environ.get("PADDLE_PRICE_TEAM", "")
+    # Public-API plans, hard-capped at launch. See API_PLANS.
+    PADDLE_PRICE_API_STARTER: str = os.environ.get("PADDLE_PRICE_API_STARTER", "")
+    PADDLE_PRICE_API_GROWTH: str = os.environ.get("PADDLE_PRICE_API_GROWTH", "")
+    PADDLE_PRICE_API_SCALE: str = os.environ.get("PADDLE_PRICE_API_SCALE", "")
+
     # --- Email delivery ------------------------------------------------------
     # Provider: "console" (log to stdout, dev default), "smtp", or "disabled".
     EMAIL_PROVIDER: str = os.environ.get("EMAIL_PROVIDER", "console").lower()
