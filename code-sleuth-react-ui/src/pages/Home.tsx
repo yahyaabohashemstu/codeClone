@@ -7,6 +7,7 @@ import { PageLoader } from "@/components/common/PageLoader";
 import { PageError } from "@/components/common/PageError";
 import { ControlStrip, OverprintMeter, RegMark, Serial, Stamp } from "@/components/dossier/Dossier";
 import { apiFetch } from "@/lib/api";
+import { getPlans, type BillingPlan } from "@/lib/billingApi";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import type { HomeResponse } from "@/types/api";
@@ -33,6 +34,7 @@ const Home = () => {
   const [home, setHome] = useState<HomeResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [plans, setPlans] = useState<BillingPlan[]>([]);
 
   const fetchHome = useCallback(() => {
     setLoading(true);
@@ -46,6 +48,17 @@ const Home = () => {
   useEffect(() => {
     fetchHome();
   }, [fetchHome]);
+
+  // The rate card is public on purpose: a visitor - and a payment provider
+  // reviewing the business - must be able to read what the product costs
+  // without creating an account. Reads the same catalogue Billing does, so
+  // the public price can never drift from the charged one. A failure is
+  // silent: the section simply does not print.
+  useEffect(() => {
+    void getPlans()
+      .then((res) => setPlans(res.plans))
+      .catch(() => setPlans([]));
+  }, []);
 
   if (loading) return <PageLoader />;
   if (error) return <PageError message={error} onRetry={fetchHome} />;
@@ -251,6 +264,77 @@ const Home = () => {
           ))}
         </div>
       </section>
+
+      {/* \u2500\u2500 The rate card: what it costs, printed in the open \u2500\u2500 */}
+      {plans.length > 0 && (
+        <section className="mt-20 lg:mt-28">
+          <div className="mb-1 flex items-baseline justify-between gap-4 border-b-2 border-foreground pb-2.5">
+            <h2
+              className="flex items-center gap-2 font-display text-sm font-bold uppercase tracking-[0.14em] text-foreground"
+              style={{ fontStretch: "114%" }}
+            >
+              {t("home.pricingTitle")}
+            </h2>
+            <ControlStrip className="hidden sm:inline-flex" />
+          </div>
+
+          <div className="overflow-x-auto scrollbar-thin">
+            {/* Tiers as columns, attributes as ruled rows - the printed price card. */}
+            <table className="mt-6 w-full min-w-[520px] border border-border bg-card text-sm">
+              <thead>
+                <tr className="border-b-2 border-foreground">
+                  <th scope="col" className="press-slug w-36 px-5 py-4 text-start align-bottom">
+                    {t("billing.colTier")}
+                  </th>
+                  {plans.map((plan) => (
+                    <th key={plan.code} scope="col" className="border-s border-border px-5 py-4 text-start align-bottom">
+                      <span className="t-h5 text-foreground">{plan.name}</span>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-border">
+                  <th scope="row" className="press-slug px-5 py-4 text-start align-middle font-normal">
+                    {t("billing.colPrice")}
+                  </th>
+                  {plans.map((plan) => (
+                    <td key={plan.code} className="border-s border-border px-5 py-4">
+                      <span className="flex items-baseline gap-1 tabular-nums">
+                        <span className="font-display text-2xl font-extrabold text-foreground" style={{ fontStretch: "118%" }}>
+                          {plan.priceCents === 0 ? t("billing.free") : `$${(plan.priceCents / 100).toFixed(0)}`}
+                        </span>
+                        {plan.priceCents > 0 && <span className="press-slug">{t("billing.perMonth")}</span>}
+                      </span>
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <th scope="row" className="press-slug px-5 py-4 text-start align-middle font-normal">
+                    {t("billing.colQuota")}
+                  </th>
+                  {plans.map((plan) => (
+                    <td
+                      key={plan.code}
+                      className="border-s border-border px-5 py-4 font-display font-bold tabular-nums text-foreground"
+                      style={{ fontStretch: "108%" }}
+                    >
+                      {plan.unlimited ? t("billing.unlimited") : formatNumber(plan.monthlyAnalysisQuota)}
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p className="mt-4 max-w-[74ch] text-sm leading-relaxed text-muted-foreground">
+            {t("home.pricingNote")}{" "}
+            <Link to="/terms" className="text-foreground underline underline-offset-4 hover:text-primary">
+              {t("home.pricingTerms")}
+            </Link>
+          </p>
+        </section>
+      )}
 
       {/* ── Colophon: the drenched overprint band ── */}
       <section className="mt-20 lg:mt-28">
