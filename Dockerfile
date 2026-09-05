@@ -55,7 +55,20 @@ WORKDIR /app
 # works — otherwise the readiness probe would report billing ready while every
 # checkout fails at runtime with 'stripe package not installed'.
 COPY requirements.txt requirements-optional.txt ./
+# torch is installed from the CPU index FIRST, before requirements.txt is read.
+#
+# On PyPI, `torch==2.10.0` is the CUDA build: a 915 MB wheel that drags in ~3 GB
+# more of nvidia-* wheels (cudnn, cublas, nccl, cusparse…) plus triton. This
+# image never uses any of it — engine/ai_analyzer.py selects its device with
+# `torch.cuda.is_available()`, which is false on a CPU-only host, so the model
+# always runs on CPU. Unpacking those 4 GB is what exhausts the build host.
+#
+# `2.10.0+cpu` satisfies the `torch==2.10.0` pin (PEP 440 ignores the local
+# version label when the specifier carries none), so the line below leaves
+# requirements.txt untouched and simply prevents the CUDA variant — and its
+# dependency tree — from ever being resolved.
 RUN pip install --upgrade pip && \
+    pip install --index-url https://download.pytorch.org/whl/cpu torch==2.10.0 && \
     pip install -r requirements.txt && \
     pip install -r requirements-optional.txt
 

@@ -27,7 +27,13 @@ WORKDIR /app
 # Dependencies layer (cached independently of application code)
 # ---------------------------------------------------------------------------
 COPY requirements.txt requirements-optional.txt ./
+# torch comes from the CPU index first — see the long note in the root
+# Dockerfile. On PyPI the pin resolves to the CUDA build (915 MB + ~3 GB of
+# nvidia-* wheels) that this image never uses, since ai_analyzer.py falls back
+# to CPU whenever torch.cuda.is_available() is false. `2.10.0+cpu` satisfies
+# `torch==2.10.0`, so requirements.txt needs no change.
 RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.10.0 && \
     pip install --no-cache-dir -r requirements.txt && \
     pip install --no-cache-dir -r requirements-optional.txt
 
