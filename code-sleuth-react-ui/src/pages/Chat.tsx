@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,7 +8,9 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { AnalysisChatPanel } from "@/components/results/AnalysisChatPanel";
-import { Masthead, RegMark } from "@/components/dossier/Dossier";
+import { PageHeader, Tag } from "@/components/bench/Bench";
+import { Panel } from "@/components/dossier/Dossier";
+import { IconFilePlus } from "@/components/bench/icons";
 import {
   deleteConversation,
   listConversations,
@@ -19,10 +21,10 @@ import { useLanguage } from "@/context/LanguageContext";
 import { cn } from "@/lib/utils";
 
 /**
- * The correspondence desk: the previous-threads drawer beside the live log.
- * A fresh thread grounds on the currently loaded analysis when one is on
- * file; every thread is persisted server-side and can be reopened, resumed
- * (the model keeps its memory), or destroyed.
+ * The analyst's desk: a ruled list of saved threads beside the live
+ * transcript. A fresh thread grounds on the currently loaded analysis when
+ * one is on file; every thread is persisted server-side and can be reopened,
+ * resumed (the model keeps its memory), or deleted.
  */
 const Chat = () => {
   const { currentResult } = useAnalysis();
@@ -70,151 +72,148 @@ const Chat = () => {
   const railDate = (c: ChatConversationSummary) =>
     c.updatedAt ? formatDate(c.updatedAt, { dateStyle: "medium" }) : "—";
 
+  const openCaseId = active?.analysisId ?? (activeId == null ? freshAnalysisId : null);
+
   return (
-    <div className="animate-fade-in">
-      <Masthead
-        kicker={t("chat.eyebrow", { defaultValue: "Grounded consultation" })}
+    <div className="pt-7">
+      <PageHeader
+        kicker={t("topbar.analyst")}
         title={t("chat.pageTitle")}
-        description={t("chat.pageDescription")}
         actions={
-          <Button size="sm" className="h-9 gap-2" onClick={() => setActiveId(null)}>
-            <Plus className="h-4 w-4" />
+          <Button onClick={() => setActiveId(null)}>
+            <IconFilePlus size={16} />
             {t("chat.newConversation", { defaultValue: "New thread" })}
           </Button>
         }
       />
+      <p className="body-lg mt-3 max-w-[64ch] text-txt-secondary">{t("chat.pageDescription")}</p>
 
-      <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">
-        {/* ── The correspondence drawer ── */}
-        <aside className="min-w-0 border border-border bg-card">
-          <div className="flex items-baseline justify-between gap-3 border-b border-border px-4 py-2.5">
-            <span className="t-label flex items-center gap-2 text-foreground">
-              <span className="reg-dot h-3 w-3 text-primary" aria-hidden />
-              {t("chat.previousTitle", { defaultValue: "Correspondence" })}
-            </span>
-            <span className="press-slug tabular-nums">{formatNumber(items.length)}</span>
-          </div>
-
-          {/* New thread — the drawer's first slot */}
-          <button
-            type="button"
-            onClick={() => setActiveId(null)}
-            className={cn(
-              "flex w-full min-w-0 items-center gap-2.5 border-b border-border/60 px-4 py-3 text-start transition-colors",
-              activeId == null ? "nav-link-active" : "hover:bg-muted/60",
-            )}
+      <div className="mt-8 grid items-start gap-5 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">
+        {/* Threads */}
+        <aside className="min-w-0">
+          <Panel
+            label={t("chat.previousTitle", { defaultValue: "Correspondence" })}
+            actions={<span className="mono-meta text-txt-muted">{formatNumber(items.length)}</span>}
+            bodyClassName="p-0"
           >
-            <Plus className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[13px] font-semibold text-foreground">
+            {/* New thread — the list's first slot */}
+            <button
+              type="button"
+              onClick={() => setActiveId(null)}
+              className={cn(
+                "flex w-full min-w-0 flex-col gap-1.5 border-b border-bench-hair px-5 py-3 text-start transition-colors",
+                activeId == null ? "text-txt-primary" : "text-txt-secondary hover:text-txt-primary",
+              )}
+            >
+              <span className={cn("block truncate text-[13px]", activeId == null && "font-semibold")}>
                 {t("chat.newConversation", { defaultValue: "New thread" })}
               </span>
-              <span className="press-slug mt-0.5 block text-[9px]">
+              <span className="mono-meta text-txt-muted">
                 {freshAnalysisId != null
                   ? t("chat.groundsOnCase", { defaultValue: "Case #{{id}}", id: freshAnalysisId })
                   : t("chat.ungrounded", { defaultValue: "Free consultation" })}
               </span>
-            </span>
-          </button>
+            </button>
 
-          <div className="max-h-[520px] overflow-y-auto scrollbar-thin">
-            {!listLoaded ? (
-              <div className="flex items-center gap-2.5 px-4 py-4" role="status">
-                <RegMark className="h-3.5 w-3.5 animate-spin text-primary [animation-duration:1.6s]" aria-hidden />
-                <span className="press-slug">{t("status.loading")}</span>
-              </div>
-            ) : items.length === 0 ? (
-              <p className="px-4 py-5 text-xs leading-relaxed text-muted-foreground">
-                {t("chat.noThreadsYet", { defaultValue: "Nothing on file yet — your first exchange is saved automatically." })}
-              </p>
-            ) : (
-              items.map((c) => {
-                const isActive = c.id === activeId;
-                return (
-                  <div
-                    key={c.id}
-                    className={cn(
-                      "group relative border-b border-border/60 transition-colors last:border-b-0",
-                      isActive ? "nav-link-active" : "hover:bg-muted/60",
-                    )}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setActiveId(c.id)}
-                      className="block w-full min-w-0 px-4 py-3 pe-9 text-start"
+            <div className="max-h-[520px] overflow-y-auto scrollbar-thin [&>*:last-child]:border-b-0">
+              {!listLoaded ? (
+                <div className="px-5 py-4" role="status">
+                  <span className="mono-meta text-txt-muted">{t("status.loading")}</span>
+                </div>
+              ) : items.length === 0 ? (
+                <p className="px-5 py-4 text-[12.5px] leading-relaxed text-txt-muted">
+                  {t("chat.noThreadsYet", { defaultValue: "Nothing on file yet — your first exchange is saved automatically." })}
+                </p>
+              ) : (
+                items.map((c) => {
+                  const isActive = c.id === activeId;
+                  return (
+                    <div
+                      key={c.id}
+                      className={cn(
+                        "group relative border-b border-bench-hair px-5",
+                        isActive && "border-s-2 border-s-signal ps-[18px]",
+                      )}
                     >
-                      <span className="block truncate text-[13px] font-medium text-foreground" dir="auto">
-                        {c.title || "…"}
-                      </span>
-                      <span className="press-slug mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[9px]">
-                        <span className="normal-case tracking-normal">{railDate(c)}</span>
-                        <span aria-hidden>·</span>
-                        <span className="tabular-nums">
-                          {formatNumber(c.messageCount ?? 0)} {t("chat.messagesShort", { defaultValue: "msgs" })}
+                      <button
+                        type="button"
+                        onClick={() => setActiveId(c.id)}
+                        className="block w-full min-w-0 py-3 pe-8 text-start"
+                      >
+                        <span className={cn("block truncate text-[13px]", isActive ? "font-semibold text-txt-primary" : "text-txt-secondary group-hover:text-txt-primary")} dir="auto">
+                          {c.title || "…"}
                         </span>
-                        {c.analysisId != null && (
-                          <>
-                            <span aria-hidden>·</span>
-                            <span className="text-primary">#{c.analysisId}</span>
-                          </>
-                        )}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDeleteTarget(c)}
-                      aria-label={t("buttons.delete")}
-                      title={t("buttons.delete")}
-                      className="absolute end-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/60 opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 group-hover:opacity-100"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                );
-              })
-            )}
-          </div>
+                        <span className="mono-meta mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-txt-muted">
+                          <span>{railDate(c)}</span>
+                          <span aria-hidden>·</span>
+                          <span>
+                            {formatNumber(c.messageCount ?? 0)} {t("chat.messagesShort", { defaultValue: "msgs" })}
+                          </span>
+                          {c.analysisId != null && (
+                            <>
+                              <span aria-hidden>·</span>
+                              <span className="text-txt-secondary">#{c.analysisId}</span>
+                            </>
+                          )}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteTarget(c)}
+                        aria-label={t("buttons.delete")}
+                        title={t("buttons.delete")}
+                        className="absolute end-4 top-1/2 -translate-y-1/2 p-1 text-txt-muted opacity-0 transition-opacity hover:text-signal-bench focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal group-hover:opacity-100"
+                      >
+                        <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </Panel>
         </aside>
 
-        {/* ── The live log ── */}
+        {/* Transcript */}
         <div className="min-w-0">
-          {/* Context line for the open thread */}
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
-            <span className="press-slug flex min-w-0 items-center gap-2">
-              <span className="truncate normal-case tracking-normal" dir="auto">
+          <Panel
+            label={t("chat.transcriptTitle", { defaultValue: "Transcript" })}
+            actions={
+              openCaseId != null ? (
+                <Link to={`/results?analysisId=${openCaseId}`} className="shrink-0" aria-label={t("chat.openCase", { defaultValue: "Case #{{id}}", id: openCaseId })}>
+                  <Tag tone="advisory">{t("chat.openCase", { defaultValue: "Case #{{id}}", id: openCaseId })}</Tag>
+                </Link>
+              ) : undefined
+            }
+          >
+            {/* Context line for the open thread */}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-bench-hair pb-3">
+              <span className="min-w-0 truncate text-[12.5px] text-txt-secondary" dir="auto">
                 {active ? active.title : t("chat.newConversation", { defaultValue: "New thread" })}
               </span>
-            </span>
-            {(active?.analysisId ?? (activeId == null ? freshAnalysisId : null)) != null && (
-              <Link
-                to={`/results?analysisId=${active?.analysisId ?? freshAnalysisId}`}
-                className="press-slug text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary"
-              >
-                {t("chat.openCase", { defaultValue: "Case #{{id}}", id: active?.analysisId ?? freshAnalysisId })}
-              </Link>
-            )}
-          </div>
+            </div>
 
-          <div className="mt-4">
-            <AnalysisChatPanel
-              analysisId={activeId == null ? freshAnalysisId : undefined}
-              contextLabel={contextLabel}
-              conversationId={activeId}
-              onConversationChange={(id) => {
-                setActiveId(id);
-                refreshList();
-              }}
-              onTranscriptChange={refreshList}
-            />
-          </div>
+            <div className="mt-4">
+              <AnalysisChatPanel
+                analysisId={activeId == null ? freshAnalysisId : undefined}
+                contextLabel={contextLabel}
+                conversationId={activeId}
+                onConversationChange={(id) => {
+                  setActiveId(id);
+                  refreshList();
+                }}
+                onTranscriptChange={refreshList}
+              />
+            </div>
+          </Panel>
         </div>
       </div>
 
       <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
-        <AlertDialogContent>
+        <AlertDialogContent className="border-bench-strong bg-bench-raised text-txt-primary">
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("chat.deleteTitle", { defaultValue: "Delete this thread?" })}</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="t-h4">{t("chat.deleteTitle", { defaultValue: "Delete this thread?" })}</AlertDialogTitle>
+            <AlertDialogDescription className="text-[13px] text-txt-secondary">
               {t("chat.deleteDescription", {
                 defaultValue: "The whole transcript is removed permanently. This cannot be undone.",
               })}

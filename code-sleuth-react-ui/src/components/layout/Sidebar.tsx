@@ -2,35 +2,29 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   BarChart3,
   Building2,
-  ChevronLeft,
-  ChevronRight,
   CreditCard,
   GitCompare,
   HelpCircle,
   History,
   Home,
   KeyRound,
+  LineChart,
   LogIn,
   LogOut,
   MessageSquare,
-  LineChart,
   Scale,
   Settings,
   LayoutDashboard,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ControlStrip } from "@/components/dossier/Dossier";
-import { BrandMark } from "@/components/brand/BrandMark";
+import { ScaleTicks } from "@/components/bench/Bench";
+import { IconChevronLeft, IconChevronRight } from "@/components/bench/icons";
+import { BrandLockup, BrandMark } from "@/components/brand/BrandMark";
 import { useAnalysis } from "@/context/AnalysisContext";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
-
-function isActivePath(currentPath: string, itemPath: string) {
-  return currentPath === itemPath;
-}
 
 interface NavItem {
   labelKey: string;
@@ -58,11 +52,25 @@ const enterpriseItems: NavItem[] = [
 ];
 
 /**
- * The job rail. It lives on the deeper press-bed tone; the active route is a
- * "pulled proof" — a sheet-white tab with a drawn hairline and a registration
- * mark showing where the job currently sits.
+ * The instrument rail. It carries every route the workspace has; the active
+ * one is marked the way the design marks an active mode — a 2px signal bar on
+ * the leading edge with the label in the primary ink, never a coloured wash.
+ *
+ * Collapsing is a DESKTOP affordance, so it is expressed with `md:` classes
+ * throughout: the off-canvas drawer on a phone always opens at full width with
+ * every label legible, whatever the collapsed preference happens to be.
  */
-export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: boolean; onClose: () => void; collapsed: boolean; onCollapse: () => void }) {
+export function Sidebar({
+  isOpen,
+  onClose,
+  collapsed,
+  onCollapse,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  collapsed: boolean;
+  onCollapse: () => void;
+}) {
   const location = useLocation();
   const navigate = useNavigate();
   const { clearCurrentResult } = useAnalysis();
@@ -81,6 +89,10 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
     onClose();
   };
 
+  /** Row shared by nav links and the account actions at the foot of the rail. */
+  const rowClass = cn("relative flex h-9 items-center gap-3 ps-3 pe-2.5 transition-colors", collapsed && "md:justify-center md:px-0");
+  const labelClass = cn("ui-nav truncate", collapsed && "md:hidden");
+
   const renderItem = (item: NavItem, active: boolean) => {
     const Icon = item.icon;
     const label = t(item.labelKey);
@@ -89,25 +101,24 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
         key={item.path}
         to={item.path}
         onClick={onClose}
-        className={cn(
-          "group flex items-center gap-3 border border-transparent px-3 py-2 text-[13px] font-medium transition-colors duration-150",
-          collapsed ? "justify-center px-2" : "",
-          active
-            ? "nav-link-active"
-            : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-        )}
+        aria-current={active ? "page" : undefined}
+        className={cn(rowClass, active ? "text-txt-primary" : "text-txt-secondary hover:text-txt-primary")}
       >
-        <Icon className="h-4 w-4 shrink-0" />
-        {!collapsed && <span className="truncate">{label}</span>}
-        {!collapsed && active && <span className="reg-dot ms-auto h-2.5 w-2.5 text-primary" aria-hidden />}
+        {/* The active mark: the design's 2px signal rule, stood on its edge. */}
+        <span aria-hidden className={cn("absolute inset-y-0 start-0 w-0.5", active ? "bg-signal" : "bg-transparent")} />
+        <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+        <span className={cn(labelClass, active && "font-semibold")}>{label}</span>
       </Link>
     );
 
+    // The tooltip only has work to do once the rail is icons-only.
     if (collapsed) {
       return (
         <Tooltip key={item.path} delayDuration={0}>
           <TooltipTrigger asChild>{link}</TooltipTrigger>
-          <TooltipContent side={isRTL ? "left" : "right"} className="text-xs">{label}</TooltipContent>
+          <TooltipContent side={isRTL ? "left" : "right"} className="border-bench-strong bg-bench-raised text-[13px] text-txt-primary">
+            {label}
+          </TooltipContent>
         </Tooltip>
       );
     }
@@ -117,114 +128,101 @@ export function Sidebar({ isOpen, onClose, collapsed, onCollapse }: { isOpen: bo
 
   return (
     <>
-      {isOpen && <div className="fixed inset-0 z-30 bg-foreground/40 md:hidden" role="button" tabIndex={0} aria-label="Close navigation" onClick={onClose} onKeyDown={(e) => { if (e.key === "Escape" || e.key === "Enter") onClose(); }} />}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/60 md:hidden"
+          role="button"
+          tabIndex={0}
+          aria-label="Close navigation"
+          onClick={onClose}
+          onKeyDown={(e) => {
+            if (e.key === "Escape" || e.key === "Enter") onClose();
+          }}
+        />
+      )}
 
       <aside
         className={cn(
-          "fixed inset-y-0 z-40 flex flex-col bg-sidebar transition-[width,transform] duration-300 ease-in-out",
-          isRTL ? "right-0 border-l border-sidebar-border" : "left-0 border-r border-sidebar-border",
-          collapsed ? "w-16" : "w-60",
+          "fixed inset-y-0 z-40 flex flex-col bg-bench-raised transition-[width,transform] duration-300 ease-in-out",
+          isRTL ? "right-0 border-s border-bench-hair" : "left-0 border-e border-bench-hair",
+          collapsed ? "w-60 md:w-16" : "w-60",
           isOpen ? "translate-x-0" : isRTL ? "translate-x-full md:translate-x-0" : "-translate-x-full md:translate-x-0",
         )}
       >
-        {/* Brand block — the registration lockup */}
+        {/* Brand block */}
         <Link
           to="/"
-          className={cn(
-            "flex h-14 items-center border-b border-sidebar-border px-3",
-            collapsed ? "justify-center px-0" : "gap-2.5",
-          )}
+          onClick={onClose}
+          className={cn("flex h-14 shrink-0 items-center border-b border-bench-hair px-4", collapsed && "md:justify-center md:px-0")}
+          aria-label="Clone Lens"
         >
-          <BrandMark className={cn("shrink-0", collapsed ? "h-7" : "h-8")} />
-          {!collapsed && (
-            <span className="min-w-0 leading-none">
-              <span className="block truncate font-display text-[15px] font-extrabold uppercase tracking-wide text-sidebar-accent-foreground" style={{ fontStretch: "118%" }}>
-                Clone Lens
-              </span>
-              <span className="press-slug mt-1 block text-[9px] tracking-[0.14em]">{t("platform")}</span>
-            </span>
-          )}
+          <span className={cn(collapsed && "md:hidden")}>
+            <BrandLockup markClassName="h-[22px]" />
+          </span>
+          {collapsed && <BrandMark className="hidden h-[22px] md:block" />}
         </Link>
 
-        <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2 pt-3 scrollbar-thin">
-          {navItems.map((item) => renderItem(item, isActivePath(location.pathname, item.path)))}
+        <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto py-3 scrollbar-thin" aria-label={t("nav.home")}>
+          {navItems.map((item) => renderItem(item, location.pathname === item.path))}
 
-          {/* Enterprise section — admin-only routes, so hide the links from
-              non-admins instead of letting them bounce off ProtectedRoute */}
+          {/* Enterprise section — admin-only routes, hidden from everyone else
+              rather than bouncing them off ProtectedRoute. */}
           {user?.is_admin && (
-            <div className={cn("mt-4", collapsed ? "px-0" : "")}>
-              {!collapsed ? (
-                <p className="press-slug mb-1.5 flex items-center gap-2 px-3 text-[9px]">
-                  <span className="h-px w-3 bg-sidebar-foreground/50" aria-hidden />
-                  {t("nav.enterprise")}
-                </p>
-              ) : (
-                <div className="mx-2 my-1 h-px bg-sidebar-border" />
-              )}
+            <div className="mt-5">
+              <p className={cn("label flex items-center gap-2 px-3 pb-2 text-txt-muted", collapsed && "md:hidden")}>
+                <span aria-hidden className="h-px w-3 bg-bench-strong" />
+                {t("nav.enterprise")}
+              </p>
+              {collapsed && <div aria-hidden className="mx-3 my-2 hidden h-px bg-bench-hair md:block" />}
               {enterpriseItems.map((item) => renderItem(item, location.pathname.startsWith(item.path)))}
             </div>
           )}
         </nav>
 
-        <div className="space-y-2 border-t border-sidebar-border p-2">
+        <div className="shrink-0 border-t border-bench-hair">
           {isAuthenticated ? (
             <>
-              {!collapsed && (
-                <div className="border border-sidebar-border bg-sidebar-accent/50 px-3 py-2">
-                  <span className="press-slug block text-[9px]">{t("header.signedInAs")}</span>
-                  <span className="mt-0.5 block truncate text-xs font-semibold text-sidebar-accent-foreground">{user?.username}</span>
-                </div>
-              )}
+              <div className={cn("px-3 py-3", collapsed && "md:hidden")}>
+                <span className="label block text-txt-muted">{t("header.signedInAs")}</span>
+                <span className="mt-1.5 block truncate text-[13px] font-semibold text-txt-primary">{user?.username}</span>
+              </div>
               <button
                 type="button"
                 onClick={() => void handleLogout()}
-                className={cn(
-                  "flex w-full items-center gap-3 px-3 py-2 text-[13px] font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                  collapsed ? "justify-center px-2" : "",
-                )}
+                className={cn(rowClass, "w-full text-txt-secondary hover:text-txt-primary")}
               >
-                <LogOut className="h-4 w-4 shrink-0" />
-                {!collapsed && <span>{t("header.logout")}</span>}
+                <LogOut className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                <span className={labelClass}>{t("header.logout")}</span>
               </button>
             </>
           ) : (
-            <Link
-              to="/login"
-              onClick={onClose}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2 text-[13px] font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                collapsed ? "justify-center px-2" : "",
-              )}
-            >
-              <LogIn className="h-4 w-4 shrink-0" />
-              {!collapsed && <span>{t("header.signIn")}</span>}
+            <Link to="/login" onClick={onClose} className={cn(rowClass, "text-txt-secondary hover:text-txt-primary")}>
+              <LogIn className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+              <span className={labelClass}>{t("header.signIn")}</span>
             </Link>
           )}
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn("h-8 w-full text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground", collapsed ? "" : "justify-end pr-3")}
+          {/* The collapse control is desktop-only; on a phone the drawer closes instead. */}
+          <button
+            type="button"
             onClick={onCollapse}
-            aria-label={t("nav.toggleSidebar", { defaultValue: t("nav.collapse") })}
-            title={t("nav.toggleSidebar", { defaultValue: t("nav.collapse") })}
-          >
-            {collapsed ? (
-              isRTL ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />
-            ) : (
-              <>
-                <span className={cn("text-xs text-sidebar-foreground", isRTL ? "ml-1" : "mr-1")}>{t("nav.collapse")}</span>
-                {isRTL ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
-              </>
+            className={cn(
+              "hidden h-9 w-full items-center gap-2 border-t border-bench-hair text-txt-muted transition-colors hover:text-txt-primary md:flex",
+              collapsed ? "justify-center" : "justify-end pe-3",
             )}
-          </Button>
+            aria-label={collapsed ? t("nav.expand") : t("nav.collapse")}
+            title={collapsed ? t("nav.expand") : t("nav.collapse")}
+          >
+            {!collapsed && <span className="label">{t("nav.collapse")}</span>}
+            {collapsed ? isRTL ? <IconChevronLeft /> : <IconChevronRight /> : isRTL ? <IconChevronRight /> : <IconChevronLeft />}
+          </button>
 
-          {/* The calibration strip — the rail signs off with the ink legend. */}
-          {!collapsed && (
-            <div className="flex justify-center pb-1 pt-1.5">
-              <ControlStrip />
-            </div>
-          )}
+          {/* The rail signs off with the calibration strip. */}
+          <div className={cn("px-3 pb-3 pt-2.5", collapsed && "md:hidden")}>
+            <span aria-hidden className="scale block h-[10px] w-full [&_.scale-tick-major]:h-[10px] [&_.scale-tick]:h-[5px]">
+              <ScaleTicks ticks={21} />
+            </span>
+          </div>
         </div>
       </aside>
     </>

@@ -1,18 +1,46 @@
-/* Self-hosted brand fonts from /public/fonts (non-render-blocking via font-display: swap).
-   Archivo carries the whole Latin voice (its wdth axis gives the expanded display cut);
-   JetBrains Mono is reserved for actual code; IBM Plex Sans Arabic owns the RTL surface. */
+/* Self-hosted webfonts from /public/fonts (non-render-blocking via font-display: swap).
+   Sofia Sans carries the whole Latin UI voice; Sofia Sans Extra Condensed is the
+   display cut (titles and the big instrument readings); IBM Plex Mono is reserved
+   for code, meta lines and machine values; IBM Plex Sans Arabic owns the RTL surface. */
 @font-face {
-  font-family: 'Archivo';
-  src: url('/fonts/Archivo-VariableFont_wdth_wght.ttf') format('truetype-variations');
-  font-weight: 100 900;
-  font-stretch: 62.5% 125%;
+  font-family: 'Sofia Sans';
+  src: url('/fonts/SofiaSans-VariableFont_wght.ttf') format('truetype-variations');
+  font-weight: 1 1000;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
-  font-family: 'JetBrains Mono';
-  src: url('/fonts/JetBrainsMono-VariableFont_wght.ttf') format('truetype-variations');
-  font-weight: 100 800;
+  font-family: 'Sofia Sans Extra Condensed';
+  src: url('/fonts/SofiaSansExtraCondensed-VariableFont_wght.ttf') format('truetype-variations');
+  font-weight: 1 1000;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('/fonts/IBMPlexMono-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('/fonts/IBMPlexMono-Italic.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('/fonts/IBMPlexMono-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('/fonts/IBMPlexMono-SemiBold.ttf') format('truetype');
+  font-weight: 600;
   font-style: normal;
   font-display: swap;
 }
@@ -51,109 +79,145 @@
 
 @layer base {
   :root {
-    color-scheme: light;
+    color-scheme: dark;
 
     /* ============================================================
-       PRESS CHECK — the registration proof.
-       Two code sources are two printing plates: PLATE A prints in
-       process cyan, PLATE B in magenta. Where they agree, the ink
-       overprints into a deep violet — the one action colour. The
-       ground is a cool press bed; content sits on bright proof
-       sheets; structure is drawn with hairlines and crop marks.
+       THE BENCH — the comparator's instrument table.
+       Chrome and readings sit on a warm charcoal bench; the two code
+       sources are lit paper PLATES laid on it; one SIGNAL colour marks
+       everything the instrument has measured. Structure is drawn with
+       hairlines and engraved tick scales, never with shadows.
+       Tokens mirror the Figma design file 1:1 (names and hex values).
        ============================================================ */
 
-    --background: 210 14% 91%;         /* press bed — cool machine grey */
-    --foreground: 216 25% 10%;         /* rich black (ink with a cyan lean) */
+    /* Bench */
+    --bench-base: #262624;
+    --bench-raised: #2e2e2b;
+    --bench-well: #1d1d1b;
+    --bench-hair: #3b3b38;
+    --bench-hair-strong: #4a4a46;
+    --bench-tick: #6b6a65;
 
-    --card: 210 20% 99%;               /* proof sheet */
-    --card-foreground: 216 25% 10%;
+    /* Text on the bench */
+    --text-primary: #e8e6e1;
+    --text-secondary: #a5a39d;
+    --text-muted: #908e88;
+    --text-faint: #75736e;
 
-    --popover: 210 20% 99%;
-    --popover-foreground: 216 25% 10%;
+    /* The one signal colour */
+    --signal-base: #f2532a;
+    --signal-on-bench: #ff6a3d;   /* signal as small text on the bench */
+    --signal-on-plate: #b8391a;   /* signal as small text on a plate */
 
-    --primary: 251 52% 36%;            /* OVERPRINT — cyan×magenta laid down together */
-    --primary-foreground: 210 20% 99%; /* sheet-white on overprint (≈9:1) */
+    /* Plates — lit paper the code is laid on */
+    --plate-base: #f4f2ec;
+    --plate-strip: #ebe9e2;
+    --plate-hair: #d9d6cd;
+    --plate-ink: #1b1b19;
+    --plate-ink-soft: #5e5c56;
+    --plate-gutter: #6b6962;
+    --plate-placeholder: #9c9a93;
+    --plate-well: #ffffff;
+    --plate-well-stroke: #c9c6bc;
+    --plate-meter: #e1ded4;
 
-    --secondary: 210 16% 94%;
-    --secondary-foreground: 216 25% 14%;
+    /* Matched-region bands on plates */
+    --match-band: #fbddd3;
+    --match-guard-band: #eceae3;
+    --match-guard-marker: #a9a69c;
 
-    --muted: 210 14% 94%;
-    --muted-foreground: 215 12% 36%;
+    --radius-control: 2px;
 
-    --accent: 210 18% 92%;             /* neutral hover tint */
-    --accent-foreground: 216 25% 12%;
+    /* ---- shadcn semantic tokens (HSL triplets) mapped onto the bench ---- */
+    --background: 60 3% 15%;              /* bench-base */
+    --foreground: 43 13% 90%;             /* text-primary */
 
-    /* The two plates. Full-strength process ink is for marks, bars and
-       graphics; the -deep cut clears 4.5:1 and may be used as text. */
-    --plate-a: 194 100% 41%;           /* process cyan — source A */
-    --plate-a-deep: 197 100% 26%;
-    --plate-b: 328 90% 48%;            /* process magenta — source B */
-    --plate-b-deep: 331 85% 32%;
+    --card: 60 3% 17%;                    /* bench-raised */
+    --card-foreground: 43 13% 90%;
 
-    /* Similarity scale — the press verdict. Same three bands everywhere. */
-    --success: 160 70% 24%;            /* passed — low similarity */
-    --success-foreground: 210 20% 99%;
-    --warning: 41 100% 44%;            /* review — mid similarity (never small text) */
-    --warning-foreground: 216 25% 10%;
-    --destructive: 4 74% 42%;          /* flagged — high similarity */
-    --destructive-foreground: 210 20% 99%;
+    --popover: 60 3% 17%;
+    --popover-foreground: 43 13% 90%;
 
-    /* Second-exhibit identity tone — PLATE B's text-capable cut. Kept under
-       its legacy name because the AST graph and diff components consume it. */
-    --accent-suspect: 331 85% 32%;
+    --primary: 12 88% 56%;                /* signal-base */
+    --primary-foreground: 60 4% 10%;      /* plate-ink — never white on signal */
 
-    --border: 212 14% 80%;
-    --input: 212 14% 74%;
-    --ring: 251 52% 42%;
+    --secondary: 60 3% 17%;
+    --secondary-foreground: 43 13% 90%;
 
-    --radius: 0rem;                    /* trimmed flush — press geometry has no corners */
+    --muted: 60 4% 11%;                   /* bench-well */
+    --muted-foreground: 45 4% 55%;        /* text-muted */
 
-    --sidebar-background: 210 13% 88%;
-    --sidebar-foreground: 215 12% 32%;
-    --sidebar-primary: 251 52% 36%;
-    --sidebar-primary-foreground: 210 20% 99%;
-    --sidebar-accent: 210 14% 92%;
-    --sidebar-accent-foreground: 216 25% 12%;
-    --sidebar-border: 212 13% 79%;
-    --sidebar-ring: 251 52% 42%;
+    --accent: 60 3% 23%;                  /* bench-hair — hover tint */
+    --accent-foreground: 43 13% 90%;
 
-    --surface-1: 210 20% 99%;
-    --surface-2: 210 17% 96%;
-    --surface-3: 210 14% 93%;
+    /* Reading bands. The design is two-tone plus one signal: a low reading is
+       NEUTRAL (muted), a mid reading is ADVISORY (secondary), a flagged reading
+       is HOT (signal). Destructive is a deeper cut of the same signal hue so
+       errors and flagged clones read as one family. */
+    --success: 45 4% 63%;
+    --success-foreground: 60 3% 15%;
+    --warning: 43 13% 90%;
+    --warning-foreground: 60 3% 15%;
+    --destructive: 12 75% 48%;
+    --destructive-foreground: 45 27% 94%;
 
-    --code-surface: 202 30% 97%;
-    --code-surface-foreground: 216 25% 13%;
-    --code-surface-border: 206 16% 84%;
+    /* Legacy source-identity tokens. The bench has no A/B colours — the label
+       text carries identity — so both resolve to bench greys. */
+    --plate-a: 43 13% 90%;
+    --plate-a-deep: 43 13% 90%;
+    --plate-b: 45 4% 63%;
+    --plate-b-deep: 45 4% 63%;
+    --accent-suspect: 45 4% 63%;
 
-    /* Categorical chart palette — the plate inks plus press neutrals.
-       For SEMANTIC similarity bands use --success/--warning/--destructive. */
-    --chart-1: 197 100% 26%;  /* cyan plate (deep) */
-    --chart-2: 331 85% 32%;   /* magenta plate (deep) */
-    --chart-3: 160 70% 24%;   /* viridian */
-    --chart-4: 215 12% 40%;   /* press slate */
-    --chart-5: 251 52% 42%;   /* overprint violet */
+    --border: 60 3% 23%;                  /* bench-hair */
+    --input: 60 3% 28%;                   /* bench-hair-strong */
+    --ring: 12 88% 56%;
 
-    /* Fixed dark rail — the auth brand panel is always dark in both themes:
-       the darkened press room, one lamp on the proof. */
-    --auth-ink: 250 30% 10%;
+    --radius: 2px;
 
-    /* Flat by default — a single neutral shadow reserved for true overlays. */
-    --card-shadow-rest: 0 1px 2px hsl(216 30% 12% / 0.06);
-    --card-shadow-hover: 0 2px 12px hsl(216 30% 12% / 0.12);
-    /* Retired decoration kept as no-op aliases for legacy call sites. */
+    --sidebar-background: 60 3% 17%;
+    --sidebar-foreground: 45 4% 63%;
+    --sidebar-primary: 12 88% 56%;
+    --sidebar-primary-foreground: 60 4% 10%;
+    --sidebar-accent: 60 3% 23%;
+    --sidebar-accent-foreground: 43 13% 90%;
+    --sidebar-border: 60 3% 23%;
+    --sidebar-ring: 12 88% 56%;
+
+    --surface-1: 60 3% 17%;
+    --surface-2: 60 4% 11%;
+    --surface-3: 60 3% 23%;
+
+    /* Code always sits on a plate. */
+    --code-surface: 45 27% 94%;
+    --code-surface-foreground: 60 4% 10%;
+    --code-surface-border: 45 14% 83%;
+
+    /* Categorical chart palette: signal first, then the bench greys. */
+    --chart-1: 12 88% 56%;
+    --chart-2: 43 13% 90%;
+    --chart-3: 45 4% 63%;
+    --chart-4: 45 4% 55%;
+    --chart-5: 50 3% 41%;
+
+    --auth-ink: 60 3% 15%;
+
+    /* Flat. Overlays draw a hairline; nothing is shadowed. */
+    --card-shadow-rest: none;
+    --card-shadow-hover: none;
     --glow-shadow-sm: none;
     --glow-shadow-md: none;
     --shadow-glow-sm: none;
     --shadow-glow-md: none;
     --shadow-glow-lg: none;
-    --gradient-brand: hsl(var(--primary));
+    --gradient-brand: var(--signal-base);
 
-    /* Radius scale — everything trims square. Dots and rings stay round. */
-    --radius-sm: 0px;
-    --radius-md: 0px;
-    --radius-lg: 0px;
-    --radius-xl: 0px;
-    --radius-2xl: 0px;
+    /* Radius scale — controls trim at 2px; dots and rings stay round. */
+    --radius-sm: 2px;
+    --radius-md: 2px;
+    --radius-lg: 2px;
+    --radius-xl: 2px;
+    --radius-2xl: 2px;
     --radius-full: 9999px;
 
     /* Spatial scale (4-pt grid) */
@@ -176,29 +240,27 @@
     --dur-base: 200ms;
     --dur-slow: 300ms;
 
-    /* Typography: one Latin family in many cuts. Width + weight carry the
-       display voice; monospace appears only where the content is code. */
-    --font-sans: 'Archivo', system-ui, -apple-system, sans-serif;
-    --font-display: 'Archivo', system-ui, sans-serif;
-    --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', monospace;
+    /* Typography */
+    --font-sans: 'Sofia Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-display: 'Sofia Sans Extra Condensed', 'Sofia Sans', system-ui, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
     --font-arabic: 'IBM Plex Sans Arabic', system-ui, sans-serif;
 
-    /* Typography: scale */
-    --fs-hero: 4.25rem;
-    --fs-h1: 2.6rem;
-    --fs-h2: 1.9rem;
-    --fs-h3: 1.4rem;
-    --fs-h4: 1.2rem;
-    --fs-h5: 1.05rem;
-    --fs-body: 1rem;
-    --fs-sm: 0.875rem;
-    --fs-xs: 0.75rem;
+    --fs-hero: 4.5rem;      /* Display/Title 72 */
+    --fs-h1: 1.625rem;      /* Heading/Page 26 */
+    --fs-h2: 1.375rem;
+    --fs-h3: 1.125rem;
+    --fs-h4: 1rem;
+    --fs-h5: 0.9375rem;
+    --fs-body: 0.875rem;    /* Body/Default 14 */
+    --fs-sm: 0.78125rem;    /* Body/Small 12.5 */
+    --fs-xs: 0.6875rem;     /* Label 11 */
     --fs-micro: 0.625rem;
 
-    --lh-tight: 1.05;
-    --lh-heading: 1.2;
-    --lh-body: 1.6;
-    --lh-code: 1.5;
+    --lh-tight: 0.86;
+    --lh-heading: 1.1;
+    --lh-body: 1.4;
+    --lh-code: 21px;
 
     --fw-light: 300;
     --fw-regular: 400;
@@ -208,77 +270,12 @@
     --fw-extrabold: 800;
   }
 
-  .dark {
+  /* The design file defines one look — the bench is always lit from above.
+     Both theme classes resolve to the same tokens so a stored preference
+     can never produce an undesigned palette. */
+  .dark,
+  .light {
     color-scheme: dark;
-
-    /* THE NEGATIVE — the same proof read on a light table with the room
-       lights off. Grounds go to film; the plate inks turn luminous. */
-    --background: 222 18% 7%;
-    --foreground: 210 14% 88%;
-
-    --card: 220 16% 10%;
-    --card-foreground: 210 14% 88%;
-
-    --popover: 220 16% 11%;
-    --popover-foreground: 210 14% 88%;
-
-    --primary: 252 92% 78%;
-    --primary-foreground: 252 60% 12%;
-
-    --secondary: 219 14% 15%;
-    --secondary-foreground: 210 12% 80%;
-
-    --muted: 219 14% 14%;
-    --muted-foreground: 213 10% 64%;
-
-    --accent: 219 14% 17%;
-    --accent-foreground: 210 12% 86%;
-
-    --plate-a: 192 90% 60%;
-    --plate-a-deep: 192 80% 66%;
-    --plate-b: 329 95% 70%;
-    --plate-b-deep: 329 92% 74%;
-
-    --success: 158 52% 56%;
-    --success-foreground: 160 60% 8%;
-    --warning: 43 96% 58%;
-    --warning-foreground: 40 60% 8%;
-    --destructive: 4 82% 64%;
-    --destructive-foreground: 350 40% 8%;
-
-    --accent-suspect: 329 92% 74%;
-
-    --border: 218 13% 20%;
-    --input: 218 13% 24%;
-    --ring: 252 92% 78%;
-
-    --sidebar-background: 222 18% 6%;
-    --sidebar-foreground: 213 10% 62%;
-    --sidebar-primary: 252 92% 78%;
-    --sidebar-primary-foreground: 252 60% 12%;
-    --sidebar-accent: 219 14% 13%;
-    --sidebar-accent-foreground: 210 12% 86%;
-    --sidebar-border: 218 13% 16%;
-    --sidebar-ring: 252 92% 78%;
-
-    --surface-1: 220 16% 10%;
-    --surface-2: 219 15% 13%;
-    --surface-3: 219 14% 16%;
-
-    --code-surface: 205 28% 7%;
-    --code-surface-foreground: 205 14% 84%;
-    --code-surface-border: 210 15% 18%;
-
-    --chart-1: 192 80% 66%;
-    --chart-2: 329 92% 74%;
-    --chart-3: 158 52% 56%;
-    --chart-4: 213 10% 64%;
-    --chart-5: 252 92% 78%;
-
-    --card-shadow-rest: 0 1px 2px hsl(0 0% 0% / 0.4);
-    --card-shadow-hover: 0 2px 12px hsl(0 0% 0% / 0.55);
-    --glow-shadow-sm: none;
-    --glow-shadow-md: none;
   }
 }
 
@@ -292,16 +289,21 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    background: var(--bench-base);
   }
 
   html[lang="ar"] {
     font-family: var(--font-arabic);
   }
 
-  /* The expanded display voice is Latin-only (Archivo has no Arabic glyphs
-     and Plex Arabic has no width axis). Under Arabic, every display element
-     falls back to the Arabic face at normal width. */
+  /* The Latin display and label voices have no Arabic glyphs (Sofia Sans is
+     Latin-only). Under Arabic, every display element falls back to the Arabic
+     face with tracking reset. Code and machine values stay in the mono face. */
+  html[lang="ar"] .t-display,
   html[lang="ar"] .t-hero,
+  html[lang="ar"] .t-statement,
+  html[lang="ar"] .t-page,
+  html[lang="ar"] .t-verdict,
   html[lang="ar"] .t-h1,
   html[lang="ar"] .t-h2,
   html[lang="ar"] .t-h3,
@@ -309,25 +311,32 @@
   html[lang="ar"] .t-h5,
   html[lang="ar"] .t-label,
   html[lang="ar"] .t-stat,
-  html[lang="ar"] .stamp,
+  html[lang="ar"] .label,
+  html[lang="ar"] .label-sm,
+  html[lang="ar"] .label-tag,
   html[lang="ar"] .press-slug,
+  html[lang="ar"] .stamp,
+  html[lang="ar"] .tag,
+  html[lang="ar"] .segment,
+  html[lang="ar"] .segment-plate,
+  html[lang="ar"] .ui-nav,
+  html[lang="ar"] .ui-wordmark,
   html[lang="ar"] .font-display {
     font-family: var(--font-arabic);
-    font-stretch: normal;
     letter-spacing: 0;
   }
 
-  /* Compat shim: anything still filled with the legacy brand alias takes a
-     readable foreground until migrated to <Button variant="default">. */
+  /* Compat shim: anything still filled with the legacy brand alias takes the
+     ink foreground the signal fill requires. */
   .bg-gradient-brand,
   [style*="gradient-brand"] {
-    color: hsl(var(--primary-foreground)) !important;
+    color: var(--plate-ink) !important;
   }
 
   body {
     @apply text-foreground;
     min-height: 100vh;
-    background: hsl(var(--background));
+    background: var(--bench-base);
   }
 
   body[dir="rtl"] {
@@ -341,18 +350,19 @@
   body[dir="rtl"] .code-surface,
   body[dir="rtl"] .analysis-markdown pre,
   body[dir="rtl"] code,
-  body[dir="rtl"] .font-mono {
+  body[dir="rtl"] .font-mono,
+  body[dir="rtl"] .plate-code,
+  body[dir="rtl"] .mono-code {
     direction: ltr;
     text-align: left;
   }
 
   ::selection {
-    background: hsl(var(--plate-a) / 0.35);
-    color: hsl(var(--foreground));
+    background: color-mix(in srgb, var(--signal-base) 40%, transparent);
+    color: var(--text-primary);
   }
 
-  /* Global reduced-motion contract. One declaration honours the user's OS
-     setting for every animation and transition in the app. */
+  /* Global reduced-motion contract. */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -365,7 +375,6 @@
       scroll-behavior: auto !important;
     }
 
-    /* "Working" loops resolve to a static indicator rather than spinning. */
     .animate-spin,
     .animate-pulse,
     .animate-ping,
@@ -376,80 +385,426 @@
 }
 
 @layer utilities {
-  /* Legacy brand fill/text aliases — resolve to the overprint solid. */
+  /* Legacy brand fill/text aliases — resolve to the signal solid. */
   .bg-gradient-brand {
-    background: hsl(var(--primary));
+    background: var(--signal-base);
   }
 
   .text-gradient-brand {
-    color: hsl(var(--primary));
+    color: var(--signal-base);
   }
 
   /* ============================================================
-     Type scale — Archivo in three widths.
-     Display (t-hero…t-h2) speaks EXPANDED + heavy + caps: the
-     press poster cut. Working headings (t-h3…t-h5) are near-normal
-     width. Labels are the slug voice: small caps-tracked Archivo,
-     not monospace. Mono belongs to code alone.
+     Type — the Figma text styles.
+     Display = Sofia Sans Extra Condensed ExtraBold, line-height .86,
+     uppercase: the big instrument readings and plate titles.
+     Headings/body = Sofia Sans. Labels are tracked small caps.
+     Mono = IBM Plex Mono for code, meta lines and machine values.
      ============================================================ */
-  .t-hero { font-family: var(--font-display); font-stretch: 122%; font-size: var(--fs-hero); font-weight: 800; line-height: 0.96; letter-spacing: -0.01em; text-transform: uppercase; }
-  .t-h1   { font-family: var(--font-display); font-stretch: 118%; font-size: var(--fs-h1);   font-weight: 800; line-height: 1.04; letter-spacing: -0.01em; text-transform: uppercase; }
-  .t-h2   { font-family: var(--font-display); font-stretch: 114%; font-size: var(--fs-h2);   font-weight: 750; line-height: 1.1; letter-spacing: -0.005em; text-transform: uppercase; }
-  .t-h3   { font-family: var(--font-display); font-stretch: 106%; font-size: var(--fs-h3);   font-weight: 700; line-height: 1.2; }
-  .t-h4   { font-family: var(--font-display); font-stretch: 104%; font-size: var(--fs-h4);   font-weight: 650; line-height: 1.3; }
-  .t-h5   { font-family: var(--font-display); font-stretch: 102%; font-size: var(--fs-h5);   font-weight: 650; line-height: 1.4; }
-  .t-body { font-size: var(--fs-body); font-weight: var(--fw-regular); line-height: var(--lh-body); color: hsl(var(--muted-foreground)); }
-  .t-sm   { font-size: var(--fs-sm);   font-weight: var(--fw-regular); line-height: 1.55; color: hsl(var(--muted-foreground)); }
-  .t-xs   { font-size: var(--fs-xs);   font-weight: var(--fw-medium);  line-height: 1.45; color: hsl(var(--muted-foreground)); }
-  .t-label{ font-family: var(--font-display); font-stretch: 108%; font-size: 0.6875rem; font-weight: 650; letter-spacing: 0.12em; text-transform: uppercase; color: hsl(var(--muted-foreground)); }
-  .t-mono { font-family: var(--font-mono); font-size: var(--fs-sm); line-height: var(--lh-code); }
-  .t-stat { font-family: var(--font-display); font-stretch: 120%; font-size: 3rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+  .t-display   { font-family: var(--font-display); font-weight: 800; line-height: 0.86; letter-spacing: -0.01em; text-transform: uppercase; font-variant-numeric: tabular-nums; }
+  .t-hero      { font-family: var(--font-display); font-weight: 800; line-height: 0.86; letter-spacing: -0.01em; text-transform: uppercase; font-size: clamp(2.75rem, 6vw, var(--fs-hero)); }
+  .t-statement { font-family: var(--font-sans); font-size: 2rem; font-weight: 600; line-height: 1.1; letter-spacing: -0.01em; }
+  .t-page      { font-family: var(--font-sans); font-size: var(--fs-h1); font-weight: 600; line-height: 1.1; }
+  .t-verdict   { font-family: var(--font-sans); font-size: 2.5rem; font-weight: 600; line-height: 1.05; letter-spacing: -0.01em; }
+  .t-h1   { font-family: var(--font-sans); font-size: var(--fs-h1); font-weight: 600; line-height: 1.1; }
+  .t-h2   { font-family: var(--font-sans); font-size: var(--fs-h2); font-weight: 600; line-height: 1.15; }
+  .t-h3   { font-family: var(--font-sans); font-size: var(--fs-h3); font-weight: 600; line-height: 1.2; }
+  .t-h4   { font-family: var(--font-sans); font-size: var(--fs-h4); font-weight: 600; line-height: 1.3; }
+  .t-h5   { font-family: var(--font-sans); font-size: var(--fs-h5); font-weight: 600; line-height: 1.4; }
+  .body-lg { font-size: 0.9375rem; font-weight: 400; line-height: 1.55; }
+  .body-compact { font-size: 0.8125rem; font-weight: 400; line-height: 1; }
+  .t-body { font-size: var(--fs-body); font-weight: 400; line-height: 1.4; color: var(--text-secondary); }
+  .t-sm   { font-size: var(--fs-sm); font-weight: 400; line-height: 1.5; color: var(--text-muted); }
+  .t-xs   { font-size: var(--fs-xs); font-weight: 400; line-height: 1.4; color: var(--text-muted); }
 
-  /* The press slug — the job-info line set along a sheet's edge:
-     small tracked caps with tabular figures. Replaces the old mono meta. */
+  /* Label/Default — 11px SemiBold, 0.1em tracking, uppercase. */
+  .label,
+  .t-label,
   .press-slug {
-    font-family: var(--font-display);
-    font-stretch: 106%;
+    font-family: var(--font-sans);
     font-size: 0.6875rem;
     font-weight: 600;
+    line-height: 1;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     font-variant-numeric: tabular-nums;
-    color: hsl(var(--muted-foreground));
+    color: var(--text-muted);
   }
+  .label-sm  { font-family: var(--font-sans); font-size: 0.625rem; font-weight: 600; line-height: 1; letter-spacing: 0.1em; text-transform: uppercase; }
+  .label-tag { font-family: var(--font-sans); font-size: 0.59375rem; font-weight: 600; line-height: 1; letter-spacing: 0.1em; text-transform: uppercase; }
 
-  /* Verdict stamp — a rubber stamp pressed on the proof. Colour comes from
-     the semantic band via the modifier classes (never colour alone: the
-     label text IS the meaning). */
+  .mono-meta     { font-family: var(--font-mono); font-size: 0.6875rem; line-height: 1; font-variant-numeric: tabular-nums; }
+  .mono-meta-sm  { font-family: var(--font-mono); font-size: 0.65625rem; line-height: 1; font-variant-numeric: tabular-nums; }
+  .mono-ordinal  { font-family: var(--font-mono); font-size: 0.625rem; line-height: 1; letter-spacing: 0.06em; font-variant-numeric: tabular-nums; }
+  .mono-filename { font-family: var(--font-mono); font-size: 0.75rem; line-height: 1; }
+  .mono-value    { font-family: var(--font-mono); font-size: 0.8125rem; line-height: 1; font-variant-numeric: tabular-nums; }
+  .mono-code     { font-family: var(--font-mono); font-size: 0.78125rem; line-height: 21px; }
+  .t-mono { font-family: var(--font-mono); font-size: 0.8125rem; line-height: 1.5; }
+  .t-stat { font-family: var(--font-display); font-weight: 800; line-height: 0.86; letter-spacing: -0.01em; font-size: 2.75rem; font-variant-numeric: tabular-nums; }
+
+  .ui-nav      { font-family: var(--font-sans); font-size: 0.84375rem; font-weight: 500; line-height: 1; }
+  .ui-control  { font-family: var(--font-sans); font-size: 0.875rem; font-weight: 500; line-height: 1; }
+  .ui-button   { font-family: var(--font-sans); font-size: 0.875rem; font-weight: 600; line-height: 1; }
+  .ui-wordmark { font-family: var(--font-sans); font-size: 0.9375rem; font-weight: 600; line-height: 1; letter-spacing: 0.02em; }
+
+  /* ============================================================
+     Tag — the squared verdict label. Hot = clone flagged (signal),
+     Advisory = mid reading, Neutral = no clone. Colour never stands
+     alone: the label text carries the meaning.
+     ============================================================ */
+  .tag,
   .stamp {
     display: inline-flex;
     align-items: center;
-    gap: 0.45em;
-    border: 2px solid currentColor;
-    padding: 0.18em 0.65em;
-    font-family: var(--font-display);
-    font-stretch: 116%;
-    font-weight: 800;
-    font-size: 0.8125rem;
-    letter-spacing: 0.14em;
+    gap: 0.4em;
+    padding: 5px 7px;
+    border: 1px solid var(--bench-hair-strong);
+    font-family: var(--font-sans);
+    font-size: 0.59375rem;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
-    line-height: 1.35;
+    white-space: nowrap;
+    color: var(--text-muted);
   }
-  .stamp-pass { color: hsl(var(--success)); background: hsl(var(--success) / 0.07); }
-  .stamp-review { color: hsl(var(--foreground)); border-color: hsl(var(--warning)); background: hsl(var(--warning) / 0.14); }
-  .stamp-flag { color: hsl(var(--destructive)); background: hsl(var(--destructive) / 0.07); }
-  .stamp-neutral { color: hsl(var(--muted-foreground)); border-color: hsl(var(--border)); background: transparent; }
+  .tag-hot,      .stamp-flag    { border-color: var(--signal-base); color: var(--signal-on-bench); }
+  .tag-advisory, .stamp-review  { border-color: var(--text-secondary); color: var(--text-secondary); }
+  .tag-neutral,  .stamp-pass,
+  .stamp-neutral                { border-color: var(--bench-hair-strong); color: var(--text-muted); }
+  /* Tags laid on a plate use the plate-safe cuts. */
+  .plate .tag-hot { color: var(--signal-on-plate); }
+  .plate .tag-advisory { border-color: var(--plate-ink-soft); color: var(--plate-ink-soft); }
+  .plate .tag-neutral { border-color: var(--plate-well-stroke); color: var(--plate-ink-soft); }
 
-  /* Misregistration fringe — the plates split apart. Reserved for the 404
-     page and a single hero moment; never on body text. */
-  .misreg {
-    text-shadow:
-      0.045em 0 0 hsl(var(--plate-a) / 0.85),
-      -0.045em 0 0 hsl(var(--plate-b) / 0.85);
+  /* Status badges (legacy names) resolve to tags. */
+  .badge-success, .badge-info, .badge-plate-a, .badge-plate-b {
+    display: inline-flex; align-items: center; gap: 0.4em; padding: 5px 7px;
+    border: 1px solid var(--bench-hair-strong); color: var(--text-muted);
+    font-family: var(--font-sans); font-size: 0.59375rem; font-weight: 600; line-height: 1;
+    letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap;
+  }
+  .badge-warning {
+    display: inline-flex; align-items: center; gap: 0.4em; padding: 5px 7px;
+    border: 1px solid var(--text-secondary); color: var(--text-secondary);
+    font-family: var(--font-sans); font-size: 0.59375rem; font-weight: 600; line-height: 1;
+    letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap;
+  }
+  .badge-error {
+    display: inline-flex; align-items: center; gap: 0.4em; padding: 5px 7px;
+    border: 1px solid var(--signal-base); color: var(--signal-on-bench);
+    font-family: var(--font-sans); font-size: 0.59375rem; font-weight: 600; line-height: 1;
+    letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap;
   }
 
-  /* Registration crosshair drawn in CSS — a ring with a centred cross.
-     Used as a bullet/marker; size via width/height on the element. */
+  /* ============================================================
+     Segmented control — cells in a row inside one hairline frame.
+     Bench surface: 28px cells, the active cell inverts to text-primary.
+     Plate surface: 24px cells, the active cell inks to plate-ink.
+     ============================================================ */
+  .segment-group,
+  .press-tabs-list {
+    display: inline-flex;
+    align-items: stretch;
+    border: 1px solid var(--bench-hair-strong);
+    border-radius: var(--radius-control);
+    overflow: hidden;
+    background: transparent;
+    padding: 0;
+    gap: 0;
+  }
+  .segment,
+  .press-tab {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    height: 28px;
+    padding: 0 12px;
+    margin: 0;
+    border: 0;
+    border-inline-start: 1px solid var(--bench-hair-strong);
+    background: transparent;
+    font-family: var(--font-sans);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--text-secondary);
+    transition: color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+  }
+  .segment:first-child,
+  .press-tab:first-child { border-inline-start: 0; }
+  .segment:hover,
+  .press-tab:hover { color: var(--text-primary); background: color-mix(in srgb, var(--text-primary) 6%, transparent); }
+  .segment.is-on,
+  .segment[data-state="active"],
+  .segment[aria-selected="true"],
+  .segment[aria-pressed="true"],
+  .press-tab[data-state="active"] {
+    background: var(--text-primary);
+    color: var(--bench-base);
+  }
+
+  .segment-group-plate {
+    display: inline-flex;
+    align-items: stretch;
+    border: 1px solid var(--plate-well-stroke);
+    border-radius: var(--radius-control);
+    overflow: hidden;
+  }
+  .segment-plate {
+    display: inline-flex;
+    align-items: center;
+    height: 24px;
+    padding: 0 10px;
+    border: 0;
+    border-inline-start: 1px solid var(--plate-well-stroke);
+    background: transparent;
+    font-family: var(--font-sans);
+    font-size: 0.625rem;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--plate-ink-soft);
+    transition: color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+  }
+  .segment-plate:first-child { border-inline-start: 0; }
+  .segment-plate:hover { color: var(--plate-ink); }
+  .segment-plate.is-on,
+  .segment-plate[aria-pressed="true"],
+  .segment-plate[data-state="active"] {
+    background: var(--plate-ink);
+    color: var(--plate-base);
+  }
+
+  /* Keyboard hint */
+  .kbd {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 5px;
+    border: 1px solid var(--bench-hair-strong);
+    font-family: var(--font-mono);
+    font-size: 0.65625rem;
+    line-height: 1;
+    color: var(--text-faint);
+    white-space: nowrap;
+  }
+
+  /* ============================================================
+     Wells — text inputs. Bench well (dark) and plate well (white).
+     ============================================================ */
+  .well {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 36px;
+    padding: 0 12px;
+    border: 1px solid var(--bench-hair);
+    border-radius: var(--radius-control);
+    background: var(--bench-well);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    transition: border-color var(--dur-fast) var(--ease-out);
+  }
+  .well:focus-within { border-color: var(--bench-hair-strong); }
+  .well input { flex: 1; min-width: 0; background: transparent; border: 0; outline: none; color: inherit; font: inherit; }
+  .well input::placeholder { color: var(--text-muted); }
+
+  .plate-well {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    height: 44px;
+    padding: 0 14px;
+    border: 1px solid var(--plate-well-stroke);
+    border-radius: var(--radius-control);
+    background: var(--plate-well);
+    color: var(--plate-ink);
+    font-family: var(--font-sans);
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    transition: border-color var(--dur-fast) var(--ease-out);
+  }
+  .plate-well:focus-within { border-color: var(--plate-ink-soft); }
+  .plate-well input { flex: 1; min-width: 0; height: 100%; background: transparent; border: 0; outline: none; color: inherit; font: inherit; }
+  .plate-well input::placeholder { color: var(--plate-placeholder); }
+
+  /* ============================================================
+     Plates — the lit paper a source is laid on.
+     ============================================================ */
+  .plate {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    border-radius: var(--radius-control);
+    background: var(--plate-base);
+    color: var(--plate-ink);
+    overflow: hidden;
+  }
+  .plate-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    height: 40px;
+    flex: none;
+    padding: 0 14px 0 16px;
+    border-bottom: 1px solid var(--plate-hair);
+    background: var(--plate-strip);
+  }
+  .plate-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    height: 32px;
+    flex: none;
+    padding: 0 16px;
+    border-top: 1px solid var(--plate-hair);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    line-height: 1;
+    color: var(--plate-ink-soft);
+    white-space: nowrap;
+  }
+  .plate-meter {
+    position: relative;
+    width: 80px;
+    height: 6px;
+    background: var(--plate-meter);
+    overflow: hidden;
+  }
+  .plate-meter-fill { position: absolute; inset-block: 0; inset-inline-start: 0; background: var(--plate-ink); }
+
+  /* Code lines on a plate: 3px marker · 41px gutter · code at 12.5/21. */
+  .plate-code {
+    font-family: var(--font-mono);
+    font-size: 0.78125rem;
+    line-height: 21px;
+    color: var(--plate-ink);
+    direction: ltr;
+    text-align: left;
+  }
+  .code-line {
+    display: flex;
+    align-items: center;
+    min-height: 21px;
+    padding-inline-end: 12px;
+  }
+  .code-marker { flex: none; width: 3px; align-self: stretch; }
+  .code-gutter {
+    flex: none;
+    width: 41px;
+    padding-inline-end: 12px;
+    text-align: right;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    line-height: 21px;
+    color: var(--plate-gutter);
+    user-select: none;
+  }
+  .code-text {
+    flex: 1;
+    min-width: 0;
+    white-space: pre;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: var(--font-mono);
+    font-size: 0.78125rem;
+    line-height: 21px;
+    color: var(--plate-ink);
+  }
+  .code-text.is-wrap { white-space: pre-wrap; overflow: visible; text-overflow: clip; }
+  .code-region {
+    flex: none;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    line-height: 1;
+    letter-spacing: 0.06em;
+    color: var(--signal-on-plate);
+  }
+  .code-line.is-match { background: var(--match-band); }
+  .code-line.is-match .code-marker { background: var(--signal-base); }
+  .code-line.is-match + .code-line.is-match.is-region-start { border-top: 1px solid var(--plate-base); }
+  .code-line.is-guard { background: var(--match-guard-band); }
+  .code-line.is-guard .code-marker { background: var(--match-guard-marker); }
+  .code-line.is-guard .code-region { color: var(--plate-gutter); }
+  .code-kw { font-weight: 600; }
+  .code-comment { font-style: italic; color: var(--plate-ink-soft); }
+  .code-str { color: var(--plate-ink-soft); }
+
+  /* ============================================================
+     Scale — the engraved 0–100 instrument. 51 ticks spread with
+     space-between; a 2px signal fill runs along the baseline and a
+     2px needle stands at the value. Threshold is a dashed post.
+     ============================================================ */
+  .scale { position: relative; height: 12px; min-width: 0; }
+  .scale-ticks { position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: space-between; }
+  .scale-tick { flex: none; width: 1px; height: 6px; background: var(--bench-hair-strong); }
+  .scale-tick-major { height: 12px; background: var(--bench-tick); }
+  .scale-fill { position: absolute; bottom: 0; inset-inline-start: 0; height: 2px; background: var(--signal-base); }
+  .scale-fill.is-quiet { background: var(--bench-tick); }
+  .scale-needle { position: absolute; top: 0; width: 2px; height: 12px; background: var(--signal-base); }
+  .scale-threshold { position: absolute; top: 0; width: 1px; height: 100%; background: repeating-linear-gradient(to bottom, var(--text-secondary) 0 3px, transparent 3px 6px); }
+
+  /* Vertical rail scale (auth) */
+  .rail-ticks { position: absolute; top: 0; bottom: 0; inset-inline-end: 0; width: 14px; display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; }
+  .rail-tick { flex: none; height: 1px; width: 7px; background: var(--bench-hair-strong); }
+  .rail-tick-major { width: 14px; background: var(--bench-tick); }
+
+  /* Lamp — a 10px square, filled with signal when the check fires. */
+  .lamp { flex: none; width: 10px; height: 10px; border: 1px solid var(--bench-tick); }
+  .lamp.is-on { background: var(--signal-base); border-color: var(--signal-base); }
+
+  /* Quota meter on the top bar */
+  .meter { position: relative; width: 64px; height: 8px; border: 1px solid var(--bench-hair); background: var(--bench-well); overflow: hidden; }
+  .meter-fill { position: absolute; inset-block: -1px; inset-inline-start: -1px; background: var(--signal-base); }
+
+  /* ============================================================
+     Buttons — the comparator button. Primary = signal fill with ink
+     text (never white on signal); secondary/disabled = hairline box.
+     ============================================================ */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    height: 40px;
+    padding: 0 16px;
+    border-radius: var(--radius-control);
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+  }
+  .btn-lg { height: 46px; padding: 0 18px; font-size: 0.9375rem; }
+  .btn-primary { background: var(--signal-base); color: var(--plate-ink); border: 1px solid var(--signal-base); }
+  .btn-primary:hover { background: var(--signal-on-bench); border-color: var(--signal-on-bench); }
+  .btn-secondary { background: transparent; color: var(--text-primary); border: 1px solid var(--bench-hair-strong); }
+  .btn-secondary:hover { border-color: var(--text-muted); }
+  .btn-disabled, .btn:disabled { background: transparent; color: var(--text-muted); border: 1px solid var(--bench-hair-strong); cursor: not-allowed; }
+  .btn:focus-visible { outline: 2px solid var(--signal-base); outline-offset: 2px; }
+
+  /* Inline underlined text links in the body voice. */
+  .link { text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: from-font; color: var(--text-primary); }
+  .link:hover { color: var(--signal-on-bench); }
+  .link-muted { text-decoration: underline; text-underline-offset: 2px; color: var(--text-muted); }
+  .link-muted:hover { color: var(--text-primary); }
+
+  /* Ruled rows — a hairline above, used for readings and ledgers. */
+  .rule-t { border-top: 1px solid var(--bench-hair); }
+  .rule-b { border-bottom: 1px solid var(--bench-hair); }
+  .rule-strong { border-bottom: 1px solid var(--bench-hair-strong); }
+
+  /* Registration crosshair (legacy motif, still used by loaders). */
   .reg-dot {
     position: relative;
     display: inline-block;
@@ -458,326 +813,87 @@
     flex: none;
   }
   .reg-dot::before,
-  .reg-dot::after {
-    content: "";
-    position: absolute;
-    background: currentColor;
-  }
-  .reg-dot::before {
-    left: 50%;
-    top: -22%;
-    bottom: -22%;
-    width: 1.5px;
-    transform: translateX(-50%);
-  }
-  .reg-dot::after {
-    top: 50%;
-    left: -22%;
-    right: -22%;
-    height: 1.5px;
-    transform: translateY(-50%);
+  .reg-dot::after { content: ""; position: absolute; background: currentColor; }
+  .reg-dot::before { left: 50%; top: -22%; bottom: -22%; width: 1.5px; transform: translateX(-50%); }
+  .reg-dot::after { top: 50%; left: -22%; right: -22%; height: 1.5px; transform: translateY(-50%); }
+
+  /* Misprint fringe — reserved for the 404. */
+  .misreg {
+    text-shadow:
+      0.045em 0 0 color-mix(in srgb, var(--signal-base) 85%, transparent),
+      -0.045em 0 0 color-mix(in srgb, var(--text-secondary) 70%, transparent);
   }
 
-  /* Sheet panel — the proof sheet: solid bright fill + hairline. Structure
-     is drawn, never shadowed. Hover deepens the line, nothing lifts. */
+  /* Sheet panel (legacy) — a raised bench panel with a hairline. */
   .card-premium {
-    @apply border border-border transition-colors duration-200;
-    background: hsl(var(--card));
+    border: 1px solid var(--bench-hair);
+    background: var(--bench-raised);
+    transition: border-color var(--dur-base) var(--ease-out);
   }
+  .card-premium:hover { border-color: var(--bench-hair-strong); }
 
-  .card-premium:hover {
-    border-color: hsl(var(--foreground) / 0.3);
-  }
-
-  /* Code surface */
+  /* Code surface (legacy) — always a plate. */
   .code-surface {
-    @apply font-mono text-sm;
-    background: hsl(var(--code-surface));
-    border: 1px solid hsl(var(--code-surface-border));
-    color: hsl(var(--code-surface-foreground));
+    font-family: var(--font-mono);
+    font-size: 0.78125rem;
+    line-height: 21px;
+    background: var(--plate-base);
+    border: 1px solid var(--plate-hair);
+    border-radius: var(--radius-control);
+    color: var(--plate-ink);
   }
 
-  /* Stat card — flat, border-only. */
   .stat-card {
-    @apply border border-border p-5 transition-colors duration-200;
-    background: hsl(var(--card));
-  }
-
-  .stat-card:hover {
-    border-color: hsl(var(--foreground) / 0.3);
-  }
-
-  /* Scrollbar */
-  .scrollbar-thin {
-    scrollbar-width: thin;
-    scrollbar-color: hsl(var(--border)) transparent;
-  }
-
-  .scrollbar-thin::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
-  }
-
-  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply p-5;
+    border: 1px solid var(--bench-hair);
     background: transparent;
   }
 
-  .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: hsl(var(--border));
-  }
+  .scrollbar-thin { scrollbar-width: thin; scrollbar-color: var(--bench-hair-strong) transparent; }
+  .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background: var(--bench-hair-strong); }
+  .plate .scrollbar-thin { scrollbar-color: var(--plate-well-stroke) transparent; }
+  .plate .scrollbar-thin::-webkit-scrollbar-thumb { background: var(--plate-well-stroke); }
 
-  /* Status tags — squared press labels in the slug voice (not pills, not mono). */
-  .badge-success {
-    @apply inline-flex items-center gap-1 px-2 py-0.5;
-    font-family: var(--font-display);
-    font-stretch: 108%;
-    font-size: 11px;
-    font-weight: 650;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    background: hsl(var(--success) / 0.12);
-    color: hsl(var(--success));
-    border: 1px solid hsl(var(--success) / 0.35);
-  }
+  .nav-link-active { color: var(--text-primary); box-shadow: inset 0 -2px 0 0 var(--signal-base); }
 
-  .badge-warning {
-    @apply inline-flex items-center gap-1 px-2 py-0.5;
-    font-family: var(--font-display);
-    font-stretch: 108%;
-    font-size: 11px;
-    font-weight: 650;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    background: hsl(var(--warning) / 0.16);
-    color: hsl(var(--foreground));
-    border: 1px solid hsl(var(--warning) / 0.5);
-  }
+  .input-focus { @apply focus:outline-none transition-colors duration-150; }
+  .input-focus:focus { border-color: var(--bench-hair-strong); }
 
-  .badge-error {
-    @apply inline-flex items-center gap-1 px-2 py-0.5;
-    font-family: var(--font-display);
-    font-stretch: 108%;
-    font-size: 11px;
-    font-weight: 650;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    background: hsl(var(--destructive) / 0.1);
-    color: hsl(var(--destructive));
-    border: 1px solid hsl(var(--destructive) / 0.35);
-  }
+  .section-divider { @apply my-8; border-top: 1px solid var(--bench-hair); }
 
-  .badge-info {
-    @apply inline-flex items-center gap-1 px-2 py-0.5;
-    font-family: var(--font-display);
-    font-stretch: 108%;
-    font-size: 11px;
-    font-weight: 650;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    background: hsl(var(--secondary));
-    color: hsl(var(--muted-foreground));
-    border: 1px solid hsl(var(--border));
-  }
+  .drop-zone { border: 1px dashed var(--bench-hair-strong); background: transparent; transition: border-color var(--dur-base) var(--ease-out); }
+  .drop-zone:hover, .drop-zone.active { border-color: var(--signal-base); }
 
-  /* Plate identity chips — source A prints cyan, source B magenta. */
-  .badge-plate-a {
-    @apply inline-flex items-center gap-1 px-2 py-0.5;
-    font-family: var(--font-display);
-    font-stretch: 108%;
-    font-size: 11px;
-    font-weight: 650;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    background: hsl(var(--plate-a) / 0.1);
-    color: hsl(var(--plate-a-deep));
-    border: 1px solid hsl(var(--plate-a) / 0.45);
-  }
+  .metric-bar-track { @apply h-0.5 overflow-hidden; background: var(--bench-hair-strong); }
+  .metric-bar-fill { @apply h-full transition-all duration-700; background: var(--signal-base); }
 
-  .badge-plate-b {
-    @apply inline-flex items-center gap-1 px-2 py-0.5;
-    font-family: var(--font-display);
-    font-stretch: 108%;
-    font-size: 11px;
-    font-weight: 650;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    background: hsl(var(--plate-b) / 0.1);
-    color: hsl(var(--plate-b-deep));
-    border: 1px solid hsl(var(--plate-b) / 0.45);
-  }
+  .chat-bubble-user { @apply px-4 py-2.5 text-sm max-w-[80%]; background: var(--bench-raised); color: var(--text-primary); border: 1px solid var(--bench-hair); }
+  .chat-bubble-ai { @apply px-4 py-2.5 text-sm max-w-[80%]; background: transparent; color: var(--text-primary); border-inline-start: 2px solid var(--signal-base); }
 
-  /* Sidebar active state — the pulled proof: the current item sits on a
-     sheet-white tab with a drawn hairline. No colour needed to say "here". */
-  .nav-link-active {
-    background: hsl(var(--card));
-    color: hsl(var(--foreground));
-    border: 1px solid hsl(var(--border));
-    font-weight: 650;
-  }
+  .page-header { @apply pb-6 mb-6; border-bottom: 1px solid var(--bench-hair); }
 
-  /* Press file tabs — squared folder tabs cut into the sheet edge. Apply
-     .press-tabs-list to a Radix TabsList and .press-tab to each trigger:
-     the active tab joins the content sheet below it (its bottom edge opens
-     into the panel), inactive tabs sit back on the bed tone. */
-  .press-tabs-list {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    gap: 4px;
-    border-bottom: 1px solid hsl(var(--border));
-    background: transparent;
-    padding: 0;
-  }
-
-  .press-tab {
-    position: relative;
-    margin-bottom: -1px;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    border: 1px solid transparent;
-    border-bottom-color: hsl(var(--border));
-    background: transparent;
-    padding: 0.6rem 0.9rem;
-    font-family: var(--font-display);
-    font-stretch: 106%;
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: hsl(var(--muted-foreground));
-    transition: color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
-  }
-
-  .press-tab:hover {
-    color: hsl(var(--foreground));
-    background: hsl(var(--muted) / 0.6);
-  }
-
-  .press-tab[data-state="active"] {
-    border-color: hsl(var(--border));
-    border-bottom-color: hsl(var(--card));
-    background: hsl(var(--card));
-    color: hsl(var(--foreground));
-    font-weight: 700;
-  }
-
-  html[lang="ar"] .press-tab {
-    font-family: var(--font-arabic);
-    font-stretch: normal;
-    letter-spacing: 0;
-  }
-
-  /* Input focus ring */
-  .input-focus {
-    @apply focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/60 transition-all duration-150;
-  }
-
-  /* Section divider */
-  .section-divider {
-    @apply border-t border-border/40 my-8;
-  }
-
-  /* Drop zone */
-  .drop-zone {
-    @apply border-2 border-dashed border-border/70 bg-muted/20 transition-all duration-200;
-  }
-
-  .drop-zone:hover,
-  .drop-zone.active {
-    @apply border-primary/50 bg-primary/5;
-  }
-
-  /* Metric progress bar — a printed density bar: square ends, drawn track. */
-  .metric-bar-track {
-    @apply h-1.5 overflow-hidden;
-    background: hsl(var(--border) / 0.6);
-  }
-
-  .metric-bar-fill {
-    @apply h-full transition-all duration-700;
-    background: hsl(var(--primary));
-  }
-
-  /* Chat bubbles — square-cut press notes. */
-  .chat-bubble-user {
-    @apply px-4 py-2.5 text-sm max-w-[80%];
-    background: hsl(var(--primary));
-    color: hsl(var(--primary-foreground));
-  }
-
-  .chat-bubble-ai {
-    @apply px-4 py-2.5 text-sm max-w-[80%];
-    background: hsl(var(--muted));
-    color: hsl(var(--foreground));
-    border: 1px solid hsl(var(--border) / 0.6);
-  }
-
-  /* Page header */
-  .page-header {
-    @apply pb-6 mb-6 border-b border-border/40;
-  }
-
-  /* Skeleton — flat muted fill with a quiet pulse. */
-  .skeleton {
-    @apply animate-pulse;
-    background: hsl(var(--muted));
-  }
+  .skeleton { @apply animate-pulse; background: var(--bench-well); }
 }
 
 @layer utilities {
-  .shadow-glow-sm {
-    box-shadow: var(--glow-shadow-sm);
-  }
+  .shadow-glow-sm { box-shadow: none; }
+  .shadow-glow-md { box-shadow: none; }
 
-  .shadow-glow-md {
-    box-shadow: var(--glow-shadow-md);
-  }
+  .graph-empty-state { @apply flex min-h-[320px] flex-col items-center justify-center px-6 py-8 text-center; }
 
-  .graph-empty-state {
-    @apply flex min-h-[320px] flex-col items-center justify-center px-6 py-8 text-center;
-  }
-
-  .ast-graph-surface {
-    height: 560px;
-    width: 100%;
-    background: hsl(var(--surface-1));
-  }
-
-  .ast-flow-canvas {
-    position: relative;
-  }
-
+  .ast-graph-surface { height: 560px; width: 100%; background: var(--bench-well); }
+  .ast-flow-canvas { position: relative; }
   .ast-flow-canvas .react-flow__renderer,
   .ast-flow-canvas .react-flow__pane,
-  .ast-flow-canvas .react-flow__viewport {
-    background: transparent;
-  }
-
-  .ast-flow-canvas .react-flow__pane {
-    cursor: grab;
-  }
-
-  .ast-flow-canvas .react-flow__pane.dragging {
-    cursor: grabbing;
-  }
-
+  .ast-flow-canvas .react-flow__viewport { background: transparent; }
+  .ast-flow-canvas .react-flow__pane { cursor: grab; }
+  .ast-flow-canvas .react-flow__pane.dragging { cursor: grabbing; }
   .ast-flow-canvas .react-flow__nodes,
-  .ast-flow-canvas .react-flow__edges {
-    pointer-events: auto;
-  }
+  .ast-flow-canvas .react-flow__edges { pointer-events: auto; }
+  .ast-flow-node-shell { border: none !important; background: transparent !important; box-shadow: none !important; padding: 0 !important; }
 
-  .ast-flow-node-shell {
-    border: none !important;
-    background: transparent !important;
-    box-shadow: none !important;
-    padding: 0 !important;
-  }
-
-  /* The engraved node chip — one unified sheet piece per syntax node:
-     a kind marker (⊕ root / ■ branch / □ leaf) beside the label and its
-     line range. Plate tone, emphasis border, and root tint are applied
-     inline by AstNode so they track the live theme tokens. */
   .ast-chip {
     position: relative;
     display: flex;
@@ -786,365 +902,71 @@
     align-items: center;
     gap: 7px;
     padding: 4px 9px 4px 8px;
-    border: 1px solid hsl(var(--border));
-    border-style: solid;
-    background: hsl(var(--card));
+    border: 1px solid var(--bench-hair-strong);
+    background: var(--bench-raised);
     transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
   }
-
-  .ast-chip-marker {
-    width: 10px;
-    height: 10px;
-    flex: 0 0 auto;
-  }
-
-  svg.ast-chip-marker {
-    width: 13px;
-    height: 13px;
-  }
-
-  .ast-chip-body {
-    min-width: 0;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-  }
-
+  .ast-chip-marker { width: 10px; height: 10px; flex: 0 0 auto; }
+  svg.ast-chip-marker { width: 13px; height: 13px; }
+  .ast-chip-body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 0; }
   .ast-chip-label {
-    font-size: 11px;
-    line-height: 15px;
-    font-weight: 600;
-    color: hsl(var(--foreground));
-    overflow-wrap: anywhere;
-    word-break: break-word;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+    font-size: 11px; line-height: 15px; font-weight: 600; color: var(--text-primary);
+    overflow-wrap: anywhere; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
   }
+  .ast-chip-label-root { font-family: var(--font-sans); font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; }
+  .ast-chip-range { font-family: var(--font-mono); font-size: 9px; line-height: 14px; font-variant-numeric: tabular-nums; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ast-chip-leaf .ast-chip-label { font-weight: 400; color: var(--text-secondary); }
+  html[lang="ar"] .ast-chip-label-root { font-family: var(--font-arabic); letter-spacing: 0; }
 
-  .ast-chip-label-root {
-    font-family: var(--font-display);
-    font-stretch: 110%;
-    font-size: 10.5px;
-    font-weight: 750;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-  }
+  .ast-flow-handle { width: 6px; height: 6px; opacity: 0; border: none !important; background: transparent !important; left: 50% !important; transform: translateX(-50%); }
+  .ast-flow-handle-target { top: -1px !important; }
+  .ast-flow-handle-source { top: auto !important; bottom: -1px !important; }
+  .ast-flow-canvas .react-flow__edge-path { stroke-linecap: square; stroke-linejoin: miter; transition: opacity 180ms ease, stroke-width 180ms ease; }
 
-  .ast-chip-range {
-    font-family: var(--font-mono);
-    font-size: 9px;
-    line-height: 14px;
-    font-variant-numeric: tabular-nums;
-    color: hsl(var(--muted-foreground));
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
+  .ast-node-detail-panel { border: 1px solid var(--bench-hair); background: var(--bench-raised); padding: 1rem; }
+  .ast-node-detail-empty { display: flex; align-items: center; gap: 0.875rem; border: 1px dashed var(--bench-hair-strong); background: transparent; padding: 1rem; }
+  .ast-node-detail-empty-icon { display: flex; height: 2.25rem; width: 2.25rem; flex: 0 0 auto; align-items: center; justify-content: center; border: 1px solid var(--bench-hair-strong); color: var(--signal-on-bench); }
+  .ast-node-detail-card { border: 1px solid var(--bench-hair); background: transparent; padding: 0.8rem 0.9rem; }
+  .ast-node-detail-label { font-family: var(--font-sans); font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
+  .ast-node-detail-value { margin-top: 0.45rem; font-size: 0.82rem; line-height: 1.45; color: var(--text-primary); overflow-wrap: anywhere; }
+  .ast-node-detail-dot { display: inline-flex; height: 0.7rem; width: 0.7rem; }
+  .ast-node-detail-dot.is-primary { background: var(--text-primary); }
+  .ast-node-detail-dot.is-accent { background: var(--text-secondary); }
 
-  .ast-chip-leaf .ast-chip-label {
-    font-weight: 500;
-    color: hsl(var(--foreground) / 0.85);
-  }
+  /* Markdown from the analyst — body voice on the bench, code on plates. */
+  .analysis-markdown { @apply max-w-none; font-size: 0.9375rem; line-height: 1.55; color: var(--text-primary); }
+  .analysis-markdown > * + * { margin-top: 1rem; }
+  .analysis-markdown h1, .analysis-markdown h2, .analysis-markdown h3 { color: var(--text-primary); font-family: var(--font-sans); font-weight: 600; line-height: 1.2; }
+  html[lang="ar"] .analysis-markdown h1, html[lang="ar"] .analysis-markdown h2, html[lang="ar"] .analysis-markdown h3 { font-family: var(--font-arabic); }
+  .analysis-markdown h1 { font-size: 1.375rem; }
+  .analysis-markdown h2 { font-size: 1.125rem; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--bench-hair); }
+  .analysis-markdown h3 { font-size: 1rem; margin-top: 1.25rem; }
+  .analysis-markdown p, .analysis-markdown li { color: var(--text-primary); }
+  .analysis-markdown strong { color: var(--text-primary); font-weight: 600; }
+  .analysis-markdown ul, .analysis-markdown ol { padding-left: 1.25rem; }
+  body[dir="rtl"] .analysis-markdown ul, body[dir="rtl"] .analysis-markdown ol { padding-left: 0; padding-right: 1.25rem; }
+  .analysis-markdown li + li { margin-top: 0.35rem; }
+  .analysis-markdown code { border: 1px solid var(--bench-hair-strong); background: var(--bench-well); padding: 0.1rem 0.35rem; color: var(--text-primary); font-size: 0.85em; }
+  .analysis-markdown pre { @apply scrollbar-thin overflow-x-auto p-4; border: 1px solid var(--plate-hair); background: var(--plate-base); color: var(--plate-ink); font-size: 0.78125rem; line-height: 21px; }
+  .analysis-markdown pre code { border: 0; background: transparent; padding: 0; color: inherit; }
+  .analysis-markdown table { width: 100%; border-collapse: collapse; overflow: hidden; border: 1px solid var(--bench-hair); }
+  .analysis-markdown thead { background: var(--bench-raised); }
+  .analysis-markdown th, .analysis-markdown td { border-bottom: 1px solid var(--bench-hair); padding: 0.8rem 0.9rem; text-align: left; vertical-align: top; }
+  body[dir="rtl"] .analysis-markdown th, body[dir="rtl"] .analysis-markdown td { text-align: right; }
+  .analysis-markdown th { color: var(--text-muted); font-family: var(--font-sans); font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; }
+  .analysis-markdown blockquote { border-inline-start: 2px solid var(--signal-base); padding: 0.5rem 1rem; color: var(--text-secondary); }
+  .analysis-markdown a { color: var(--text-primary); text-decoration: underline; text-underline-offset: 2px; }
+  .analysis-markdown a:hover { color: var(--signal-on-bench); }
 
-  html[lang="ar"] .ast-chip-label-root {
-    font-family: var(--font-arabic);
-    font-stretch: normal;
-    letter-spacing: 0;
-  }
-
-  .ast-flow-handle {
-    width: 6px;
-    height: 6px;
-    opacity: 0;
-    border: none !important;
-    background: transparent !important;
-    left: 50% !important;
-    transform: translateX(-50%);
-  }
-
-  .ast-flow-handle-target {
-    top: -1px !important;
-  }
-
-  .ast-flow-handle-source {
-    top: auto !important;
-    bottom: -1px !important;
-  }
-
-  .ast-flow-canvas .react-flow__edge-path {
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    transition: opacity 180ms ease, stroke-width 180ms ease;
-  }
-
-  /* Node-detail panel — solid sheet surfaces, hairline structure, square cut. */
-  .ast-node-detail-panel {
-    border: 1px solid hsl(var(--border));
-    background: hsl(var(--card));
-    padding: 1rem;
-  }
-
-  .ast-node-detail-empty {
-    display: flex;
-    align-items: center;
-    gap: 0.875rem;
-    border: 1px dashed hsl(var(--border));
-    background: hsl(var(--surface-1));
-    padding: 1rem;
-  }
-
-  .ast-node-detail-empty-icon {
-    display: flex;
-    height: 2.25rem;
-    width: 2.25rem;
-    flex: 0 0 auto;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid hsl(var(--border));
-    background: hsl(var(--surface-2));
-    color: hsl(var(--primary));
-  }
-
-  .ast-node-detail-card {
-    border: 1px solid hsl(var(--border));
-    background: hsl(var(--surface-1));
-    padding: 0.8rem 0.9rem;
-  }
-
-  .ast-node-detail-label {
-    font-family: var(--font-display);
-    font-stretch: 108%;
-    font-size: 0.65rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: hsl(var(--muted-foreground));
-  }
-
-  .ast-node-detail-value {
-    margin-top: 0.45rem;
-    font-size: 0.82rem;
-    line-height: 1.45;
-    color: hsl(var(--foreground));
-    overflow-wrap: anywhere;
-  }
-
-  .ast-node-detail-dot {
-    display: inline-flex;
-    height: 0.7rem;
-    width: 0.7rem;
-    border-radius: 9999px;
-  }
-
-  .ast-node-detail-dot.is-primary {
-    background: hsl(var(--plate-a-deep));
-  }
-
-  .ast-node-detail-dot.is-accent {
-    background: hsl(var(--accent-suspect));
-  }
-
-  .analysis-markdown {
-    @apply max-w-none text-sm leading-7 text-muted-foreground;
-  }
-
-  .analysis-markdown > * + * {
-    margin-top: 1rem;
-  }
-
-  .analysis-markdown h1,
-  .analysis-markdown h2,
-  .analysis-markdown h3 {
-    color: hsl(var(--foreground));
-    font-family: var(--font-display);
-    font-stretch: 106%;
-    font-weight: 700;
-    line-height: 1.3;
-  }
-
-  html[lang="ar"] .analysis-markdown h1,
-  html[lang="ar"] .analysis-markdown h2,
-  html[lang="ar"] .analysis-markdown h3 {
-    font-family: var(--font-arabic);
-    font-stretch: normal;
-  }
-
-  .analysis-markdown h1 {
-    font-size: 1.5rem;
-  }
-
-  .analysis-markdown h2 {
-    font-size: 1.125rem;
-    margin-top: 1.5rem;
-    padding-top: 1rem;
-    border-top: 1px solid hsl(var(--border) / 0.5);
-  }
-
-  .analysis-markdown h3 {
-    font-size: 1rem;
-    margin-top: 1.25rem;
-  }
-
-  .analysis-markdown p,
-  .analysis-markdown li {
-    color: hsl(var(--muted-foreground));
-  }
-
-  .analysis-markdown strong {
-    color: hsl(var(--foreground));
-    font-weight: 700;
-  }
-
-  .analysis-markdown ul,
-  .analysis-markdown ol {
-    padding-left: 1.25rem;
-  }
-
-  body[dir="rtl"] .analysis-markdown ul,
-  body[dir="rtl"] .analysis-markdown ol {
-    padding-left: 0;
-    padding-right: 1.25rem;
-  }
-
-  .analysis-markdown li + li {
-    margin-top: 0.35rem;
-  }
-
-  .analysis-markdown code {
-    border: 1px solid hsl(var(--border) / 0.6);
-    background: hsl(var(--surface-1));
-    padding: 0.1rem 0.35rem;
-    color: hsl(var(--foreground));
-    font-size: 0.85em;
-  }
-
-  .analysis-markdown pre {
-    @apply scrollbar-thin overflow-x-auto border p-4;
-    border-color: hsl(var(--border) / 0.7);
-    background: hsl(var(--code-surface));
-    color: hsl(var(--code-surface-foreground));
-  }
-
-  .analysis-markdown pre code {
-    border: 0;
-    background: transparent;
-    padding: 0;
-    color: inherit;
-  }
-
-  .analysis-markdown table {
-    width: 100%;
-    border-collapse: collapse;
-    overflow: hidden;
-    border: 1px solid hsl(var(--border) / 0.6);
-  }
-
-  .analysis-markdown thead {
-    background: hsl(var(--muted) / 0.4);
-  }
-
-  .analysis-markdown th,
-  .analysis-markdown td {
-    border-bottom: 1px solid hsl(var(--border) / 0.45);
-    padding: 0.8rem 0.9rem;
-    text-align: left;
-    vertical-align: top;
-  }
-
-  body[dir="rtl"] .analysis-markdown th,
-  body[dir="rtl"] .analysis-markdown td {
-    text-align: right;
-  }
-
-  .analysis-markdown th {
-    color: hsl(var(--foreground));
-    font-family: var(--font-display);
-    font-stretch: 108%;
-    font-size: 0.72rem;
-    font-weight: 650;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
-
-  .analysis-markdown blockquote {
-    border: 1px solid hsl(var(--primary) / 0.25);
-    background: hsl(var(--primary) / 0.05);
-    padding: 0.85rem 1rem;
-    color: hsl(var(--foreground));
-  }
-
-  /* Chat-tuned markdown — the analyst writes in the proof's margin, so the
-     report typography tightens: smaller headings, closer rhythm, compact
-     code mounts. Apply WITH .analysis-markdown. */
-  .chat-markdown {
-    font-size: 0.875rem;
-    line-height: 1.65;
-  }
-
-  .chat-markdown > * + * {
-    margin-top: 0.6rem;
-  }
-
-  .chat-markdown > :first-child {
-    margin-top: 0;
-  }
-
-  .chat-markdown h1,
-  .chat-markdown h2,
-  .chat-markdown h3,
-  .chat-markdown h4 {
-    font-stretch: 108%;
-    letter-spacing: 0.01em;
-  }
-
+  .chat-markdown { font-size: 0.875rem; line-height: 1.6; }
+  .chat-markdown > * + * { margin-top: 0.6rem; }
+  .chat-markdown > :first-child { margin-top: 0; }
   .chat-markdown h1 { font-size: 1rem; }
-
-  .chat-markdown h2 {
-    font-size: 0.9375rem;
-    margin-top: 1rem;
-    padding-top: 0;
-    border-top: 0;
-  }
-
+  .chat-markdown h2 { font-size: 0.9375rem; margin-top: 1rem; padding-top: 0; border-top: 0; }
   .chat-markdown h3 { font-size: 0.875rem; margin-top: 0.85rem; }
-  .chat-markdown h4 { font-size: 0.8125rem; color: hsl(var(--foreground)); }
-
-  .chat-markdown p,
-  .chat-markdown li {
-    color: hsl(var(--foreground) / 0.92);
-  }
-
-  .chat-markdown pre {
-    padding: 0.75rem;
-    font-size: 0.75rem;
-  }
-
-  .chat-markdown table {
-    font-size: 0.8125rem;
-  }
-
-  .chat-markdown th,
-  .chat-markdown td {
-    padding: 0.45rem 0.6rem;
-  }
-
-  .chat-markdown hr {
-    border: 0;
-    border-top: 1px solid hsl(var(--border));
-    margin: 0.85rem 0;
-  }
-
-  .chat-markdown a {
-    color: hsl(var(--primary));
-    text-decoration: underline;
-    text-underline-offset: 3px;
-    text-decoration-color: hsl(var(--primary) / 0.4);
-  }
-
-  .chat-markdown a:hover {
-    text-decoration-color: hsl(var(--primary));
-  }
+  .chat-markdown h4 { font-size: 0.8125rem; color: var(--text-primary); }
+  .chat-markdown pre { padding: 0.75rem; font-size: 0.75rem; }
+  .chat-markdown table { font-size: 0.8125rem; }
+  .chat-markdown th, .chat-markdown td { padding: 0.45rem 0.6rem; }
+  .chat-markdown hr { border: 0; border-top: 1px solid var(--bench-hair); margin: 0.85rem 0; }
 }

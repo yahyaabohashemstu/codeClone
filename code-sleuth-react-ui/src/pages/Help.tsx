@@ -1,18 +1,8 @@
-import { Button } from "@/components/ui/button";
-import {
-  Mail,
-  MessageSquare,
-  BookOpen,
-  ExternalLink,
-  ArrowRight,
-  Code2,
-  GitCompare,
-  Lock,
-  Terminal,
-} from "lucide-react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Masthead, RegMark, SectionHead } from "@/components/dossier/Dossier";
+import { Button } from "@/components/ui/button";
+import { Masthead, Panel } from "@/components/dossier/Dossier";
+import { IconArrowRight } from "@/components/bench/icons";
 
 interface FaqItem {
   question: string;
@@ -21,7 +11,7 @@ interface FaqItem {
 
 /**
  * The operator's manual: a contents rail, a service directory, a route list,
- * and a printed Q./A. reference — sections named, never numbered.
+ * and a ruled Q/A reference — every section a labelled, hairline-ruled list.
  */
 const Help = () => {
   const { t } = useTranslation("help");
@@ -30,21 +20,18 @@ const Help = () => {
 
   const supportCards = [
     {
-      icon: BookOpen,
       titleKey: "help.support.docs.title",
       descKey: "help.support.docs.description",
       actionKey: "help.support.docs.action",
       href: "/help#faq",
     },
     {
-      icon: MessageSquare,
       titleKey: "help.support.chat.title",
       descKey: "help.support.chat.description",
       actionKey: "help.support.chat.action",
       href: "/chat",
     },
     {
-      icon: Mail,
       titleKey: "help.support.email.title",
       descKey: "help.support.email.description",
       actionKey: "help.support.email.action",
@@ -53,10 +40,10 @@ const Help = () => {
   ];
 
   const quickLinks = [
-    { icon: Code2, labelKey: "help.quickLinks.runAnalysis", href: "/analysis" },
-    { icon: GitCompare, labelKey: "help.quickLinks.viewResults", href: "/results" },
-    { icon: Lock, labelKey: "help.quickLinks.securityFaq", href: "#faq" },
-    { icon: Terminal, labelKey: "help.quickLinks.apiGuide", href: "#faq" },
+    { labelKey: "help.quickLinks.runAnalysis", href: "/analysis" },
+    { labelKey: "help.quickLinks.viewResults", href: "/results" },
+    { labelKey: "help.quickLinks.securityFaq", href: "#faq" },
+    { labelKey: "help.quickLinks.apiGuide", href: "#faq" },
   ];
 
   const sections = [
@@ -77,41 +64,39 @@ const Help = () => {
     },
   ];
 
+  const ordinal = (i: number) => String(i + 1).padStart(2, "0");
+
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="pt-7">
       <Masthead
-        kicker={t("help.eyebrow", { defaultValue: "Support & docs" })}
+        kicker={t("nav.help", { ns: "common" })}
         title={t("help.title")}
         description={t("help.subtitle")}
         actions={
-          <Button asChild size="sm" className="h-9 gap-1.5 text-sm">
+          <Button asChild>
             <Link to="/chat">
               {t("help.support.chat.action")}
-              <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
+              <IconArrowRight className="rtl:-scale-x-100" />
             </Link>
           </Button>
         }
       />
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,12rem)_1fr] lg:gap-12">
-        {/* The manual's contents rail */}
+      <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,12rem)_1fr] lg:gap-14">
+        {/* Contents rail */}
         <nav aria-label={t("help.title")} className="hidden lg:block">
           <div className="sticky top-20">
-            <p className="t-label mb-1 border-b-2 border-foreground pb-2 text-foreground">
+            <span className="label block border-b border-bench-strong pb-3 text-txt-muted">
               {t("help.contents", { defaultValue: "Contents" })}
-            </p>
-            <ol className="divide-y divide-border">
+            </span>
+            <ol className="divide-y divide-bench-hair">
               {sections.map((section) => (
                 <li key={section.id}>
-                  <a
-                    href={`#${section.id}`}
-                    className="group flex items-baseline gap-2.5 py-3 transition-colors hover:bg-muted/60"
-                  >
-                    <RegMark className="h-2.5 w-2.5 shrink-0 translate-y-px text-muted-foreground transition-colors group-hover:text-primary" />
-                    <span className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground transition-colors group-hover:text-foreground">
+                  <a href={`#${section.id}`} className="group flex items-center gap-3 py-3">
+                    <span className="min-w-0 flex-1 truncate text-[12.5px] text-txt-secondary transition-colors group-hover:text-txt-primary">
                       {section.label}
                     </span>
-                    <span className="press-slug text-[9px]">{section.tally}</span>
+                    <span className="mono-ordinal text-txt-faint">{section.tally}</span>
                   </a>
                 </li>
               ))}
@@ -119,100 +104,93 @@ const Help = () => {
           </div>
         </nav>
 
-        <div className="min-w-0 space-y-12">
+        <div className="min-w-0 space-y-5">
           {/* Support channels — the service directory */}
           <section id="support" className="scroll-mt-20">
-            <SectionHead
-              title={t("help.support.title", { defaultValue: "Support channels" })}
-              aside={sections[0].tally}
-            />
-            <div className="divide-y divide-border border border-border bg-card">
-              {supportCards.map((card) => {
-                const Icon = card.icon;
-                const action = (
-                  <>
-                    {t(card.actionKey)}
-                    {card.mailto ? <ExternalLink className="h-3 w-3" /> : <ArrowRight className="h-3 w-3 rtl:rotate-180" />}
-                  </>
-                );
-                return (
-                  <div key={card.titleKey} className="grid gap-x-6 gap-y-2 p-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-                    <div className="min-w-0">
-                      <h3 className="t-h5 flex items-center gap-2.5 text-foreground">
-                        <Icon className="h-4 w-4 shrink-0 text-primary" />
-                        {t(card.titleKey)}
-                      </h3>
-                      <p className="t-sm mt-1.5 max-w-[56ch] leading-relaxed">{t(card.descKey)}</p>
+            <Panel
+              label={sections[0].label}
+              actions={<span className="mono-meta text-txt-muted">{sections[0].tally}</span>}
+              bodyClassName="p-0"
+            >
+              <div className="divide-y divide-bench-hair">
+                {supportCards.map((card, i) => {
+                  const action = (
+                    <>
+                      {t(card.actionKey)}
+                      <IconArrowRight size={14} className="rtl:-scale-x-100" />
+                    </>
+                  );
+                  const linkClass = "link inline-flex shrink-0 items-center gap-1.5 text-[13px] sm:justify-self-end";
+                  return (
+                    <div key={card.titleKey} className="grid gap-x-6 gap-y-3 px-5 py-5 sm:grid-cols-[2.5rem_minmax(0,1fr)_auto] sm:items-center">
+                      <span className="mono-ordinal hidden text-txt-muted sm:block">{ordinal(i)}</span>
+                      <div className="min-w-0">
+                        <h3 className="t-h5 text-txt-primary">{t(card.titleKey)}</h3>
+                        <p className="mt-1.5 max-w-[56ch] text-[13px] leading-relaxed text-txt-secondary">{t(card.descKey)}</p>
+                      </div>
+                      {card.href ? (
+                        <Link to={card.href} className={linkClass}>
+                          {action}
+                        </Link>
+                      ) : (
+                        <a href={card.mailto} className={linkClass}>
+                          {action}
+                        </a>
+                      )}
                     </div>
-                    {card.href ? (
-                      <Button asChild variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 justify-self-start text-xs sm:justify-self-end">
-                        <Link to={card.href}>{action}</Link>
-                      </Button>
-                    ) : card.mailto ? (
-                      <Button asChild variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 justify-self-start text-xs sm:justify-self-end">
-                        <a href={card.mailto}>{action}</a>
-                      </Button>
-                    ) : (
-                      <Button variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 justify-self-start text-xs sm:justify-self-end">
-                        {action}
-                      </Button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            </Panel>
           </section>
 
           {/* Quick links — the route list */}
           <section id="navigation" className="scroll-mt-20">
-            <SectionHead title={t("help.quickLinks.title")} aside={sections[1].tally} />
-            <div className="divide-y divide-border border-b border-border">
-              {quickLinks.map((link) => {
-                const Icon = link.icon;
-                return (
-                  <Link
-                    key={link.labelKey}
-                    to={link.href}
-                    className="group flex items-center gap-3.5 py-3 text-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
-                  >
-                    <Icon className="h-4 w-4 shrink-0 text-primary" />
-                    <span className="press-slug min-w-0 truncate text-foreground">{t(link.labelKey)}</span>
-                    <ArrowRight className="ms-auto h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 rtl:rotate-180" />
+            <Panel
+              label={sections[1].label}
+              actions={<span className="mono-meta text-txt-muted">{sections[1].tally}</span>}
+              bodyClassName="p-0"
+            >
+              <div className="divide-y divide-bench-hair">
+                {quickLinks.map((link, i) => (
+                  <Link key={link.labelKey} to={link.href} className="group flex h-12 items-center gap-4 px-5">
+                    <span className="mono-ordinal w-10 shrink-0 text-txt-muted">{ordinal(i)}</span>
+                    <span className="link min-w-0 flex-1 truncate text-[13px]">{t(link.labelKey)}</span>
+                    <IconArrowRight size={14} className="shrink-0 text-txt-muted opacity-0 transition-opacity group-hover:opacity-100 rtl:-scale-x-100" />
                   </Link>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            </Panel>
           </section>
 
-          {/* FAQ — printed Q./A. reference */}
+          {/* FAQ — the ruled Q/A reference */}
           <section id="faq" className="scroll-mt-20">
-            <SectionHead title={t("help.faq.title")} aside={sections[2].tally} />
-            <dl className="divide-y divide-border border-b border-border">
-              {faqItems.map((item, i) => (
-                <div key={i} className="py-6">
-                  <dt className="grid grid-cols-[2.25rem_1fr] gap-x-3">
-                    <span
-                      aria-hidden
-                      className="select-none font-display text-xl font-extrabold leading-tight text-plate-a-deep"
-                      style={{ fontStretch: "122%" }}
-                    >
-                      Q
-                    </span>
-                    <span className="t-h5 text-foreground" style={{ textWrap: "balance" }}>{item.question}</span>
-                  </dt>
-                  <dd className="mt-2.5 grid grid-cols-[2.25rem_1fr] gap-x-3">
-                    <span
-                      aria-hidden
-                      className="select-none font-display text-xl font-extrabold leading-tight text-plate-b-deep"
-                      style={{ fontStretch: "122%" }}
-                    >
-                      A
-                    </span>
-                    <span className="t-sm max-w-[68ch] leading-relaxed">{item.answer}</span>
-                  </dd>
-                </div>
-              ))}
-            </dl>
+            <Panel
+              label={sections[2].label}
+              actions={<span className="mono-meta text-txt-muted">{sections[2].tally}</span>}
+              bodyClassName="p-0"
+            >
+              <dl className="divide-y divide-bench-hair">
+                {faqItems.map((item, i) => (
+                  <div key={i} className="px-5 py-6">
+                    <dt className="grid grid-cols-[2.5rem_1fr] gap-x-3">
+                      <span aria-hidden className="label pt-0.5 text-txt-muted">
+                        Q{ordinal(i)}
+                      </span>
+                      <span className="t-h5 text-txt-primary" style={{ textWrap: "balance" }}>
+                        {item.question}
+                      </span>
+                    </dt>
+                    <dd className="mt-3 grid grid-cols-[2.5rem_1fr] gap-x-3">
+                      <span aria-hidden className="label pt-0.5 text-txt-faint">
+                        A
+                      </span>
+                      <span className="body-lg max-w-[68ch] text-txt-secondary">{item.answer}</span>
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </Panel>
           </section>
         </div>
       </div>

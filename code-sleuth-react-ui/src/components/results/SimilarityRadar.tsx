@@ -32,6 +32,7 @@ function shortLabel(name: string, lang: "en" | "ar"): string {
 interface CustomDotProps {
   cx?: number;
   cy?: number;
+  index?: number;
   payload?: { value: number };
 }
 
@@ -41,9 +42,9 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<
   // Colour the value by the SAME calibrated band as the dot (green/amber/red),
   // never a flat amber that contradicts the marker.
   const rangeColor =
-    d.value >= 80 ? "hsl(var(--destructive))" : d.value >= 50 ? "hsl(var(--warning))" : "hsl(var(--success))";
+    d.value >= 80 ? "var(--signal-base)" : d.value >= 50 ? "var(--text-primary)" : "var(--text-muted)";
   return (
-    <div className="rounded-lg border border-border bg-card px-3 py-2 text-xs">
+    <div className="border border-bench-strong bg-bench-raised px-3 py-2 text-xs">
       <p className="font-semibold text-foreground">{d.subject}</p>
       <p className="mt-0.5 font-mono font-semibold tabular-nums" style={{ color: rangeColor }}>{d.value.toFixed(2)}%</p>
     </div>
@@ -99,15 +100,16 @@ export function SimilarityRadar({ items }: { items: SimilarityItem[] }) {
               fillOpacity={0.18}
               strokeWidth={2}
               dot={(props: CustomDotProps) => {
-                const { cx = 0, cy = 0, payload } = props;
+                const { cx = 0, cy = 0, payload, index } = props;
                 const v = payload?.value ?? 0;
                 const color =
                   v >= 80
-                    ? "hsl(var(--destructive))"
+                    ? "var(--signal-base)"
                     : v >= 50
-                    ? "hsl(var(--warning))"
-                    : "hsl(var(--success))";
-                return <circle key={`dot-${cx}-${cy}`} cx={cx} cy={cy} r={4} fill={color} stroke="hsl(var(--card))" strokeWidth={1.5} />;
+                    ? "var(--text-primary)"
+                    : "var(--text-muted)";
+                // Two axes can share a coordinate pair; the axis index is the stable identity.
+                return <circle key={`dot-${index ?? `${cx}-${cy}`}`} cx={cx} cy={cy} r={4} fill={color} stroke="var(--bench-raised)" strokeWidth={1.5} />;
               }}
             />
             <Tooltip content={<CustomTooltip />} />

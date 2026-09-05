@@ -1,13 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import {
-  AlertCircle,
-  ChevronRight,
-  Folder,
-  Loader2,
-  Plus,
-} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,7 +12,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Masthead, FieldSheet, Field, Serial, SectionHead, SpecList } from "@/components/dossier/Dossier";
+import { Masthead, Panel, FieldSheet, Field } from "@/components/dossier/Dossier";
+import { Reading, Scale, Tag, type TagTone } from "@/components/bench/Bench";
+import { IconChevronRight, IconFilePlus } from "@/components/bench/icons";
+import { PageError } from "@/components/common/PageError";
+import { PageLoader } from "@/components/common/PageLoader";
 import { useLanguage } from "@/context/LanguageContext";
 import { createOrganization, createWorkspace, listOrganizations, listWorkspaces } from "@/lib/enterpriseApi";
 import type { EnterpriseWorkspace } from "@/types/enterprise";
@@ -27,13 +24,14 @@ import { cn } from "@/lib/utils";
 
 const REGIONS = ["global", "us-east", "us-west", "eu-west", "eu-central", "ap-southeast", "me-central"];
 
-const ROLE_BADGE: Record<string, string> = {
-  owner: "bg-primary/12 text-primary border-primary/35",
-  admin: "bg-destructive/10 text-destructive border-destructive/35",
-  manager: "bg-warning/16 text-foreground border-warning/50",
-  reviewer: "bg-plate-a/10 text-plate-a-deep border-plate-a/45",
-  student: "bg-muted text-muted-foreground border-border",
-};
+/** Role identity is carried by the tag text; owners and admins read one step up. */
+const roleTone = (role: string): TagTone => (role === "owner" || role === "admin" ? "advisory" : "neutral");
+
+/* Ruled readings: two columns on small screens, four from lg; hairlines between cells and rows. */
+const READINGS_ROW =
+  "grid grid-cols-2 border-y border-bench-hair lg:grid-cols-4 [&>*]:px-4 lg:[&>*]:px-6 [&>*:first-child]:ps-0 [&>*:nth-child(even)]:border-s [&>*:nth-child(n+3)]:border-t lg:[&>*:nth-child(n+3)]:border-t-0 lg:[&>*:not(:first-child)]:border-s";
+
+const TH = "label text-start font-semibold text-txt-muted";
 
 export default function Workspaces() {
   const { isRTL } = useLanguage();
@@ -116,17 +114,17 @@ export default function Workspaces() {
   const createDialog = (
     <Dialog open={createOpen} onOpenChange={setCreateOpen}>
       <DialogTrigger asChild>
-        <Button size="lg" className="shrink-0 gap-2">
-          <Plus className="h-4 w-4" />
+        <Button className="shrink-0">
+          <IconFilePlus size={16} />
           {t("enterprise.workspaces.create")}
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg" dir={isRTL ? "rtl" : "ltr"}>
+      <DialogContent className="border-bench-strong bg-bench-raised text-txt-primary sm:max-w-lg" dir={isRTL ? "rtl" : "ltr"}>
         <DialogHeader>
-          <DialogTitle>{t("enterprise.workspaces.create")}</DialogTitle>
+          <DialogTitle className="t-h4">{t("enterprise.workspaces.create")}</DialogTitle>
         </DialogHeader>
 
-        {/* Intake form — margin-label fields, a printed requisition sheet */}
+        {/* Intake form — margin-label fields */}
         <FieldSheet className="mt-2">
           <Field label={t("enterprise.workspaces.orgLabel")} align="center">
             <Input
@@ -163,13 +161,9 @@ export default function Workspaces() {
           </Field>
         </FieldSheet>
 
-        <div className="flex justify-end gap-2 pt-4">
-          <Button variant="ghost" onClick={() => setCreateOpen(false)}>{t("enterprise.common.cancel")}</Button>
-          <Button
-            onClick={handleCreate}
-            disabled={creating || !wsName.trim()}
-          >
-            {creating && <Loader2 className="me-2 h-3.5 w-3.5 animate-spin" />}
+        <div className="flex justify-end gap-3 pt-4">
+          <Button variant="outline" onClick={() => setCreateOpen(false)}>{t("enterprise.common.cancel")}</Button>
+          <Button onClick={handleCreate} disabled={creating || !wsName.trim()}>
             {t("enterprise.common.confirm")}
           </Button>
         </div>
@@ -178,184 +172,102 @@ export default function Workspaces() {
   );
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-6" dir={isRTL ? "rtl" : "ltr"}>
+    <div className="pt-7" dir={isRTL ? "rtl" : "ltr"}>
       <Masthead
         kicker={t("enterprise.workspaces.eyebrow", { defaultValue: "Enterprise admin" })}
         title={t("enterprise.workspaces.title")}
         description={t("enterprise.workspaces.subtitle")}
         actions={createDialog}
-        meta={[
-          { label: "INDEX", value: <span className="tabular-nums">{workspaces.length}</span> },
-          { label: t("enterprise.workspaces.region", { defaultValue: "Region" }), value: <span className="tabular-nums">{regionCount}</span> },
-          {
-            label: "STATUS",
-            value: loading ? (
-              <span className="rounded-sm bg-warning/20 px-1.5 py-0.5 text-foreground">SYNC</span>
-            ) : error ? (
-              <span className="text-destructive">ERROR</span>
-            ) : (
-              <span className="text-success">LIVE</span>
-            ),
-          },
-        ]}
       />
 
-      {/* Registry — ruled §-section ledger + marginalia summary */}
-      <div className="mt-10 grid gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,1fr)_15rem]">
-        <div className="min-w-0">
-          <SectionHead
-            marker="§"
-            title={t("enterprise.workspaces.registry", { defaultValue: "Registry" })}
-            aside={
-              loading
-                ? "SYNC"
-                : error
-                  ? "ERROR"
-                  : `Nº ${String(workspaces.length).padStart(3, "0")}`
-            }
-          />
-
-          {loading ? (
-            <div className="flex items-center gap-2 border-b border-border py-16 font-mono text-xs uppercase tracking-wide text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              {t("enterprise.common.loading")}
-            </div>
-          ) : error ? (
-            <div className="flex items-center gap-2 border border-destructive/35 bg-destructive/5 px-4 py-5 text-sm text-destructive">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              {error}
-            </div>
-          ) : workspaces.length === 0 ? (
-            <div className="flex flex-col items-start gap-4 border-b border-border py-14">
-              <div className="flex items-center gap-2.5 text-muted-foreground">
-                <Folder className="h-5 w-5" />
-                <span className="font-mono text-xs uppercase tracking-[0.14em]">
-                  {t("enterprise.workspaces.noWorkspaces")}
-                </span>
-              </div>
-              <Button onClick={() => setCreateOpen(true)} size="sm" className="gap-2">
-                <Plus className="h-3.5 w-3.5" />
-                {t("enterprise.workspaces.create")}
-              </Button>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              {/* Ledger column header — heavy foreground rule, no fill */}
-              <div className="hidden items-center gap-4 border-b-2 border-foreground pb-2 sm:grid sm:grid-cols-[2.75rem_minmax(0,1fr)_6.5rem_7rem_6rem_1.25rem]">
-                <span className="t-label">#</span>
-                <span className="t-label">{t("enterprise.workspaces.title")}</span>
-                <span className="t-label">{t("enterprise.workspaces.threshold")}</span>
-                <span className="t-label">{t("enterprise.workspaces.region")}</span>
-                <span className="t-label">{t("enterprise.workspaces.yourRole")}</span>
-                <span />
-              </div>
-
-              {/* Ledger rows — hairline separated */}
-              <div className="divide-y divide-border">
-                {workspaces.map((ws) => (
-                  <Link
-                    key={ws.id}
-                    to={`/enterprise/workspaces/${ws.id}`}
-                    className="group grid grid-cols-1 gap-x-4 gap-y-2.5 py-4 transition-colors hover:bg-muted/40 sm:grid-cols-[2.75rem_minmax(0,1fr)_6.5rem_7rem_6rem_1.25rem] sm:items-center"
-                  >
-                    {/* Serial / case number */}
-                    <Serial tone="muted" className="group-hover:border-primary/40 group-hover:text-foreground">
-                      {ws.id}
-                    </Serial>
-
-                    {/* Name + description */}
-                    <div className="min-w-0">
-                      <h3 className="truncate t-h5 transition-colors group-hover:text-foreground">
-                        {ws.name}
-                      </h3>
-                      {ws.description && (
-                        <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
-                          {ws.description}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Threshold — where this workspace's flag line sits on the scale */}
-                    <div className="flex items-center gap-1.5 font-display text-sm font-bold tabular-nums text-foreground" style={{ fontStretch: "108%" }}>
-                      <span className="t-label me-2 sm:hidden">{t("enterprise.workspaces.threshold")}</span>
-                      <span
-                        aria-hidden
-                        className="h-2 w-2 shrink-0"
-                        style={{
-                          background:
-                            Math.round(ws.defaultSimilarityThreshold * 100) >= 80
-                              ? "hsl(var(--destructive))"
-                              : Math.round(ws.defaultSimilarityThreshold * 100) >= 50
-                                ? "hsl(var(--warning))"
-                                : "hsl(var(--success))",
-                        }}
-                      />
-                      ≥ {Math.round(ws.defaultSimilarityThreshold * 100)}%
-                    </div>
-
-                    {/* Region */}
-                    <div className="font-mono text-xs text-muted-foreground">
-                      <span className="t-label me-2 sm:hidden">{t("enterprise.workspaces.region")}</span>
-                      {ws.storageRegion}
-                    </div>
-
-                    {/* Role */}
-                    <div>
-                      {ws.membership && (
-                        <span
-                          className={cn(
-                            "inline-flex rounded-sm border px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider",
-                            ROLE_BADGE[ws.membership.role] ?? "bg-muted text-muted-foreground border-border",
-                          )}
-                        >
-                          {ws.membership.role}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Chevron */}
-                    <ChevronRight
-                      className={cn(
-                        "hidden h-4 w-4 justify-self-end text-muted-foreground transition-colors group-hover:text-foreground sm:block",
-                        isRTL && "rotate-180",
-                      )}
-                    />
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
+      {/* Readings */}
+      {!loading && !error && (
+        <div className={READINGS_ROW}>
+          <Reading label={t("enterprise.workspaces.registered", { defaultValue: "Registered" })} value={workspaces.length} />
+          <Reading label={t("enterprise.workspaces.region", { defaultValue: "Region" })} value={regionCount} />
+          <Reading label={t("enterprise.workspaces.yourRole", { defaultValue: "Roles" })} value={roleCount} />
+          <Reading label={t("enterprise.workspaces.threshold", { defaultValue: "Threshold" })} value={workspaces.length ? `≥ ${meanThreshold}` : "—"} />
         </div>
+      )}
 
-        {/* Marginalia — registry summary spec sheet, ruled like a case index */}
-        {!loading && !error && workspaces.length > 0 && (
-          <aside className="lg:border-s lg:border-border lg:ps-8">
-            <div className="t-label mb-2.5 text-muted-foreground">
-              {t("enterprise.workspaces.summary", { defaultValue: "Summary" })}
-            </div>
-            <SpecList
-              rows={[
-                {
-                  label: t("enterprise.workspaces.registered", { defaultValue: "Registered" }),
-                  value: workspaces.length,
-                },
-                {
-                  label: t("enterprise.workspaces.region", { defaultValue: "Region" }),
-                  value: regionCount,
-                },
-                {
-                  label: t("enterprise.workspaces.yourRole", { defaultValue: "Roles" }),
-                  value: roleCount,
-                },
-                {
-                  label: t("enterprise.workspaces.threshold", { defaultValue: "Threshold" }),
-                  value: `${meanThreshold}%`,
-                },
-              ]}
-            />
-          </aside>
+      {/* Registry */}
+      <Panel
+        className="mt-8"
+        label={t("enterprise.workspaces.registry", { defaultValue: "Registry" })}
+        bodyClassName="p-0"
+        actions={
+          !loading && !error ? (
+            <span className="mono-meta text-txt-muted" dir="ltr">
+              {String(workspaces.length).padStart(2, "0")}
+            </span>
+          ) : undefined
+        }
+      >
+        {loading ? (
+          <PageLoader message={t("enterprise.common.loading")} />
+        ) : error ? (
+          <PageError message={error} />
+        ) : workspaces.length === 0 ? (
+          <div className="flex flex-col items-center gap-4 px-6 py-20 text-center">
+            <IconFilePlus className="text-txt-muted" />
+            <p className="text-[15px] text-txt-primary">{t("enterprise.workspaces.noWorkspaces")}</p>
+            <Button onClick={() => setCreateOpen(true)} className="mt-2">
+              {t("enterprise.workspaces.create")}
+            </Button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto scrollbar-thin">
+            <table className="w-full min-w-[840px] border-collapse">
+              <thead>
+                <tr className="h-9 border-b border-bench-hair">
+                  <th className={cn(TH, "w-14 ps-5")}>#</th>
+                  <th className={cn(TH, "ps-3")}>{t("enterprise.workspaces.title")}</th>
+                  <th className={cn(TH, "w-[200px] ps-3")}>{t("enterprise.workspaces.threshold")}</th>
+                  <th className={cn(TH, "w-32 ps-3")}>{t("enterprise.workspaces.region")}</th>
+                  <th className={cn(TH, "w-32 ps-3")}>{t("enterprise.workspaces.yourRole")}</th>
+                  <th className="w-32 pe-5">
+                    <span className="sr-only">{t("enterprise.workspaces.viewDetails")}</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {workspaces.map((ws) => {
+                  const pct = Math.round(ws.defaultSimilarityThreshold * 100);
+                  return (
+                    <tr key={ws.id} className="h-[46px] border-b border-bench-hair last:border-b-0 hover:bg-bench-raised/60">
+                      <td className="ps-5 align-middle">
+                        <span className="mono-filename text-txt-muted" dir="ltr">{ws.id}</span>
+                      </td>
+                      <td className="max-w-[360px] ps-3 py-2 align-middle">
+                        <span className="block truncate text-[13px] font-semibold text-txt-primary" dir="auto">{ws.name}</span>
+                        {ws.description && (
+                          <span className="mt-1 block truncate text-[12px] text-txt-muted" dir="auto">{ws.description}</span>
+                        )}
+                      </td>
+                      <td className="ps-3 align-middle">
+                        <span className="flex items-center gap-3">
+                          <Scale value={pct} quiet={pct < 50} className="w-[110px]" />
+                          <span className="mono-value text-txt-primary" dir="ltr">≥ {pct}</span>
+                        </span>
+                      </td>
+                      <td className="mono-filename ps-3 align-middle text-txt-secondary" dir="ltr">{ws.storageRegion}</td>
+                      <td className="ps-3 align-middle">
+                        {ws.membership && <Tag tone={roleTone(ws.membership.role)}>{ws.membership.role}</Tag>}
+                      </td>
+                      <td className="pe-5 align-middle text-end">
+                        <Link to={`/enterprise/workspaces/${ws.id}`} className="link inline-flex items-center gap-1 text-[12.5px]">
+                          {t("enterprise.workspaces.viewDetails")}
+                          <IconChevronRight className="rtl:-scale-x-100" />
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
-      </div>
+      </Panel>
     </div>
   );
 }

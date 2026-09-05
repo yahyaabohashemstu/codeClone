@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, Loader2, XCircle } from "lucide-react";
-import { useLanguage } from "@/context/LanguageContext";
+import { Lamp, PageHeader, Tag } from "@/components/bench/Bench";
+import { Panel } from "@/components/dossier/Dossier";
 
 interface Readiness {
   status: string;
@@ -20,9 +20,9 @@ const LABEL_KEYS: Record<string, string> = {
   emailVerificationRequired: "status.labels.emailVerificationRequired",
 };
 
+/** Readiness board: one lamp per check, lit when the check reads OK. */
 const Status = () => {
   const { t } = useTranslation("common");
-  const { isRTL } = useLanguage();
   const [data, setData] = useState<Readiness | null>(null);
   const [loading, setLoading] = useState(true);
   const [reachable, setReachable] = useState(true);
@@ -30,54 +30,71 @@ const Status = () => {
   useEffect(() => {
     fetch("/api/v1/health/readiness", { headers: { Accept: "application/json" } })
       .then((r) => r.json())
-      .then((d) => setData(d))
+      .then((d: Partial<Readiness> | null) => {
+        // A gateway error page or a non-readiness JSON body is "unreachable",
+        // not a board with zero checks.
+        if (!d || typeof d !== "object" || typeof d.status !== "string") {
+          setReachable(false);
+          return;
+        }
+        setData({ status: d.status, checks: d.checks && typeof d.checks === "object" ? d.checks : {} });
+      })
       .catch(() => setReachable(false))
       .finally(() => setLoading(false));
   }, []);
 
-  const renderValue = (v: unknown) => {
-    if (typeof v === "boolean") {
-      return v
-        ? <span className="inline-flex items-center gap-1 text-success"><CheckCircle2 className="h-4 w-4" /> {t("status.ok")}</span>
-        : <span className="text-muted-foreground">—</span>;
-    }
-    return <span className="font-mono text-sm">{String(v)}</span>;
+  const healthy = reachable && data?.status === "ok";
+  const overall = loading ? t("status.checking") : healthy ? t("status.operational") : t("status.degraded");
+
+  const lampFor = (v: unknown): { on: boolean; value: string } => {
+    if (typeof v === "boolean") return { on: v, value: v ? t("status.ok") : "—" };
+    if (v == null || v === "") return { on: false, value: "—" };
+    return { on: true, value: String(v) };
   };
 
-  const healthy = reachable && data?.status === "ok";
-
   return (
-    <div className="mx-auto max-w-2xl space-y-6 py-4">
-      <div className="flex items-center gap-3">
-        {loading ? <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          : healthy ? <CheckCircle2 className="h-6 w-6 text-success" />
-          : <XCircle className="h-6 w-6 text-destructive" />}
-        <div>
-          <h1 className="t-h2">{t("status.title")}</h1>
-          <p className="t-sm">{loading ? t("status.checking") : healthy ? t("status.operational") : t("status.degraded")}</p>
-        </div>
-      </div>
+    <div className="mx-auto max-w-2xl pt-7">
+      <PageHeader
+        kicker={t("footer.status")}
+        title={t("status.title")}
+        actions={
+          loading ? undefined : (
+            <Tag tone={healthy ? "neutral" : "hot"}>{healthy ? t("status.ok") : t("status.error")}</Tag>
+          )
+        }
+      />
+
+      <section className="mt-8">
+        <Lamp on={!loading && healthy} label={overall} value={loading ? "…" : data?.status ? String(data.status).toUpperCase() : "—"} />
+      </section>
 
       {data && (
-        <section className="rounded-lg border border-border bg-card">
-          <dl className="divide-y divide-border">
-            {Object.entries(data.checks).map(([key, value]) => (
-              <div key={key} className="flex items-center justify-between px-5 py-3">
-                <dt className="text-sm text-foreground">{LABEL_KEYS[key] ? t(LABEL_KEYS[key]) : key}</dt>
-                <dd>{renderValue(value)}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
+        <Panel className="mt-5" label={t("status.checks", { defaultValue: "Checks" })}>
+          <div className="[&>*:first-child]:border-t-0">
+            {Object.entries(data.checks).map(([key, value]) => {
+              const lamp = lampFor(value);
+              return (
+                <Lamp
+                  key={key}
+                  on={lamp.on}
+                  label={LABEL_KEYS[key] ? t(LABEL_KEYS[key]) : key}
+                  value={<span dir="ltr">{lamp.value}</span>}
+                />
+              );
+            })}
+          </div>
+        </Panel>
       )}
 
       {!reachable && (
-        <p className="t-body text-destructive">{t("status.unreachable")}</p>
+        <p role="alert" className="mt-6 border border-signal px-4 py-3 text-[13px] text-signal-bench">
+          {t("status.unreachable")}
+        </p>
       )}
 
-      <p>
-        <Link to="/" className="text-foreground underline underline-offset-2 hover:opacity-70">
-          {isRTL ? "→" : "←"} {t("status.home")}
+      <p className="mt-8">
+        <Link to="/" className="link text-[13px]">
+          {t("status.home")}
         </Link>
       </p>
     </div>

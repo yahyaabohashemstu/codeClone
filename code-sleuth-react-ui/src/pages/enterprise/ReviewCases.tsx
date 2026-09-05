@@ -1,50 +1,48 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import {
-  AlertCircle,
-  ChevronRight,
-  Loader2,
-  Scale,
-  Search,
-} from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Masthead, OverprintMeter, PlatePair, Serial, SectionHead, SpecList } from "@/components/dossier/Dossier";
+import { Masthead, Panel, PlatePair, SpecList } from "@/components/dossier/Dossier";
+import { BenchSelect, Reading, Scale, Tag, type TagTone } from "@/components/bench/Bench";
+import { IconChevronRight, IconFilePlus, IconSearch } from "@/components/bench/icons";
+import { PageError } from "@/components/common/PageError";
+import { PageLoader } from "@/components/common/PageLoader";
 import { useLanguage } from "@/context/LanguageContext";
 import { listWorkspaces, listCases } from "@/lib/enterpriseApi";
 import type { EnterpriseCase, CaseStatus, EnterpriseWorkspace } from "@/types/enterprise";
 import { cn } from "@/lib/utils";
 
-const STATUS_BADGE: Record<CaseStatus, string> = {
-  open: "bg-primary/10 text-foreground border-primary/40",
-  in_review: "bg-warning/15 text-foreground border-warning/40",
-  confirmed_clone: "bg-destructive/15 text-destructive border-destructive/30",
-  false_positive: "bg-muted text-muted-foreground border-border",
-  dismissed: "bg-muted text-muted-foreground border-border",
-  resolved: "bg-success/15 text-success border-success/30",
+/** Dispositions take the three tag tones: a confirmed clone is hot, a case still open is advisory. */
+const STATUS_TONE: Record<CaseStatus, TagTone> = {
+  open: "advisory",
+  in_review: "advisory",
+  confirmed_clone: "hot",
+  false_positive: "neutral",
+  dismissed: "neutral",
+  resolved: "neutral",
 };
 
-const SEVERITY_DOT: Record<string, string> = {
-  critical: "bg-destructive",
-  high: "bg-warning",
-  medium: "bg-warning/60",
-  low: "bg-muted-foreground/50",
+const SEVERITY_TONE: Record<string, TagTone> = {
+  critical: "hot",
+  high: "hot",
+  medium: "advisory",
+  low: "neutral",
 };
 
 const ALL_STATUSES: Array<CaseStatus | "all"> = [
   "all", "open", "in_review", "confirmed_clone", "false_positive", "dismissed", "resolved",
 ];
 
-// The six real docket dispositions, in reading order (excludes the "all" filter token).
+// The six real dispositions, in reading order (excludes the "all" filter token).
 const DOCKET_STATUSES: CaseStatus[] = [
   "open", "in_review", "confirmed_clone", "false_positive", "dismissed", "resolved",
 ];
 
-// Heavy-rule ledger header: a 2px foreground rule under a bare mono column head, no fill.
-const TH_CLASS =
-  "border-b-2 border-foreground px-4 py-2.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-muted-foreground";
+/* Ruled readings: two columns on small screens, four from lg; hairlines between cells and rows. */
+const READINGS_ROW =
+  "grid grid-cols-2 border-y border-bench-hair lg:grid-cols-4 [&>*]:px-4 lg:[&>*]:px-6 [&>*:first-child]:ps-0 [&>*:nth-child(even)]:border-s [&>*:nth-child(n+3)]:border-t lg:[&>*:nth-child(n+3)]:border-t-0 lg:[&>*:not(:first-child)]:border-s";
+
+const TH = "label text-start font-semibold text-txt-muted";
 
 export default function ReviewCases() {
   const { isRTL } = useLanguage();
@@ -100,7 +98,6 @@ export default function ReviewCases() {
     return pathA.includes(q) || pathB.includes(q) || String(c.id).includes(q);
   });
 
-  // Live docket readings for the masthead meta strip and status ledger footer
   const confirmedCount = useMemo(
     () => cases.filter((c) => c.status === "confirmed_clone").length,
     [cases],
@@ -110,19 +107,14 @@ export default function ReviewCases() {
       ? t("enterprise.cases.allWorkspaces")
       : workspaces.find((w) => String(w.id) === selectedWs)?.name ?? selectedWs;
 
-  // Disposition tally across the loaded docket — the marginalia spec-sheet reading.
+  // Disposition tally across the loaded docket.
   const statusReadings = useMemo(() => {
     const counts = new Map<CaseStatus, number>();
     for (const c of cases) counts.set(c.status, (counts.get(c.status) ?? 0) + 1);
     return DOCKET_STATUSES.map((s) => ({
       label: t(`enterprise.status.${s}`, { defaultValue: s }),
       value: (
-        <span
-          className={cn(
-            "tabular-nums",
-            (counts.get(s) ?? 0) === 0 && "text-muted-foreground/50",
-          )}
-        >
+        <span className={cn((counts.get(s) ?? 0) === 0 && "text-txt-faint")} dir="ltr">
           {counts.get(s) ?? 0}
         </span>
       ),
@@ -130,235 +122,166 @@ export default function ReviewCases() {
   }, [cases, t]);
   const readingsMid = Math.ceil(statusReadings.length / 2);
 
+  const hasFilters = search !== "" || selectedWs !== "all" || statusFilter !== "all";
+  const clearFilters = () => {
+    setSearch("");
+    setSelectedWs("all");
+    setStatusFilter("all");
+  };
+
   return (
-    <div className="mx-auto max-w-6xl space-y-12 p-6" dir={isRTL ? "rtl" : "ltr"}>
-      {/* Docket masthead — ruled header + live mono readings */}
+    <div className="pt-7" dir={isRTL ? "rtl" : "ltr"}>
       <Masthead
         kicker={t("enterprise.cases.eyebrow", { defaultValue: "Review queue" })}
         title={t("enterprise.cases.title")}
         description={t("enterprise.cases.subtitle")}
-        meta={[
-          { label: "SCOPE", value: scopeLabel },
-          { label: "CASES", value: cases.length },
-          {
-            label: "SHOWN",
-            value: (
-              <span className="tabular-nums">
-                {filtered.length}
-                <span className="text-muted-foreground/60"> / {cases.length}</span>
-              </span>
-            ),
-          },
-          {
-            label: "CONFIRMED",
-            value:
-              confirmedCount > 0 ? (
-                <span className="text-destructive">{confirmedCount}</span>
-              ) : (
-                <span className="text-muted-foreground">0</span>
-              ),
-          },
-        ]}
       />
 
-      {/* § Docket readings — disposition tally as a ruled two-column spec-sheet */}
-      {!loading && !error && cases.length > 0 && (
-        <section>
-          <SectionHead
-            marker="§"
-            title={t("enterprise.cases.readingsTitle", { defaultValue: "Docket readings" })}
-            aside={scopeLabel}
-          />
-          <div className="grid sm:grid-cols-2">
-            <SpecList rows={statusReadings.slice(0, readingsMid)} className="sm:pe-12" />
-            <SpecList
-              rows={statusReadings.slice(readingsMid)}
-              className="sm:border-s sm:border-border sm:ps-12"
-            />
-          </div>
-        </section>
-      )}
-
-      {/* § Case ledger — one ruled dossier section: filter toolbar + heavy-rule table, never a grid of cards */}
-      <section>
-        <SectionHead
-          marker="§"
-          title={t("enterprise.cases.ledgerTitle", { defaultValue: "Case ledger" })}
-          aside={
-            !loading && !error ? `${filtered.length} / ${cases.length}` : undefined
-          }
+      {/* Readings */}
+      <div className={READINGS_ROW}>
+        <Reading label={t("enterprise.cases.colCase", { defaultValue: "Case" })} value={cases.length} note={scopeLabel} />
+        <Reading label={t("enterprise.cases.showing", { defaultValue: "Showing" })} value={filtered.length} note={`/ ${cases.length}`} />
+        <Reading
+          label={t("enterprise.status.confirmed_clone")}
+          value={<span className={cn(confirmedCount > 0 && "text-signal-bench")}>{confirmedCount}</span>}
         />
+        <Reading label={t("enterprise.cases.workspace")} value={selectedWs === "all" ? workspaces.length : 1} />
+      </div>
 
-        {/* Ruled filter toolbar — controls sit on the page under a hairline, not in a card */}
-        <div className="mb-6 flex flex-wrap items-center gap-3 border-b border-border pb-5">
-          <span className="t-label me-1 hidden text-muted-foreground/70 sm:inline">
-            {t("enterprise.cases.colStatus", { defaultValue: "Filter" })}
-          </span>
-          {/* Workspace picker */}
-          <Select value={selectedWs} onValueChange={setSelectedWs}>
-            <SelectTrigger className="h-9 w-52 bg-card font-mono text-xs">
-              <SelectValue placeholder={t("enterprise.cases.allWorkspaces")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t("enterprise.cases.allWorkspaces")}</SelectItem>
-              {workspaces.map((ws) => (
-                <SelectItem key={ws.id} value={String(ws.id)}>{ws.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <div className="mt-8 space-y-5">
+        {/* Dispositions */}
+        {!loading && !error && cases.length > 0 && (
+          <Panel
+            label={t("enterprise.cases.readingsTitle", { defaultValue: "Dispositions" })}
+            actions={<span className="text-[12.5px] text-txt-secondary">{scopeLabel}</span>}
+          >
+            <div className="grid sm:grid-cols-2">
+              <SpecList rows={statusReadings.slice(0, readingsMid)} className="sm:pe-12" />
+              <SpecList rows={statusReadings.slice(readingsMid)} className="sm:border-s sm:border-bench-hair sm:ps-12" />
+            </div>
+          </Panel>
+        )}
 
-          {/* Status picker */}
-          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as CaseStatus | "all")}>
-            <SelectTrigger className="h-9 w-44 bg-card font-mono text-xs">
-              <SelectValue placeholder={t("enterprise.cases.allStatuses")} />
-            </SelectTrigger>
-            <SelectContent>
-              {ALL_STATUSES.map((s) => (
-                <SelectItem key={s} value={s}>{t(`enterprise.status.${s}`)}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Search */}
-          <div className="relative min-w-48 flex-1">
-            <Search className={cn("pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground", isRTL ? "right-3" : "left-3")} />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t("enterprise.cases.searchPlaceholder")}
-              className={cn("h-9 bg-card font-mono text-xs", isRTL ? "pr-9" : "pl-9")}
+        {/* Ledger */}
+        <Panel label={t("enterprise.cases.ledgerTitle", { defaultValue: "Case ledger" })} bodyClassName="p-0">
+          {/* Filters */}
+          <div className="flex flex-wrap items-center gap-3 px-5 pb-4 pt-5">
+            <label className="well w-full sm:w-[300px]">
+              <IconSearch className="text-txt-muted" />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={t("enterprise.cases.searchPlaceholder")}
+                aria-label={t("enterprise.cases.searchPlaceholder")}
+              />
+            </label>
+            <BenchSelect
+              label={t("enterprise.cases.workspace")}
+              value={selectedWs}
+              onChange={setSelectedWs}
+              options={[{ value: "all", label: t("enterprise.cases.allWorkspaces") }, ...workspaces.map((ws) => ({ value: String(ws.id), label: ws.name }))]}
             />
+            <BenchSelect
+              label={t("enterprise.cases.colStatus", { defaultValue: "Status" })}
+              value={statusFilter}
+              onChange={(v) => setStatusFilter(v as CaseStatus | "all")}
+              options={ALL_STATUSES.map((s) => ({ value: s, label: t(`enterprise.status.${s}`) }))}
+            />
+            {hasFilters && (
+              <button type="button" onClick={clearFilters} className="text-[12.5px] text-txt-secondary underline underline-offset-2 hover:text-txt-primary">
+                {t("history.filters.clear", { ns: "common" })}
+              </button>
+            )}
+            {!loading && !error && (
+              <span className="ms-auto text-[12.5px] text-txt-secondary" dir="ltr">
+                {filtered.length} / {cases.length}
+              </span>
+            )}
           </div>
-        </div>
 
-        {/* Ledger body */}
-        {loading ? (
-          <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            {t("enterprise.common.loading")}
-          </div>
-        ) : error ? (
-          <div className="flex items-center justify-center gap-2 py-16 text-destructive">
-            <AlertCircle className="h-4 w-4" />
-            {error}
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 py-16 text-center">
-            <Scale className="h-5 w-5 text-muted-foreground" />
-            <p className="t-body">{t("enterprise.cases.noCases")}</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto scrollbar-thin">
-            <table className="w-full min-w-[900px] text-sm" dir="ltr">
-              <thead>
-                <tr>
-                  <th className={cn(TH_CLASS, "text-left")}>
-                    {t("enterprise.cases.colCase", { defaultValue: "Case" })}
-                  </th>
-                  <th className={cn(TH_CLASS, "text-left")}>
-                    {t("enterprise.cases.colPaths", { defaultValue: "Artifacts" })}
-                  </th>
-                  <th className={cn(TH_CLASS, "text-left")}>
-                    {t("enterprise.cases.colScore", { defaultValue: "Score" })}
-                  </th>
-                  <th className={cn(TH_CLASS, "text-left")}>
-                    {t("enterprise.cases.colType", { defaultValue: "Clone type" })}
-                  </th>
-                  <th className={cn(TH_CLASS, "text-left")}>
-                    {t("enterprise.cases.colStatus", { defaultValue: "Status" })}
-                  </th>
-                  <th className={cn(TH_CLASS, "text-left")}>
-                    {t("enterprise.cases.workspace")}
-                  </th>
-                  <th className={cn(TH_CLASS, "text-right")}>
-                    &nbsp;
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((c) => {
-                  const wsName = workspaces.find((w) => w.id === c.workspaceId)?.name;
-                  const pathA = c.match?.artifactA?.logicalPath ?? "—";
-                  const pathB = c.match?.artifactB?.logicalPath ?? "—";
-                  const score = Math.round(c.confidenceScore);
-                  return (
-                    <tr
-                      key={c.id}
-                      className="border-b border-border/40 transition-colors last:border-b-0 hover:bg-muted/30"
-                    >
-                      <td className="px-4 py-3 align-middle">
-                        <div className="flex items-center gap-2">
-                          <span
-                            aria-hidden
-                            title={c.severity}
-                            className={cn(
-                              "h-2 w-2 shrink-0 rounded-full",
-                              SEVERITY_DOT[c.severity] ?? "bg-muted",
-                            )}
-                          />
-                          <Serial tone={c.status === "confirmed_clone" ? "primary" : "muted"}>
-                            C-{c.id}
-                          </Serial>
-                        </div>
-                      </td>
-                      <td className="max-w-[280px] px-4 py-3 align-middle">
-                        <PlatePair mono a={pathA} b={pathB} />
-                      </td>
-                      <td className="px-4 py-3 align-middle">
-                        <div className="flex items-center gap-2">
-                          <OverprintMeter value={score} className="h-2 w-16 shrink-0" label={`${score}%`} />
-                          <span className="font-display text-sm font-bold tabular-nums text-foreground" style={{ fontStretch: "108%" }}>
-                            {score}%
+          {loading ? (
+            <PageLoader message={t("enterprise.common.loading")} />
+          ) : error ? (
+            <PageError message={error} />
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-col items-center gap-4 border-y border-bench-hair px-6 py-20 text-center">
+              <IconFilePlus className="text-txt-muted" />
+              <p className="text-[15px] text-txt-primary">{t("enterprise.cases.noCases")}</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto scrollbar-thin">
+              <table className="w-full min-w-[1000px] border-collapse border-y border-bench-hair">
+                <thead>
+                  <tr className="h-9 border-b border-bench-hair">
+                    <th className={cn(TH, "w-[150px] ps-5")}>{t("enterprise.cases.colCase", { defaultValue: "Case" })}</th>
+                    <th className={cn(TH, "ps-3")}>{t("enterprise.cases.colPaths", { defaultValue: "Artifacts" })}</th>
+                    <th className={cn(TH, "w-[190px] ps-3")}>{t("enterprise.cases.colScore", { defaultValue: "Score" })}</th>
+                    <th className={cn(TH, "w-32 ps-3")}>{t("enterprise.cases.colType", { defaultValue: "Clone type" })}</th>
+                    <th className={cn(TH, "w-[150px] ps-3")}>{t("enterprise.cases.colStatus", { defaultValue: "Status" })}</th>
+                    <th className={cn(TH, "w-36 ps-3")}>{t("enterprise.cases.workspace")}</th>
+                    <th className="w-28 pe-5">
+                      <span className="sr-only">{t("enterprise.cases.viewCase")}</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((c) => {
+                    const wsName = workspaces.find((w) => w.id === c.workspaceId)?.name;
+                    const pathA = c.match?.artifactA?.logicalPath ?? "—";
+                    const pathB = c.match?.artifactB?.logicalPath ?? "—";
+                    const score = Math.round(c.confidenceScore);
+                    return (
+                      <tr key={c.id} className="h-[46px] border-b border-bench-hair last:border-b-0 hover:bg-bench-raised/60">
+                        <td className="ps-5 align-middle">
+                          <span className="flex items-center gap-2.5">
+                            <span className="mono-filename text-txt-muted" dir="ltr">C-{c.id}</span>
+                            <Tag tone={SEVERITY_TONE[c.severity] ?? "neutral"}>{t(`enterprise.severity.${c.severity}`, { defaultValue: c.severity })}</Tag>
                           </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 align-middle">
-                        <span className="inline-flex items-center rounded-sm border border-border bg-muted px-2 py-0.5 font-mono text-[11px] font-medium capitalize text-muted-foreground">
+                        </td>
+                        <td className="max-w-[280px] ps-3 py-2 align-middle">
+                          <PlatePair mono a={pathA} b={pathB} />
+                        </td>
+                        <td className="ps-3 align-middle">
+                          <span className="flex items-center gap-3">
+                            <Scale value={score} quiet={score < 50} className="w-[110px]" />
+                            <span className="mono-value text-txt-primary" dir="ltr">{score}</span>
+                          </span>
+                        </td>
+                        <td className="mono-filename ps-3 align-middle text-txt-secondary" dir="ltr">
                           {c.cloneType.replace(/_/g, " ")}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 align-middle">
-                        <span
-                          className={cn(
-                            "inline-flex items-center rounded-sm border px-2 py-0.5 font-mono text-[11px] font-semibold capitalize",
-                            STATUS_BADGE[c.status] ?? "bg-muted text-muted-foreground border-border",
-                          )}
-                        >
-                          {t(`enterprise.status.${c.status}`, { defaultValue: c.status })}
-                        </span>
-                      </td>
-                      <td className="max-w-[160px] px-4 py-3 align-middle text-xs text-muted-foreground">
-                        <span className="truncate font-mono">{wsName ?? "—"}</span>
-                      </td>
-                      <td className="px-4 py-3 text-right align-middle">
-                        <Link
-                          to={`/enterprise/cases/${c.id}`}
-                          className="inline-flex items-center gap-1 text-xs font-medium text-foreground underline underline-offset-2 hover:opacity-70"
-                        >
-                          {t("enterprise.cases.viewCase")}
-                          <ChevronRight className="h-3 w-3" />
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                        </td>
+                        <td className="ps-3 align-middle">
+                          <Tag tone={STATUS_TONE[c.status] ?? "neutral"}>{t(`enterprise.status.${c.status}`, { defaultValue: c.status })}</Tag>
+                        </td>
+                        <td className="max-w-[160px] ps-3 align-middle">
+                          <span className="mono-filename block truncate text-txt-muted" dir="auto">{wsName ?? "—"}</span>
+                        </td>
+                        <td className="pe-5 align-middle text-end">
+                          <Link to={`/enterprise/cases/${c.id}`} className="link inline-flex items-center gap-1 text-[12.5px]">
+                            {t("enterprise.cases.viewCase")}
+                            <IconChevronRight className="rtl:-scale-x-100" />
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
 
-        {/* Ledger footer — mono tally line under a hairline rule */}
-        {!loading && !error && filtered.length > 0 && (
-          <div className="mt-0 flex items-center justify-between gap-3 border-t border-border px-1 py-2.5 font-mono text-[11px] text-muted-foreground">
-            <span className="uppercase tracking-[0.14em] text-muted-foreground/70">
-              {t("enterprise.cases.showing", { defaultValue: "Showing" })}
-            </span>
-            <span className="tabular-nums">
-              {filtered.length} / {cases.length}
-            </span>
-          </div>
-        )}
-      </section>
+          {/* Tally line */}
+          {!loading && !error && filtered.length > 0 && (
+            <div className="flex h-12 items-center justify-between px-5">
+              <span className="label text-txt-muted">{t("enterprise.cases.showing", { defaultValue: "Showing" })}</span>
+              <span className="mono-filename text-txt-secondary" dir="ltr">
+                {filtered.length} / {cases.length}
+              </span>
+            </div>
+          )}
+        </Panel>
+      </div>
     </div>
   );
 }

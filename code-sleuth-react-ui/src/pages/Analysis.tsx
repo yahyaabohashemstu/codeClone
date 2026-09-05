@@ -1,31 +1,21 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import {
-  ArrowRight,
-  CheckCircle2,
-  Code2,
-  FileArchive,
-  FileCode,
-  FileSpreadsheet,
-  Info,
-  Loader2,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Masthead, RegMark, Serial } from "@/components/dossier/Dossier";
+import { BenchButton, BenchSelect, Kbd, Plate, PlateMeter, Segment, SegmentGroup } from "@/components/bench/Bench";
+import { IconFilePlus, IconSwap } from "@/components/bench/icons";
 import { useAnalysis } from "@/context/AnalysisContext";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { CLONE_THRESHOLD } from "@/lib/bands";
+import { formatBytes, highlightSource } from "@/lib/highlight";
 import { cn } from "@/lib/utils";
+
+/**
+ * New comparison (design node 11:113): two lit plates on the bench, a spine
+ * with the swap control between them, the language select and the run
+ * button in the header, and the signal roster on the status line.
+ */
 
 type InputMethod = "paste" | "file" | "zip" | "excel";
 
@@ -45,32 +35,12 @@ const MAX_SOURCE_FILE_BYTES = 2 * 1024 * 1024;
 const MAX_ZIP_FILE_BYTES = 25 * 1024 * 1024;
 const MAX_EXCEL_FILE_BYTES = 5 * 1024 * 1024;
 const FALLBACK_LANGUAGE_OPTIONS = [
-  "python",
-  "c",
-  "java",
-  "javascript",
-  "ruby",
-  "go",
-  "typescript",
-  "php",
-  "kotlin",
-  "r",
-  "rust",
-  "scala",
-  "elixir",
-  "haskell",
-  "perl",
+  "python", "c", "java", "javascript", "ruby", "go", "typescript", "php", "kotlin", "r", "rust", "scala", "elixir", "haskell", "perl",
 ];
+const INPUT_METHOD_IDS: InputMethod[] = ["paste", "file", "zip", "excel"];
 
 function createEmptySource(): SourceState {
-  return {
-    method: "paste",
-    code: "",
-    file: null,
-    zip: null,
-    excelFile: null,
-    excelRow: "",
-  };
+  return { method: "paste", code: "", file: null, zip: null, excelFile: null, excelRow: "" };
 }
 
 function getSelectedFile(source: SourceState) {
@@ -87,217 +57,307 @@ function getSelectedFile(source: SourceState) {
 }
 
 function sourceReady(source: SourceState) {
-  return Boolean(source.code.trim() || getSelectedFile(source));
+  if (source.method === "paste") return Boolean(source.code.trim());
+  return Boolean(getSelectedFile(source));
 }
 
-const METHOD_ICONS: Record<InputMethod, typeof Code2> = {
-  paste: Code2,
-  file: FileCode,
-  zip: FileArchive,
-  excel: FileSpreadsheet,
-};
+function limitFor(method: InputMethod) {
+  return method === "zip" ? MAX_ZIP_FILE_BYTES : method === "excel" ? MAX_EXCEL_FILE_BYTES : MAX_SOURCE_FILE_BYTES;
+}
 
-const INPUT_METHOD_IDS: InputMethod[] = ["paste", "file", "zip", "excel"];
+function methodForFile(file: File): Exclude<InputMethod, "paste"> {
+  const name = file.name.toLowerCase();
+  if (name.endsWith(".zip")) return "zip";
+  if (name.endsWith(".xlsx") || name.endsWith(".xls") || name.endsWith(".csv")) return "excel";
+  return "file";
+}
 
-function ExhibitPanel({
+const encoder = new TextEncoder();
+
+/* ────────────────────────────────────────────────────────────────────────
+   Code on a plate: highlighted rows with a transparent textarea laid over
+   the text column so caret, selection and paste stay native.
+   ──────────────────────────────────────────────────────────────────────── */
+
+function CodeRows({ code, language, readOnly = false }: { code: string; language: string; readOnly?: boolean }) {
+  const lines = useMemo(() => highlightSource(code, language), [code, language]);
+  return (
+    <div aria-hidden={!readOnly} className="plate-code">
+      {lines.map((tokens, i) => (
+        <div key={i} className="code-line">
+          <span className="code-marker" />
+          <span className="code-gutter">{i + 1}</span>
+          <span className="code-text is-wrap [overflow-wrap:break-word]">
+            {tokens.map((tok, j) =>
+              tok.kind === "plain" ? (
+                tok.text
+              ) : (
+                <span key={j} className={tok.kind === "kw" ? "code-kw" : tok.kind === "comment" ? "code-comment" : "code-str"}>
+                  {tok.text}
+                </span>
+              ),
+            )}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CodeEditor({
+  value,
+  onChange,
+  language,
+  label,
+  textareaRef,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  language: string;
+  label: string;
+  textareaRef: React.RefObject<HTMLTextAreaElement>;
+}) {
+  return (
+    <div className="relative min-h-full">
+      <CodeRows code={value} language={language} />
+      <textarea
+        ref={textareaRef}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        spellCheck={false}
+        autoCorrect="off"
+        autoCapitalize="off"
+        aria-label={label}
+        dir="ltr"
+        className="plate-code absolute inset-y-0 end-0 start-[44px] block h-full resize-none overflow-hidden border-0 bg-transparent p-0 pe-3 text-transparent outline-none [caret-color:var(--plate-ink)] selection:bg-[color:rgba(242,83,42,.28)]"
+        style={{ whiteSpace: "pre-wrap", overflowWrap: "break-word" }}
+      />
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   One plate
+   ──────────────────────────────────────────────────────────────────────── */
+
+function SourcePlate({
   label,
   source,
   onChange,
+  language,
 }: {
   label: "A" | "B";
   source: SourceState;
   onChange: (next: SourceState) => void;
+  language: string;
 }) {
   const { t } = useTranslation("analysis");
-  const { isRTL } = useLanguage();
-
-  const inputMethods = INPUT_METHOD_IDS.map((id) => ({
-    id,
-    label: t(`analysis.methods.${id}`),
-    icon: METHOD_ICONS[id],
-  }));
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+  const [fileText, setFileText] = useState<string | null>(null);
+  const rowId = useId();
 
   const selectedFile = getSelectedFile(source);
-  const isReady = sourceReady(source);
+  const limit = limitFor(source.method);
+  const bytes = source.method === "paste" ? encoder.encode(source.code).length : (selectedFile?.size ?? 0);
+  const lineCount = source.method === "paste" ? (source.code ? source.code.split("\n").length : 0) : fileText ? fileText.split("\n").length : 0;
+
+  // Preview the chosen source file on the plate (text only, bounded by the limit).
+  useEffect(() => {
+    if (source.method !== "file" || !source.file) {
+      setFileText(null);
+      return;
+    }
+    let cancelled = false;
+    source.file
+      .text()
+      .then((text) => {
+        if (!cancelled) setFileText(text);
+      })
+      .catch(() => {
+        if (!cancelled) setFileText(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [source.method, source.file]);
 
   const setMethod = (method: InputMethod) => onChange({ ...source, method });
 
-  const setFile = (key: "file" | "zip" | "excelFile", nextFile: File | null) => {
-    if (nextFile) {
-      const maxBytes =
-        key === "zip"
-          ? MAX_ZIP_FILE_BYTES
-          : key === "excelFile"
-            ? MAX_EXCEL_FILE_BYTES
-            : MAX_SOURCE_FILE_BYTES;
-      if (nextFile.size > maxBytes) {
-        const limitMb = Math.round(maxBytes / (1024 * 1024));
-        toast.error(
-          t("upload.fileTooLarge", {
-            ns: "common",
-            limitMb,
-            defaultValue: `File too large. Maximum size is ${limitMb} MB.`,
-          }),
-        );
-        return;
+  const setFile = useCallback(
+    (method: Exclude<InputMethod, "paste">, nextFile: File | null) => {
+      if (nextFile) {
+        const maxBytes = limitFor(method);
+        if (nextFile.size > maxBytes) {
+          const limitMb = Math.round(maxBytes / (1024 * 1024));
+          toast.error(
+            t("upload.fileTooLarge", { ns: "common", limitMb, defaultValue: `File too large. Maximum size is ${limitMb} MB.` }),
+          );
+          return;
+        }
       }
-    }
-    onChange({
-      ...source,
-      file: key === "file" ? nextFile : source.file,
-      zip: key === "zip" ? nextFile : source.zip,
-      excelFile: key === "excelFile" ? nextFile : source.excelFile,
-    });
+      onChange({
+        ...source,
+        method,
+        file: method === "file" ? nextFile : source.file,
+        zip: method === "zip" ? nextFile : source.zip,
+        excelFile: method === "excel" ? nextFile : source.excelFile,
+      });
+    },
+    [onChange, source, t],
+  );
+
+  const clearPlate = () => {
+    onChange({ ...createEmptySource(), method: source.method });
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const plateTone = label === "A" ? "plate-a" : "plate-b";
-  const plateTextClass = label === "A" ? "text-plate-a-deep" : "text-plate-b-deep";
-  const plateTabClass = label === "A" ? "bg-plate-a/10" : "bg-plate-b/10";
+  const onDrop = (event: React.DragEvent) => {
+    event.preventDefault();
+    setDragging(false);
+    const dropped = event.dataTransfer.files?.[0];
+    if (!dropped) return;
+    setFile(methodForFile(dropped), dropped);
+  };
+
+  const filename =
+    source.method === "paste" ? null : selectedFile?.name ?? null;
+  const accept =
+    source.method === "file" ? SUPPORTED_SOURCE_FILE_ACCEPT : source.method === "zip" ? ".zip" : TABULAR_FILE_ACCEPT;
+  const dropCopy =
+    source.method === "file" ? t("analysis.bench.dropFile") : source.method === "zip" ? t("analysis.bench.dropZip") : t("analysis.bench.dropSheet");
 
   return (
-    <section className="overflow-hidden border border-border bg-card">
-      {/* Plate header — identity marker + label + status */}
-      <div className="flex items-center gap-3 border-b border-border px-4 py-2.5">
-        <Serial tone={isReady ? plateTone : "muted"}>{label}</Serial>
-        <h2 className={cn("t-label flex-1", isReady ? plateTextClass : "text-foreground")}>
-          {t("analysis.sourceTitle", { label })}
-        </h2>
-        {isReady ? (
-          <span className="badge-success">
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            {t("analysis.ready")}
+    <Plate
+      className={cn("h-[576px] min-w-0 transition-shadow", dragging && "ring-2 ring-signal")}
+      onDragOver={(e) => {
+        e.preventDefault();
+        if (!dragging) setDragging(true);
+      }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={onDrop}
+    >
+      {/* Strip: identity + source mode */}
+      <div className="plate-strip">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="label shrink-0 text-plate-ink">{t("analysis.bench.plate", { label, defaultValue: `Plate ${label}` })}</span>
+          <span className={cn("mono-filename min-w-0 truncate", filename ? "text-plate-soft" : "text-plate-placeholder")} dir="ltr">
+            {filename ?? "untitled"}
           </span>
-        ) : (
-          <span className="press-slug">{t("analysis.empty", { defaultValue: "empty" })}</span>
-        )}
+        </div>
+        <SegmentGroup surface="plate" aria-label={t("analysis.bench.sourceMode")}>
+          {INPUT_METHOD_IDS.map((id) => (
+            <Segment key={id} surface="plate" on={source.method === id} onClick={() => setMethod(id)}>
+              {t(`analysis.bench.modes.${id}`)}
+            </Segment>
+          ))}
+        </SegmentGroup>
       </div>
 
-      {/* Segmented method control — an instrument switch, not four cards */}
-      <div className="flex border-b border-border">
-        {inputMethods.map((method) => {
-          const Icon = method.icon;
-          const active = source.method === method.id;
-          return (
-            <button
-              key={method.id}
-              type="button"
-              onClick={() => setMethod(method.id)}
-              className={cn(
-                "press-slug flex-1 border-e border-border py-2 text-center transition-colors last:border-e-0",
-                active ? cn(plateTabClass, "font-bold text-foreground") : "hover:bg-muted hover:text-foreground",
-              )}
-            >
-              <Icon className="mx-auto mb-1 h-3.5 w-3.5" />
-              {method.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Input area */}
-      <div className="space-y-3 p-4">
-        {source.method === "paste" && (
-          <div className="relative">
-            <Textarea
+      {/* Body */}
+      <div className="relative min-h-0 flex-1 overflow-auto scrollbar-thin">
+        {source.method === "paste" ? (
+          <div className="min-h-full cursor-text py-3.5" onClick={() => textareaRef.current?.focus()}>
+            <CodeEditor
               value={source.code}
-              onChange={(event) => onChange({ ...source, code: event.target.value })}
-              placeholder={t("analysis.pastePlaceholder", { label })}
-              className="code-surface min-h-[280px] resize-y p-4 text-xs leading-relaxed placeholder:text-muted-foreground/40"
+              onChange={(code) => onChange({ ...source, code })}
+              language={language}
+              label={t("analysis.sourceTitle", { label })}
+              textareaRef={textareaRef}
             />
-            {source.code && (
-              <div
-                className={cn(
-                  "absolute bottom-2 font-mono text-[10px] text-muted-foreground",
-                  isRTL ? "left-3" : "right-3",
-                )}
-              >
-                {source.code.split("\n").length} {t("analysis.lines")}
+            {!source.code && (
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center">
+                <IconFilePlus className="text-plate-soft" />
+                <p className="text-[15px] text-plate-ink">{t("analysis.bench.dropHint")}</p>
+                <p className="mono-meta text-plate-soft" dir="ltr">{t("analysis.bench.dropFormats")}</p>
               </div>
             )}
           </div>
-        )}
-
-        {source.method !== "paste" && (
-          <label className="flex cursor-pointer flex-col items-center gap-3 rounded-md border border-dashed border-border p-8 transition-colors hover:border-primary/60 hover:bg-primary/5">
-            <input
-              type="file"
-              className="hidden"
-              accept={
-                source.method === "file"
-                  ? SUPPORTED_SOURCE_FILE_ACCEPT
-                  : source.method === "zip"
-                    ? ".zip"
-                    : TABULAR_FILE_ACCEPT
-              }
-              onChange={(event) => {
-                const nextFile = event.target.files?.[0] ?? null;
-                const key =
-                  source.method === "file"
-                    ? "file"
-                    : source.method === "zip"
-                      ? "zip"
-                      : "excelFile";
-                setFile(key, nextFile);
-              }}
-            />
-            <div className="text-muted-foreground">
-              {source.method === "file" && <FileCode className="h-7 w-7" />}
-              {source.method === "zip" && <FileArchive className="h-7 w-7" />}
-              {source.method === "excel" && <FileSpreadsheet className="h-7 w-7" />}
-            </div>
-            {selectedFile ? (
-              <div className="text-center">
-                <p className="max-w-[260px] truncate font-mono text-sm font-semibold text-foreground">
-                  {selectedFile.name}
-                </p>
-                <p className="mt-0.5 text-xs text-success">{t("analysis.ready")}</p>
-              </div>
-            ) : (
-              <div className="text-center">
-                <p className="text-sm font-semibold text-foreground">{t("analysis.clickOrDrop")}</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {source.method === "file"
-                    ? t("analysis.codeFiles")
-                    : source.method === "zip"
-                      ? t("analysis.zipArchive")
-                      : t("analysis.spreadsheet")}
-                </p>
-              </div>
-            )}
-          </label>
-        )}
-
-        {source.method === "excel" && (
-          <div className="flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-3 text-xs text-muted-foreground">
-            <Info className="h-3.5 w-3.5 shrink-0" />
-            <span>{t("analysis.excelRow")}</span>
-            <input
-              type="number"
-              min={1}
-              value={source.excelRow}
-              onChange={(event) => onChange({ ...source, excelRow: event.target.value })}
-              placeholder="1"
-              className={cn(
-                "input-focus h-8 w-20 rounded-sm border border-border bg-card px-2 font-mono text-foreground",
-                isRTL ? "mr-auto text-right" : "ml-auto",
-              )}
-            />
+        ) : source.method === "file" && source.file && fileText != null ? (
+          <div className="py-3.5">
+            <CodeRows code={fileText} language={language} readOnly />
           </div>
+        ) : selectedFile ? (
+          <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
+            <IconFilePlus className="text-plate-soft" />
+            <p className="mono-value text-plate-ink" dir="ltr">{selectedFile.name}</p>
+            <p className="mono-meta text-plate-soft" dir="ltr">
+              {formatBytes(selectedFile.size)}
+              {source.method === "zip" && " · zip"}
+            </p>
+            {source.method === "excel" && (
+              <label htmlFor={rowId} className="mt-2 flex items-center gap-3">
+                <span className="label text-plate-soft">{t("analysis.bench.sheetRow")}</span>
+                <span className="plate-well h-9 w-24 !px-3">
+                  <input
+                    id={rowId}
+                    type="number"
+                    min={1}
+                    value={source.excelRow}
+                    onChange={(event) => onChange({ ...source, excelRow: event.target.value })}
+                    placeholder="1"
+                    dir="ltr"
+                    className="font-mono text-[13px]"
+                  />
+                </span>
+              </label>
+            )}
+            <button type="button" onClick={() => fileInputRef.current?.click()} className="mt-1 text-[12.5px] text-plate-ink underline underline-offset-2 hover:text-signal-plate">
+              {t("analysis.bench.chooseAnother", { defaultValue: "Choose another file" })}
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex h-full w-full flex-col items-center justify-center gap-4 px-6 text-center"
+          >
+            <IconFilePlus className="text-plate-soft" />
+            <span className="text-[15px] text-plate-ink">{dropCopy}</span>
+            <span className="mono-meta text-plate-soft" dir="ltr">
+              {source.method === "file" ? SUPPORTED_SOURCE_FILE_ACCEPT.replace(/,/g, " ") : source.method === "zip" ? ".zip" : TABULAR_FILE_ACCEPT.replace(/,/g, " ")}
+            </span>
+          </button>
         )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          accept={accept}
+          onChange={(event) => {
+            const next = event.target.files?.[0] ?? null;
+            if (next) setFile(source.method === "paste" ? methodForFile(next) : source.method, next);
+          }}
+        />
       </div>
-    </section>
+
+      {/* Footer: readings */}
+      <div className="plate-footer">
+        <span className="flex min-w-0 items-center gap-2 truncate" dir="ltr">
+          <span>
+            {t("analysis.bench.footerLines", { count: lineCount })}
+            {bytes > 0 && ` · ${formatBytes(bytes)}`}
+            {bytes > 0 && (source.method === "paste" || source.method === "file") && " · UTF-8"}
+          </span>
+          {sourceReady(source) && (
+            <button type="button" onClick={clearPlate} className="underline underline-offset-2 hover:text-plate-ink">
+              {t("analysis.bench.clear")}
+            </button>
+          )}
+        </span>
+        <span className="flex shrink-0 items-center gap-2" dir="ltr">
+          <span>{t("analysis.bench.footerOf", { size: formatBytes(bytes), limit: formatBytes(limit) })}</span>
+          <PlateMeter fraction={bytes / limit} />
+        </span>
+      </div>
+    </Plate>
   );
 }
 
-const CAPABILITY_KEYS = [
-  "capabilities.tokenAnalysis",
-  "capabilities.astComparison",
-  "capabilities.textSimilarity",
-  "capabilities.aiAnalysis",
-  "capabilities.codeMetrics",
-  "capabilities.cloneDetection",
-  "capabilities.codeSmell",
-] as const;
+/* ────────────────────────────────────────────────────────────────────────
+   Page
+   ──────────────────────────────────────────────────────────────────────── */
 
 const Analysis = () => {
   const navigate = useNavigate();
@@ -310,18 +370,20 @@ const Analysis = () => {
   const [sourceA, setSourceA] = useState<SourceState>(() => createEmptySource());
   const [sourceB, setSourceB] = useState<SourceState>(() => createEmptySource());
 
-  const languageOptions = useMemo(() => {
-    return supportedLanguages.length ? supportedLanguages : FALLBACK_LANGUAGE_OPTIONS;
-  }, [supportedLanguages]);
+  const languageOptions = useMemo(
+    () => (supportedLanguages.length ? supportedLanguages : FALLBACK_LANGUAGE_OPTIONS),
+    [supportedLanguages],
+  );
 
-  const readyCount = (sourceReady(sourceA) ? 1 : 0) + (sourceReady(sourceB) ? 1 : 0);
-  const bothReady = readyCount === 2;
+  const readyA = sourceReady(sourceA);
+  const readyB = sourceReady(sourceB);
+  const bothReady = readyA && readyB;
 
   const buildFormData = () => {
     const formData = new FormData();
     formData.append("language", selectedLanguage);
-    formData.append("code1", sourceA.code);
-    formData.append("code2", sourceB.code);
+    formData.append("code1", sourceA.method === "paste" ? sourceA.code : "");
+    formData.append("code2", sourceB.method === "paste" ? sourceB.code : "");
 
     if (sourceA.method === "file" && sourceA.file) formData.append("file1", sourceA.file);
     if (sourceA.method === "zip" && sourceA.zip) formData.append("zip1", sourceA.zip);
@@ -340,199 +402,125 @@ const Analysis = () => {
     return formData;
   };
 
-  const clearAll = () => {
-    setSourceA(createEmptySource());
-    setSourceB(createEmptySource());
-    setErrorMessage("");
-    clearCurrentResult();
+  const swapPlates = () => {
+    setSourceA(sourceB);
+    setSourceB(sourceA);
   };
 
-  const handleAnalyze = async () => {
+  const handleAnalyze = useCallback(async () => {
+    if (!bothReady || isAnalyzing) return;
     setErrorMessage("");
+    clearCurrentResult();
     try {
       const result = await analyze(buildFormData());
       if (!result.has_results) {
         setErrorMessage(
-          result.error_message
-            ? localizeRuntimeMessage(result.error_message)
-            : t("analysis.analysisCouldNotBeCompleted"),
+          result.error_message ? localizeRuntimeMessage(result.error_message) : t("analysis.analysisCouldNotBeCompleted"),
         );
         return;
       }
-      const nextUrl = result.saved_analysis_id
-        ? `/results?analysisId=${result.saved_analysis_id}`
-        : "/results";
-      navigate(nextUrl);
+      navigate(result.saved_analysis_id ? `/results?analysisId=${result.saved_analysis_id}` : "/results");
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? localizeRuntimeMessage(error.message) : t("analysis.analysisFailed"),
-      );
+      setErrorMessage(error instanceof Error ? localizeRuntimeMessage(error.message) : t("analysis.analysisFailed"));
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bothReady, isAnalyzing, sourceA, sourceB, selectedLanguage, analyze, navigate, localizeRuntimeMessage, t, clearCurrentResult]);
+
+  // Ctrl/⌘ + Enter runs the comparison, as the button advertises.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        void handleAnalyze();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [handleAnalyze]);
 
   const progressPercent =
-    analysisProgress?.progress !== null && analysisProgress?.progress !== undefined
-      ? Math.round(analysisProgress.progress)
-      : null;
+    analysisProgress?.progress !== null && analysisProgress?.progress !== undefined ? Math.round(analysisProgress.progress) : null;
+
+  const statusCopy = bothReady
+    ? t("analysis.bench.platesReady")
+    : !readyA && !readyB
+      ? t("analysis.bench.platesEmpty")
+      : t("analysis.bench.plateEmpty", { label: readyA ? "B" : "A" });
 
   return (
-    <div className="space-y-6">
-      <Masthead
-        kicker={t("analysis.eyebrow", { defaultValue: "Pairwise analysis" })}
-        title={t("analysis.title")}
-        description={t("analysis.subtitle")}
-      />
+    <div className="pt-7">
+      {/* Header */}
+      <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+        <div className="flex flex-col gap-2.5">
+          <span className="label text-txt-muted">{t("analysis.bench.kicker")}</span>
+          <h1 className="t-page text-txt-primary">{t("analysis.bench.title")}</h1>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-[12.5px] text-txt-muted">{statusCopy}</span>
+          <BenchSelect
+            size="large"
+            label={t("analysis.bench.languageLabel")}
+            value={selectedLanguage}
+            onChange={setSelectedLanguage}
+            options={languageOptions.map((option) => ({ value: option, label: getProgrammingLanguageLabel(option) }))}
+          />
+          <BenchButton
+            tone={bothReady ? "primary" : "secondary"}
+            disabled={!bothReady || isAnalyzing}
+            onClick={() => void handleAnalyze()}
+            trailing={<Kbd className={cn(bothReady && !isAnalyzing && "border-[color:rgba(27,27,25,.35)] text-plate-ink")}>Ctrl ↵</Kbd>}
+          >
+            {isAnalyzing ? t("analysis.bench.running") : t("analysis.bench.run")}
+          </BenchButton>
+        </div>
+      </header>
 
       {errorMessage && (
-        <div
-          className="flex items-start gap-3 border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"
-          role="alert"
-        >
-          <Info className="mt-0.5 h-4 w-4 shrink-0" />
+        <div role="alert" className="mt-5 border border-signal px-4 py-3 text-[13px] text-signal-bench">
           {errorMessage}
         </div>
       )}
 
-      {/* The imposition desk: plates on the table, the job ticket clipped beside them */}
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_17rem]">
-        {/* ── The two plates, joined at the registration seam ── */}
-        <div>
-          <div className="flex items-baseline justify-between gap-4 border-b border-border pb-2">
-            <span className="t-label text-muted-foreground">{t("home.pairwise", { ns: "common", defaultValue: "Pairwise" })}</span>
-            <span className="press-slug">A ⊕ B</span>
-          </div>
-          <div className="mt-5 grid items-stretch gap-5 lg:grid-cols-[1fr_auto_1fr]">
-            <ExhibitPanel label="A" source={sourceA} onChange={setSourceA} />
-            {/* The seam — a dotted registration column between the plates */}
-            <div className="relative hidden items-center justify-center px-1 lg:flex" aria-hidden>
-              <span className="absolute inset-y-2 start-1/2 w-px border-s border-dashed border-border" />
-              <RegMark
-                className={cn(
-                  "relative z-[1] h-7 w-7 bg-card py-0.5 transition-colors",
-                  bothReady ? "text-primary" : "text-muted-foreground/60",
-                )}
-              />
-            </div>
-            <div className="flex items-center justify-center lg:hidden" aria-hidden>
-              <RegMark className={cn("h-6 w-6 transition-colors", bothReady ? "text-primary" : "text-muted-foreground/60")} />
-            </div>
-            <ExhibitPanel label="B" source={sourceB} onChange={setSourceB} />
-          </div>
+      {/* Plates + spine */}
+      <div className="mt-6 flex flex-col gap-4 lg:flex-row lg:gap-0">
+        <div className="min-w-0 flex-1">
+          <SourcePlate label="A" source={sourceA} onChange={setSourceA} language={selectedLanguage} />
         </div>
-
-        {/* ── The job ticket — the spec that travels with this run ── */}
-        <aside className="border border-border bg-card">
-          <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
-            <span className="t-label flex items-center gap-2 text-foreground">
-              <span className="reg-dot h-3 w-3 text-primary" aria-hidden />
-              {t("analysis.jobTicket", { defaultValue: "Job ticket" })}
-            </span>
-            {bothReady ? (
-              <span className="badge-success">{t("analysis.ready")}</span>
-            ) : (
-              <span className="badge-warning">{readyCount}/2</span>
-            )}
-          </div>
-
-          <div className="px-4">
-            <div className="grid grid-cols-1 gap-y-1 border-b border-border py-3.5">
-              <span className="t-label">{t("analysis.language")}</span>
-              <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-                <SelectTrigger className="mt-1 h-9 w-full border-border bg-card font-mono text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {languageOptions.map((option) => (
-                    <SelectItem key={option} value={option} className="font-mono text-sm">
-                      {getProgrammingLanguageLabel(option)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Plate readiness — the ticket's checkboxes */}
-            <div className="border-b border-border py-3.5">
-              <span className="t-label">{t("home.pairwise", { ns: "common", defaultValue: "Pairwise" })}</span>
-              <div className="mt-2 space-y-1.5">
-                {([["A", sourceReady(sourceA)], ["B", sourceReady(sourceB)]] as const).map(([plate, ready]) => (
-                  <div key={plate} className="flex items-center gap-2">
-                    <span
-                      aria-hidden
-                      className={cn(
-                        "h-2.5 w-2.5",
-                        plate === "A" ? (ready ? "bg-plate-a" : "border border-plate-a/50") : ready ? "bg-plate-b" : "border border-plate-b/50",
-                      )}
-                    />
-                    <span className="press-slug text-foreground">{t("analysis.sourceTitle", { label: plate })}</span>
-                    <span className="press-slug ms-auto">
-                      {ready ? t("analysis.ready") : t("analysis.empty", { defaultValue: "empty" })}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* What this run prints — the engine checklist, always on the ticket */}
-            <div className="py-3.5">
-              <span className="t-label">{t("analysis.capabilities.toggle")}</span>
-              <dl className="mt-2">
-                {CAPABILITY_KEYS.map((key) => (
-                  <div key={key} className="flex items-center gap-2 border-b border-border/50 py-1.5 text-xs last:border-b-0">
-                    <CheckCircle2 className="h-3 w-3 shrink-0 text-success" />
-                    <dt className="text-muted-foreground">{t(`analysis.${key}`)}</dt>
-                  </div>
-                ))}
-              </dl>
-            </div>
-          </div>
-        </aside>
+        <div className="relative flex items-center justify-center lg:w-12 lg:shrink-0">
+          <span aria-hidden className="absolute inset-x-0 top-1/2 hidden h-px bg-bench-hair lg:inset-x-auto lg:inset-y-0 lg:start-1/2 lg:block lg:h-auto lg:w-px" />
+          <button
+            type="button"
+            onClick={swapPlates}
+            className="relative z-[1] flex h-8 w-8 items-center justify-center border border-bench-strong bg-bench-raised text-txt-primary hover:border-txt-muted"
+            aria-label={t("analysis.bench.swap")}
+            title={t("analysis.bench.swap")}
+          >
+            <IconSwap />
+          </button>
+        </div>
+        <div className="min-w-0 flex-1">
+          <SourcePlate label="B" source={sourceB} onChange={setSourceB} language={selectedLanguage} />
+        </div>
       </div>
 
-      {/* Run footer — the press control: status slug + actions */}
-      <div className="sticky bottom-0 flex flex-col gap-3 border border-border bg-card p-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="min-w-0">
-          {isAnalyzing && analysisProgress ? (
-            <div className="flex items-center gap-3">
-              <span className="press-slug text-foreground">
-                {localizeRuntimeMessage(analysisProgress.stage)}
-                {progressPercent !== null && <span className="tabular-nums"> · {progressPercent}%</span>}
-              </span>
-              <div className="h-1.5 w-40 overflow-hidden border border-border bg-muted">
-                <div
-                  className="h-full bg-primary transition-[width] duration-500"
-                  style={{ width: `${progressPercent ?? 20}%` }}
-                />
-              </div>
-            </div>
-          ) : (
-            <span className="press-slug">{t("analysis.autoSave")}</span>
-          )}
-        </div>
-
-        <div className="flex flex-wrap gap-3">
-          <Button variant="outline" size="sm" className="h-10 text-sm" onClick={clearAll} disabled={isAnalyzing}>
-            {t("analysis.clearAll")}
-          </Button>
-          <Button
-            size="sm"
-            className="h-10 gap-2 px-6 text-sm"
-            onClick={() => void handleAnalyze()}
-            disabled={isAnalyzing}
-          >
-            {isAnalyzing ? (
-              <span className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {t("analysis.analyzing")}
-              </span>
-            ) : (
-              <>
-                {t("analysis.submit")}
-                <ArrowRight className="h-4 w-4" />
-              </>
-            )}
-          </Button>
-        </div>
+      {/* Status line */}
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+        {isAnalyzing && analysisProgress ? (
+          <div className="flex items-center gap-3" role="status" aria-live="polite">
+            <span className="text-[12.5px] text-txt-secondary">
+              {localizeRuntimeMessage(analysisProgress.stage)}
+              {progressPercent !== null && <span className="mono-meta ms-2 text-txt-muted">{progressPercent}%</span>}
+            </span>
+            <span className="metric-bar-track w-40">
+              <span className="metric-bar-fill block" style={{ width: `${progressPercent ?? 20}%` }} />
+            </span>
+          </div>
+        ) : (
+          <span className="text-[12.5px] text-txt-secondary">{t("analysis.bench.signals")}</span>
+        )}
+        <span className="mono-meta text-txt-muted" dir="ltr">
+          {t("analysis.bench.thresholdLine", { threshold: CLONE_THRESHOLD })}
+        </span>
       </div>
     </div>
   );

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { AlertCircle, CheckCircle2, Infinity as InfinityIcon, Loader2, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { PageError } from "@/components/common/PageError";
-import { Masthead, Panel, Stamp } from "@/components/dossier/Dossier";
+import { PageLoader } from "@/components/common/PageLoader";
+import { PageHeader, Reading, Scale, Tag } from "@/components/bench/Bench";
+import { Panel } from "@/components/dossier/Dossier";
 import {
   formatPlanPrice,
   getBillingSummary,
@@ -16,10 +17,20 @@ import {
   type BillingSummary,
 } from "@/lib/billingApi";
 import { ApiError } from "@/lib/api";
+import { useLanguage } from "@/context/LanguageContext";
 import { cn } from "@/lib/utils";
 
+/* Ruled readings: two columns on small screens, four from lg; hairlines between cells and rows. */
+const READINGS_ROW =
+  "grid grid-cols-2 border-y border-bench-hair lg:grid-cols-4 [&>*]:px-4 lg:[&>*]:px-6 [&>*:first-child]:ps-0 [&>*:nth-child(even)]:border-s [&>*:nth-child(n+3)]:border-t lg:[&>*:nth-child(n+3)]:border-t-0 lg:[&>*:not(:first-child)]:border-s";
+
+/**
+ * Plan & usage: the current plan read as four readings and a quota scale,
+ * then the rate card as a row of hairline plan panels.
+ */
 const Billing = () => {
   const { t } = useTranslation("common");
+  const { formatNumber } = useLanguage();
   const [params, setParams] = useSearchParams();
   const [summary, setSummary] = useState<BillingSummary | null>(null);
   const [plans, setPlans] = useState<BillingPlan[]>([]);
@@ -100,12 +111,7 @@ const Billing = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center" role="status" aria-live="polite">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" aria-hidden />
-        <span className="sr-only">{t("status.loading", { defaultValue: "Loading" })}</span>
-      </div>
-    );
+    return <PageLoader />;
   }
 
   if (loadError) {
@@ -132,275 +138,129 @@ const Billing = () => {
         })
       : null;
 
-  // Live mono readings for the statement masthead.
-  const meta = summary
-    ? [
-        { label: "PLAN", value: <span className="uppercase">{summary.planName}</span> },
-        {
-          label: "STATUS",
-          value: <span className="uppercase text-success">{summary.status}</span>,
-        },
-        { label: "PERIOD", value: summary.period },
-        {
-          label: "USAGE",
-          value: summary.unlimited ? (
-            <span className="text-foreground">∞</span>
-          ) : (
-            <span className={cn(overQuota && "text-destructive")}>
-              {summary.used}/{summary.limit}
-            </span>
-          ),
-        },
-      ]
-    : undefined;
+  const usageValue = summary ? (summary.unlimited ? "∞" : `${summary.used}/${summary.limit}`) : "—";
 
   return (
-    <div className="space-y-10 animate-fade-in">
-      <Masthead
-        kicker={t("nav.billing")}
-        title={t("billing.title")}
-        description={t("billing.subtitle")}
-        meta={meta}
+    <div className="pt-7">
+      <PageHeader
+        kicker={t("billing.title")}
+        title={summary?.planName ?? t("billing.currentPlan")}
         actions={
           billingEnabled && summary && summary.plan !== "free" ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handlePortal}
-              disabled={openingPortal}
-              className="h-9 gap-2"
-            >
-              {openingPortal ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Settings className="h-3.5 w-3.5" />
-              )}
+            <Button variant="outline" onClick={handlePortal} disabled={openingPortal}>
               {t("billing.manageSubscription")}
             </Button>
           ) : undefined
         }
       />
+      <p className="body-lg mt-3 max-w-[64ch] text-txt-secondary">{t("billing.subtitle")}</p>
 
-      {/* The subscription statement — one sheet: the plan block beside the ink-coverage gauge */}
+      {/* Current plan, read as four readings */}
       {summary && (
-        <Panel bare marker="§" label={t("billing.currentPlan")}>
-          <div className="grid border border-border bg-card md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-            {/* The plan, stated */}
-            <div className="border-b border-border p-5 md:border-b-0 md:border-e">
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="t-h2 text-foreground">{summary.planName}</span>
-                <Stamp band="pass" className="px-1.5 text-[10px]">{summary.status}</Stamp>
-              </div>
-              <dl className="mt-4 divide-y divide-border/60 border-t border-border/60">
-                <div className="flex items-baseline justify-between gap-4 py-2.5">
-                  <dt className="press-slug">{t("billing.period", { defaultValue: "Billing period" })}</dt>
-                  <dd className="font-display text-sm font-bold tabular-nums text-foreground" style={{ fontStretch: "108%" }}>
-                    {summary.period}
-                  </dd>
-                </div>
-                {renewsOn && (
-                  <div className="flex items-baseline justify-between gap-4 py-2.5">
-                    <dt className="press-slug">{t("billing.renewsOn", { defaultValue: "renews" })}</dt>
-                    <dd className="font-display text-sm font-bold tabular-nums text-foreground" style={{ fontStretch: "108%" }}>
-                      {renewsOn}
-                    </dd>
-                  </div>
-                )}
-              </dl>
-            </div>
-
-            {/* The ink-coverage gauge — how much of the month's quota is laid down */}
-            <div className="p-5">
-              <span className="press-slug block">{t("billing.usageThisMonth")}</span>
-              {summary.unlimited ? (
-                <div className="mt-2 flex items-center gap-2">
-                  <InfinityIcon className="h-6 w-6 text-primary" aria-hidden />
-                  <span className="font-display text-2xl font-extrabold text-foreground" style={{ fontStretch: "118%" }}>
-                    {t("billing.unlimited")}
-                  </span>
-                </div>
-              ) : (
-                <>
-                  <div className="mt-2 flex items-baseline gap-2 tabular-nums">
-                    <span
-                      className={cn(
-                        "font-display text-[2.6rem] font-extrabold leading-none",
-                        overQuota ? "text-destructive" : "text-foreground",
-                      )}
-                      style={{ fontStretch: "120%" }}
-                    >
-                      {summary.used}
-                    </span>
-                    <span className="press-slug">
-                      {t("billing.of")} {summary.limit} · {usagePct}%
-                    </span>
-                  </div>
-                  <div
-                    className="relative mt-3 h-3 overflow-hidden border border-border bg-muted"
-                    role="progressbar"
-                    aria-valuenow={usagePct}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-label={t("billing.usageThisMonth")}
-                  >
-                    <div
-                      className={cn("h-full transition-[width]", overQuota ? "bg-destructive" : "bg-primary")}
-                      style={{ width: `${usagePct}%` }}
-                    />
-                    {/* quarter ticks on the gauge */}
-                    {[25, 50, 75].map((tick) => (
-                      <span
-                        key={tick}
-                        aria-hidden
-                        className="absolute inset-y-0 w-px bg-foreground/20"
-                        style={{ insetInlineStart: `${tick}%` }}
-                      />
-                    ))}
-                  </div>
-                  {summary.remaining !== null && (
-                    <div className="press-slug mt-2">{t("billing.remaining", { count: summary.remaining })}</div>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        </Panel>
-      )}
-
-      {!billingEnabled && (
-        <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-foreground">
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
-          <span>{t("billing.billingDisabled")}</span>
+        <div className={cn(READINGS_ROW, "mt-8")}>
+          <Reading label={t("billing.currentPlan")} value={summary.planName} note={summary.plan} />
+          <Reading label={t("billing.status")} value={summary.status} note={renewsOn ? `${t("billing.renewsOn")} ${renewsOn}` : undefined} />
+          <Reading label={t("billing.period", { defaultValue: "Billing period" })} value={summary.period} />
+          <Reading
+            label={t("billing.usageThisMonth")}
+            value={<span className={cn(overQuota && "text-signal-bench")}>{usageValue}</span>}
+            note={
+              summary.unlimited
+                ? t("billing.unlimited")
+                : summary.remaining !== null
+                  ? t("billing.remaining", { count: summary.remaining })
+                  : `${usagePct}%`
+            }
+          />
         </div>
       )}
 
-      {/* The rate card — tiers as columns, attributes as ruled rows (the printed price card) */}
-      <Panel bare marker="§" label={t("billing.availablePlans")}>
-        {plans.length === 0 ? (
-          <div className="py-6 text-sm text-muted-foreground">
-            {t("billing.noPlans", { defaultValue: "No plans are available right now." })}
-          </div>
-        ) : (
-          <div className="overflow-x-auto scrollbar-thin">
-            <table className="w-full min-w-[560px] border border-border bg-card text-sm">
-              <thead>
-                {/* Tier row — the card's header band */}
-                <tr className="border-b-2 border-foreground">
-                  <th className="press-slug w-32 px-5 py-4 text-start align-bottom">
-                    {t("billing.colTier", { defaultValue: "Tier" })}
-                  </th>
-                  {plans.map((plan) => {
-                    const isCurrent = summary?.plan === plan.code;
-                    return (
-                      <th
-                        key={plan.code}
-                        className={cn(
-                          "border-s border-border px-5 py-4 text-start align-bottom",
-                          isCurrent && "bg-primary/5",
-                        )}
-                      >
-                        <span className="t-h3 block text-foreground">{plan.name}</span>
-                        {isCurrent && (
-                          <Stamp band="neutral" className="mt-1.5 px-1.5 text-[9px]">
-                            {t("billing.current")}
-                          </Stamp>
-                        )}
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {/* Price row */}
-                <tr className="border-b border-border">
-                  <th className="press-slug px-5 py-4 text-start align-middle font-normal">
-                    {t("billing.colPrice", { defaultValue: "Price" })}
-                  </th>
-                  {plans.map((plan) => {
-                    const isCurrent = summary?.plan === plan.code;
-                    return (
-                      <td key={plan.code} className={cn("border-s border-border px-5 py-4", isCurrent && "bg-primary/5")}>
-                        <span className="flex items-baseline gap-1 tabular-nums">
-                          <span className="font-display text-2xl font-extrabold text-foreground" style={{ fontStretch: "118%" }}>
-                            {plan.priceCents === 0 ? t("billing.free") : formatPlanPrice(plan.priceCents)}
-                          </span>
-                          {plan.priceCents > 0 && (
-                            <span className="press-slug">{t("billing.perMonth")}</span>
-                          )}
-                        </span>
-                      </td>
-                    );
-                  })}
-                </tr>
-                {/* Quota row */}
-                <tr className="border-b border-border">
-                  <th className="press-slug px-5 py-4 text-start align-middle font-normal">
-                    {t("billing.colQuota", { defaultValue: "Monthly quota" })}
-                  </th>
-                  {plans.map((plan) => {
-                    const isCurrent = summary?.plan === plan.code;
-                    return (
-                      <td
-                        key={plan.code}
-                        className={cn(
-                          "border-s border-border px-5 py-4 font-display font-bold tabular-nums text-foreground",
-                          isCurrent && "bg-primary/5",
-                        )}
-                        style={{ fontStretch: "108%" }}
-                      >
-                        {plan.unlimited ? t("billing.unlimited") : plan.monthlyAnalysisQuota}
-                      </td>
-                    );
-                  })}
-                </tr>
-                {/* Action row */}
-                <tr>
-                  <th className="px-5 py-4" aria-hidden />
-                  {plans.map((plan, i) => {
-                    const isCurrent = summary?.plan === plan.code;
-                    const isFree = plan.code === "free";
-                    const isUpgrade = currentIndex >= 0 && i > currentIndex;
-                    return (
-                      <td key={plan.code} className={cn("border-s border-border px-5 py-4", isCurrent && "bg-primary/5")}>
-                        {!isCurrent && !isFree &&
-                          (isUpgrade ? (
-                            <Button
-                              onClick={() => handleChoose(plan.code)}
-                              disabled={checkingOut === plan.code}
-                              className="h-9 gap-2"
-                              aria-label={t("billing.choose")}
-                            >
-                              {checkingOut === plan.code ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                                  {t("billing.choose")}
-                                </>
-                              ) : (
-                                t("billing.choose")
-                              )}
-                            </Button>
-                          ) : (
-                            // Lower tier than the current plan — a downgrade, so its
-                            // subscribe button is disabled (its features are already included).
-                            <Button variant="outline" disabled className="h-9 opacity-60">
-                              {t("billing.includedInPlan")}
-                            </Button>
-                          ))}
-                        {isCurrent && (
-                          <span className="press-slug flex items-center gap-1.5">
-                            <CheckCircle2 className="h-3.5 w-3.5 text-success" aria-hidden />
-                            {t("billing.current")}
-                          </span>
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              </tbody>
-            </table>
+      <div className="mt-8 space-y-5">
+        {/* Quota scale */}
+        {summary && !summary.unlimited && (
+          <Panel label={t("billing.usageThisMonth")}>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+              <div className="min-w-[240px] flex-1">
+                <Scale value={usagePct} quiet={!overQuota} label={`${usagePct}%`} />
+                <div aria-hidden className="mono-meta-sm mt-2 flex items-start justify-between text-txt-muted">
+                  <span>0</span>
+                  <span>50</span>
+                  <span>100</span>
+                </div>
+              </div>
+              <span className="mono-value text-txt-primary" dir="ltr">
+                {summary.used} {t("billing.of")} {summary.limit} · {usagePct}%
+              </span>
+            </div>
+          </Panel>
+        )}
+
+        {!billingEnabled && (
+          <div role="status" className="flex items-start gap-3 border border-bench-strong px-4 py-3">
+            <span aria-hidden className="lamp mt-0.5" />
+            <span className="text-[13px] leading-relaxed text-txt-secondary">{t("billing.billingDisabled")}</span>
           </div>
         )}
-      </Panel>
+
+        {/* Rate card */}
+        <Panel label={t("billing.availablePlans")} actions={<span className="mono-meta text-txt-muted">USD</span>}>
+          {plans.length === 0 ? (
+            <p className="py-8 text-center text-[13px] text-txt-muted">
+              {t("billing.noPlans", { defaultValue: "No plans are available right now." })}
+            </p>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-3">
+              {plans.map((plan, i) => {
+                const isCurrent = summary?.plan === plan.code;
+                const isFree = plan.code === "free";
+                const isUpgrade = currentIndex >= 0 && i > currentIndex;
+                return (
+                  <article key={plan.code} className={cn("card-premium flex flex-col", isCurrent && "border-signal")}>
+                    <div className="flex h-10 items-center justify-between gap-3 border-b border-bench-hair px-5">
+                      <h3 className="label text-txt-primary">{plan.name}</h3>
+                      {isCurrent && <Tag tone="hot">{t("billing.current")}</Tag>}
+                    </div>
+                    <div className="flex flex-1 flex-col gap-5 px-5 py-5">
+                      <div className="flex items-baseline gap-1.5" dir="ltr">
+                        <span className="mono-value text-[1.375rem] text-txt-primary">
+                          {plan.priceCents === 0 ? t("billing.free") : formatPlanPrice(plan.priceCents)}
+                        </span>
+                        {plan.priceCents > 0 && <span className="mono-meta text-txt-muted">{t("billing.perMonth")}</span>}
+                      </div>
+                      <dl className="rule-t flex items-baseline justify-between gap-4 pt-3">
+                        <dt className="label text-txt-muted">{t("billing.colQuota", { defaultValue: "Monthly quota" })}</dt>
+                        <dd className="mono-value text-txt-primary">
+                          {plan.unlimited ? t("billing.unlimited") : formatNumber(plan.monthlyAnalysisQuota)}
+                        </dd>
+                      </dl>
+                      <div className="mt-auto pt-1">
+                        {isCurrent ? (
+                          <span className="mono-meta text-txt-muted">{t("billing.current")}</span>
+                        ) : isFree ? null : isUpgrade ? (
+                          <Button
+                            onClick={() => handleChoose(plan.code)}
+                            disabled={checkingOut === plan.code}
+                            className="w-full"
+                            aria-label={t("billing.choose")}
+                          >
+                            {t("billing.choose")}
+                          </Button>
+                        ) : (
+                          // Lower tier than the current plan — a downgrade, so its
+                          // subscribe button is disabled (its features are already included).
+                          <Button variant="outline" disabled className="w-full">
+                            {t("billing.includedInPlan")}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </Panel>
+      </div>
     </div>
   );
 };

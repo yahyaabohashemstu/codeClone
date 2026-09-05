@@ -35,14 +35,14 @@ export function CookieConsent() {
 
   return (
     <div
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card px-4 py-3"
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-bench-hair bg-bench-raised px-4 py-3 sm:px-6 lg:px-10"
       role="dialog"
       aria-label="Cookie notice"
     >
-      <div className="mx-auto flex max-w-5xl flex-col items-center gap-3 sm:flex-row sm:justify-between">
-        <p className="t-sm">
+      <div className="mx-auto flex w-full max-w-[1440px] flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-[12.5px] leading-relaxed text-txt-secondary">
           {t("cookies.text", { defaultValue: "We use a strictly-necessary session cookie for sign-in and store your preferences locally." })}{" "}
-          <Link to="/privacy" className="font-medium text-foreground underline underline-offset-2 hover:opacity-70">
+          <Link to="/privacy" className="link">
             {t("cookies.learn", { defaultValue: "Privacy Policy" })}
           </Link>
         </p>

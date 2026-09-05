@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react";
-import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
+import { IconFilePlus } from "@/components/bench/icons";
 
 interface EmptyStateProps {
   icon?: LucideIcon;
@@ -10,26 +10,17 @@ interface EmptyStateProps {
   onAction?: () => void;
 }
 
-export function EmptyState({
-  icon: Icon,
-  title,
-  description,
-  actionLabel,
-  onAction,
-}: EmptyStateProps) {
-  const { t } = useTranslation("common");
-
+/** An empty ledger: the file mark, one sentence, a mono hint and one secondary action. */
+export function EmptyState({ icon: Icon, title, description, actionLabel, onAction }: EmptyStateProps) {
   return (
-    <div className="flex min-h-[30vh] flex-col items-center justify-center gap-3 p-8 text-center">
-      {Icon && (
-        <div className="flex h-14 w-14 items-center justify-center rounded-md border border-border bg-muted">
-          <Icon className="h-7 w-7 text-muted-foreground" />
-        </div>
+    <div className="flex flex-col items-center gap-4 border-y border-bench-hair px-6 py-20 text-center">
+      {Icon ? (
+        <Icon className="h-7 w-7 text-txt-muted" strokeWidth={1.5} aria-hidden />
+      ) : (
+        <IconFilePlus className="text-txt-muted" />
       )}
-      <h3 className="font-display text-lg font-semibold text-foreground">{title}</h3>
-      {description && (
-        <p className="max-w-sm text-sm text-muted-foreground">{description}</p>
-      )}
+      <p className="text-[15px] text-txt-primary">{title}</p>
+      {description && <p className="max-w-[48ch] font-mono text-[11px] leading-relaxed text-txt-muted">{description}</p>}
       {actionLabel && onAction && (
         <Button onClick={onAction} variant="outline" size="sm" className="mt-2">
           {actionLabel}

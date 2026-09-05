@@ -2,16 +2,24 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { QRCodeSVG } from "qrcode.react";
-import { Copy, Download, KeyRound, Loader2, LogOut, ShieldAlert, ShieldCheck, Trash } from "lucide-react";
+import { Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { deleteAccount, exportAccountData } from "@/lib/accountApi";
-import { Masthead, Panel, Field, Serial, Stamp } from "@/components/dossier/Dossier";
+import { Masthead, Panel, Field } from "@/components/dossier/Dossier";
+import { Tag } from "@/components/bench/Bench";
+import { IconDownload } from "@/components/bench/icons";
+import { cn } from "@/lib/utils";
 
 type Stage = "idle" | "enrolling" | "recovery" | "disabling";
 
+/**
+ * Account: identity as a ruled field sheet, two-factor as a lamp with the
+ * enrolment sequence beneath it, access & data rows, and the delete panel
+ * set apart with the signal.
+ */
 const Settings = () => {
   const { t } = useTranslation("common");
   const navigate = useNavigate();
@@ -113,292 +121,253 @@ const Settings = () => {
 
   const hasEmail = Boolean(user?.email);
 
+  const emailTag = !hasEmail ? (
+    <Tag tone="neutral">—</Tag>
+  ) : user?.email_verified ? (
+    <Tag tone="neutral">{t("settings.verified", { defaultValue: "verified" })}</Tag>
+  ) : (
+    <Tag tone="advisory">{t("settings.unverified", { defaultValue: "unverified" })}</Tag>
+  );
+
+  const stepNumber = (n: number) => <span aria-hidden className="mono-ordinal pt-1 text-txt-muted">{String(n).padStart(2, "0")}</span>;
+
   return (
-    <div className="mx-auto max-w-3xl space-y-6 animate-fade-in">
+    <div className="mx-auto max-w-3xl pt-7">
       <Masthead
-        kicker={t("settings.kicker", { defaultValue: "Account & Security" })}
+        kicker={t("settings.account", { defaultValue: "Account" })}
         title={t("settings.title")}
         description={t("settings.subtitle")}
         meta={[
-          { label: "USER", value: user?.username ?? "—" },
+          { label: "USER", value: <span dir="ltr">{user?.username ?? "—"}</span> },
+          { label: "2FA", value: <Tag tone={twofaOn ? "neutral" : "advisory"}>{twofaOn ? t("settings.twofaOn") : t("settings.twofaOff")}</Tag> },
           {
-            label: "2FA",
-            value: twofaOn ? (
-              <span className="text-success">ENABLED</span>
-            ) : (
-              <span className="rounded-sm bg-warning/20 px-1.5 py-0.5 text-foreground">DISABLED</span>
-            ),
+            label: "ROLE",
+            value: user?.is_admin ? t("settings.roleAdmin", { defaultValue: "Administrator" }) : t("settings.roleStandard", { defaultValue: "Standard" }),
           },
-          { label: "ROLE", value: user?.is_admin ? "ADMIN" : "STANDARD" },
-          {
-            label: "EMAIL",
-            value: !hasEmail ? (
-              <span className="text-muted-foreground">NONE</span>
-            ) : user?.email_verified ? (
-              <span className="text-success">VERIFIED</span>
-            ) : (
-              <span className="rounded-sm bg-warning/20 px-1.5 py-0.5 text-foreground">UNVERIFIED</span>
-            ),
-          },
+          { label: "EMAIL", value: emailTag },
         ]}
       />
 
-      {/* The operator's ID plate — who this docket belongs to */}
-      <section className="border border-border bg-card">
-        <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-2">
-          <span className="t-label flex items-center gap-2 text-foreground">
-            <span className="reg-dot h-3 w-3 text-primary" aria-hidden />
-            {t("settings.identity", { defaultValue: "Identity" })}
-          </span>
-          <Stamp band="neutral" className="px-1.5 text-[9px]">
-            {user?.is_admin
-              ? t("settings.roleAdmin", { defaultValue: "Administrator" })
-              : t("settings.roleStandard", { defaultValue: "Standard" })}
-          </Stamp>
-        </div>
-        <div className="grid sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-          <div className="border-b border-border p-5 sm:border-b-0 sm:border-e">
-            <span className="press-slug block">{t("settings.account", { defaultValue: "Account" })}</span>
-            <span
-              className="mt-1.5 block truncate font-display text-2xl font-extrabold text-foreground"
-              style={{ fontStretch: "116%" }}
-              dir="ltr"
-            >
+      <div className="mt-8 space-y-5">
+        {/* Identity */}
+        <Panel label={t("settings.identity", { defaultValue: "Identity" })} bodyClassName="px-5 py-0 sm:px-6">
+          <Field label={t("settings.account", { defaultValue: "Account" })} align="center">
+            <span className="mono-value block truncate text-txt-primary" dir="ltr">
               {user?.username ?? "—"}
             </span>
-          </div>
-          <div className="p-5">
-            <span className="press-slug block">{t("settings.email", { defaultValue: "Email" })}</span>
-            {hasEmail ? (
-              <div className="mt-1.5 flex flex-wrap items-center gap-2.5">
-                <span className="truncate font-mono text-sm text-foreground" dir="ltr">
-                  {user?.email}
-                </span>
-                <span className={user?.email_verified ? "badge-success" : "badge-warning"}>
-                  {user?.email_verified
-                    ? t("settings.verified", { defaultValue: "verified" })
-                    : t("settings.unverified", { defaultValue: "unverified" })}
-                </span>
-              </div>
-            ) : (
-              <span className="mt-1.5 block font-mono text-sm text-muted-foreground">—</span>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* Two-factor authentication */}
-      <Panel
-        label={t("settings.twofa")}
-        bodyClassName="p-0"
-        actions={
-          stage === "idle" ? (
-            twofaOn ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setStage("disabling");
-                  setCode("");
-                  setPassword("");
-                }}
-              >
-                {t("settings.disable2fa")}
-              </Button>
-            ) : (
-              <Button size="sm" onClick={beginEnroll} disabled={busy} className="gap-2">
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
-                {t("settings.enable2fa")}
-              </Button>
-            )
-          ) : undefined
-        }
-      >
-        <div className="px-5 sm:px-6">
-          <Field label={t("settings.security")}>
-            <div className="flex items-center gap-2.5">
-              {twofaOn ? (
-                <ShieldCheck className="h-5 w-5 shrink-0 text-success" />
-              ) : (
-                <ShieldAlert className="h-5 w-5 shrink-0 text-warning" />
-              )}
-              <span className="font-mono text-sm font-semibold text-foreground">
-                {twofaOn ? t("settings.twofaOn") : t("settings.twofaOff")}
-              </span>
-            </div>
-            {stage === "idle" && <p className="mt-2 t-sm">{t("settings.twofaIntro")}</p>}
           </Field>
-        </div>
-
-        {stage === "enrolling" && (
-          /* The enrolment procedure — a genuine sequence, so the steps are numbered. */
-          <div className="border-t border-border px-5 py-5 sm:px-6">
-            <ol className="space-y-5">
-              <li className="grid grid-cols-[1.75rem_1fr] gap-x-3">
-                <span aria-hidden className="select-none font-display text-lg font-extrabold leading-snug text-muted-foreground" style={{ fontStretch: "120%" }}>1</span>
-                <div>
-                  <p className="t-sm">{t("settings.scanOrEnter")}</p>
-                  {otpauthUri && (
-                    <div className="mt-3 flex justify-center border border-border bg-white p-4">
-                      <QRCodeSVG value={otpauthUri} size={168} level="M" includeMargin={false} />
-                    </div>
-                  )}
-                </div>
-              </li>
-              <li className="grid grid-cols-[1.75rem_1fr] gap-x-3">
-                <span aria-hidden className="select-none font-display text-lg font-extrabold leading-snug text-muted-foreground" style={{ fontStretch: "120%" }}>2</span>
-                <div>
-                  <p className="t-sm">{t("settings.manualEntry")}</p>
-                  <div className="mt-2 flex items-center gap-2">
-                    <Input readOnly value={secret} dir="ltr" className="font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
-                    <Button type="button" variant="outline" size="sm" className="gap-1.5" aria-label={t("settings.copySecret")} title={t("settings.copySecret")} onClick={() => copy(secret)}>
-                      <Copy className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              </li>
-              <li className="grid grid-cols-[1.75rem_1fr] gap-x-3">
-                <span aria-hidden className="select-none font-display text-lg font-extrabold leading-snug text-muted-foreground" style={{ fontStretch: "120%" }}>3</span>
-                <div>
-                  <Input
-                    value={code}
-                    dir="ltr"
-                    inputMode="numeric"
-                    placeholder="123456"
-                    onChange={(e) => setCode(e.target.value)}
-                    className="h-10 text-center font-mono tracking-[0.3em]"
-                  />
-                  <div className="mt-3 flex justify-end gap-2">
-                    <Button variant="ghost" onClick={() => setStage("idle")}>
-                      {t("settings.cancel")}
-                    </Button>
-                    <Button onClick={confirmEnable} disabled={busy || !code.trim()}>
-                      {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      {t("settings.confirmEnable")}
-                    </Button>
-                  </div>
-                </div>
-              </li>
-            </ol>
-          </div>
-        )}
-
-        {stage === "recovery" && (
-          <div className="space-y-3 border-t border-border px-5 py-5 sm:px-6">
-            <div className="t-label text-foreground">{t("settings.recoveryTitle")}</div>
-            <p className="t-sm">{t("settings.recoveryIntro")}</p>
-            {/* Recovery codes as a ruled evidence ledger, serial-numbered */}
-            <ol className="overflow-hidden rounded-lg border border-border divide-y divide-border" dir="ltr">
-              {recoveryCodes.map((c, i) => (
-                <li key={c} className="flex items-center gap-3 px-3 py-2">
-                  <Serial>{String(i + 1).padStart(2, "0")}</Serial>
-                  <span className="font-mono text-sm tabular-nums text-foreground">{c}</span>
-                </li>
-              ))}
-            </ol>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => copy(recoveryCodes.join("\n"))}>
-                <Copy className="h-3.5 w-3.5" />
-                {t("settings.copied")}
-              </Button>
-              <Button onClick={() => setStage("idle")}>{t("settings.done")}</Button>
+          <Field label={t("settings.email", { defaultValue: "Email" })} align="center">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="mono-value min-w-0 truncate text-txt-primary" dir="ltr">
+                {hasEmail ? user?.email : "—"}
+              </span>
+              {hasEmail && emailTag}
             </div>
-          </div>
-        )}
-
-        {stage === "disabling" && (
-          <div className="space-y-3 border-t border-border px-5 py-5 sm:px-6">
-            <p className="t-sm">{t("settings.disableIntro")}</p>
-            <Input type="password" value={password} placeholder={t("settings.currentPassword")} onChange={(e) => setPassword(e.target.value)} className="h-10" />
-            <Input value={code} dir="ltr" placeholder={t("settings.authCode")} onChange={(e) => setCode(e.target.value)} className="h-10 font-mono" />
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setStage("idle")}>
-                {t("settings.cancel")}
-              </Button>
-              <Button onClick={confirmDisable} disabled={busy || !password || !code.trim()} variant="destructive">
-                {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {t("settings.confirmDisable")}
-              </Button>
-            </div>
-          </div>
-        )}
-      </Panel>
-
-      {/* Access & data rights — margin-label control rows */}
-      <Panel label={t("settings.accessData", { defaultValue: "Access & data" })} bodyClassName="px-5 py-0 sm:px-6">
-        <Field label={t("settings.sessions")}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="t-sm">{t("settings.logoutAllIntro")}</p>
-            <Button variant="outline" size="sm" onClick={handleLogoutAll} disabled={busy} className="shrink-0 gap-2">
-              <LogOut className="h-4 w-4" />
-              {t("settings.logoutAll")}
-            </Button>
-          </div>
-        </Field>
-
-        <Field label={t("settings.apiKeys.title")}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="t-sm">{t("settings.apiKeys.intro")}</p>
-            <Button variant="outline" size="sm" className="shrink-0 gap-2" onClick={() => navigate("/api-keys")}>
-              <KeyRound className="h-4 w-4" />
-              {t("nav.apiKeys")}
-            </Button>
-          </div>
-        </Field>
-
-        <Field label={t("settings.privacy")}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="t-sm">{t("settings.exportIntro")}</p>
-            <Button variant="outline" size="sm" onClick={handleExport} className="shrink-0 gap-2">
-              <Download className="h-4 w-4" />
-              {t("settings.exportData")}
-            </Button>
-          </div>
-        </Field>
-      </Panel>
-
-      {/* The void block — irreversible; set apart with the flag stamp */}
-      {!user?.is_admin && (
-        <Panel
-          label={
-            <Stamp band="flag" className="px-1.5 text-[9px]">
-              {t("settings.dangerZone")}
-            </Stamp>
-          }
-          className="border-destructive/40 bg-destructive/[0.02]"
-          bodyClassName="px-5 py-0 sm:px-6"
-        >
-          <Field label={t("settings.deleteButton")}>
-            <p className="t-sm">{t("settings.deleteIntro")}</p>
-            {!confirmingDelete ? (
-              <Button variant="destructive" size="sm" className="mt-3 gap-2" onClick={() => setConfirmingDelete(true)}>
-                <Trash className="h-4 w-4" />
-                {t("settings.deleteButton")}
-              </Button>
-            ) : (
-              <div className="mt-3 space-y-2">
-                <p className="t-sm">{t("settings.deleteConfirm")}</p>
-                <Input type="password" value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} className="h-10" />
-                <div className="flex justify-end gap-2">
-                  <Button
-                    variant="ghost"
-                    onClick={() => {
-                      setConfirmingDelete(false);
-                      setDeletePassword("");
-                    }}
-                  >
-                    {t("settings.cancel")}
-                  </Button>
-                  <Button variant="destructive" disabled={deleting || !deletePassword} onClick={handleDeleteAccount}>
-                    {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash className="mr-2 h-4 w-4" />}
-                    {t("settings.deleteButton")}
-                  </Button>
-                </div>
-              </div>
-            )}
+          </Field>
+          <Field label={t("settings.accessLevel", { defaultValue: "Access level" })} align="center">
+            <Tag tone="neutral">
+              {user?.is_admin ? t("settings.roleAdmin", { defaultValue: "Administrator" }) : t("settings.roleStandard", { defaultValue: "Standard" })}
+            </Tag>
           </Field>
         </Panel>
-      )}
+
+        {/* Two-factor authentication */}
+        <Panel
+          label={t("settings.twofa")}
+          bodyClassName="p-0"
+          actions={
+            stage === "idle" ? (
+              twofaOn ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setStage("disabling");
+                    setCode("");
+                    setPassword("");
+                  }}
+                >
+                  {t("settings.disable2fa")}
+                </Button>
+              ) : (
+                <Button size="sm" onClick={beginEnroll} disabled={busy}>
+                  {t("settings.enable2fa")}
+                </Button>
+              )
+            ) : undefined
+          }
+        >
+          <div className="px-5 sm:px-6">
+            <Field label={t("settings.security")}>
+              <div className="flex h-6 items-center gap-2.5">
+                <span aria-hidden className={cn("lamp", twofaOn && "is-on")} />
+                <span className="body-compact text-txt-primary">{twofaOn ? t("settings.twofaOn") : t("settings.twofaOff")}</span>
+                <span className="mono-meta text-txt-muted">TOTP</span>
+                <span className="sr-only">{twofaOn ? "on" : "off"}</span>
+              </div>
+              {stage === "idle" && <p className="mt-2 text-[13px] leading-relaxed text-txt-secondary">{t("settings.twofaIntro")}</p>}
+            </Field>
+          </div>
+
+          {stage === "enrolling" && (
+            /* The enrolment procedure — a genuine sequence, so the steps are numbered. */
+            <div className="border-t border-bench-hair px-5 py-5 sm:px-6">
+              <ol className="space-y-6">
+                <li className="grid grid-cols-[2.5rem_1fr] gap-x-3">
+                  {stepNumber(1)}
+                  <div>
+                    <p className="text-[13px] leading-relaxed text-txt-secondary">{t("settings.scanOrEnter")}</p>
+                    {otpauthUri && (
+                      <div className="plate mt-3 flex justify-center p-4">
+                        <QRCodeSVG value={otpauthUri} size={168} level="M" includeMargin={false} bgColor="#f4f2ec" fgColor="#1b1b19" />
+                      </div>
+                    )}
+                  </div>
+                </li>
+                <li className="grid grid-cols-[2.5rem_1fr] gap-x-3">
+                  {stepNumber(2)}
+                  <div>
+                    <p className="text-[13px] leading-relaxed text-txt-secondary">{t("settings.manualEntry")}</p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <Input readOnly value={secret} dir="ltr" className="font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
+                      <Button type="button" variant="outline" size="sm" aria-label={t("settings.copySecret")} title={t("settings.copySecret")} onClick={() => copy(secret)}>
+                        <Copy strokeWidth={1.5} />
+                      </Button>
+                    </div>
+                  </div>
+                </li>
+                <li className="grid grid-cols-[2.5rem_1fr] gap-x-3">
+                  {stepNumber(3)}
+                  <div>
+                    <Input
+                      value={code}
+                      dir="ltr"
+                      inputMode="numeric"
+                      placeholder="123456"
+                      aria-label={t("settings.authCode")}
+                      onChange={(e) => setCode(e.target.value)}
+                      className="h-10 text-center font-mono tracking-[0.3em]"
+                    />
+                    <div className="mt-3 flex justify-end gap-3">
+                      <Button variant="outline" onClick={() => setStage("idle")}>
+                        {t("settings.cancel")}
+                      </Button>
+                      <Button onClick={confirmEnable} disabled={busy || !code.trim()}>
+                        {t("settings.confirmEnable")}
+                      </Button>
+                    </div>
+                  </div>
+                </li>
+              </ol>
+            </div>
+          )}
+
+          {stage === "recovery" && (
+            <div className="space-y-3 border-t border-bench-hair px-5 py-5 sm:px-6">
+              <div className="label text-txt-primary">{t("settings.recoveryTitle")}</div>
+              <p className="text-[13px] leading-relaxed text-txt-secondary">{t("settings.recoveryIntro")}</p>
+              {/* Recovery codes as a ruled, numbered list */}
+              <ol className="divide-y divide-bench-hair border-y border-bench-hair" dir="ltr">
+                {recoveryCodes.map((c, i) => (
+                  <li key={c} className="flex h-9 items-center gap-4">
+                    <span className="mono-ordinal w-6 text-txt-muted">{String(i + 1).padStart(2, "0")}</span>
+                    <span className="mono-value text-txt-primary">{c}</span>
+                  </li>
+                ))}
+              </ol>
+              <div className="flex justify-end gap-3 pt-1">
+                <Button variant="outline" size="sm" onClick={() => copy(recoveryCodes.join("\n"))}>
+                  <Copy strokeWidth={1.5} />
+                  {t("settings.copied")}
+                </Button>
+                <Button size="sm" onClick={() => setStage("idle")}>
+                  {t("settings.done")}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {stage === "disabling" && (
+            <div className="space-y-3 border-t border-bench-hair px-5 py-5 sm:px-6">
+              <p className="text-[13px] leading-relaxed text-txt-secondary">{t("settings.disableIntro")}</p>
+              <Input type="password" value={password} placeholder={t("settings.currentPassword")} aria-label={t("settings.currentPassword")} onChange={(e) => setPassword(e.target.value)} className="h-10" />
+              <Input value={code} dir="ltr" placeholder={t("settings.authCode")} aria-label={t("settings.authCode")} onChange={(e) => setCode(e.target.value)} className="h-10 font-mono" />
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={() => setStage("idle")}>
+                  {t("settings.cancel")}
+                </Button>
+                <Button onClick={confirmDisable} disabled={busy || !password || !code.trim()} variant="destructive">
+                  {t("settings.confirmDisable")}
+                </Button>
+              </div>
+            </div>
+          )}
+        </Panel>
+
+        {/* Access & data */}
+        <Panel label={t("settings.accessData", { defaultValue: "Access & data" })} bodyClassName="px-5 py-0 sm:px-6">
+          <Field label={t("settings.sessions")} align="center">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-[13px] leading-relaxed text-txt-secondary">{t("settings.logoutAllIntro")}</p>
+              <Button variant="outline" size="sm" onClick={handleLogoutAll} disabled={busy} className="shrink-0">
+                {t("settings.logoutAll")}
+              </Button>
+            </div>
+          </Field>
+
+          <Field label={t("settings.apiKeys.title")} align="center">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-[13px] leading-relaxed text-txt-secondary">{t("settings.apiKeys.intro")}</p>
+              <Button variant="outline" size="sm" className="shrink-0" onClick={() => navigate("/api-keys")}>
+                {t("nav.apiKeys")}
+              </Button>
+            </div>
+          </Field>
+
+          <Field label={t("settings.privacy")} align="center">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-[13px] leading-relaxed text-txt-secondary">{t("settings.exportIntro")}</p>
+              <Button variant="outline" size="sm" onClick={handleExport} className="shrink-0">
+                <IconDownload />
+                {t("settings.exportData")}
+              </Button>
+            </div>
+          </Field>
+        </Panel>
+
+        {/* Delete account — irreversible, set apart with the signal */}
+        {!user?.is_admin && (
+          <Panel label={<Tag tone="hot">{t("settings.dangerZone")}</Tag>} className="border-signal" bodyClassName="px-5 py-0 sm:px-6">
+            <Field label={t("settings.deleteButton")}>
+              <p className="text-[13px] leading-relaxed text-txt-secondary">{t("settings.deleteIntro")}</p>
+              {!confirmingDelete ? (
+                <Button variant="destructive" size="sm" className="mt-3" onClick={() => setConfirmingDelete(true)}>
+                  {t("settings.deleteButton")}
+                </Button>
+              ) : (
+                <div className="mt-3 space-y-3">
+                  <p className="text-[13px] leading-relaxed text-txt-secondary">{t("settings.deleteConfirm")}</p>
+                  <Input type="password" value={deletePassword} aria-label={t("settings.currentPassword")} onChange={(e) => setDeletePassword(e.target.value)} className="h-10" />
+                  <div className="flex justify-end gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setConfirmingDelete(false);
+                        setDeletePassword("");
+                      }}
+                    >
+                      {t("settings.cancel")}
+                    </Button>
+                    <Button variant="destructive" disabled={deleting || !deletePassword} onClick={handleDeleteAccount}>
+                      {deleting ? t("settings.deleting") : t("settings.deleteButton")}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </Field>
+          </Panel>
+        )}
+      </div>
     </div>
   );
 };

@@ -1,32 +1,32 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowRight, CheckCircle2, FileText, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageLoader } from "@/components/common/PageLoader";
 import { PageError } from "@/components/common/PageError";
-import { ControlStrip, OverprintMeter, RegMark, Serial, Stamp } from "@/components/dossier/Dossier";
+import { Reading, ScaleTicks } from "@/components/bench/Bench";
+import { Panel } from "@/components/dossier/Dossier";
+import { IconArrowRight } from "@/components/bench/icons";
 import { apiFetch } from "@/lib/api";
 import { formatPlanPrice, getPlans, type BillingPlan } from "@/lib/billingApi";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import type { HomeResponse } from "@/types/api";
+import { cn } from "@/lib/utils";
 
-const engineLabels = ["AST", "Fingerprint", "Neural"];
+/** The instrument's nameplate: the build and the calibration run behind every reading. */
+const INSTRUMENT_VERSION = "v1.0";
+const CALIBRATION_DATE = "2026-07";
 
-/* The signals index prints each capability as an ink in the legend —
-   the same palette the whole instrument reads in. */
-const featureInks = [
-  "hsl(var(--plate-a))",
-  "hsl(var(--plate-b))",
-  "hsl(var(--primary))",
-  "hsl(var(--destructive))",
-  "hsl(var(--success))",
-  "hsl(var(--warning))",
-];
+/* Ruled readings: two columns on small screens, N from lg; hairlines between cells and rows. */
+const READINGS_ROW =
+  "grid grid-cols-2 border-y border-bench-hair [&>*]:px-4 lg:[&>*]:px-6 [&>*:first-child]:ps-0 [&>*:nth-child(even)]:border-s [&>*:nth-child(n+3)]:border-t lg:[&>*:nth-child(n+3)]:border-t-0 lg:[&>*:not(:first-child)]:border-s";
 
-const DEMO_SCORE = 87;
-
+/**
+ * The nameplate page: what the comparator is, its live readings, the signals
+ * it measures and the published rate card. Everything on it is backed by data
+ * the page loads — nothing is a mock-up.
+ */
 const Home = () => {
   const { isAuthenticated } = useAuth();
   const { formatNumber } = useLanguage();
@@ -63,311 +63,156 @@ const Home = () => {
   if (loading) return <PageLoader />;
   if (error) return <PageError message={error} onRetry={fetchHome} />;
 
-  const trustSignals = t("home.trustSignals", { returnObjects: true }) as string[];
-
-  const features = (
-    t("home.features", { returnObjects: true }) as Array<{ title: string; description: string }>
-  ).map((feat, i) => ({ ...feat, ink: featureInks[i % featureInks.length] }));
+  const features = t("home.features", { returnObjects: true }) as Array<{ title: string; description: string }>;
 
   const primaryHref = isAuthenticated ? "/analysis" : "/login";
-  const secondaryHref = home?.latestAnalysisId ? `/results?analysisId=${home.latestAnalysisId}` : primaryHref;
+  const latestHref = home?.latestAnalysisId ? `/results?analysisId=${home.latestAnalysisId}` : null;
+  const languages = home?.languagesSupported ?? 0;
 
-  const counters = home
+  const readings = home
     ? [
-        { k: t("home.stats.analysesRun"), v: formatNumber(home.totalAnalyses) },
-        { k: t("home.stats.languagesSupported"), v: formatNumber(home.languagesSupported) },
-        ...(home.userAnalyses > 0
-          ? [{ k: t("home.stats.currentUserAnalyses"), v: formatNumber(home.userAnalyses) }]
-          : []),
+        { label: t("home.stats.analysesRun"), value: formatNumber(home.totalAnalyses), note: t("history.readings.allTime") },
+        { label: t("home.stats.languagesSupported"), value: formatNumber(home.languagesSupported), note: INSTRUMENT_VERSION },
+        ...(home.userAnalyses > 0 ? [{ label: t("home.stats.currentUserAnalyses"), value: formatNumber(home.userAnalyses), note: undefined }] : []),
+        {
+          label: t("home.stats.historyReady"),
+          value: home.latestAnalysisId ? t("home.stats.yes") : t("home.stats.awaiting"),
+          note: home.latestAnalysisId ? `#${home.latestAnalysisId}` : undefined,
+        },
       ]
     : [];
 
   return (
-    <div className="mx-auto max-w-[76rem]">
-      {/* ── Sheet slug: job line along the top edge ── */}
-      <div className="flex items-center justify-between gap-4 border-b border-border pb-2.5">
-        <span className="press-slug flex items-center gap-2 text-foreground">
-          <RegMark className="h-3.5 w-3.5 text-primary" />
-          Clone Lens · {t("home.pairwise")}
-        </span>
-        <span className="press-slug hidden sm:inline">{engineLabels.join(" / ")}</span>
-      </div>
-
-      {/* ── The registration moment ── */}
-      <section className="pt-10 lg:pt-16">
-        <h1
-          className="font-display font-extrabold uppercase leading-[0.94] text-foreground"
-          style={{ fontSize: "clamp(2.4rem, 6.4vw, 5.5rem)", fontStretch: "122%", letterSpacing: "-0.01em", textWrap: "balance" }}
-        >
-          {t("home.titlePrefix")}{" "}
-          {/* The key phrase prints three times — cyan plate, magenta plate,
-              and the black impression on top, sliding into register. */}
-          {/* Layers wrap identically (same text, same width), so line breaks stay in register. */}
-          <span className="relative inline-block">
-            <span aria-hidden className="absolute inset-0 animate-register-a text-plate-a motion-reduce:translate-x-[-0.045em]">
-              {t("home.titleHighlight")}
-            </span>
-            <span aria-hidden className="absolute inset-0 animate-register-b text-plate-b motion-reduce:translate-x-[0.045em]">
-              {t("home.titleHighlight")}
-            </span>
-            <span className="relative">{t("home.titleHighlight")}</span>
-          </span>
-        </h1>
-
-        <div className="mt-10 grid gap-9 border-t-2 border-foreground pt-8 lg:grid-cols-[1fr_18rem] lg:gap-14">
-          {/* Lead */}
-          <div>
-            <p className="max-w-[54ch] text-[1.13rem] leading-[1.7] text-foreground">
-              {t("home.description")}
-            </p>
-            <div className="mt-9 flex flex-wrap items-center gap-x-4 gap-y-3">
-              <Button asChild size="lg" className="h-12 gap-2 px-7 text-[0.95rem]">
-                <Link to={primaryHref}>
-                  {isAuthenticated ? t("home.primarySignedIn") : t("home.primarySignedOut")}
-                  <ArrowRight className="h-4 w-4 rtl:rotate-180" />
-                </Link>
-              </Button>
-              <Button asChild variant="outline" size="lg" className="h-12 px-6 text-[0.95rem]">
-                <Link to={secondaryHref}>{t("home.secondary")}</Link>
-              </Button>
-            </div>
-          </div>
-
-          {/* The impression counter — live figures in counter cells */}
-          {counters.length > 0 && (
-            <aside>
-              <div className="t-label mb-3">{t("analytics.eyebrow")}</div>
-              <div className="divide-y divide-border border border-border">
-                {counters.map((row) => (
-                  <div key={row.k} className="flex items-center justify-between gap-3 bg-card px-4 py-3.5">
-                    <span className="press-slug">{row.k}</span>
-                    <span
-                      className="font-display text-2xl font-extrabold tabular-nums text-foreground"
-                      style={{ fontStretch: "118%" }}
-                    >
-                      {row.v}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </aside>
+    <div className="pt-7">
+      {/* Nameplate */}
+      <section className="flex flex-col items-start gap-6 pb-10">
+        <span className="label text-txt-muted">{t("home.kicker", { defaultValue: "Comparator" })}</span>
+        <h1 className="t-statement max-w-[24ch] text-txt-primary">{t("home.statement", { defaultValue: "Code-similarity comparator." })}</h1>
+        <p className="body-lg max-w-[58ch] text-txt-secondary">{t("home.lead", { defaultValue: t("home.description") })}</p>
+        <div className="flex flex-wrap items-center gap-3 pt-1">
+          <Button asChild size="lg">
+            <Link to={primaryHref}>
+              {isAuthenticated ? t("home.newComparison", { defaultValue: "New comparison" }) : t("home.primarySignedOut")}
+              <IconArrowRight className="rtl:-scale-x-100" />
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="lg">
+            <Link to="/history">{t("home.openHistory", { defaultValue: "Open history" })}</Link>
+          </Button>
+          {latestHref && (
+            <Link to={latestHref} className="link ms-1 text-[13px]">
+              {t("home.secondary")}
+            </Link>
           )}
         </div>
-      </section>
 
-      {/* ── The overlay: what a press check looks like ── */}
-      <section className="mt-20 lg:mt-28">
-        <div className="mb-6 flex items-baseline justify-between gap-4 border-b-2 border-foreground pb-2.5">
-          <h2 className="flex items-center gap-2 font-display text-sm font-bold uppercase tracking-[0.14em] text-foreground" style={{ fontStretch: "114%" }}>
-            {t("home.pairwise")}
-          </h2>
-          <span className="press-slug">
-            {t("home.exhibitA")} ⊕ {t("home.exhibitB")}
+        {/* Calibration strip */}
+        <div className="rule-t mt-4 flex w-full flex-wrap items-center gap-x-6 gap-y-3 pt-4">
+          <div aria-hidden className="scale w-[240px]">
+            <ScaleTicks />
+          </div>
+          <span className="mono-meta text-txt-muted">
+            {t("home.calibration", {
+              defaultValue: "{{version}} · {{count}} languages · calibration {{date}}",
+              version: INSTRUMENT_VERSION,
+              count: languages,
+              date: CALIBRATION_DATE,
+            })}
           </span>
         </div>
-
-        <Link
-          to={primaryHref}
-          className="group block"
-          aria-label={isAuthenticated ? t("home.primarySignedIn") : t("home.primarySignedOut")}
-        >
-          <figure className="overflow-hidden border border-border bg-card transition-colors group-hover:border-foreground/40">
-            <figcaption className="flex items-center justify-between gap-3 border-b border-border px-6 py-3">
-              <span className="t-label flex items-center gap-2 text-foreground">{t("home.pairwise")}</span>
-              <span className="press-slug">{t("home.pasteCode")}</span>
-            </figcaption>
-
-            <div className="grid items-stretch gap-5 p-6 sm:grid-cols-[1fr_auto_1fr] sm:p-9">
-              {/* Plate A — loaded */}
-              <div className="border border-plate-a/45 bg-plate-a/[0.05] p-6">
-                <div className="mb-4 flex items-center gap-2">
-                  <Serial tone="plate-a">A</Serial>
-                  <span className="t-label text-plate-a-deep">{t("home.exhibitA")}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <FileText className="h-6 w-6 shrink-0 text-plate-a-deep" />
-                  <div className="min-w-0 text-start">
-                    <div className="truncate font-mono text-[0.95rem] font-semibold text-foreground">solution_v3.py</div>
-                    <div className="truncate font-mono text-xs tabular-nums text-muted-foreground">
-                      4.2 KB · 118 lines · Python
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* The registration seam */}
-              <div className="flex items-center justify-center px-1" aria-hidden>
-                <RegMark className="h-7 w-7 text-muted-foreground transition-colors group-hover:text-primary" />
-              </div>
-
-              {/* Plate B — awaiting */}
-              <div className="border border-dashed border-plate-b/50 p-6 transition-colors group-hover:border-plate-b group-hover:bg-plate-b/[0.04]">
-                <div className="mb-4 flex items-center gap-2">
-                  <Serial tone="plate-b">B</Serial>
-                  <span className="t-label text-plate-b-deep">{t("home.exhibitB")}</span>
-                </div>
-                <div className="text-center">
-                  <Upload className="mx-auto mb-2.5 h-7 w-7 text-muted-foreground" />
-                  <div className="font-semibold text-foreground">{t("home.dropTitle")}</div>
-                  <div className="t-xs mt-1">{t("home.dropHint")}</div>
-                </div>
-              </div>
-            </div>
-
-            {/* The readout this pair would print */}
-            <div className="border-t border-border px-6 py-5 sm:px-9">
-              <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-                <span
-                  className="font-display text-3xl font-extrabold tabular-nums leading-none text-foreground"
-                  style={{ fontStretch: "120%" }}
-                >
-                  {DEMO_SCORE}%
-                </span>
-                <OverprintMeter value={DEMO_SCORE} className="min-w-40 flex-1" label={`${DEMO_SCORE}%`} />
-                <Stamp band="flag">{t("results.similarity.high", { ns: "results" })}</Stamp>
-              </div>
-            </div>
-
-            {/* Chain-of-custody — trust annotations */}
-            <div className="flex flex-wrap items-center gap-x-7 gap-y-2 border-t border-border px-6 py-3.5">
-              {trustSignals.map((item) => (
-                <div key={item} className="press-slug flex items-center gap-1.5 normal-case tracking-normal">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-success" />
-                  {item}
-                </div>
-              ))}
-            </div>
-          </figure>
-        </Link>
       </section>
 
-      {/* ── The signals: every ink in the legend ── */}
-      <section className="mt-20 lg:mt-28">
-        <div className="mb-1 flex items-baseline justify-between gap-4 border-b-2 border-foreground pb-2.5">
-          <h2 className="flex items-center gap-2 font-display text-sm font-bold uppercase tracking-[0.14em] text-foreground" style={{ fontStretch: "114%" }}>
-            {t("home.featuresTitle")}
-          </h2>
-          <ControlStrip className="hidden sm:inline-flex" />
-        </div>
-        <div className="grid gap-x-14 sm:grid-cols-2">
-          {features.map((feature) => (
-            <div
-              key={feature.title}
-              className="flex items-start gap-4 border-b border-border py-6 last:border-b-0 sm:[&:nth-last-child(2)]:border-b-0"
-            >
-              <span aria-hidden className="mt-1 h-3.5 w-3.5 shrink-0 border border-foreground/20" style={{ background: feature.ink }} />
-              <div className="min-w-0">
-                <h3 className="t-h5 text-foreground">{feature.title}</h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{feature.description}</p>
-              </div>
-            </div>
+      {/* Readings */}
+      {readings.length > 0 && (
+        <div className={cn(READINGS_ROW, readings.length === 4 ? "lg:grid-cols-4" : "lg:grid-cols-3")}>
+          {readings.map((r) => (
+            <Reading key={r.label} label={r.label} value={r.value} note={r.note} />
           ))}
         </div>
-      </section>
-
-      {/* \u2500\u2500 The rate card: what it costs, printed in the open \u2500\u2500 */}
-      {plans.length > 0 && (
-        <section className="mt-20 lg:mt-28">
-          <div className="mb-1 flex items-baseline justify-between gap-4 border-b-2 border-foreground pb-2.5">
-            <h2
-              className="flex items-center gap-2 font-display text-sm font-bold uppercase tracking-[0.14em] text-foreground"
-              style={{ fontStretch: "114%" }}
-            >
-              {t("home.pricingTitle")}
-            </h2>
-            <ControlStrip className="hidden sm:inline-flex" />
-          </div>
-
-          <div className="overflow-x-auto scrollbar-thin">
-            {/* Tiers as columns, attributes as ruled rows - the printed price card. */}
-            <table className="mt-6 w-full min-w-[520px] border border-border bg-card text-sm">
-              <thead>
-                <tr className="border-b-2 border-foreground">
-                  <th scope="col" className="press-slug w-36 px-5 py-4 text-start align-bottom">
-                    {t("billing.colTier")}
-                  </th>
-                  {plans.map((plan) => (
-                    <th key={plan.code} scope="col" className="border-s border-border px-5 py-4 text-start align-bottom">
-                      <span className="t-h5 text-foreground">{plan.name}</span>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b border-border">
-                  <th scope="row" className="press-slug px-5 py-4 text-start align-middle font-normal">
-                    {t("billing.colPrice")}
-                  </th>
-                  {plans.map((plan) => (
-                    <td key={plan.code} className="border-s border-border px-5 py-4">
-                      <span className="flex items-baseline gap-1 tabular-nums">
-                        <span className="font-display text-2xl font-extrabold text-foreground" style={{ fontStretch: "118%" }}>
-                          {plan.priceCents === 0 ? t("billing.free") : formatPlanPrice(plan.priceCents)}
-                        </span>
-                        {plan.priceCents > 0 && <span className="press-slug">{t("billing.perMonth")}</span>}
-                      </span>
-                    </td>
-                  ))}
-                </tr>
-                <tr>
-                  <th scope="row" className="press-slug px-5 py-4 text-start align-middle font-normal">
-                    {t("billing.colQuota")}
-                  </th>
-                  {plans.map((plan) => (
-                    <td
-                      key={plan.code}
-                      className="border-s border-border px-5 py-4 font-display font-bold tabular-nums text-foreground"
-                      style={{ fontStretch: "108%" }}
-                    >
-                      {plan.unlimited ? t("billing.unlimited") : formatNumber(plan.monthlyAnalysisQuota)}
-                    </td>
-                  ))}
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <p className="mt-4 max-w-[74ch] text-sm leading-relaxed text-muted-foreground">
-            {t("home.pricingNote")}{" "}
-            <Link to="/terms" className="text-foreground underline underline-offset-4 hover:text-primary">
-              {t("home.pricingTerms")}
-            </Link>
-          </p>
-        </section>
       )}
 
-      {/* ── Colophon: the drenched overprint band ── */}
-      <section className="mt-20 lg:mt-28">
-        <div className="relative bg-primary px-7 py-10 text-primary-foreground sm:px-10 sm:py-12">
-          <div className="flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-2xl">
-              <h2
-                className="font-display font-extrabold uppercase leading-[1.02]"
-                style={{ fontSize: "clamp(1.6rem, 3vw, 2.4rem)", fontStretch: "118%", textWrap: "balance" }}
-              >
-                {t("home.ctaTitle")}
-              </h2>
-              <p className="mt-3.5 max-w-[52ch] text-[0.98rem] leading-relaxed text-primary-foreground/85">
-                {t("home.ctaDescription")}
+      <div className="mt-8 space-y-5">
+        {/* Signals */}
+        <Panel
+          label={t("home.featuresTitle")}
+          actions={<span className="mono-meta hidden text-txt-muted sm:inline">{String(features.length).padStart(2, "0")}</span>}
+          bodyClassName="p-0"
+        >
+          <div className="grid [&>*:first-child]:border-t-0 sm:grid-cols-2 sm:gap-x-12 sm:[&>*:nth-child(2)]:border-t-0">
+            {features.map((feature, i) => (
+              <div key={feature.title} className="grid grid-cols-[2.5rem_1fr] gap-x-3 border-t border-bench-hair px-5 py-5">
+                <span className="mono-ordinal pt-1 text-txt-muted">{String(i + 1).padStart(2, "0")}</span>
+                <div className="min-w-0">
+                  <h3 className="t-h5 text-txt-primary">{feature.title}</h3>
+                  <p className="mt-1.5 text-[13px] leading-relaxed text-txt-secondary">{feature.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Panel>
+
+        {/* Rate card */}
+        {plans.length > 0 && (
+          <Panel
+            label={t("home.pricingTitle")}
+            actions={<span className="mono-meta hidden text-txt-muted sm:inline">USD</span>}
+            bodyClassName="p-0"
+          >
+            <div className="overflow-x-auto scrollbar-thin">
+              <table className="w-full min-w-[520px] border-collapse">
+                <thead>
+                  <tr className="h-9 border-b border-bench-hair [&>*:last-child]:pe-5">
+                    <th scope="col" className="label w-36 ps-5 text-start font-semibold text-txt-muted">
+                      {t("billing.colTier")}
+                    </th>
+                    {plans.map((plan) => (
+                      <th key={plan.code} scope="col" className="label border-s border-bench-hair ps-5 text-start font-semibold text-txt-primary">
+                        {plan.name}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-bench-hair [&>*:last-child]:pe-5">
+                    <th scope="row" className="label ps-5 py-5 text-start font-semibold text-txt-muted">
+                      {t("billing.colPrice")}
+                    </th>
+                    {plans.map((plan) => (
+                      <td key={plan.code} className="border-s border-bench-hair ps-5 py-5 align-baseline">
+                        <span className="flex items-baseline gap-1.5">
+                          <span className="t-display text-[2.75rem] text-txt-primary" dir="ltr">
+                            {plan.priceCents === 0 ? t("billing.free") : formatPlanPrice(plan.priceCents)}
+                          </span>
+                          {plan.priceCents > 0 && <span className="mono-meta text-txt-muted">{t("billing.perMonth")}</span>}
+                        </span>
+                      </td>
+                    ))}
+                  </tr>
+                  <tr className="h-[46px] [&>*:last-child]:pe-5">
+                    <th scope="row" className="label ps-5 text-start font-semibold text-txt-muted">
+                      {t("billing.colQuota")}
+                    </th>
+                    {plans.map((plan) => (
+                      <td key={plan.code} className="mono-value border-s border-bench-hair ps-5 text-txt-primary">
+                        {plan.unlimited ? t("billing.unlimited") : formatNumber(plan.monthlyAnalysisQuota)}
+                      </td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="border-t border-bench-hair px-5 py-4">
+              <p className="max-w-[74ch] text-[13px] leading-relaxed text-txt-secondary">
+                {t("home.pricingNote")}{" "}
+                <Link to="/terms" className="link">
+                  {t("home.pricingTerms")}
+                </Link>
               </p>
             </div>
-            <Button
-              asChild
-              size="lg"
-              className="h-12 shrink-0 gap-2 border border-primary-foreground bg-transparent px-7 text-primary-foreground hover:bg-primary-foreground/15"
-            >
-              <Link to={primaryHref}>
-                {isAuthenticated ? t("home.ctaSignedIn") : t("home.ctaSignedOut")}
-                <ArrowRight className="h-4 w-4 rtl:rotate-180" />
-              </Link>
-            </Button>
-          </div>
-          <div className="mt-8 flex items-center justify-between border-t border-primary-foreground/25 pt-4">
-            <span className="press-slug text-primary-foreground/70">Clone Lens · {engineLabels.join(" / ")}</span>
-            <RegMark className="h-4 w-4 text-primary-foreground/70" />
-          </div>
-        </div>
-      </section>
+          </Panel>
+        )}
+      </div>
     </div>
   );
 };

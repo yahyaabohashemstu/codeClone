@@ -1,23 +1,25 @@
-import { useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useId, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { AtSign, CheckCircle2, Eye, EyeOff, Lock, UserRound } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ControlStrip, RegMark } from "@/components/dossier/Dossier";
-import { BrandMark } from "@/components/brand/BrandMark";
+import { AuthShell, PlateField, PlateNotice, PlateTitle } from "@/components/layout/AuthShell";
+import { BenchButton } from "@/components/bench/Bench";
+import { IconArrowRight } from "@/components/bench/icons";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
-import { cn } from "@/lib/utils";
 
 type Mode = "signin" | "signup" | "forgot" | "twofa";
 
+/**
+ * The access plate. One plate, four modes: sign in, sign up, reset request,
+ * and the second-factor step that follows a sign-in when 2FA is enabled.
+ */
 const Auth = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { login, signup, requestPasswordReset, complete2faLogin, resendVerification } = useAuth();
-  const { isRTL, localizeRuntimeMessage } = useLanguage();
+  const { localizeRuntimeMessage } = useLanguage();
   const { t } = useTranslation("auth");
+  const uid = useId();
   const [mode, setMode] = useState<Mode>("signin");
   const [showPassword, setShowPassword] = useState(false);
   const [username, setUsername] = useState("");
@@ -43,6 +45,9 @@ const Auth = () => {
     setPendingVerifyEmail("");
   };
 
+  const asMessage = (e: unknown) =>
+    e instanceof Error ? localizeRuntimeMessage(e.message) : t("auth.errors.invalidCredentials");
+
   const handleResendVerification = async () => {
     if (!pendingVerifyEmail) return;
     setError("");
@@ -56,9 +61,6 @@ const Auth = () => {
       setIsSubmitting(false);
     }
   };
-
-  const asMessage = (e: unknown) =>
-    e instanceof Error ? localizeRuntimeMessage(e.message) : t("auth.errors.invalidCredentials");
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -143,128 +145,59 @@ const Auth = () => {
     }
   };
 
-  const headingTitle =
-    mode === "signup" ? t("auth.createAccountTitle")
-    : mode === "forgot" ? t("auth.forgotTitle")
-    : mode === "twofa" ? t("auth.twofaTitle")
-    : t("auth.signIn");
-  const headingDescription =
-    mode === "signup" ? t("auth.createAccountDescription")
-    : mode === "forgot" ? t("auth.forgotDescription")
-    : mode === "twofa" ? t("auth.twofaDescription")
-    : t("auth.loginDescription");
+  const title =
+    mode === "signup" ? { word: t("auth.bench.titleSignUp"), qualifier: t("auth.bench.titleSignUpSub") }
+    : mode === "forgot" ? { word: t("auth.bench.titleForgot"), qualifier: t("auth.bench.titleForgotSub") }
+    : mode === "twofa" ? { word: t("auth.bench.titleTwofa"), qualifier: t("auth.bench.titleTwofaSub") }
+    : { word: t("auth.bench.titleSignIn"), qualifier: t("auth.bench.titleSignInSub") };
+
   const submitLabel =
     mode === "signup" ? t("auth.submitRegister")
     : mode === "forgot" ? t("auth.sendResetLink")
     : mode === "twofa" ? t("auth.verify")
-    : t("auth.submitLogin");
+    : t("auth.bench.titleSignIn");
   const submittingLabel =
     mode === "signup" ? t("auth.creatingAccount")
     : mode === "forgot" ? t("auth.sending")
     : t("auth.signingIn");
 
+  const ids = {
+    identifier: `${uid}-identifier`,
+    email: `${uid}-email`,
+    password: `${uid}-password`,
+    code: `${uid}-code`,
+  };
+
   return (
-    <div className="mx-auto grid w-full max-w-6xl overflow-hidden border border-border bg-card md:grid-cols-2" style={{ minHeight: "640px" }}>
-      {/* ── Brand side — the press room after hours, fixed dark in both themes ── */}
-      <section
-        className="relative flex flex-col justify-between overflow-hidden p-10 text-white"
-        style={{ background: "hsl(var(--auth-ink))" }}
-      >
-        {/* Oversized registration watermark */}
-        <RegMark
-          className="pointer-events-none absolute -bottom-24 -end-24 h-96 w-96 text-white/[0.05]"
-          aria-hidden
-        />
+    <AuthShell>
+      <form className="flex flex-col gap-[22px]" onSubmit={(e) => void handleSubmit(e)} noValidate>
+        <PlateTitle word={title.word} qualifier={title.qualifier} />
 
-        <div className="relative">
-          <div className="flex items-center gap-3">
-            <BrandMark className="h-10 shrink-0" lens="hsl(252 92% 78%)" letter="#FCFDFD" />
-            <span className="font-display text-lg font-extrabold uppercase tracking-wide" style={{ fontStretch: "118%" }}>
-              Clone Lens
-            </span>
-          </div>
-
-          {/* The two plates, drawn as rules */}
-          <div className="mt-8 space-y-1" aria-hidden>
-            <span className="block h-0.5 w-16 bg-plate-a" />
-            <span className="block h-0.5 w-16 translate-x-2 bg-plate-b rtl:-translate-x-2" />
-          </div>
-
-          <h2
-            className="mt-6 font-display font-bold leading-[1.08]"
-            style={{ fontSize: "clamp(1.8rem, 2.8vw, 2.4rem)", fontStretch: "108%", textWrap: "balance" }}
-          >
-            {t("auth.welcomeTitle")}
-          </h2>
-          <p className="mt-4 max-w-[42ch] text-sm leading-[1.65] text-white/70">
-            {t("auth.welcomeSubtitle")}
-          </p>
-        </div>
-
-        {/* Sheet edge — the ink legend signs off the panel */}
-        <div className="relative flex items-center justify-between">
-          <ControlStrip className="border-white/20" />
-          <span className="press-slug text-white/45">EST. REG · A ⊕ B</span>
-        </div>
-      </section>
-
-      {/* ── Form side ── */}
-      <section className="flex flex-col justify-center p-10">
-        <div className="press-slug mb-6 flex items-center justify-end gap-2">
-          <Lock className="h-3.5 w-3.5" />
-          {t("auth.secureAccess")}
-        </div>
-
-        <h3 className="t-h3">
-          {headingTitle}
-        </h3>
-        <p className="mt-1.5 mb-6 text-sm text-muted-foreground">{headingDescription}</p>
-
-        {error && (
-          <div
-            className="mb-4 rounded-md border px-4 py-3 text-sm"
-            style={{
-              borderColor: "hsl(var(--destructive) / 0.25)",
-              background: "hsl(var(--destructive) / 0.06)",
-              color: "hsl(var(--destructive))",
-            }}
-            role="alert"
-          >
-            {error}
-          </div>
-        )}
+        {error && <PlateNotice tone="error">{error}</PlateNotice>}
         {notice && (
-          <div
-            className="mb-4 flex items-start gap-2 rounded-md border px-4 py-3 text-sm"
-            style={{
-              borderColor: "hsl(var(--success) / 0.3)",
-              background: "hsl(var(--success) / 0.08)",
-              color: "hsl(var(--success))",
-            }}
-            role="status"
-          >
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{notice}</span>
-          </div>
-        )}
-        {pendingVerifyEmail && mode === "signup" && (
-          <button
-            type="button"
-            onClick={() => void handleResendVerification()}
-            disabled={isSubmitting}
-            className="mb-4 text-sm text-foreground underline underline-offset-2 hover:opacity-70 disabled:opacity-50"
-          >
-            {isSubmitting ? t("auth.resending") : t("auth.resendVerification")}
-          </button>
+          <PlateNotice tone="notice">
+            {notice}
+            {pendingVerifyEmail && mode === "signup" && (
+              <>
+                {" "}
+                <button
+                  type="button"
+                  onClick={() => void handleResendVerification()}
+                  disabled={isSubmitting}
+                  className="underline underline-offset-2 text-plate-ink disabled:opacity-50"
+                >
+                  {isSubmitting ? t("auth.resending") : t("auth.resendVerification")}
+                </button>
+              </>
+            )}
+          </PlateNotice>
         )}
 
-        <form className="space-y-4" onSubmit={(e) => void handleSubmit(e)}>
-          {mode === "twofa" && (
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground">
-                {t("auth.twofaCodeLabel")}
-              </label>
-              <Input
+        {mode === "twofa" && (
+          <PlateField label={t("auth.twofaCodeLabel")} htmlFor={ids.code}>
+            <div className="plate-well">
+              <input
+                id={ids.code}
                 type="text"
                 inputMode="numeric"
                 autoComplete="one-time-code"
@@ -273,151 +206,134 @@ const Auth = () => {
                 value={twofaCode}
                 dir="ltr"
                 onChange={(e) => setTwofaCode(e.target.value)}
-                className="h-10 text-center tracking-[0.3em]"
+                className="font-mono tracking-[0.3em]"
               />
             </div>
-          )}
-          {(mode === "signin" || mode === "signup") && (
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground">
-                {mode === "signin" ? t("auth.identifier") : t("auth.username")}
-              </label>
-              <div className="relative">
-                <UserRound
-                  className={cn(
-                    "absolute top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground",
-                    isRTL ? "right-3" : "left-3",
-                  )}
-                />
-                <Input
-                  type="text"
-                  placeholder={mode === "signin" ? t("auth.identifierPlaceholder") : t("auth.usernamePlaceholder")}
-                  value={username}
-                  autoComplete="username"
-                  onChange={(e) => setUsername(e.target.value)}
-                  className={cn("h-10", isRTL ? "pr-10 text-right" : "pl-10")}
-                />
-              </div>
-            </div>
-          )}
+            <p className="mt-2.5 text-[12.5px] text-plate-soft">{t("auth.twofaDescription")}</p>
+          </PlateField>
+        )}
 
-          {(mode === "signup" || mode === "forgot") && (
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground">
-                {t("auth.email")}
-              </label>
-              <div className="relative">
-                <AtSign
-                  className={cn(
-                    "absolute top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground",
-                    isRTL ? "right-3" : "left-3",
-                  )}
-                />
-                <Input
-                  type="email"
-                  placeholder={t("auth.emailPlaceholder")}
-                  value={email}
-                  autoComplete="email"
-                  dir="ltr"
-                  onChange={(e) => setEmail(e.target.value)}
-                  className={cn("h-10", isRTL ? "pr-10 text-right" : "pl-10")}
-                />
-              </div>
+        {(mode === "signin" || mode === "signup") && (
+          <PlateField label={mode === "signin" ? t("auth.bench.identifierLabel") : t("auth.username")} htmlFor={ids.identifier}>
+            <div className="plate-well">
+              <input
+                id={ids.identifier}
+                type="text"
+                placeholder={mode === "signin" ? "name@company.com" : t("auth.usernamePlaceholder")}
+                value={username}
+                autoComplete="username"
+                autoFocus
+                dir="ltr"
+                onChange={(e) => setUsername(e.target.value)}
+              />
             </div>
-          )}
+          </PlateField>
+        )}
 
-          {(mode === "signin" || mode === "signup") && (
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground">
-                {t("auth.password")}
-              </label>
-              <div className="relative">
-                <Lock
-                  className={cn(
-                    "absolute top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground",
-                    isRTL ? "right-3" : "left-3",
-                  )}
-                />
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  placeholder={t("auth.passwordPlaceholder")}
-                  value={password}
-                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={cn("h-10", isRTL ? "pr-10 pl-10 text-right" : "pl-10 pr-10")}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  className={cn(
-                    "absolute top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground",
-                    isRTL ? "left-3" : "right-3",
-                  )}
-                  aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-              {mode === "signin" && (
+        {(mode === "signup" || mode === "forgot") && (
+          <PlateField label={t("auth.email")} htmlFor={ids.email}>
+            <div className="plate-well">
+              <input
+                id={ids.email}
+                type="email"
+                placeholder="name@company.com"
+                value={email}
+                autoComplete="email"
+                autoFocus={mode === "forgot"}
+                dir="ltr"
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+          </PlateField>
+        )}
+
+        {(mode === "signin" || mode === "signup") && (
+          <PlateField
+            label={t("auth.password")}
+            htmlFor={ids.password}
+            aside={
+              mode === "signin" ? (
                 <button
                   type="button"
                   onClick={() => switchMode("forgot")}
-                  className={cn("mt-2 text-xs text-foreground underline underline-offset-2 hover:opacity-70", isRTL ? "float-left" : "float-right")}
+                  className="text-[12.5px] text-plate-ink underline underline-offset-2 hover:text-signal-plate"
                 >
-                  {t("auth.forgotPassword")}
+                  {t("auth.bench.forgot")}
                 </button>
-              )}
-            </div>
-          )}
-
-          <Button
-            type="submit"
-            disabled={isSubmitting}
-            className="mt-2 h-11 w-full gap-2"
+              ) : undefined
+            }
           >
-            {isSubmitting ? (
-              <span className="flex items-center gap-2">
-                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary-foreground/40 border-t-primary-foreground" />
-                {submittingLabel}
-              </span>
-            ) : (
-              submitLabel
-            )}
-          </Button>
-        </form>
+            <div className="plate-well">
+              <input
+                id={ids.password}
+                type={showPassword ? "text" : "password"}
+                placeholder="············"
+                value={password}
+                autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                dir="ltr"
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="label-sm shrink-0 text-plate-soft hover:text-plate-ink"
+                aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
+                aria-pressed={showPassword}
+              >
+                {showPassword ? t("auth.bench.hide") : t("auth.bench.show")}
+              </button>
+            </div>
+          </PlateField>
+        )}
 
-        <div className="mt-5 text-center text-sm text-muted-foreground">
+        <div>
+          <BenchButton
+            type="submit"
+            tone="primary"
+            size="large"
+            disabled={isSubmitting}
+            trailing={<IconArrowRight className="rtl:-scale-x-100" />}
+          >
+            {isSubmitting ? submittingLabel : submitLabel}
+          </BenchButton>
+        </div>
+
+        <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-t border-plate-hair pt-[18px] text-[12.5px] text-plate-soft">
           {mode === "signin" && (
-            <button type="button" onClick={() => switchMode("signup")} className="text-foreground underline underline-offset-2 hover:opacity-70">
-              {t("auth.signupCta")}
-            </button>
+            <>
+              <span>
+                {t("auth.bench.noAccount")}{" "}
+                <button type="button" onClick={() => switchMode("signup")} className="text-plate-ink underline underline-offset-2 hover:text-signal-plate">
+                  {t("auth.bench.createOne")}
+                </button>
+              </span>
+              <span>{t("auth.bench.twofaFollows")}</span>
+            </>
           )}
           {mode === "signup" && (
-            <button type="button" onClick={() => switchMode("signin")} className="text-foreground underline underline-offset-2 hover:opacity-70">
-              {t("auth.loginCta")}
-            </button>
+            <span>
+              {t("auth.bench.haveAccount")}{" "}
+              <button type="button" onClick={() => switchMode("signin")} className="text-plate-ink underline underline-offset-2 hover:text-signal-plate">
+                {t("auth.bench.signInLink")}
+              </button>
+            </span>
           )}
-          {(mode === "forgot" || mode === "twofa") && (
-            <button type="button" onClick={() => switchMode("signin")} className="text-foreground underline underline-offset-2 hover:opacity-70">
+          {mode === "forgot" && (
+            <span>
+              {t("auth.bench.rememberedIt")}{" "}
+              <button type="button" onClick={() => switchMode("signin")} className="text-plate-ink underline underline-offset-2 hover:text-signal-plate">
+                {t("auth.bench.signInLink")}
+              </button>
+            </span>
+          )}
+          {mode === "twofa" && (
+            <button type="button" onClick={() => switchMode("signin")} className="text-plate-ink underline underline-offset-2 hover:text-signal-plate">
               {t("auth.backToLogin")}
             </button>
           )}
         </div>
-
-        <div
-          className="my-5 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground"
-          aria-hidden
-        >
-          <span className="h-px flex-1 bg-border" />
-          {t("auth.or")}
-          <span className="h-px flex-1 bg-border" />
-        </div>
-
-        <Button asChild variant="outline" className="h-10 w-full text-sm">
-          <Link to="/">{t("auth.goHome")}</Link>
-        </Button>
-      </section>
-    </div>
+      </form>
+    </AuthShell>
   );
 };
 

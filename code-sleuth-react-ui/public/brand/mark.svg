@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Clone Lens favicon: the approved mark, centred in a square with even
-     padding. The L flips to a light ink on dark browser chrome so the letter
-     never disappears into the tab bar. -->
+     padding. The lens takes the plate ink on light browser chrome and the
+     bench text ink on dark chrome; the L is always the signal colour. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
   <style>
-    .lens { fill: #3e2c8c; }
-    .letter { fill: #231f20; }
+    .lens { fill: #1b1b19; }
+    .letter { fill: #f2532a; }
     @media (prefers-color-scheme: dark) {
-      .lens { fill: #a78bfa; }
-      .letter { fill: #eceff3; }
+      .lens { fill: #e8e6e1; }
+      .letter { fill: #f2532a; }
     }
   </style>
   <g transform="translate(16,42.52) scale(0.91064)">

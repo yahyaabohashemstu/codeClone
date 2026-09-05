@@ -1,14 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import {
-  AlertCircle,
-  ArrowLeft,
-  Download,
-  Loader2,
-  MessageSquare,
-  RefreshCw,
-} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,7 +12,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Masthead, Panel, Field, Serial, SpecList } from "@/components/dossier/Dossier";
+import { Masthead, Panel, Field, ScaleRuler } from "@/components/dossier/Dossier";
+import { Reading, Scale, Tag, type TagTone } from "@/components/bench/Bench";
+import { IconChevronLeft, IconDownload } from "@/components/bench/icons";
+import { PageError } from "@/components/common/PageError";
+import { PageLoader } from "@/components/common/PageLoader";
 import { useLanguage } from "@/context/LanguageContext";
 import {
   getCase,
@@ -35,23 +31,22 @@ import type {
   FeedbackLabel,
   CodeArtifact,
 } from "@/types/enterprise";
-import { cn } from "@/lib/utils";
 
-// Squared mono status tags (see .badge-* utilities in index.css).
-const STATUS_BADGE: Record<CaseStatus, string> = {
-  open: "badge-info",
-  in_review: "badge-warning",
-  confirmed_clone: "badge-error",
-  false_positive: "badge-info",
-  dismissed: "badge-info",
-  resolved: "badge-success",
+/** Dispositions take the three tag tones: a confirmed clone is hot, a case still open is advisory. */
+const STATUS_TONE: Record<CaseStatus, TagTone> = {
+  open: "advisory",
+  in_review: "advisory",
+  confirmed_clone: "hot",
+  false_positive: "neutral",
+  dismissed: "neutral",
+  resolved: "neutral",
 };
 
-const SEVERITY_BADGE: Record<CaseSeverity, string> = {
-  critical: "badge-error",
-  high: "badge-warning",
-  medium: "badge-warning",
-  low: "badge-info",
+const SEVERITY_TONE: Record<CaseSeverity, TagTone> = {
+  critical: "hot",
+  high: "hot",
+  medium: "advisory",
+  low: "neutral",
 };
 
 const ALL_STATUSES: CaseStatus[] = [
@@ -69,6 +64,11 @@ const ALL_FEEDBACK: FeedbackLabel[] = [
 ];
 
 const EM_DASH = "—";
+const CLONE_THRESHOLD = 80;
+
+/* Ruled readings: two columns on small screens, four from lg; hairlines between cells and rows. */
+const READINGS_ROW =
+  "grid grid-cols-2 border-y border-bench-hair lg:grid-cols-4 [&>*]:px-4 lg:[&>*]:px-6 [&>*:first-child]:ps-0 [&>*:nth-child(even)]:border-s [&>*:nth-child(n+3)]:border-t lg:[&>*:nth-child(n+3)]:border-t-0 lg:[&>*:not(:first-child)]:border-s";
 
 export default function CaseDetail() {
   const { caseId } = useParams<{ caseId: string }>();
@@ -145,49 +145,33 @@ export default function CaseDetail() {
     }
   };
 
+  const backLink = (
+    <button type="button" onClick={() => navigate(-1)} className="link inline-flex items-center gap-1 text-[12.5px]">
+      <IconChevronLeft className="rtl:-scale-x-100" />
+      {t("enterprise.caseDetail.back")}
+    </button>
+  );
+
   if (loading) {
     return (
-      <div
-        className="mx-auto flex max-w-5xl items-center justify-center gap-2 py-24 font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground"
-        dir={isRTL ? "rtl" : "ltr"}
-      >
-        <Loader2 className="h-4 w-4 animate-spin" />
-        {t("enterprise.common.loading")}
+      <div className="pt-7" dir={isRTL ? "rtl" : "ltr"}>
+        <PageLoader message={t("enterprise.common.loading")} />
       </div>
     );
   }
 
   if (error || !caseData) {
     return (
-      <div
-        className="mx-auto flex max-w-5xl flex-col items-center gap-3 py-24 text-destructive"
-        dir={isRTL ? "rtl" : "ltr"}
-      >
-        <AlertCircle className="h-6 w-6" />
-        <p>{error ?? t("enterprise.caseDetail.errorMsg")}</p>
-        <Button variant="outline" size="sm" onClick={() => navigate(-1)} className="gap-1.5">
-          <ArrowLeft className={cn("h-3.5 w-3.5", isRTL && "rotate-180")} />
-          {t("enterprise.caseDetail.back")}
-        </Button>
+      <div className="pt-7" dir={isRTL ? "rtl" : "ltr"}>
+        <PageError message={error ?? t("enterprise.caseDetail.errorMsg")} />
+        <div className="flex justify-center">{backLink}</div>
       </div>
     );
   }
 
   const { match } = caseData;
   const confidence = Math.round(caseData.confidenceScore);
-
-  // Ring geometry — token-driven, no gradient.
-  const ringSize = 132;
-  const ringRadius = 56;
-  const ringCircumference = 2 * Math.PI * ringRadius;
-  const ringOffset = ringCircumference * (1 - Math.min(100, Math.max(0, confidence)) / 100);
-  const ringColor =
-    confidence >= 80 ? "hsl(var(--destructive))"
-      : confidence >= 50 ? "hsl(var(--warning))"
-        : "hsl(var(--primary))";
-
-  const metricColor = (pct: number) =>
-    pct >= 80 ? "hsl(var(--destructive))" : pct >= 60 ? "hsl(var(--warning))" : "hsl(var(--foreground))";
+  const similarity = Math.round(match.similarityScore);
 
   const metrics = [
     { label: t("enterprise.caseDetail.similarity"), value: match.similarityScore },
@@ -201,291 +185,184 @@ export default function CaseDetail() {
     { mark: "B", label: t("enterprise.caseDetail.artifactB"), artifact: match.artifactB },
   ];
 
-  return (
-    <div className="mx-auto max-w-5xl space-y-10 p-6" dir={isRTL ? "rtl" : "ltr"}>
-      {/* Back — mono file-return line */}
-      <button
-        type="button"
-        onClick={() => navigate(-1)}
-        className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className={cn("h-3.5 w-3.5", isRTL && "rotate-180")} />
-        {t("enterprise.caseDetail.back")}
-      </button>
+  const statusTag = <Tag tone={STATUS_TONE[caseData.status]}>{t(`enterprise.status.${caseData.status}`)}</Tag>;
+  const severityTag = <Tag tone={SEVERITY_TONE[caseData.severity]}>{t(`enterprise.severity.${caseData.severity}`)}</Tag>;
 
-      {/* Case masthead — serialised file header with live disposition readings */}
+  return (
+    <div className="pt-7" dir={isRTL ? "rtl" : "ltr"}>
+      <div className="pb-5">{backLink}</div>
+
       <Masthead
-        kicker={t("enterprise.caseDetail.caseId", { defaultValue: "Case file" })}
+        kicker={t("enterprise.caseDetail.kicker", { defaultValue: "Case file" })}
         title={
-          <span className="font-mono tabular-nums">
+          <span dir="ltr">
             {t("enterprise.caseDetail.caseId")} #{caseData.id}
           </span>
         }
         description={
           <>
             {t("enterprise.caseDetail.cloneType")}:{" "}
-            <span className="font-mono font-medium text-foreground">{caseData.cloneType}</span>
+            <span className="mono-value text-txt-primary" dir="ltr">{caseData.cloneType}</span>
           </>
         }
-        meta={[
-          { label: t("enterprise.caseDetail.similarity"), value: `${Math.round(match.similarityScore)}%` },
-          { label: t("enterprise.caseDetail.confidence"), value: `${confidence}%` },
-          {
-            label: t("enterprise.caseDetail.severity"),
-            value: (
-              <span className={cn("capitalize", SEVERITY_BADGE[caseData.severity])}>
-                {t(`enterprise.severity.${caseData.severity}`)}
-              </span>
-            ),
-          },
-          {
-            label: t("enterprise.caseDetail.status"),
-            value: (
-              <span className={STATUS_BADGE[caseData.status]}>
-                {t(`enterprise.status.${caseData.status}`)}
-              </span>
-            ),
-          },
-        ]}
         actions={
           <Button
-            size="sm"
-            className="gap-1.5"
+            variant="outline"
             onClick={() =>
               window.open(getCasePdfUrl(caseData.id), "_blank", "noopener,noreferrer")
             }
           >
-            <Download className="h-3.5 w-3.5" />
+            <IconDownload />
             {t("enterprise.caseDetail.downloadPdf")}
           </Button>
         }
       />
 
-      {/* Case record — the file header as a ruled mono spec sheet */}
-      <Panel bare marker="§" label={t("enterprise.caseDetail.caseId", { defaultValue: "Case record" })}>
-        <SpecList
-          rows={[
-            { label: t("enterprise.caseDetail.cloneType"), value: caseData.cloneType },
-            { label: t("enterprise.caseDetail.confidence"), value: `${confidence}%` },
-            { label: t("enterprise.caseDetail.similarity"), value: `${Math.round(match.similarityScore)}%` },
-            {
-              label: t("enterprise.caseDetail.status"),
-              value: (
-                <span className={STATUS_BADGE[caseData.status]}>{t(`enterprise.status.${caseData.status}`)}</span>
-              ),
-            },
-            {
-              label: t("enterprise.caseDetail.severity"),
-              value: (
-                <span className={cn("capitalize", SEVERITY_BADGE[caseData.severity])}>
-                  {t(`enterprise.severity.${caseData.severity}`)}
-                </span>
-              ),
-            },
-          ]}
-        />
-      </Panel>
+      {/* Readings */}
+      <div className={READINGS_ROW}>
+        <Reading label={t("enterprise.caseDetail.similarity")} value={similarity} note="/ 100" />
+        <Reading label={t("enterprise.caseDetail.confidence")} value={confidence} note={t("history.readings.threshold", { ns: "common", value: CLONE_THRESHOLD })} />
+        <Reading label={t("enterprise.caseDetail.severity")} value={t(`enterprise.severity.${caseData.severity}`)} note={severityTag} />
+        <Reading label={t("enterprise.caseDetail.status")} value={t(`enterprise.status.${caseData.status}`)} note={statusTag} />
+      </div>
 
-      {/* Match analysis — the confidence ruling: dominant ring + margin-label metric ledger */}
-      <Panel bare marker="§" label={t("enterprise.caseDetail.confidence")}>
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
-          {/* Score ring — the assertive, dominant element */}
-          <div className="flex shrink-0 flex-col items-center gap-1">
-            <svg
-              width={ringSize}
-              height={ringSize}
-              viewBox={`0 0 ${ringSize} ${ringSize}`}
-              aria-hidden
-            >
-              <circle
-                cx={ringSize / 2}
-                cy={ringSize / 2}
-                r={ringRadius}
-                fill="none"
-                stroke="hsl(var(--muted))"
-                strokeWidth={10}
-              />
-              <circle
-                cx={ringSize / 2}
-                cy={ringSize / 2}
-                r={ringRadius}
-                fill="none"
-                stroke={ringColor}
-                strokeWidth={10}
-                strokeLinecap="round"
-                strokeDasharray={ringCircumference}
-                strokeDashoffset={ringOffset}
-                transform={`rotate(-90 ${ringSize / 2} ${ringSize / 2})`}
-              />
-              <text
-                x={ringSize / 2}
-                y={ringSize / 2 + 4}
-                textAnchor="middle"
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 30,
-                  fontWeight: 700,
-                  fill: "hsl(var(--foreground))",
-                  fontVariantNumeric: "tabular-nums",
-                }}
-              >
-                {confidence}
-              </text>
-              <text
-                x={ringSize / 2}
-                y={ringSize / 2 + 24}
-                textAnchor="middle"
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 10,
-                  fill: "hsl(var(--muted-foreground))",
-                }}
-              >
-                % conf
-              </text>
-            </svg>
-            <span className="t-label">{t("enterprise.caseDetail.confidence")}</span>
-          </div>
-
-          {/* Metric breakdown — signature margin-label field rows; ink numerals, colour on the bar */}
-          <div className="min-w-0 flex-1">
+      <div className="mt-8 space-y-5">
+        {/* Confidence on the instrument */}
+        <Panel label={t("enterprise.caseDetail.confidence")}>
+          <ScaleRuler
+            value={confidence}
+            threshold={CLONE_THRESHOLD}
+            thresholdLabel={`${CLONE_THRESHOLD}`}
+            label={`${t("enterprise.caseDetail.confidence")}: ${confidence}%`}
+          />
+          <div className="mt-6 border-t border-bench-hair">
             {metrics.map(({ label, value }) => {
               const pct = Math.round(value);
               return (
                 <Field key={label} label={label} align="center">
                   <div className="flex items-center gap-4">
-                    <div className="h-1.5 flex-1 overflow-hidden bg-muted" dir="ltr">
-                      <div
-                        className="h-full"
-                        style={{ width: `${pct}%`, backgroundColor: metricColor(pct) }}
-                      />
-                    </div>
-                    <span
-                      className="w-14 shrink-0 text-end font-mono text-lg font-semibold tabular-nums text-foreground"
-                      style={{ letterSpacing: "-0.01em" }}
-                    >
-                      {pct}%
+                    <Scale value={pct} quiet={pct < 50} className="flex-1" label={`${label}: ${pct}%`} />
+                    <span className="mono-value w-12 shrink-0 text-end text-txt-primary" dir="ltr">
+                      {pct}
                     </span>
                   </div>
                 </Field>
               );
             })}
           </div>
-        </div>
-      </Panel>
+        </Panel>
 
-      {/* Exhibits — the two artifacts as numbered, margin-labelled evidence sheets (ruled, not boxed) */}
-      <div className="grid gap-x-12 gap-y-10 md:grid-cols-2">
-        {exhibits.map(({ mark, label, artifact }) => (
-          <Panel
-            key={mark}
-            bare
-            label={
-              <span className="flex items-center gap-2">
-                <Serial tone="primary">{mark}</Serial>
-                {label}
-              </span>
-            }
-          >
-            <Field label={t("enterprise.caseDetail.path")}>
-              <span className="break-all font-mono text-sm text-foreground" dir="ltr">
-                {artifact?.logicalPath ?? EM_DASH}
-              </span>
-            </Field>
-            {artifact?.symbolName && (
-              <Field label={t("enterprise.caseDetail.symbol", { defaultValue: "Symbol" })}>
-                <span className="break-all font-mono text-sm text-foreground" dir="ltr">
-                  {artifact.symbolName}
+        {/* Exhibits — the two artifacts, named by letter */}
+        <div className="grid gap-5 md:grid-cols-2">
+          {exhibits.map(({ mark, label, artifact }) => (
+            <Panel
+              key={mark}
+              bodyClassName="px-5 py-0"
+              label={
+                <span className="flex items-center gap-2.5">
+                  <span aria-hidden className="label-tag text-txt-muted">{mark}</span>
+                  {label}
                 </span>
-              </Field>
-            )}
-            <Field label={t("enterprise.caseDetail.lines")}>
-              <span className="font-mono text-sm tabular-nums text-foreground" dir="ltr">
-                {artifact?.startLine}
-                {"–"}
-                {artifact?.endLine}
-              </span>
-            </Field>
-            <Field label={t("enterprise.caseDetail.language")}>
-              <span className="font-mono text-sm text-foreground">{artifact?.language ?? EM_DASH}</span>
-            </Field>
-            {artifact?.tokenCount != null && (
-              <Field label={t("enterprise.caseDetail.tokens", { defaultValue: "Tokens" })}>
-                <span className="font-mono text-sm tabular-nums text-foreground" dir="ltr">
-                  {artifact.tokenCount}
-                </span>
-              </Field>
-            )}
-            {artifact?.normalizedHash && (
-              <Field label={t("enterprise.caseDetail.hash", { defaultValue: "Norm. hash" })}>
-                <span className="block truncate font-mono text-xs text-muted-foreground" dir="ltr">
-                  {artifact.normalizedHash}
-                </span>
-              </Field>
-            )}
-          </Panel>
-        ))}
-      </div>
-
-      {/* Evidence — a ruled §-section exhibit ledger with serialised hairline rows */}
-      <Panel bare marker="§" label={t("enterprise.caseDetail.evidenceSection")}>
-        {caseData.evidence.length === 0 ? (
-          <p className="t-sm text-muted-foreground">{t("enterprise.caseDetail.noEvidence")}</p>
-        ) : (
-          <div className="divide-y divide-border">
-            {caseData.evidence.map((ev, i) => (
-              <div key={ev.id} className="flex items-center gap-3 py-3">
-                <Serial>{String(i + 1).padStart(2, "0")}</Serial>
-                <span className="inline-flex items-center rounded-sm border border-primary/40 bg-primary/10 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-foreground">
-                  {ev.evidenceType}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{ev.title}</span>
+              }
+            >
+              <div>
+                <Field label={t("enterprise.caseDetail.path")}>
+                  <span className="mono-filename block break-all leading-relaxed text-txt-primary" dir="ltr">
+                    {artifact?.logicalPath ?? EM_DASH}
+                  </span>
+                </Field>
+                {artifact?.symbolName && (
+                  <Field label={t("enterprise.caseDetail.symbol", { defaultValue: "Symbol" })}>
+                    <span className="mono-filename block break-all leading-relaxed text-txt-primary" dir="ltr">
+                      {artifact.symbolName}
+                    </span>
+                  </Field>
+                )}
+                <Field label={t("enterprise.caseDetail.lines")}>
+                  <span className="mono-value text-txt-primary" dir="ltr">
+                    {artifact?.startLine}
+                    {"–"}
+                    {artifact?.endLine}
+                  </span>
+                </Field>
+                <Field label={t("enterprise.caseDetail.language")}>
+                  <span className="mono-value text-txt-primary" dir="ltr">{artifact?.language ?? EM_DASH}</span>
+                </Field>
+                {artifact?.tokenCount != null && (
+                  <Field label={t("enterprise.caseDetail.tokens", { defaultValue: "Tokens" })}>
+                    <span className="mono-value text-txt-primary" dir="ltr">
+                      {artifact.tokenCount}
+                    </span>
+                  </Field>
+                )}
+                {artifact?.normalizedHash && (
+                  <Field label={t("enterprise.caseDetail.hash", { defaultValue: "Norm. hash" })}>
+                    <span className="mono-filename block truncate text-txt-muted" dir="ltr">
+                      {artifact.normalizedHash}
+                    </span>
+                  </Field>
+                )}
               </div>
-            ))}
-          </div>
-        )}
-      </Panel>
-
-      {/* Disposition — current ruling as margin-label fields (ruled §-section, read-only) */}
-      <Panel bare marker="§" label={t("enterprise.caseDetail.matchSection", { defaultValue: "Disposition" })}>
-        <Field label={t("enterprise.caseDetail.statusLabel")} align="center">
-          <span className={STATUS_BADGE[caseData.status]}>{t(`enterprise.status.${caseData.status}`)}</span>
-        </Field>
-        <Field label={t("enterprise.caseDetail.severityLabel")} align="center">
-          <span className={cn("capitalize", SEVERITY_BADGE[caseData.severity])}>
-            {t(`enterprise.severity.${caseData.severity}`)}
-          </span>
-        </Field>
-        <Field label={t("enterprise.caseDetail.notesLabel")}>
-          <span className="text-sm text-foreground">
-            {caseData.resolutionNotes?.trim() ? caseData.resolutionNotes : EM_DASH}
-          </span>
-        </Field>
-      </Panel>
-
-      {/* Review actions — the one interactive control block, kept as a distinct card */}
-      <Panel label={t("enterprise.caseDetail.reviewActions", { defaultValue: "Review actions" })}>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" variant="outline" onClick={() => setUpdateOpen(true)} className="gap-1.5">
-            <RefreshCw className="h-3.5 w-3.5" />
-            {t("enterprise.caseDetail.updateCase")}
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setFeedbackOpen(true)} className="gap-1.5">
-            <MessageSquare className="h-3.5 w-3.5" />
-            {t("enterprise.caseDetail.submitFeedback")}
-          </Button>
+            </Panel>
+          ))}
         </div>
-      </Panel>
+
+        {/* Evidence — a ruled, numbered list */}
+        <Panel label={t("enterprise.caseDetail.evidenceSection")} bodyClassName="p-0">
+          {caseData.evidence.length === 0 ? (
+            <p className="p-5 text-center text-[13px] text-txt-muted">{t("enterprise.caseDetail.noEvidence")}</p>
+          ) : (
+            <ol className="divide-y divide-bench-hair">
+              {caseData.evidence.map((ev, i) => (
+                <li key={ev.id} className="flex h-[46px] items-center gap-4 px-5">
+                  <span className="mono-ordinal w-8 shrink-0 text-txt-muted">{String(i + 1).padStart(2, "0")}</span>
+                  <Tag tone="neutral">{ev.evidenceType}</Tag>
+                  <span className="min-w-0 flex-1 truncate text-[13px] text-txt-primary" dir="auto">{ev.title}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </Panel>
+
+        {/* Disposition — the current ruling */}
+        <Panel label={t("enterprise.caseDetail.matchSection", { defaultValue: "Disposition" })} bodyClassName="px-5 py-0">
+          <div>
+            <Field label={t("enterprise.caseDetail.statusLabel")} align="center">
+              {statusTag}
+            </Field>
+            <Field label={t("enterprise.caseDetail.severityLabel")} align="center">
+              {severityTag}
+            </Field>
+            <Field label={t("enterprise.caseDetail.notesLabel")}>
+              <span className="text-[13px] leading-relaxed text-txt-primary" dir="auto">
+                {caseData.resolutionNotes?.trim() ? caseData.resolutionNotes : EM_DASH}
+              </span>
+            </Field>
+          </div>
+        </Panel>
+
+        {/* Review actions */}
+        <Panel label={t("enterprise.caseDetail.reviewActions", { defaultValue: "Review actions" })}>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant="outline" size="sm" onClick={() => setUpdateOpen(true)}>
+              {t("enterprise.caseDetail.updateCase")}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setFeedbackOpen(true)}>
+              {t("enterprise.caseDetail.submitFeedback")}
+            </Button>
+          </div>
+        </Panel>
+      </div>
 
       {/* Update Case Dialog */}
       <Dialog open={updateOpen} onOpenChange={setUpdateOpen}>
-        <DialogContent className="sm:max-w-sm" dir={isRTL ? "rtl" : "ltr"}>
+        <DialogContent className="border-bench-strong bg-bench-raised text-txt-primary sm:max-w-sm" dir={isRTL ? "rtl" : "ltr"}>
           <DialogHeader>
-            <DialogTitle>{t("enterprise.caseDetail.updateCase")}</DialogTitle>
+            <DialogTitle className="t-h4">{t("enterprise.caseDetail.updateCase")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <Label>{t("enterprise.caseDetail.statusLabel")}</Label>
+            <div className="space-y-2">
+              <Label className="label text-txt-muted">{t("enterprise.caseDetail.statusLabel")}</Label>
               <Select value={newStatus} onValueChange={(v) => setNewStatus(v as CaseStatus)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -495,8 +372,8 @@ export default function CaseDetail() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label>{t("enterprise.caseDetail.severityLabel")}</Label>
+            <div className="space-y-2">
+              <Label className="label text-txt-muted">{t("enterprise.caseDetail.severityLabel")}</Label>
               <Select value={newSeverity} onValueChange={(v) => setNewSeverity(v as CaseSeverity)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -506,8 +383,8 @@ export default function CaseDetail() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label>{t("enterprise.caseDetail.notesLabel")}</Label>
+            <div className="space-y-2">
+              <Label className="label text-txt-muted">{t("enterprise.caseDetail.notesLabel")}</Label>
               <Textarea
                 value={resNotes}
                 onChange={(e) => setResNotes(e.target.value)}
@@ -515,10 +392,9 @@ export default function CaseDetail() {
                 placeholder={t("enterprise.caseDetail.notesPlaceholder")}
               />
             </div>
-            <div className="flex justify-end gap-2 pt-1">
-              <Button variant="ghost" onClick={() => setUpdateOpen(false)}>{t("enterprise.common.cancel")}</Button>
+            <div className="flex justify-end gap-3 pt-1">
+              <Button variant="outline" onClick={() => setUpdateOpen(false)}>{t("enterprise.common.cancel")}</Button>
               <Button onClick={handleUpdate} disabled={updating}>
-                {updating && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
                 {t("enterprise.common.save")}
               </Button>
             </div>
@@ -528,13 +404,13 @@ export default function CaseDetail() {
 
       {/* Feedback Dialog */}
       <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}>
-        <DialogContent className="sm:max-w-sm" dir={isRTL ? "rtl" : "ltr"}>
+        <DialogContent className="border-bench-strong bg-bench-raised text-txt-primary sm:max-w-sm" dir={isRTL ? "rtl" : "ltr"}>
           <DialogHeader>
-            <DialogTitle>{t("enterprise.caseDetail.submitFeedback")}</DialogTitle>
+            <DialogTitle className="t-h4">{t("enterprise.caseDetail.submitFeedback")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <Label>{t("enterprise.caseDetail.feedbackLabel")}</Label>
+            <div className="space-y-2">
+              <Label className="label text-txt-muted">{t("enterprise.caseDetail.feedbackLabel")}</Label>
               <Select value={feedbackLabel} onValueChange={(v) => setFeedbackLabel(v as FeedbackLabel)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -544,8 +420,8 @@ export default function CaseDetail() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label>{t("enterprise.caseDetail.feedbackNotesLabel")}</Label>
+            <div className="space-y-2">
+              <Label className="label text-txt-muted">{t("enterprise.caseDetail.feedbackNotesLabel")}</Label>
               <Textarea
                 value={feedbackNotes}
                 onChange={(e) => setFeedbackNotes(e.target.value)}
@@ -553,10 +429,9 @@ export default function CaseDetail() {
                 placeholder={t("enterprise.caseDetail.notesPlaceholder")}
               />
             </div>
-            <div className="flex justify-end gap-2 pt-1">
-              <Button variant="ghost" onClick={() => setFeedbackOpen(false)}>{t("enterprise.common.cancel")}</Button>
+            <div className="flex justify-end gap-3 pt-1">
+              <Button variant="outline" onClick={() => setFeedbackOpen(false)}>{t("enterprise.common.cancel")}</Button>
               <Button onClick={handleFeedback} disabled={submittingFeedback}>
-                {submittingFeedback && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
                 {t("enterprise.common.submit")}
               </Button>
             </div>

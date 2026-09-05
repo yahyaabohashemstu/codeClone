@@ -1,20 +1,20 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, Eye, EyeOff, Lock } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { AuthShell, PlateField, PlateNotice, PlateTitle } from "@/components/layout/AuthShell";
+import { BenchButton } from "@/components/bench/Bench";
+import { IconArrowRight } from "@/components/bench/icons";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
-import { cn } from "@/lib/utils";
 
 const ResetPassword = () => {
   const { resetPassword } = useAuth();
   const { t } = useTranslation("auth");
-  const { isRTL, localizeRuntimeMessage } = useLanguage();
+  const { localizeRuntimeMessage } = useLanguage();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const token = params.get("token") || "";
+  const passwordId = useId();
 
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -45,80 +45,69 @@ const ResetPassword = () => {
     }
   };
 
-  if (done) {
-    return (
-      <div className="mx-auto max-w-md rounded-lg border border-border bg-card p-10 text-center">
-        <div className="mb-4 flex justify-center">
-          <CheckCircle2 className="h-9 w-9 text-success" />
-        </div>
-        <h1 className="t-h3">{t("auth.resetDoneTitle")}</h1>
-        <p className="mt-2 t-body">{t("auth.resetDoneDescription")}</p>
-        <Button asChild className="mt-6 h-10 w-full">
-          <Link to="/login">{t("auth.backToLogin")}</Link>
-        </Button>
-      </div>
-    );
-  }
-
   return (
-    <div className="mx-auto max-w-md rounded-lg border border-border bg-card p-10">
-      <h1 className="t-h3 text-center">{t("auth.resetTitle")}</h1>
-      <p className="mt-2 mb-6 text-center t-body">{t("auth.resetDescription")}</p>
+    <AuthShell serial="Plate 00 · Reset">
+      <form className="flex flex-col gap-[22px]" onSubmit={(e) => void handleSubmit(e)} noValidate>
+        <PlateTitle word={t("auth.bench.titleNewPassword")} qualifier={t("auth.bench.titleNewPasswordSub")} />
 
-      {error && (
-        <div
-          className="mb-4 rounded-md border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-          role="alert"
-        >
-          {error}
-        </div>
-      )}
+        {done ? (
+          <>
+            <div>
+              <p className="text-[15px] font-semibold leading-[1.4] text-plate-ink" role="status">
+                {t("auth.resetDoneTitle")}
+              </p>
+              <p className="mt-1.5 text-[13px] leading-[1.5] text-plate-soft">{t("auth.resetDoneDescription")}</p>
+            </div>
+            <div className="mt-1.5 border-t border-plate-hair pt-[18px] text-[12.5px] text-plate-soft">
+              <Link to="/login" className="text-plate-ink underline underline-offset-2 hover:text-signal-plate">
+                {t("auth.backToLogin")}
+              </Link>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-[13px] leading-[1.5] text-plate-soft">{t("auth.resetDescription")}</p>
+            {error && <PlateNotice tone="error">{error}</PlateNotice>}
 
-      <form className="space-y-4" onSubmit={(e) => void handleSubmit(e)}>
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-foreground">
-            {t("auth.newPassword")}
-          </label>
-          <div className="relative">
-            <Lock className={cn("absolute top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground", isRTL ? "right-3" : "left-3")} />
-            <Input
-              type={showPassword ? "text" : "password"}
-              value={password}
-              autoComplete="new-password"
-              onChange={(e) => setPassword(e.target.value)}
-              className={cn("h-10", isRTL ? "pr-10 pl-10 text-right" : "pl-10 pr-10")}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword((v) => !v)}
-              className={cn("absolute top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground", isRTL ? "left-3" : "right-3")}
-              aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
-            >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
-        </div>
+            <PlateField label={t("auth.newPassword")} htmlFor={passwordId}>
+              <div className="plate-well">
+                <input
+                  id={passwordId}
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  autoComplete="new-password"
+                  autoFocus
+                  dir="ltr"
+                  placeholder="············"
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="label-sm shrink-0 text-plate-soft hover:text-plate-ink"
+                  aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
+                  aria-pressed={showPassword}
+                >
+                  {showPassword ? t("auth.bench.hide") : t("auth.bench.show")}
+                </button>
+              </div>
+            </PlateField>
 
-        <Button
-          type="submit"
-          disabled={isSubmitting}
-          className="mt-2 h-11 w-full gap-2"
-        >
-          {isSubmitting ? (
-            <span className="flex items-center gap-2">
-              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-              {t("auth.updating")}
-            </span>
-          ) : (
-            t("auth.updatePassword")
-          )}
-        </Button>
+            <div>
+              <BenchButton type="submit" tone="primary" size="large" disabled={isSubmitting} trailing={<IconArrowRight className="rtl:-scale-x-100" />}>
+                {isSubmitting ? t("auth.updating") : t("auth.updatePassword")}
+              </BenchButton>
+            </div>
+
+            <div className="mt-1.5 border-t border-plate-hair pt-[18px] text-[12.5px] text-plate-soft">
+              <Link to="/login" className="text-plate-ink underline underline-offset-2 hover:text-signal-plate">
+                {t("auth.backToLogin")}
+              </Link>
+            </div>
+          </>
+        )}
       </form>
-
-      <div className="mt-5 text-center text-sm">
-        <Link to="/login" className="text-foreground underline underline-offset-2 hover:opacity-70">{t("auth.backToLogin")}</Link>
-      </div>
-    </div>
+    </AuthShell>
   );
 };
 

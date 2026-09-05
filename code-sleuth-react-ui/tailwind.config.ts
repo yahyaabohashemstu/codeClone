@@ -12,16 +12,16 @@ export default {
 	theme: {
 		container: {
 			center: true,
-			padding: '2rem',
+			padding: '2.5rem',
 			screens: {
-				'2xl': '1400px'
+				'2xl': '1440px'
 			}
 		},
 		extend: {
 			fontFamily: {
-				sans: ['Archivo', 'system-ui', '-apple-system', 'sans-serif'],
-				mono: ['JetBrains Mono', 'ui-monospace', 'Cascadia Code', 'monospace'],
-				display: ['Archivo', 'system-ui', 'sans-serif'],
+				sans: ['Sofia Sans', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+				mono: ['IBM Plex Mono', 'ui-monospace', 'Cascadia Code', 'Consolas', 'monospace'],
+				display: ['Sofia Sans Extra Condensed', 'Sofia Sans', 'system-ui', 'sans-serif'],
 			},
 			colors: {
 				border: 'hsl(var(--border))',
@@ -58,8 +58,6 @@ export default {
 					foreground: 'hsl(var(--warning-foreground))'
 				},
 				'accent-suspect': 'hsl(var(--accent-suspect))',
-				/* The two plates: source A prints cyan, source B magenta.
-				   The -deep cuts clear contrast as text. */
 				'plate-a': {
 					DEFAULT: 'hsl(var(--plate-a))',
 					deep: 'hsl(var(--plate-a-deep))'
@@ -67,6 +65,43 @@ export default {
 				'plate-b': {
 					DEFAULT: 'hsl(var(--plate-b))',
 					deep: 'hsl(var(--plate-b-deep))'
+				},
+				/* The bench design tokens, exact hex values from the design file. */
+				bench: {
+					base: 'var(--bench-base)',
+					raised: 'var(--bench-raised)',
+					well: 'var(--bench-well)',
+					hair: 'var(--bench-hair)',
+					strong: 'var(--bench-hair-strong)',
+					tick: 'var(--bench-tick)',
+				},
+				txt: {
+					primary: 'var(--text-primary)',
+					secondary: 'var(--text-secondary)',
+					muted: 'var(--text-muted)',
+					faint: 'var(--text-faint)',
+				},
+				signal: {
+					DEFAULT: 'var(--signal-base)',
+					bench: 'var(--signal-on-bench)',
+					plate: 'var(--signal-on-plate)',
+				},
+				plate: {
+					base: 'var(--plate-base)',
+					strip: 'var(--plate-strip)',
+					hair: 'var(--plate-hair)',
+					ink: 'var(--plate-ink)',
+					soft: 'var(--plate-ink-soft)',
+					gutter: 'var(--plate-gutter)',
+					placeholder: 'var(--plate-placeholder)',
+					well: 'var(--plate-well)',
+					stroke: 'var(--plate-well-stroke)',
+					meter: 'var(--plate-meter)',
+				},
+				match: {
+					band: 'var(--match-band)',
+					guard: 'var(--match-guard-band)',
+					marker: 'var(--match-guard-marker)',
 				},
 				chart: {
 					'1': 'hsl(var(--chart-1))',
@@ -94,8 +129,8 @@ export default {
 					ring: 'hsl(var(--sidebar-ring))'
 				},
 			},
-			/* Press geometry: everything trims square. The scale stays wired to
-			   tokens so the whole app follows a single knob. */
+			/* Controls trim at 2px (the design's radius/control); the scale is
+			   wired to tokens so the whole app follows a single knob. */
 			borderRadius: {
 				lg: 'var(--radius-lg)',
 				md: 'var(--radius-md)',
@@ -112,28 +147,21 @@ export default {
 					from: { height: 'var(--radix-accordion-content-height)' },
 					to: { height: '0' }
 				},
-				/* Quiet, opacity-only entrance — structural content should
-				   appear, not perform. */
 				'fade-in': {
 					from: { opacity: '0' },
 					to: { opacity: '1' }
 				},
-				/* The two plates sliding into register — Home hero only. */
-				'register-a': {
-					from: { transform: 'translate(-0.14em, 0)' },
-					to: { transform: 'translate(-0.045em, 0)' }
-				},
-				'register-b': {
-					from: { transform: 'translate(0.14em, 0)' },
-					to: { transform: 'translate(0.045em, 0)' }
+				/* The needle settling on its reading. */
+				'needle-in': {
+					from: { transform: 'scaleX(0)' },
+					to: { transform: 'scaleX(1)' }
 				},
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out',
 				'fade-in': 'fade-in 0.24s ease-out',
-				'register-a': 'register-a 0.9s cubic-bezier(0.22, 1, 0.36, 1) both',
-				'register-b': 'register-b 0.9s cubic-bezier(0.22, 1, 0.36, 1) both',
+				'needle-in': 'needle-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both',
 			},
 		}
 	},

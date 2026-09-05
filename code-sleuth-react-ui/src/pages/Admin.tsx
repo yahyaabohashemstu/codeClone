@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Activity, DollarSign, Gauge, Loader2, Lock, ShieldCheck, Users,
-} from "lucide-react";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
@@ -13,6 +9,10 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Masthead, Panel, Figure, SpecList } from "@/components/dossier/Dossier";
+import { BenchSelect, Tag } from "@/components/bench/Bench";
+import { IconChevronLeft, IconChevronRight, IconDownload, IconSearch } from "@/components/bench/icons";
+import { PageLoader } from "@/components/common/PageLoader";
+import { PageError } from "@/components/common/PageError";
 import { cn } from "@/lib/utils";
 import * as api from "@/lib/adminApi";
 
@@ -26,27 +26,42 @@ const fmtDateTime = (iso?: string | null) => (iso ? new Date(iso).toLocaleString
 const TABS = ["overview", "users", "revenue", "usage", "activity", "security"] as const;
 type Tab = (typeof TABS)[number];
 
-const TAB_ICON: Record<Tab, typeof Users> = {
-  overview: Activity, users: Users, revenue: DollarSign,
-  usage: Gauge, activity: Activity, security: ShieldCheck,
-};
+const TH = "label text-start font-semibold text-txt-muted";
 
 // ── small presentational helpers ────────────────────────────────────────────
 
-/** Borderless titled group used inside the drawer — grouped by whitespace +
- *  1px dividers instead of nesting boxes-in-boxes. */
+/** Titled group inside the drawer — whitespace and one hairline, never a box in a box. */
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="py-5 first:pt-0">
-      <h3 className="t-label mb-2.5">{title}</h3>
+      <h3 className="label mb-3 text-txt-muted">{title}</h3>
       {children}
     </section>
   );
 }
 
-/** The case ledger for key figures: a ruled mono label:value reading laid out as
- *  a two-column index, NOT a row of raised stat cards. Any `sub` caveat is folded
- *  in beside its value as a muted annotation so no datum is lost. */
+/** A section of the console: a hairline panel, its label strip carrying the aside. */
+function Section({
+  label,
+  aside,
+  children,
+  className,
+  bodyClassName,
+}: {
+  label: React.ReactNode;
+  aside?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+  bodyClassName?: string;
+}) {
+  return (
+    <Panel label={label} actions={aside} className={className} bodyClassName={bodyClassName}>
+      {children}
+    </Panel>
+  );
+}
+
+/** Key figures as a ruled two-column readout; a `sub` caveat sits beside its value. */
 function MetricLedger({
   items,
   className,
@@ -60,7 +75,7 @@ function MetricLedger({
       it.sub != null ? (
         <span className="inline-flex items-baseline gap-2">
           {it.value}
-          <span className="text-[11px] font-normal text-muted-foreground">{it.sub}</span>
+          <span className="text-[11px] font-normal text-txt-muted">{it.sub}</span>
         </span>
       ) : (
         it.value
@@ -71,32 +86,32 @@ function MetricLedger({
     <div className={cn("grid sm:grid-cols-2", className)}>
       <SpecList rows={rows.slice(0, mid)} className="sm:pe-12" />
       {rows.length > mid && (
-        <SpecList rows={rows.slice(mid)} className="sm:border-s sm:border-border sm:ps-12" />
+        <SpecList rows={rows.slice(mid)} className="sm:border-s sm:border-bench-hair sm:ps-12" />
       )}
     </div>
   );
 }
 
-/** Press-log line number for ledger rows. */
+/** Ordinal for ledger rows; a flagged row reads in signal. */
 function LogNo({ n, flagged = false }: { n: number; flagged?: boolean }) {
+  return <span className={cn("mono-ordinal", flagged ? "text-signal-bench" : "text-txt-muted")}>{String(n).padStart(2, "0")}</span>;
+}
+
+/** A terse mono reading for a figure caption, e.g. "1,204 users". */
+function Caption({ n, unit }: { n: number; unit: string }) {
   return (
-    <span
-      className={cn(
-        "font-display text-base font-extrabold tabular-nums leading-none",
-        flagged ? "text-destructive" : "text-muted-foreground",
-      )}
-      style={{ fontStretch: "118%" }}
-    >
-      {String(n).padStart(2, "0")}
+    <span className="mono-meta text-txt-muted">
+      <span className="text-txt-primary">{n.toLocaleString()}</span> {unit}
     </span>
   );
 }
 
-/** A terse mono reading for a figure caption gutter, e.g. "1,204 users". */
-function Reading({ n, unit }: { n: number; unit: string }) {
+/** A lit lamp square with a spoken value — for boolean cells. */
+function LampCell({ on, label }: { on: boolean; label: string }) {
   return (
-    <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-      <span className="font-semibold text-foreground">{n.toLocaleString()}</span> {unit}
+    <span className="inline-flex items-center gap-2">
+      <span aria-hidden className={cn("lamp", on && "is-on")} />
+      <span className="sr-only">{label}: {on ? "on" : "off"}</span>
     </span>
   );
 }
@@ -104,38 +119,29 @@ function Reading({ n, unit }: { n: number; unit: string }) {
 function Bars({ items }: { items: { label: string; count: number }[] }) {
   const { t } = useTranslation("common");
   const max = Math.max(1, ...items.map((i) => i.count));
-  if (!items.length) return <div className="text-sm text-muted-foreground">{t("admin.noData")}</div>;
+  if (!items.length) return <div className="text-[13px] text-txt-muted">{t("admin.noData")}</div>;
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       {items.map((i) => (
-        <div key={i.label} className="flex items-center gap-3 text-sm">
-          <div className="w-28 shrink-0 truncate font-mono text-xs text-muted-foreground">{i.label}</div>
-          <div className="h-2 flex-1 overflow-hidden rounded-sm bg-muted">
-            <div className="h-full rounded-sm bg-primary" style={{ width: `${(i.count / max) * 100}%` }} />
+        <div key={i.label} className="flex items-center gap-3">
+          <div className="mono-filename w-28 shrink-0 truncate text-txt-muted" dir="ltr">{i.label}</div>
+          <div className="metric-bar-track flex-1">
+            <div className="metric-bar-fill" style={{ width: `${(i.count / max) * 100}%` }} />
           </div>
-          <div className="w-12 shrink-0 text-end font-mono tabular-nums">{i.count}</div>
+          <div className="mono-value w-12 shrink-0 text-end text-txt-primary" dir="ltr">{i.count}</div>
         </div>
       ))}
     </div>
   );
 }
 
-function Spinner() {
-  return <div className="flex min-h-[30vh] items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
-}
-
 function LoadError({ onRetry }: { onRetry: () => void }) {
   const { t } = useTranslation("common");
-  return (
-    <div className="flex min-h-[30vh] flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
-      <span>{t("admin.loadError")}</span>
-      <Button variant="outline" size="sm" onClick={onRetry}>{t("admin.retry")}</Button>
-    </div>
-  );
+  return <PageError message={t("admin.loadError")} onRetry={onRetry} />;
 }
 
 /** Load data once with an explicit error state + retry, so a failed fetch shows
- *  an error + Retry instead of an infinite spinner. */
+ *  an error + Retry instead of an infinite loader. */
 function useLoad<T>(loader: () => Promise<T>): { data: T | null; error: boolean; reload: () => void } {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState(false);
@@ -150,16 +156,28 @@ function useLoad<T>(loader: () => Promise<T>): { data: T | null; error: boolean;
   return { data, error, reload };
 }
 
+/** Hairline ledger table shell: 36px label head, 46px ruled rows.
+ *  `flush` drops the outer rules for a table that fills its panel edge to edge. */
+function Ledger({ minWidth = 640, flush = false, children }: { minWidth?: number; flush?: boolean; children: React.ReactNode }) {
+  return (
+    <div className="overflow-x-auto scrollbar-thin">
+      <table className={cn("w-full border-collapse", !flush && "border-y border-bench-hair")} style={{ minWidth }}>
+        {children}
+      </table>
+    </div>
+  );
+}
+
 // ── Overview tab ────────────────────────────────────────────────────────────
 
 function OverviewTab() {
   const { t } = useTranslation("common");
   const { data: m, error, reload } = useLoad(() => api.getAdminMetrics());
   if (error) return <LoadError onRetry={reload} />;
-  if (!m) return <Spinner />;
+  if (!m) return <PageLoader />;
   return (
-    <div className="space-y-12">
-      <Panel bare marker="§" label={t("admin.census", { defaultValue: "Census" })}>
+    <div className="space-y-5">
+      <Section label={t("admin.census", { defaultValue: "Census" })}>
         <MetricLedger
           items={[
             { label: t("admin.totalUsers"), value: m.totalUsers },
@@ -172,24 +190,24 @@ function OverviewTab() {
             { label: t("admin.estMrr"), value: money(m.estimatedMrrCents), sub: t("admin.estimatedNote") },
           ]}
         />
-      </Panel>
+      </Section>
 
-      <Panel bare marker="§" label={t("admin.planDistribution", { defaultValue: "Plan distribution" })}>
+      <Section label={t("admin.planDistribution", { defaultValue: "Plan distribution" })}>
         <div className="grid gap-5 md:grid-cols-2">
-          <Figure n={1} label={t("admin.planMix")} actions={<Reading n={m.totalUsers} unit={t("admin.users")} />}>
+          <Figure n={1} label={t("admin.planMix")} actions={<Caption n={m.totalUsers} unit={t("admin.users")} />}>
             <Bars items={PLANS.map((p) => ({ label: p, count: m.planCounts[p] ?? 0 }))} />
           </Figure>
           <Figure
             n={2}
             label={t("admin.apiPlanMix")}
-            actions={<Reading n={Object.values(m.apiPlanCounts).reduce((s, c) => s + c, 0)} unit={t("admin.users")} />}
+            actions={<Caption n={Object.values(m.apiPlanCounts).reduce((s, c) => s + c, 0)} unit={t("admin.users")} />}
           >
             <Bars items={Object.entries(m.apiPlanCounts).map(([label, count]) => ({ label, count }))} />
           </Figure>
         </div>
-      </Panel>
+      </Section>
 
-      <Panel bare marker="§" label={t("admin.newSignups")}>
+      <Section label={t("admin.newSignups")}>
         <MetricLedger
           items={[
             { label: t("admin.today"), value: m.signups.today },
@@ -197,18 +215,18 @@ function OverviewTab() {
             { label: t("admin.days30"), value: m.signups.last30d },
           ]}
         />
-      </Panel>
+      </Section>
     </div>
   );
 }
 
-// ── User detail modal ───────────────────────────────────────────────────────
+// ── User detail drawer ──────────────────────────────────────────────────────
 
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex justify-between gap-4 py-1.5 text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="text-end font-medium text-foreground">{value}</span>
+    <div className="flex items-baseline justify-between gap-4 py-2 text-[13px]">
+      <span className="text-txt-muted">{label}</span>
+      <span className="min-w-0 text-end text-txt-primary">{value}</span>
     </div>
   );
 }
@@ -255,40 +273,50 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: number; onClo
 
   const quota = d?.quota as { used?: number; limit?: number; unlimited?: boolean } | undefined;
   const apiSpend = d ? (d.apiUsage.monthlyPriceCents + d.apiUsage.estimatedCostCents) : 0;
+  const mono = (v: React.ReactNode) => <span className="mono-value" dir="ltr">{v}</span>;
 
   return (
     <Sheet open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
+      <SheetContent side="right" className="w-full overflow-y-auto border-bench-strong bg-bench-raised text-txt-primary scrollbar-thin sm:max-w-xl">
         <SheetHeader className="mb-4">
-          <SheetTitle className="t-h3">{t("admin.userDetail")}</SheetTitle>
+          <SheetTitle className="t-h4 text-txt-primary">{t("admin.userDetail")}</SheetTitle>
         </SheetHeader>
-        {error ? <LoadError onRetry={load} /> : !d ? <Spinner /> : (
-          <div className="divide-y divide-border">
+        {error ? <LoadError onRetry={load} /> : !d ? <PageLoader /> : (
+          <div className="divide-y divide-bench-hair">
             <Group title={t("admin.identity")}>
-              <DetailRow label="ID" value={<span className="font-mono">{d.user.id}</span>} />
-              <DetailRow label={t("admin.username")} value={<>{d.user.username}{d.user.isAdmin && <span className="ms-1 text-muted-foreground">★</span>}{!d.user.active && <span className="ms-2 text-xs text-destructive">{t("admin.suspended")}</span>}</>} />
-              <DetailRow label={t("admin.email")} value={d.user.email || "—"} />
-              <DetailRow label={t("admin.verified")} value={d.user.emailVerified ? "✓" : "—"} />
-              <DetailRow label={t("admin.twofa")} value={d.user.twofaEnabled ? "✓" : "—"} />
-              <DetailRow label={t("admin.created")} value={fmtDate(d.user.createdAt)} />
-              <DetailRow label={t("admin.lastLogin")} value={fmtDateTime(d.user.lastLoginAt)} />
-              <DetailRow label={t("admin.failedLogins")} value={<span className="font-mono tabular-nums">{d.user.failedLoginCount}</span>} />
-              <DetailRow label={t("admin.locked")} value={d.user.locked ? fmtDateTime(d.user.lockedUntil) : "—"} />
-              <DetailRow label={t("admin.sessionVersion")} value={<span className="font-mono tabular-nums">{d.user.sessionVersion}</span>} />
+              <DetailRow label="ID" value={mono(d.user.id)} />
+              <DetailRow
+                label={t("admin.username")}
+                value={
+                  <span className="inline-flex flex-wrap items-center justify-end gap-2">
+                    <span dir="ltr">{d.user.username}</span>
+                    {d.user.isAdmin && <Tag tone="advisory">{t("admin.admins")}</Tag>}
+                    {!d.user.active && <Tag tone="hot">{t("admin.suspended")}</Tag>}
+                  </span>
+                }
+              />
+              <DetailRow label={t("admin.email")} value={<span dir="ltr">{d.user.email || "—"}</span>} />
+              <DetailRow label={t("admin.verified")} value={<LampCell on={d.user.emailVerified} label={t("admin.verified")} />} />
+              <DetailRow label={t("admin.twofa")} value={<LampCell on={d.user.twofaEnabled} label={t("admin.twofa")} />} />
+              <DetailRow label={t("admin.created")} value={mono(fmtDate(d.user.createdAt))} />
+              <DetailRow label={t("admin.lastLogin")} value={mono(fmtDateTime(d.user.lastLoginAt))} />
+              <DetailRow label={t("admin.failedLogins")} value={mono(d.user.failedLoginCount)} />
+              <DetailRow label={t("admin.locked")} value={mono(d.user.locked ? fmtDateTime(d.user.lockedUntil) : "—")} />
+              <DetailRow label={t("admin.sessionVersion")} value={mono(d.user.sessionVersion)} />
             </Group>
             <Group title={t("admin.planSpend")}>
-              <DetailRow label={t("admin.plan")} value={`${d.subscription.plan} (${d.subscription.status})`} />
-              <div className="flex items-center justify-between gap-4 py-1.5 text-sm">
-                <span className="text-muted-foreground">{t("admin.apiPlanLabel")}</span>
+              <DetailRow label={t("admin.plan")} value={mono(`${d.subscription.plan} (${d.subscription.status})`)} />
+              <div className="flex items-center justify-between gap-4 py-2 text-[13px]">
+                <span className="text-txt-muted">{t("admin.apiPlanLabel")}</span>
                 <Select value={d.apiUsage.apiPlan} onValueChange={(v) => void runAction(() => api.setUserApiPlan(userId, v))}>
-                  <SelectTrigger className="h-8 w-36"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-8 w-36 font-mono text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>{api.API_PLAN_CODES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <DetailRow label={t("admin.estMonthlySpend")} value={<span className="font-mono">{money(apiSpend)}</span>} />
-              <DetailRow label={t("admin.lifetimePaid")} value={<span className="font-mono">{money(d.lifetimePaidCents)}</span>} />
-              <DetailRow label={t("admin.renewsOn")} value={fmtDate(d.subscription.currentPeriodEnd)} />
-              <DetailRow label={t("admin.stripeCustomer")} value={<span className="font-mono text-xs">{d.subscription.stripeCustomerId || "—"}</span>} />
+              <DetailRow label={t("admin.estMonthlySpend")} value={mono(money(apiSpend))} />
+              <DetailRow label={t("admin.lifetimePaid")} value={mono(money(d.lifetimePaidCents))} />
+              <DetailRow label={t("admin.renewsOn")} value={mono(fmtDate(d.subscription.currentPeriodEnd))} />
+              <DetailRow label={t("admin.stripeCustomer")} value={<span className="mono-filename" dir="ltr">{d.subscription.stripeCustomerId || "—"}</span>} />
             </Group>
 
             <Group title={t("admin.actions")}>
@@ -317,8 +345,7 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: number; onClo
                   <Button variant="outline" size="sm" disabled={busy} onClick={() => void runAction(() => api.setUserAdmin(userId, true))}>{t("admin.promote")}</Button>
                 )}
                 <Button
-                  variant="outline" size="sm" disabled={busy}
-                  className="border-destructive/40 text-destructive hover:bg-destructive/10"
+                  variant="destructive" size="sm" disabled={busy}
                   onClick={() => void runAction(() => api.deleteUser(userId), { confirm: t("admin.confirmDelete"), closeAfter: true })}
                 >
                   {t("admin.deleteUser")}
@@ -326,44 +353,49 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: number; onClo
               </div>
             </Group>
             <Group title={t("admin.consumption")}>
-              <DetailRow label={t("admin.usage")} value={<span className="font-mono tabular-nums">{quota?.unlimited ? "∞" : `${quota?.used ?? 0} / ${quota?.limit ?? 0}`}</span>} />
-              <DetailRow label={t("admin.apiCalls")} value={<span className="font-mono tabular-nums">{d.apiUsage.calls}</span>} />
-              <DetailRow label={t("admin.apiPairs")} value={<span className="font-mono tabular-nums">{d.apiUsage.pairs}</span>} />
-              <DetailRow label={t("admin.analyses")} value={<span className="font-mono tabular-nums">{d.activity.analysesCount}</span>} />
-              <DetailRow label={t("admin.lastAnalysis")} value={fmtDateTime(d.activity.lastAnalysisAt)} />
-              <DetailRow label={t("admin.avgSimilarity")} value={<span className="font-mono tabular-nums">{d.activity.avgSimilarity ?? "—"}</span>} />
+              <DetailRow label={t("admin.usage")} value={mono(quota?.unlimited ? "∞" : `${quota?.used ?? 0} / ${quota?.limit ?? 0}`)} />
+              <DetailRow label={t("admin.apiCalls")} value={mono(d.apiUsage.calls)} />
+              <DetailRow label={t("admin.apiPairs")} value={mono(d.apiUsage.pairs)} />
+              <DetailRow label={t("admin.analyses")} value={mono(d.activity.analysesCount)} />
+              <DetailRow label={t("admin.lastAnalysis")} value={mono(fmtDateTime(d.activity.lastAnalysisAt))} />
+              <DetailRow label={t("admin.avgSimilarity")} value={mono(d.activity.avgSimilarity ?? "—")} />
             </Group>
             <Group title={t("admin.payments")}>
-              {d.payments.length === 0 ? <div className="text-sm text-muted-foreground">{t("admin.noPayments")}</div> : (
-                <div className="divide-y divide-border text-sm">
+              {d.payments.length === 0 ? <div className="text-[13px] text-txt-muted">{t("admin.noPayments")}</div> : (
+                <div className="divide-y divide-bench-hair">
                   {d.payments.map((p) => (
-                    <div key={p.id} className="flex justify-between py-1.5">
-                      <span className="font-mono">{money(p.netCents)} <span className="ms-1 text-xs text-muted-foreground">{p.status} · {p.product}</span></span>
-                      <span className="text-muted-foreground">{fmtDate(p.paidAt || p.createdAt)}</span>
+                    <div key={p.id} className="flex items-baseline justify-between gap-4 py-2 text-[13px]">
+                      <span className="mono-value text-txt-primary" dir="ltr">
+                        {money(p.netCents)} <span className="mono-meta text-txt-muted">{p.status} · {p.product}</span>
+                      </span>
+                      <span className="mono-filename text-txt-muted" dir="ltr">{fmtDate(p.paidAt || p.createdAt)}</span>
                     </div>
                   ))}
                 </div>
               )}
             </Group>
             <Group title={t("admin.apiKeys")}>
-              {d.apiKeys.length === 0 ? <div className="text-sm text-muted-foreground">{t("admin.noKeys")}</div> : (
-                <div className="divide-y divide-border text-sm">
+              {d.apiKeys.length === 0 ? <div className="text-[13px] text-txt-muted">{t("admin.noKeys")}</div> : (
+                <div className="divide-y divide-bench-hair">
                   {d.apiKeys.map((k) => (
-                    <div key={k.id} className="flex justify-between py-1.5">
-                      <span className="font-mono">{k.prefix}{k.revoked && <span className="ms-2 text-destructive">revoked</span>}</span>
-                      <span className="text-muted-foreground">{fmtDate(k.lastUsedAt)}</span>
+                    <div key={k.id} className="flex items-center justify-between gap-4 py-2 text-[13px]">
+                      <span className="inline-flex items-center gap-2">
+                        <span className="mono-filename text-txt-primary" dir="ltr">{k.prefix}</span>
+                        {k.revoked && <Tag tone="neutral">revoked</Tag>}
+                      </span>
+                      <span className="mono-filename text-txt-muted" dir="ltr">{fmtDate(k.lastUsedAt)}</span>
                     </div>
                   ))}
                 </div>
               )}
             </Group>
             <Group title={t("admin.securityHistory")}>
-              {audit.length === 0 ? <div className="text-sm text-muted-foreground">{t("admin.noData")}</div> : (
-                <div className="divide-y divide-border text-sm">
+              {audit.length === 0 ? <div className="text-[13px] text-txt-muted">{t("admin.noData")}</div> : (
+                <div className="divide-y divide-bench-hair">
                   {audit.map((a) => (
-                    <div key={a.id} className="flex justify-between py-1.5">
-                      <span className="font-mono text-xs">{a.action}</span>
-                      <span className="text-muted-foreground">{fmtDateTime(a.createdAt)}</span>
+                    <div key={a.id} className="flex items-baseline justify-between gap-4 py-2 text-[13px]">
+                      <span className="mono-filename text-txt-primary" dir="ltr">{a.action}</span>
+                      <span className="mono-filename text-txt-muted" dir="ltr">{fmtDateTime(a.createdAt)}</span>
                     </div>
                   ))}
                 </div>
@@ -374,10 +406,10 @@ function UserDetailModal({ userId, onClose, onChanged }: { userId: number; onClo
       </SheetContent>
 
       <AlertDialog open={confirm !== null} onOpenChange={(open) => { if (!open) setConfirm(null); }}>
-        <AlertDialogContent>
+        <AlertDialogContent className="border-bench-strong bg-bench-raised text-txt-primary">
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("admin.confirmTitle", { defaultValue: t("admin.userDetail") })}</AlertDialogTitle>
-            <AlertDialogDescription>{confirm?.message}</AlertDialogDescription>
+            <AlertDialogTitle className="t-h4">{t("admin.confirmTitle", { defaultValue: t("admin.userDetail") })}</AlertDialogTitle>
+            <AlertDialogDescription className="text-[13px] text-txt-secondary">{confirm?.message}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t("admin.cancel", { defaultValue: "Cancel" })}</AlertDialogCancel>
@@ -431,89 +463,124 @@ function UsersTab() {
   const perPage = data?.perPage ?? 25;
   const total = data?.total ?? 0;
   const maxPage = Math.max(1, Math.ceil(total / perPage));
+  const shown = data?.items.length ?? 0;
 
   return (
-    <div className="space-y-4">
-      <Panel
-        bare
-        marker="§"
+    <div>
+      <Section
         label={t("admin.users")}
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <form onSubmit={(e) => { e.preventDefault(); setPage(1); setSearch(q); }} className="min-w-[180px]">
-              <Input placeholder={t("admin.search")} value={q} onChange={(e) => setQ(e.target.value)} className="h-8" />
-            </form>
-            <Select value={plan} onValueChange={(v) => { setPlan(v); setPage(1); }}>
-              <SelectTrigger className="h-8 w-28"><SelectValue placeholder={t("admin.plan")} /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t("admin.all")}</SelectItem>
-                {PLANS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1); }}>
-              <SelectTrigger className="h-8 w-32"><SelectValue placeholder={t("admin.status")} /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t("admin.all")}</SelectItem>
-                <SelectItem value="active">active</SelectItem>
-                <SelectItem value="past_due">past_due</SelectItem>
-                <SelectItem value="canceled">canceled</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button asChild variant="outline" size="sm" className="h-8">
-              <a href={csvUrl} download>{t("admin.exportCsv")}</a>
-            </Button>
-          </div>
+        bodyClassName="p-0"
+        aside={
+          <Button asChild variant="outline" size="sm">
+            <a href={csvUrl} download>
+              <IconDownload />
+              {t("admin.exportCsv")}
+            </a>
+          </Button>
         }
       >
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b-2 border-foreground text-start t-label">
-                <th className="w-px px-4 py-2.5 text-start">#</th>
-                <th className="px-4 py-2.5 text-start">{t("admin.username")}</th>
-                <th className="px-4 py-2.5 text-start">{t("admin.email")}</th>
-                <th className="px-4 py-2.5 text-start">{t("admin.verified")}</th>
-                <th className="px-4 py-2.5 text-start">{t("admin.twofa")}</th>
-                <th className="px-4 py-2.5 text-start">{t("admin.status")}</th>
-                <th className="px-4 py-2.5 text-start">{t("admin.usage")}</th>
-                <th className="px-4 py-2.5 text-start">{t("admin.lastActive")}</th>
-                <th className="px-4 py-2.5 text-start">{t("admin.plan")}</th>
+        {/* Filters */}
+        <div className="flex flex-wrap items-center gap-3 px-5 pb-4 pt-5">
+          <form onSubmit={(e) => { e.preventDefault(); setPage(1); setSearch(q); }} className="w-full sm:w-[300px]">
+            <label className="well">
+              <IconSearch className="text-txt-muted" />
+              <input type="search" placeholder={t("admin.search")} aria-label={t("admin.search")} value={q} onChange={(e) => setQ(e.target.value)} />
+            </label>
+          </form>
+          <BenchSelect
+            label={t("admin.plan")}
+            value={plan}
+            onChange={(v) => { setPlan(v); setPage(1); }}
+            options={[{ value: "all", label: t("admin.all") }, ...PLANS.map((p) => ({ value: p, label: p }))]}
+          />
+          <BenchSelect
+            label={t("admin.status")}
+            value={status}
+            onChange={(v) => { setStatus(v); setPage(1); }}
+            options={[
+              { value: "all", label: t("admin.all") },
+              { value: "active", label: "active" },
+              { value: "past_due", label: "past_due" },
+              { value: "canceled", label: "canceled" },
+            ]}
+          />
+          <span className="ms-auto text-[12.5px] text-txt-secondary" dir="ltr">
+            {t("admin.showing")} {shown} {t("admin.of")} {total}
+          </span>
+        </div>
+
+        <Ledger minWidth={1040}>
+          <thead>
+            <tr className="h-9 border-b border-bench-hair">
+              <th className={cn(TH, "w-12 ps-5")}>#</th>
+              <th className={cn(TH, "ps-3")}>{t("admin.username")}</th>
+              <th className={cn(TH, "ps-3")}>{t("admin.email")}</th>
+              <th className={cn(TH, "w-20 ps-3")}>{t("admin.verified")}</th>
+              <th className={cn(TH, "w-20 ps-3")}>{t("admin.twofa")}</th>
+              <th className={cn(TH, "w-28 ps-3")}>{t("admin.status")}</th>
+              <th className={cn(TH, "w-24 ps-3")}>{t("admin.usage")}</th>
+              <th className={cn(TH, "w-32 ps-3")}>{t("admin.lastActive")}</th>
+              <th className={cn(TH, "w-28 ps-3 pe-5")}>{t("admin.plan")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(data?.items ?? []).map((u, i) => (
+              <tr key={u.id} className="h-[46px] cursor-pointer border-b border-bench-hair last:border-b-0 hover:bg-bench-raised/60" onClick={() => setDetailId(u.id)}>
+                <td className="ps-5 align-middle"><LogNo n={(page - 1) * perPage + i + 1} flagged={u.locked} /></td>
+                <td className="ps-3 align-middle">
+                  <span className="inline-flex items-center gap-2">
+                    <span className="text-[13px] font-semibold text-txt-primary" dir="ltr">{u.username}</span>
+                    {u.isAdmin && <Tag tone="advisory">{t("admin.admins")}</Tag>}
+                    {u.locked && <Tag tone="hot">{t("admin.locked")}</Tag>}
+                  </span>
+                </td>
+                <td className="mono-filename ps-3 align-middle text-txt-muted" dir="ltr">{u.email || "—"}</td>
+                <td className="ps-3 align-middle"><LampCell on={u.emailVerified} label={t("admin.verified")} /></td>
+                <td className="ps-3 align-middle"><LampCell on={u.twofaEnabled} label={t("admin.twofa")} /></td>
+                <td className="ps-3 align-middle"><Tag tone={u.status === "active" ? "neutral" : "advisory"}>{u.status}</Tag></td>
+                <td className="mono-value ps-3 align-middle text-txt-primary" dir="ltr">{u.usagePct === null ? "∞" : `${u.usageUsed}/${u.usageLimit}`}</td>
+                <td className="mono-filename ps-3 align-middle text-txt-secondary" dir="ltr">{u.lastActive ? fmtDate(u.lastActive) : t("admin.never")}</td>
+                <td className="ps-3 pe-5 align-middle" onClick={(e) => e.stopPropagation()}>
+                  <Select value={u.plan} onValueChange={(v) => changePlan(u.id, v)}>
+                    <SelectTrigger className="h-8 w-24 font-mono text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>{PLANS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                  </Select>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {(data?.items ?? []).map((u, i) => (
-                <tr key={u.id} className="cursor-pointer border-b border-border/50 last:border-b-0 hover:bg-muted/40" onClick={() => setDetailId(u.id)}>
-                  <td className="px-4 py-2 align-middle"><LogNo n={(page - 1) * perPage + i + 1} flagged={u.locked} /></td>
-                  <td className="px-4 py-2 font-medium text-foreground">{u.username}{u.isAdmin && <span className="ms-1 text-xs text-muted-foreground">★</span>}{u.locked && <Lock className="ms-1 inline h-3 w-3 text-destructive" />}</td>
-                  <td className="px-4 py-2 text-muted-foreground">{u.email || "—"}</td>
-                  <td className="px-4 py-2">{u.emailVerified ? "✓" : "—"}</td>
-                  <td className="px-4 py-2">{u.twofaEnabled ? "✓" : "—"}</td>
-                  <td className="px-4 py-2 font-mono text-xs uppercase tracking-wide text-muted-foreground">{u.status}</td>
-                  <td className="px-4 py-2 font-mono tabular-nums">{u.usagePct === null ? "∞" : `${u.usageUsed}/${u.usageLimit}`}</td>
-                  <td className="px-4 py-2 text-muted-foreground">{u.lastActive ? fmtDate(u.lastActive) : t("admin.never")}</td>
-                  <td className="px-4 py-2" onClick={(e) => e.stopPropagation()}>
-                    <Select value={u.plan} onValueChange={(v) => changePlan(u.id, v)}>
-                      <SelectTrigger className="h-8 w-24"><SelectValue /></SelectTrigger>
-                      <SelectContent>{PLANS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </td>
-                </tr>
-              ))}
-              {data && data.items.length === 0 && (
-                <tr><td colSpan={9} className="py-6 text-center text-muted-foreground">{t("admin.noUsers")}</td></tr>
-              )}
-            </tbody>
-          </table>
+            ))}
+            {data && data.items.length === 0 && (
+              <tr><td colSpan={9} className="px-5 py-10 text-center text-[15px] text-txt-primary">{t("admin.noUsers")}</td></tr>
+            )}
+          </tbody>
+        </Ledger>
+
+        {/* Pagination */}
+        <div className="flex h-12 items-center justify-between px-5">
+          <span className="mono-filename text-txt-secondary" dir="ltr">
+            {page} / {maxPage}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="flex h-8 w-8 items-center justify-center border border-bench-strong text-txt-primary hover:border-txt-muted disabled:opacity-40"
+              aria-label={t("admin.prev")}
+            >
+              <IconChevronLeft className="rtl:-scale-x-100" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setPage((p) => p + 1)}
+              disabled={page >= maxPage}
+              className="flex h-8 w-8 items-center justify-center border border-bench-strong text-txt-primary hover:border-txt-muted disabled:opacity-40"
+              aria-label={t("admin.next")}
+            >
+              <IconChevronRight className="rtl:-scale-x-100" />
+            </button>
+          </span>
         </div>
-        <div className="flex items-center justify-between border-t border-border px-4 py-3 font-mono text-xs text-muted-foreground">
-          <span className="tabular-nums">{t("admin.showing")} {data?.items.length ?? 0} {t("admin.of")} {total}</span>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>{t("admin.prev")}</Button>
-            <span className="px-2 py-1 tabular-nums">{page}/{maxPage}</span>
-            <Button variant="outline" size="sm" disabled={page >= maxPage} onClick={() => setPage((p) => p + 1)}>{t("admin.next")}</Button>
-          </div>
-        </div>
-      </Panel>
+      </Section>
 
       {detailId !== null && <UserDetailModal userId={detailId} onClose={() => setDetailId(null)} onChanged={load} />}
     </div>
@@ -526,37 +593,36 @@ function RevenueTab() {
   const { t } = useTranslation("common");
   const { data: r, error, reload } = useLoad(() => api.getAdminRevenue());
   if (error) return <LoadError onRetry={reload} />;
-  if (!r) return <Spinner />;
+  if (!r) return <PageLoader />;
   const planTable = (rows: api.AdminRevenue["basePlans"], title: string) => (
-    <Panel bare marker="§" label={title}>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead><tr className="border-b-2 border-foreground t-label">
-            <th className="w-px pb-2 pe-4 text-start">#</th>
-            <th className="pb-2 pe-4 text-start">{t("admin.plan")}</th>
-            <th className="pb-2 pe-4 text-start">{t("admin.subscribers")}</th>
-            <th className="pb-2 pe-4 text-start">{t("admin.price")}</th>
-            <th className="pb-2 pe-4 text-start">{t("admin.monthly")}</th>
-          </tr></thead>
-          <tbody>
-            {rows.map((p, i) => (
-              <tr key={p.code} className="border-b border-border/50 last:border-b-0">
-                <td className="py-2 pe-4 align-middle"><LogNo n={i + 1} /></td>
-                <td className="py-2 pe-4 font-medium">{p.name}</td>
-                <td className="py-2 pe-4 font-mono tabular-nums">{p.subscribers}</td>
-                <td className="py-2 pe-4 font-mono">{money(p.priceCents)}</td>
-                <td className="py-2 pe-4 font-mono font-semibold">{money(p.monthlyCents)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Panel>
+    <Section label={title} bodyClassName="p-0">
+      <Ledger minWidth={560} flush>
+        <thead>
+          <tr className="h-9 border-b border-bench-hair">
+            <th className={cn(TH, "w-12 ps-5")}>#</th>
+            <th className={cn(TH, "ps-3")}>{t("admin.plan")}</th>
+            <th className={cn(TH, "w-32 ps-3")}>{t("admin.subscribers")}</th>
+            <th className={cn(TH, "w-32 ps-3")}>{t("admin.price")}</th>
+            <th className={cn(TH, "w-32 ps-3 pe-5")}>{t("admin.monthly")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((p, i) => (
+            <tr key={p.code} className="h-[46px] border-b border-bench-hair last:border-b-0">
+              <td className="ps-5 align-middle"><LogNo n={i + 1} /></td>
+              <td className="ps-3 align-middle text-[13px] font-semibold text-txt-primary">{p.name}</td>
+              <td className="mono-value ps-3 align-middle text-txt-primary" dir="ltr">{p.subscribers}</td>
+              <td className="mono-value ps-3 align-middle text-txt-secondary" dir="ltr">{money(p.priceCents)}</td>
+              <td className="mono-value ps-3 pe-5 align-middle text-txt-primary" dir="ltr">{money(p.monthlyCents)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </Ledger>
+    </Section>
   );
   return (
-    <div className="space-y-12">
-      <Panel bare marker="§" label={t("admin.estimates", { defaultValue: "Estimated" })}>
-        <div className="mb-5 inline-flex rounded-sm bg-warning/20 px-2 py-1 font-mono text-[11px] uppercase tracking-[0.12em] text-foreground">{t("admin.estimatedNote")}</div>
+    <div className="space-y-5">
+      <Section label={t("admin.estimates", { defaultValue: "Estimated" })} aside={<Tag tone="advisory">{t("admin.estimatedNote")}</Tag>}>
         <MetricLedger
           items={[
             { label: t("admin.estMrr"), value: money(r.estimatedMrrCents) },
@@ -565,10 +631,10 @@ function RevenueTab() {
             { label: t("admin.canceled"), value: r.canceled },
           ]}
         />
-      </Panel>
-      <Panel bare marker="§" label={t("admin.actualRevenueTitle")}>
+      </Section>
+      <Section label={t("admin.actualRevenueTitle")}>
         {r.paymentsCount === 0 ? (
-          <div className="text-sm text-muted-foreground">{t("admin.ledgerEmpty")}</div>
+          <div className="py-3 text-center text-[13px] text-txt-muted">{t("admin.ledgerEmpty")}</div>
         ) : (
           <MetricLedger
             items={[
@@ -579,7 +645,7 @@ function RevenueTab() {
             ]}
           />
         )}
-      </Panel>
+      </Section>
       {planTable(r.basePlans, t("admin.perPlan"))}
       {planTable(r.apiPlans, t("admin.apiRevenue"))}
     </div>
@@ -592,10 +658,10 @@ function UsageTab() {
   const { t } = useTranslation("common");
   const { data: u, error, reload } = useLoad(() => api.getAdminUsage());
   if (error) return <LoadError onRetry={reload} />;
-  if (!u) return <Spinner />;
+  if (!u) return <PageLoader />;
   return (
-    <div className="space-y-12">
-      <Panel bare marker="§" label={t("admin.usageSummary", { defaultValue: "Period usage" })}>
+    <div className="space-y-5">
+      <Section label={t("admin.usageSummary", { defaultValue: "Period usage" })}>
         <MetricLedger
           items={[
             { label: t("admin.period"), value: u.period },
@@ -605,39 +671,39 @@ function UsageTab() {
             { label: t("admin.overQuota"), value: u.overQuotaUsers, sub: `${u.nearQuotaUsers} ${t("admin.nearQuota")}` },
           ]}
         />
-      </Panel>
+      </Section>
       <div className="grid gap-5 md:grid-cols-2">
         <Figure n={1} label={t("admin.topInteractive")}>
-          {u.topInteractive.length === 0 ? <div className="text-sm text-muted-foreground">{t("admin.noData")}</div> : (
+          {u.topInteractive.length === 0 ? <div className="text-[13px] text-txt-muted">{t("admin.noData")}</div> : (
             <Bars items={u.topInteractive.map((x) => ({ label: x.username, count: x.analyses }))} />
           )}
         </Figure>
-        <Panel bare marker="§" label={t("admin.topApi")}>
-          {u.topApi.length === 0 ? <div className="text-sm text-muted-foreground">{t("admin.noData")}</div> : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead><tr className="border-b-2 border-foreground t-label">
-                  <th className="w-px pb-2 pe-4 text-start">#</th>
-                  <th className="pb-2 pe-4 text-start">{t("admin.username")}</th>
-                  <th className="pb-2 pe-4 text-start">{t("admin.calls")}</th>
-                  <th className="pb-2 pe-4 text-start">{t("admin.pairs")}</th>
-                </tr></thead>
-                <tbody>
-                  {u.topApi.map((x, i) => (
-                    <tr key={x.userId} className="border-b border-border/50 last:border-b-0">
-                      <td className="py-2 pe-4 align-middle"><LogNo n={i + 1} /></td>
-                      <td className="py-2 pe-4">{x.username}</td>
-                      <td className="py-2 pe-4 font-mono tabular-nums">{x.calls}</td>
-                      <td className="py-2 pe-4 font-mono tabular-nums">{x.pairs}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+        <Section label={t("admin.topApi")} bodyClassName="p-0">
+          {u.topApi.length === 0 ? <div className="p-5 text-[13px] text-txt-muted">{t("admin.noData")}</div> : (
+            <Ledger minWidth={360} flush>
+              <thead>
+                <tr className="h-9 border-b border-bench-hair">
+                  <th className={cn(TH, "w-12 ps-5")}>#</th>
+                  <th className={cn(TH, "ps-3")}>{t("admin.username")}</th>
+                  <th className={cn(TH, "w-24 ps-3")}>{t("admin.calls")}</th>
+                  <th className={cn(TH, "w-24 ps-3 pe-5")}>{t("admin.pairs")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {u.topApi.map((x, i) => (
+                  <tr key={x.userId} className="h-[46px] border-b border-bench-hair last:border-b-0">
+                    <td className="ps-5 align-middle"><LogNo n={i + 1} /></td>
+                    <td className="ps-3 align-middle text-[13px] text-txt-primary" dir="ltr">{x.username}</td>
+                    <td className="mono-value ps-3 align-middle text-txt-primary" dir="ltr">{x.calls}</td>
+                    <td className="mono-value ps-3 pe-5 align-middle text-txt-primary" dir="ltr">{x.pairs}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </Ledger>
           )}
-        </Panel>
+        </Section>
       </div>
-      <div className="font-mono text-xs text-muted-foreground">{u.note}</div>
+      <div className="mono-meta text-txt-muted">{u.note}</div>
     </div>
   );
 }
@@ -648,25 +714,25 @@ function ActivityTab() {
   const { t } = useTranslation("common");
   const { data, error, reload } = useLoad(() => Promise.all([api.getAdminActivity(30), api.getAdminDistributions()]));
   if (error) return <LoadError onRetry={reload} />;
-  if (!data) return <Spinner />;
+  if (!data) return <PageLoader />;
   const [a, dist] = data;
   const asBars = (rows: { date: string; count: number }[]) => rows.map((r) => ({ label: r.date.slice(5), count: r.count }));
   const sum = (rows: { count: number }[]) => rows.reduce((s, r) => s + r.count, 0);
   const total = (n: number) => (
-    <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-      Σ <span className="font-semibold text-foreground">{n.toLocaleString()}</span>
+    <span className="mono-meta text-txt-muted">
+      Σ <span className="text-txt-primary">{n.toLocaleString()}</span>
     </span>
   );
   return (
-    <div className="space-y-12">
-      <Panel bare marker="§" label={t("admin.timeSeries", { defaultValue: "Daily activity" })}>
+    <div className="space-y-5">
+      <Section label={t("admin.timeSeries", { defaultValue: "Daily activity" })}>
         <div className="grid gap-5 md:grid-cols-3">
           <Figure n={1} label={t("admin.signupsPerDay")} actions={total(sum(a.signupsPerDay))}><Bars items={asBars(a.signupsPerDay)} /></Figure>
           <Figure n={2} label={t("admin.analysesPerDay")} actions={total(sum(a.analysesPerDay))}><Bars items={asBars(a.analysesPerDay)} /></Figure>
           <Figure n={3} label={t("admin.dau")} actions={total(sum(a.activeUsersPerDay))}><Bars items={asBars(a.activeUsersPerDay)} /></Figure>
         </div>
-      </Panel>
-      <Panel bare marker="§" label={t("admin.distributions", { defaultValue: "Distributions" })}>
+      </Section>
+      <Section label={t("admin.distributions", { defaultValue: "Distributions" })}>
         <div className="grid gap-5 md:grid-cols-2">
           <Figure n={4} label={t("admin.languageMix")} actions={total(sum(dist.languages.map((l) => ({ count: l.count }))))}>
             <Bars items={dist.languages.map((l) => ({ label: l.language, count: l.count }))} />
@@ -675,7 +741,7 @@ function ActivityTab() {
             <Bars items={dist.similarity.map((s) => ({ label: s.range, count: s.count }))} />
           </Figure>
         </div>
-      </Panel>
+      </Section>
     </div>
   );
 }
@@ -686,10 +752,10 @@ function SecurityTab() {
   const { t } = useTranslation("common");
   const { data: s, error, reload } = useLoad(() => api.getAdminSecurity());
   if (error) return <LoadError onRetry={reload} />;
-  if (!s) return <Spinner />;
+  if (!s) return <PageLoader />;
   return (
-    <div className="space-y-12">
-      <Panel bare marker="§" label={t("admin.securitySummary", { defaultValue: "Security posture" })}>
+    <div className="space-y-5">
+      <Section label={t("admin.securitySummary", { defaultValue: "Security posture" })}>
         <MetricLedger
           items={[
             { label: t("admin.locked"), value: s.lockedCount },
@@ -699,44 +765,47 @@ function SecurityTab() {
             { label: t("admin.revokedKeys"), value: s.revokedApiKeys },
           ]}
         />
-      </Panel>
-      <Panel bare marker="§" label={t("admin.lockedAccounts")}>
-        {s.lockedAccounts.length === 0 ? <div className="text-sm text-muted-foreground">{t("admin.noLocked")}</div> : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead><tr className="border-b-2 border-foreground t-label">
-                <th className="w-px pb-2 pe-4 text-start">#</th>
-                <th className="pb-2 pe-4 text-start">{t("admin.username")}</th>
-                <th className="pb-2 pe-4 text-start">{t("admin.failedLogins")}</th>
-                <th className="pb-2 pe-4 text-start">{t("admin.lockedUntil")}</th>
-              </tr></thead>
-              <tbody>
-                {s.lockedAccounts.map((a, i) => (
-                  <tr key={a.id} className="border-b border-border/50 last:border-b-0">
-                    <td className="py-2 pe-4 align-middle"><LogNo n={i + 1} flagged /></td>
-                    <td className="py-2 pe-4">{a.username}</td>
-                    <td className="py-2 pe-4 font-mono tabular-nums">{a.failedLoginCount}</td>
-                    <td className="py-2 pe-4 text-muted-foreground">{fmtDateTime(a.lockedUntil)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      </Section>
+      <Section label={t("admin.lockedAccounts")} bodyClassName="p-0">
+        {s.lockedAccounts.length === 0 ? <div className="p-5 text-center text-[13px] text-txt-muted">{t("admin.noLocked")}</div> : (
+          <Ledger minWidth={560} flush>
+            <thead>
+              <tr className="h-9 border-b border-bench-hair">
+                <th className={cn(TH, "w-12 ps-5")}>#</th>
+                <th className={cn(TH, "ps-3")}>{t("admin.username")}</th>
+                <th className={cn(TH, "w-32 ps-3")}>{t("admin.failedLogins")}</th>
+                <th className={cn(TH, "w-48 ps-3 pe-5")}>{t("admin.lockedUntil")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {s.lockedAccounts.map((a, i) => (
+                <tr key={a.id} className="h-[46px] border-b border-bench-hair last:border-b-0">
+                  <td className="ps-5 align-middle"><LogNo n={i + 1} flagged /></td>
+                  <td className="ps-3 align-middle text-[13px] text-txt-primary" dir="ltr">{a.username}</td>
+                  <td className="mono-value ps-3 align-middle text-txt-primary" dir="ltr">{a.failedLoginCount}</td>
+                  <td className="mono-filename ps-3 pe-5 align-middle text-txt-secondary" dir="ltr">{fmtDateTime(a.lockedUntil)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </Ledger>
         )}
-      </Panel>
-      <Panel bare marker="§" label={t("admin.adminActions")}>
-        {s.recentAdminActions.length === 0 ? <div className="text-sm text-muted-foreground">{t("admin.noData")}</div> : (
-          <ol className="divide-y divide-border text-sm">
+      </Section>
+      <Section label={t("admin.adminActions")} bodyClassName="p-0">
+        {s.recentAdminActions.length === 0 ? <div className="p-5 text-center text-[13px] text-txt-muted">{t("admin.noData")}</div> : (
+          <ol className="divide-y divide-bench-hair">
             {s.recentAdminActions.map((a, i) => (
-              <li key={a.id} className="flex items-center gap-3 py-2.5">
+              <li key={a.id} className="flex h-[46px] items-center gap-4 px-5">
                 <LogNo n={i + 1} />
-                <span className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">{a.action}{a.detail ? <span className="text-muted-foreground"> · {a.detail}</span> : null}</span>
-                <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">{fmtDateTime(a.createdAt)}</span>
+                <span className="mono-filename min-w-0 flex-1 truncate text-txt-primary" dir="ltr">
+                  {a.action}
+                  {a.detail ? <span className="text-txt-muted"> · {a.detail}</span> : null}
+                </span>
+                <span className="mono-filename shrink-0 text-txt-muted" dir="ltr">{fmtDateTime(a.createdAt)}</span>
               </li>
             ))}
           </ol>
         )}
-      </Panel>
+      </Section>
     </div>
   );
 }
@@ -756,7 +825,7 @@ const Admin = () => {
     {
       label: t("admin.locked"),
       value: m ? (
-        <span className={m.lockedUsers > 0 ? "font-semibold text-foreground" : undefined}>{m.lockedUsers.toLocaleString()}</span>
+        <span className={m.lockedUsers > 0 ? "text-signal-bench" : undefined}>{m.lockedUsers.toLocaleString()}</span>
       ) : (
         "—"
       ),
@@ -764,41 +833,41 @@ const Admin = () => {
   ];
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="pt-7">
       <Masthead
-        kicker={t("admin.eyebrow", { defaultValue: "Operations console" })}
+        kicker={t("admin.kicker", { defaultValue: "Console" })}
         title={t("admin.title")}
         description={t("admin.subtitle")}
         meta={meta}
       />
 
-      {/* Console section switch — mono, ruled, like a log filter rail */}
-      <div className="press-tabs-list flex-wrap" role="tablist">
+      {/* Console section switch */}
+      <div className="segment-group flex-wrap" role="tablist">
         {TABS.map((tb) => {
-          const Icon = TAB_ICON[tb];
           const active = tab === tb;
           return (
             <button
               key={tb}
+              type="button"
               role="tab"
               aria-selected={active}
-              data-state={active ? "active" : "inactive"}
               onClick={() => setTab(tb)}
-              className="press-tab focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              className={cn("segment focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-signal", active && "is-on")}
             >
-              <Icon className="h-3.5 w-3.5" />
               {t(`admin.tabs.${tb}`)}
             </button>
           );
         })}
       </div>
 
-      {tab === "overview" && <OverviewTab />}
-      {tab === "users" && <UsersTab />}
-      {tab === "revenue" && <RevenueTab />}
-      {tab === "usage" && <UsageTab />}
-      {tab === "activity" && <ActivityTab />}
-      {tab === "security" && <SecurityTab />}
+      <div className="mt-8">
+        {tab === "overview" && <OverviewTab />}
+        {tab === "users" && <UsersTab />}
+        {tab === "revenue" && <RevenueTab />}
+        {tab === "usage" && <UsageTab />}
+        {tab === "activity" && <ActivityTab />}
+        {tab === "security" && <SecurityTab />}
+      </div>
     </div>
   );
 };

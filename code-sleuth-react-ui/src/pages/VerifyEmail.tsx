@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, Loader2, XCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { AuthShell, PlateField, PlateNotice, PlateTitle } from "@/components/layout/AuthShell";
+import { BenchButton } from "@/components/bench/Bench";
+import { IconArrowRight } from "@/components/bench/icons";
 import { useAuth } from "@/context/AuthContext";
 
 type Status = "verifying" | "ok" | "error";
@@ -18,6 +18,7 @@ const VerifyEmail = () => {
   const [resendEmail, setResendEmail] = useState("");
   const [resendState, setResendState] = useState<ResendState>("idle");
   const ran = useRef(false);
+  const emailId = useId();
 
   useEffect(() => {
     if (ran.current) return; // StrictMode double-invoke guard
@@ -43,7 +44,7 @@ const VerifyEmail = () => {
     }
   };
 
-  const title =
+  const heading =
     status === "verifying" ? t("auth.verifyingTitle")
     : status === "ok" ? t("auth.verifiedTitle")
     : t("auth.verifyFailedTitle");
@@ -53,59 +54,60 @@ const VerifyEmail = () => {
     : "";
 
   return (
-    <div className="mx-auto max-w-md rounded-lg border border-border bg-card p-10 text-center">
-      <div className="mb-4 flex justify-center">
-        {status === "verifying" && <Loader2 className="h-9 w-9 animate-spin text-primary" />}
-        {status === "ok" && <CheckCircle2 className="h-9 w-9 text-success" />}
-        {status === "error" && <XCircle className="h-9 w-9 text-destructive" />}
-      </div>
-      <h1 className="t-h3">{title}</h1>
-      {description && <p className="mt-2 t-body">{description}</p>}
+    <AuthShell serial="Plate 00 · Verify">
+      <div className="flex flex-col gap-[22px]">
+        <PlateTitle word={t("auth.bench.titleVerify")} qualifier={t("auth.bench.titleVerifySub")} />
 
-      {status === "error" && (
-        <div className="mt-6 text-start">
-          {resendState === "sent" ? (
-            <div
-              className="flex items-start gap-2 rounded-md border border-success/30 bg-success/10 px-4 py-3 text-sm text-success"
-              role="status"
-            >
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>{t("auth.resendSent")}</span>
-            </div>
+        <div>
+          <p className="text-[15px] font-semibold leading-[1.4] text-plate-ink" aria-live="polite">
+            {heading}
+          </p>
+          {description && <p className="mt-1.5 text-[13px] leading-[1.5] text-plate-soft">{description}</p>}
+        </div>
+
+        {status === "error" &&
+          (resendState === "sent" ? (
+            <PlateNotice tone="notice">{t("auth.resendSent")}</PlateNotice>
           ) : (
             <>
-              <label className="mb-1.5 block text-sm font-medium text-foreground">
-                {t("auth.resendPrompt")}
-              </label>
-              <Input
-                type="email"
-                dir="ltr"
-                placeholder={t("auth.emailPlaceholder")}
-                value={resendEmail}
-                autoComplete="email"
-                onChange={(e) => setResendEmail(e.target.value)}
-                className="h-10"
-              />
-              <Button
-                type="button"
-                onClick={() => void handleResend()}
-                disabled={resendState === "sending" || !resendEmail.trim()}
-                variant="outline"
-                className="mt-3 h-10 w-full"
-              >
-                {resendState === "sending" ? t("auth.resending") : t("auth.resendVerification")}
-              </Button>
+              <PlateField label={t("auth.email")} htmlFor={emailId}>
+                <div className="plate-well">
+                  <input
+                    id={emailId}
+                    type="email"
+                    dir="ltr"
+                    placeholder="name@company.com"
+                    value={resendEmail}
+                    autoComplete="email"
+                    onChange={(e) => setResendEmail(e.target.value)}
+                  />
+                </div>
+                <p className="mt-2.5 text-[12.5px] text-plate-soft">{t("auth.resendPrompt")}</p>
+              </PlateField>
+              <div>
+                <BenchButton
+                  type="button"
+                  tone="primary"
+                  size="large"
+                  onClick={() => void handleResend()}
+                  disabled={resendState === "sending" || !resendEmail.trim()}
+                  trailing={<IconArrowRight className="rtl:-scale-x-100" />}
+                >
+                  {resendState === "sending" ? t("auth.resending") : t("auth.resendVerification")}
+                </BenchButton>
+              </div>
             </>
-          )}
-        </div>
-      )}
+          ))}
 
-      {status !== "verifying" && (
-        <Button asChild className="mt-6 h-10 w-full gap-2">
-          <Link to="/login">{t("auth.backToLogin")}</Link>
-        </Button>
-      )}
-    </div>
+        {status !== "verifying" && (
+          <div className="mt-1.5 border-t border-plate-hair pt-[18px] text-[12.5px] text-plate-soft">
+            <Link to="/login" className="text-plate-ink underline underline-offset-2 hover:text-signal-plate">
+              {t("auth.backToLogin")}
+            </Link>
+          </div>
+        )}
+      </div>
+    </AuthShell>
   );
 };
 

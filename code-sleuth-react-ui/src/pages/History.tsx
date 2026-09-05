@@ -1,42 +1,78 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import {
-  Download,
-  ExternalLink,
-  Filter,
-  History as HistoryIcon,
-  Info,
-  Plus,
-  RefreshCw,
-  Search,
-  Trash2,
-} from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Masthead, OverprintMeter, PlatePair, Stamp } from "@/components/dossier/Dossier";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { BenchButton, BenchSelect, Reading, Scale, Tag } from "@/components/bench/Bench";
+import { CLONE_THRESHOLD, toneForScore } from "@/lib/bands";
+import { IconChevronLeft, IconChevronRight, IconDownload, IconFilePlus, IconSearch } from "@/components/bench/icons";
 import { apiFetch } from "@/lib/api";
 import { downloadText } from "@/lib/download";
+import { getBillingSummary, type BillingSummary } from "@/lib/billingApi";
 import { useAnalysis } from "@/context/AnalysisContext";
+import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
-import { useTranslation } from "react-i18next";
 import type { AnalysisResult, HistoryResponse, HistorySummary } from "@/types/api";
 import { cn } from "@/lib/utils";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { PageLoader } from "@/components/common/PageLoader";
 import { PageError } from "@/components/common/PageError";
-import { EmptyState } from "@/components/common/EmptyState";
+
+/**
+ * History (design node 18:601): the archive. Four ruled readings, a filter
+ * row, the hairline ledger of every comparison, and pagination.
+ */
+
+const PAGE_SIZE = 10;
+type Range = "all" | "7d" | "30d" | "90d";
+type Verdict = "all" | HistorySummary["severity"];
+
+function pad(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+/** 2026-09-04 14:22 — the ledger's timestamp, locale-independent. */
+function ledgerDate(summary: HistorySummary) {
+  if (!summary.dateCreated) return summary.dateDisplay;
+  const d = new Date(summary.dateCreated);
+  if (Number.isNaN(d.getTime())) return summary.dateDisplay;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function median(values: number[]) {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function csvCell(value: string | number) {
+  const s = String(value ?? "");
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
 
 const History = () => {
   const navigate = useNavigate();
   const { rerunById, loadById } = useAnalysis();
-  const { isRTL, formatNumber, formatDate, localizeRuntimeMessage, getProgrammingLanguageLabel } = useLanguage();
+  const { isAuthenticated } = useAuth();
+  const { formatNumber, localizeRuntimeMessage, getProgrammingLanguageLabel } = useLanguage();
   const { t } = useTranslation("common");
   const [historyData, setHistoryData] = useState<HistoryResponse | null>(null);
+  const [billing, setBilling] = useState<BillingSummary | null>(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [search, setSearch] = useState("");
   const [filterLanguage, setFilterLanguage] = useState("all");
-  const [filterSeverity, setFilterSeverity] = useState("all");
+  const [filterVerdict, setFilterVerdict] = useState<Verdict>("all");
+  const [filterRange, setFilterRange] = useState<Range>("all");
   const [sortBy, setSortBy] = useState<"date" | "score">("date");
+  const [page, setPage] = useState(1);
   const [selectedAnalysis, setSelectedAnalysis] = useState<AnalysisResult | null>(null);
   const [selectedSummary, setSelectedSummary] = useState<HistorySummary | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -44,14 +80,6 @@ const History = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [error, setError] = useState("");
   const [isBusy, setIsBusy] = useState(false);
-
-  const severityLabel = (severity: HistorySummary["severity"]) =>
-    t(`severity.${severity}`);
-
-  const getDisplayDate = (summary: HistorySummary) =>
-    summary.dateCreated
-      ? formatDate(summary.dateCreated, { dateStyle: "medium", timeStyle: "short" })
-      : summary.dateDisplay;
 
   const loadHistory = async () => {
     const result = await apiFetch<HistoryResponse>("/api/history");
@@ -62,24 +90,28 @@ const History = () => {
     setIsInitialLoad(true);
     void loadHistory()
       .catch((loadError) => {
-        setError(
-          loadError instanceof Error
-            ? localizeRuntimeMessage(loadError.message)
-            : t("history.errors.loadHistory"),
-        );
+        setError(loadError instanceof Error ? localizeRuntimeMessage(loadError.message) : t("history.errors.loadHistory"));
       })
       .finally(() => setIsInitialLoad(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const items = historyData?.items ?? [];
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    getBillingSummary().then(setBilling).catch(() => undefined);
+  }, [isAuthenticated]);
+
+  const items = useMemo(() => historyData?.items ?? [], [historyData]);
   const languages = useMemo(
-    () => ["all", ...Array.from(new Set(items.map((item) => item.language).filter(Boolean)))],
+    () => Array.from(new Set(items.map((item) => item.language).filter(Boolean))),
     [items],
   );
 
   const filteredItems = useMemo(() => {
     const normalizedSearch = search.toLowerCase().trim();
+    const now = Date.now();
+    const rangeMs = filterRange === "7d" ? 7 : filterRange === "30d" ? 30 : filterRange === "90d" ? 90 : 0;
+    const since = rangeMs ? now - rangeMs * 24 * 60 * 60 * 1000 : 0;
     return [...items]
       .filter((item) => {
         const matchesSearch =
@@ -87,18 +119,59 @@ const History = () => {
           item.sourceA.toLowerCase().includes(normalizedSearch) ||
           item.sourceB.toLowerCase().includes(normalizedSearch) ||
           item.language.toLowerCase().includes(normalizedSearch) ||
+          String(item.id).includes(normalizedSearch) ||
           getProgrammingLanguageLabel(item.language).toLowerCase().includes(normalizedSearch);
         const matchesLanguage = filterLanguage === "all" || item.language === filterLanguage;
-        const matchesSeverity = filterSeverity === "all" || item.severity === filterSeverity;
-        return matchesSearch && matchesLanguage && matchesSeverity;
+        const matchesVerdict = filterVerdict === "all" || item.severity === filterVerdict;
+        const created = item.dateCreated ? new Date(item.dateCreated).getTime() : 0;
+        const matchesRange = !since || created >= since;
+        return matchesSearch && matchesLanguage && matchesVerdict && matchesRange;
       })
       .sort((left, right) => {
-        if (sortBy === "score") {
-          return right.similarity - left.similarity;
-        }
+        if (sortBy === "score") return right.similarity - left.similarity;
         return (right.dateCreated || "").localeCompare(left.dateCreated || "");
       });
-  }, [items, search, filterLanguage, filterSeverity, sortBy, getProgrammingLanguageLabel]);
+  }, [items, search, filterLanguage, filterVerdict, filterRange, sortBy, getProgrammingLanguageLabel]);
+
+  const pageCount = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const pageItems = filteredItems.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const rangeFrom = filteredItems.length ? (currentPage - 1) * PAGE_SIZE + 1 : 0;
+  const rangeTo = Math.min(currentPage * PAGE_SIZE, filteredItems.length);
+
+  // Any filter change returns to the first page.
+  useEffect(() => {
+    setPage(1);
+  }, [search, filterLanguage, filterVerdict, filterRange, sortBy]);
+
+  const hasFilters = search !== "" || filterLanguage !== "all" || filterVerdict !== "all" || filterRange !== "all";
+  const clearFilters = () => {
+    setSearch("");
+    setFilterLanguage("all");
+    setFilterVerdict("all");
+    setFilterRange("all");
+  };
+
+  /* ---------- readings ---------- */
+
+  const stats = historyData?.stats;
+  const earliest = useMemo(() => {
+    const dates = items.map((i) => i.dateCreated).filter((d): d is string => Boolean(d)).sort();
+    return dates[0] ? dates[0].slice(0, 7) : null;
+  }, [items]);
+  const thisMonthCount = useMemo(() => {
+    const now = new Date();
+    return items.filter((i) => {
+      if (!i.dateCreated) return false;
+      const d = new Date(i.dateCreated);
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    }).length;
+  }, [items]);
+  const medianReading = useMemo(() => median(items.map((i) => i.similarity)), [items]);
+  const total = stats?.totalAnalyses ?? 0;
+  const flagged = stats?.highSimilarity ?? 0;
+
+  /* ---------- actions ---------- */
 
   const openPreview = async (summary: HistorySummary) => {
     setError("");
@@ -109,11 +182,7 @@ const History = () => {
       setSelectedAnalysis(detail);
       setIsDialogOpen(true);
     } catch (previewError) {
-      setError(
-        previewError instanceof Error
-          ? localizeRuntimeMessage(previewError.message)
-          : t("history.errors.loadPreview"),
-      );
+      setError(previewError instanceof Error ? localizeRuntimeMessage(previewError.message) : t("history.errors.loadPreview"));
     } finally {
       setIsBusy(false);
     }
@@ -125,11 +194,7 @@ const History = () => {
       await rerunById(summary.id);
       navigate(`/results?analysisId=${summary.id}`);
     } catch (rerunError) {
-      setError(
-        rerunError instanceof Error
-          ? localizeRuntimeMessage(rerunError.message)
-          : t("history.errors.rerun"),
-      );
+      setError(rerunError instanceof Error ? localizeRuntimeMessage(rerunError.message) : t("history.errors.rerun"));
     } finally {
       setIsBusy(false);
     }
@@ -141,11 +206,7 @@ const History = () => {
       await loadById(summary.id);
       navigate(`/results?analysisId=${summary.id}`);
     } catch (viewError) {
-      setError(
-        viewError instanceof Error
-          ? localizeRuntimeMessage(viewError.message)
-          : t("history.errors.open"),
-      );
+      setError(viewError instanceof Error ? localizeRuntimeMessage(viewError.message) : t("history.errors.open"));
     } finally {
       setIsBusy(false);
     }
@@ -159,7 +220,7 @@ const History = () => {
         `${t("history.exportSections.analysisId")}: ${summary.id}`,
         `${t("history.exportSections.language")}: ${summary.language}`,
         `${t("history.exportSections.similarity")}: ${summary.similarity}%`,
-        `${t("history.exportSections.date")}: ${getDisplayDate(summary)}`,
+        `${t("history.exportSections.date")}: ${ledgerDate(summary)}`,
         "",
         t("history.exportSections.sourceA"),
         detail.code1,
@@ -172,14 +233,20 @@ const History = () => {
       ].join("\n");
       downloadText(`analysis-${summary.id}.txt`, payload);
     } catch (exportError) {
-      setError(
-        exportError instanceof Error
-          ? localizeRuntimeMessage(exportError.message)
-          : t("history.errors.export"),
-      );
+      setError(exportError instanceof Error ? localizeRuntimeMessage(exportError.message) : t("history.errors.export"));
     } finally {
       setIsBusy(false);
     }
+  };
+
+  const exportCsv = () => {
+    const header = ["id", "date", "plate_a", "plate_b", "language", "reading", "verdict"];
+    const rows = filteredItems.map((item) =>
+      [item.id, ledgerDate(item), item.sourceA, item.sourceB, item.language, item.similarity.toFixed(1), item.severity]
+        .map(csvCell)
+        .join(","),
+    );
+    downloadText(t("history.csv.filename"), [header.join(","), ...rows].join("\n"));
   };
 
   const confirmDelete = (summary: HistorySummary) => {
@@ -196,11 +263,7 @@ const History = () => {
       setDeleteTarget(null);
       await loadHistory();
     } catch (deleteError) {
-      setError(
-        deleteError instanceof Error
-          ? localizeRuntimeMessage(deleteError.message)
-          : t("history.errors.delete"),
-      );
+      setError(deleteError instanceof Error ? localizeRuntimeMessage(deleteError.message) : t("history.errors.delete"));
     } finally {
       setIsBusy(false);
     }
@@ -221,11 +284,7 @@ const History = () => {
           setIsInitialLoad(true);
           void loadHistory()
             .catch((loadError) => {
-              setError(
-                loadError instanceof Error
-                  ? localizeRuntimeMessage(loadError.message)
-                  : t("history.errors.loadHistory"),
-              );
+              setError(loadError instanceof Error ? localizeRuntimeMessage(loadError.message) : t("history.errors.loadHistory"));
             })
             .finally(() => setIsInitialLoad(false));
         }}
@@ -233,243 +292,268 @@ const History = () => {
     );
   }
 
+  const verdictLabel = (severity: HistorySummary["severity"]) => t(`history.verdicts.${severity}`);
+  const sortHeader = (key: "date" | "score", label: string, className?: string) => (
+    <button
+      type="button"
+      onClick={() => setSortBy(key)}
+      className={cn("label flex items-center gap-1.5 text-txt-muted hover:text-txt-primary", sortBy === key && "text-txt-secondary", className)}
+      aria-sort={sortBy === key ? "descending" : undefined}
+    >
+      {label}
+      {sortBy === key && <span aria-hidden className="mono-meta-sm">↓</span>}
+    </button>
+  );
+
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Case-register masthead — stats fold into the live mono meta strip */}
-      <Masthead
-        kicker={t("history.eyebrow", { defaultValue: "Case register" })}
-        title={t("history.pageTitle")}
-        description={t("history.pageDescription")}
-        meta={[
-          { label: t("history.stats.totalAnalyses"), value: formatNumber(historyData?.stats.totalAnalyses ?? 0) },
-          {
-            label: t("history.stats.highSimilarity"),
-            value: <span className="text-destructive">{formatNumber(historyData?.stats.highSimilarity ?? 0)}</span>,
-          },
-          { label: t("history.stats.languagesUsed"), value: formatNumber(historyData?.stats.languagesUsed ?? 0) },
-          { label: t("history.stats.last7Days"), value: formatNumber(historyData?.stats.last7Days ?? 0) },
-        ]}
-        actions={
-          <Button asChild size="lg" className="h-11 shrink-0 gap-2 px-5">
-            <Link to="/analysis">
-              <Plus className="h-4 w-4" />
-              {t("buttons.newAnalysis")}
-            </Link>
-          </Button>
-        }
-      />
+    <div className="pt-7">
+      {/* Header */}
+      <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 pb-[22px]">
+        <div className="flex flex-col gap-2.5">
+          <span className="label text-txt-muted">{t("history.kicker")}</span>
+          <h1 className="t-page text-txt-primary">{t("history.title")}</h1>
+        </div>
+        <BenchButton tone="secondary" leading={<IconDownload />} onClick={exportCsv} disabled={filteredItems.length === 0}>
+          {t("history.exportCsv")}
+        </BenchButton>
+      </header>
+
+      {/* Readings */}
+      <div className="grid grid-cols-2 border-y border-bench-hair lg:grid-cols-4">
+        <Reading
+          className="border-e border-bench-hair pe-4 lg:pe-6"
+          label={t("history.readings.total")}
+          value={formatNumber(total)}
+          note={earliest ? t("history.readings.sinceDate", { date: earliest }) : t("history.readings.allTime")}
+        />
+        <Reading
+          className="ps-4 lg:border-e lg:border-bench-hair lg:px-6"
+          label={t("history.readings.thisMonth")}
+          value={formatNumber(billing ? billing.used : thisMonthCount)}
+          note={
+            billing
+              ? billing.unlimited
+                ? t("history.readings.unlimitedOn", { plan: billing.planName })
+                : t("history.readings.remainingOn", { count: billing.remaining ?? Math.max(0, billing.limit - billing.used), plan: billing.planName })
+              : t("history.readings.last7", { count: stats?.last7Days ?? 0 })
+          }
+        />
+        <Reading
+          className="border-e border-bench-hair border-t pe-4 lg:border-t-0 lg:px-6"
+          label={t("history.readings.flagged")}
+          value={formatNumber(flagged)}
+          note={t("history.readings.pctOf", { pct: total ? Math.round((flagged / total) * 100) : 0 })}
+        />
+        <Reading
+          className="border-t ps-4 lg:border-t-0 lg:ps-6"
+          label={t("history.readings.median")}
+          value={medianReading == null ? "—" : medianReading.toFixed(1)}
+          note={t("history.readings.threshold", { value: CLONE_THRESHOLD.toFixed(1) })}
+        />
+      </div>
 
       {error && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div role="alert" className="mt-5 border border-signal px-4 py-3 text-[13px] text-signal-bench">
           {error}
         </div>
       )}
 
-      {/* Register controls — a compact mono filter strip, ruled not boxed */}
-      <div className="flex flex-wrap items-center gap-2 border-y border-border py-3">
-        <div className="relative min-w-48 flex-1">
-          <Search className={cn("pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground", isRTL ? "right-3" : "left-3")} />
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-3 pb-4 pt-[52px]">
+        <label className="well w-full sm:w-[300px]">
+          <IconSearch className="text-txt-muted" />
           <input
-            type="text"
+            type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder={t("history.searchPlaceholder")}
-            className={cn(
-              "h-9 w-full rounded-sm border border-border bg-card py-2 font-mono text-xs placeholder:text-muted-foreground/50 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20",
-              isRTL ? "pl-3 pr-9 text-right" : "pl-9 pr-3",
-            )}
+            placeholder={t("history.filters.search")}
+            aria-label={t("history.filters.search")}
           />
-        </div>
-
-        <div className="flex h-9 items-center gap-2 rounded-sm border border-border bg-card px-3">
-          <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-          <select
-            value={filterLanguage}
-            onChange={(event) => setFilterLanguage(event.target.value)}
-            className="h-9 bg-transparent font-mono text-xs text-foreground focus:outline-none"
-          >
-            {languages.map((lang) => (
-              <option key={lang} value={lang} className="bg-card">
-                {lang === "all" ? t("history.allLanguages") : getProgrammingLanguageLabel(lang)}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex h-9 items-center rounded-sm border border-border bg-card px-3">
-          <select
-            value={filterSeverity}
-            onChange={(event) => setFilterSeverity(event.target.value)}
-            className="h-9 bg-transparent font-mono text-xs text-foreground focus:outline-none"
-          >
-            <option value="all" className="bg-card">{t("history.allSeverity")}</option>
-            <option value="high" className="bg-card">{t("history.highSimilarity")}</option>
-            <option value="moderate" className="bg-card">{t("history.moderateSimilarity")}</option>
-            <option value="low" className="bg-card">{t("history.lowSimilarity")}</option>
-          </select>
-        </div>
-
-        <div className="flex h-9 border border-border bg-card">
-          {(["date", "score"] as const).map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              onClick={() => setSortBy(mode)}
-              className={cn(
-                "press-slug border-e border-border px-3 transition-colors last:border-e-0",
-                sortBy === mode
-                  ? "bg-primary/10 font-bold text-foreground"
-                  : "hover:text-foreground",
-              )}
-            >
-              {mode === "date" ? t("history.byDate") : t("history.byScore")}
-            </button>
-          ))}
-        </div>
-
-        <span className={cn("press-slug tabular-nums", isRTL ? "mr-1" : "ml-1")}>
-          {formatNumber(filteredItems.length)} / {formatNumber(items.length)}
-        </span>
+        </label>
+        <BenchSelect
+          label={t("history.filters.language")}
+          value={filterLanguage}
+          onChange={setFilterLanguage}
+          options={[{ value: "all", label: t("history.filters.all") }, ...languages.map((lang) => ({ value: lang, label: getProgrammingLanguageLabel(lang) }))]}
+        />
+        <BenchSelect
+          label={t("history.filters.verdict")}
+          value={filterVerdict}
+          onChange={(v) => setFilterVerdict(v as Verdict)}
+          options={[
+            { value: "all", label: t("history.filters.all") },
+            { value: "high", label: t("history.verdicts.high") },
+            { value: "moderate", label: t("history.verdicts.moderate") },
+            { value: "low", label: t("history.verdicts.low") },
+          ]}
+        />
+        <BenchSelect
+          label={t("history.filters.range")}
+          value={filterRange}
+          onChange={(v) => setFilterRange(v as Range)}
+          options={[
+            { value: "all", label: t("history.filters.ranges.all") },
+            { value: "7d", label: t("history.filters.ranges.7d") },
+            { value: "30d", label: t("history.filters.ranges.30d") },
+            { value: "90d", label: t("history.filters.ranges.90d") },
+          ]}
+        />
+        {hasFilters && (
+          <button type="button" onClick={clearFilters} className="text-[12.5px] text-txt-secondary underline underline-offset-2 hover:text-txt-primary">
+            {t("history.filters.clear")}
+          </button>
+        )}
+        <span className="ms-auto text-[12.5px] text-txt-secondary">{t("history.filters.results", { count: filteredItems.length })}</span>
       </div>
 
+      {/* Ledger */}
       {filteredItems.length === 0 ? (
-        <EmptyState
-          icon={HistoryIcon}
-          title={t("history.noAnalysesFound")}
-          description={items.length === 0 ? t("history.noAnalysesYet") : t("history.adjustFilters")}
-          actionLabel={t("buttons.runAnalysis")}
-          onAction={() => navigate("/analysis")}
-        />
+        <div className="flex flex-col items-center gap-4 border-y border-bench-hair px-6 py-20 text-center">
+          <IconFilePlus className="text-txt-muted" />
+          <p className="text-[15px] text-txt-primary">{t("history.noAnalysesFound")}</p>
+          <p className="mono-meta text-txt-muted">{items.length === 0 ? t("history.noAnalysesYet") : t("history.adjustFilters")}</p>
+          <BenchButton tone="primary" className="mt-2" onClick={() => navigate("/analysis")}>
+            {t("buttons.newAnalysis")}
+          </BenchButton>
+        </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-border bg-card">
-          <div className="overflow-x-auto scrollbar-thin">
-            <table className="w-full min-w-[980px] text-sm">
-              <thead>
-                <tr className="border-b-2 border-foreground">
-                  <th className="press-slug w-14 px-4 py-2.5 text-start">#</th>
-                  <th className="press-slug px-4 py-2.5 text-start">
-                    {t("history.table.pair", { defaultValue: "A ⊕ B" })}
-                  </th>
-                  <th className="press-slug px-4 py-2.5 text-start">{t("history.table.language")}</th>
-                  <th className="press-slug px-4 py-2.5 text-start">{t("history.table.score")}</th>
-                  <th className="press-slug px-4 py-2.5 text-start">{t("history.table.severity")}</th>
-                  <th className="press-slug px-4 py-2.5 text-start">{t("history.table.date")}</th>
-                  <th className={cn("press-slug px-4 py-2.5", isRTL ? "text-left" : "text-right")}>
-                    {t("history.table.actions")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredItems.map((item, index) => {
-                  const score = item.similarity;
-                  return (
-                    <tr
-                      key={item.id}
-                      className="border-b border-border/40 transition-colors last:border-b-0 hover:bg-muted/30"
-                    >
-                      {/* Log line number */}
-                      <td className="px-4 py-3 align-top">
-                        <span
-                          className="font-display text-lg font-extrabold tabular-nums leading-none text-muted-foreground"
-                          style={{ fontStretch: "118%" }}
+        <div className="overflow-x-auto scrollbar-thin">
+          <table className="w-full min-w-[1040px] border-collapse px-2">
+            <thead>
+              <tr className="h-9 border-b border-bench-hair text-start">
+                <th className="label w-14 ps-2 text-start font-semibold text-txt-muted">{t("history.columns.id")}</th>
+                <th className="w-[150px] ps-3 text-start">{sortHeader("date", t("history.columns.date"))}</th>
+                <th className="label ps-3 text-start font-semibold text-txt-muted">{t("history.columns.plateA")}</th>
+                <th className="label ps-3 text-start font-semibold text-txt-muted">{t("history.columns.plateB")}</th>
+                <th className="label w-24 ps-3 text-start font-semibold text-txt-muted">{t("history.columns.lang")}</th>
+                <th className="w-[200px] ps-3 text-start">{sortHeader("score", t("history.columns.reading"))}</th>
+                <th className="label w-[168px] ps-3 text-start font-semibold text-txt-muted">{t("history.columns.verdict")}</th>
+                <th className="w-[132px] pe-2">
+                  <span className="sr-only">{t("history.table.actions")}</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {pageItems.map((item) => {
+                const score = item.similarity;
+                return (
+                  <tr key={item.id} className="h-[46px] border-t border-bench-hair first:border-t-0 hover:bg-bench-raised/60">
+                    <td className="ps-2 align-middle">
+                      <span className="mono-filename text-txt-muted" dir="ltr">{item.id}</span>
+                    </td>
+                    <td className="ps-3 align-middle">
+                      <span className="mono-filename whitespace-nowrap text-txt-secondary" dir="ltr">{ledgerDate(item)}</span>
+                    </td>
+                    <td className="max-w-[240px] ps-3 align-middle">
+                      <span className="flex items-center gap-2">
+                        <span aria-hidden className="label-tag text-[9.5px] text-txt-muted">A</span>
+                        <span className="mono-filename truncate text-txt-primary" dir="auto">{item.sourceA}</span>
+                      </span>
+                    </td>
+                    <td className="max-w-[240px] ps-3 align-middle">
+                      <span className="flex items-center gap-2">
+                        <span aria-hidden className="label-tag text-[9.5px] text-txt-muted">B</span>
+                        <span className="mono-filename truncate text-txt-primary" dir="auto">{item.sourceB}</span>
+                      </span>
+                    </td>
+                    <td className="ps-3 align-middle">
+                      <span className="text-[12.5px] text-txt-secondary" dir="ltr">{item.language}</span>
+                    </td>
+                    <td className="ps-3 align-middle">
+                      <span className="flex items-center gap-3">
+                        <Scale value={score} quiet={score < 50} className="w-[110px]" />
+                        <span className="mono-value text-txt-primary" dir="ltr">{score.toFixed(1)}</span>
+                        <span className="sr-only">{t("history.table.score")}: {score.toFixed(1)} / 100</span>
+                      </span>
+                    </td>
+                    <td className="ps-3 align-middle">
+                      <Tag tone={toneForScore(score)}>{verdictLabel(item.severity)}</Tag>
+                    </td>
+                    <td className="pe-2 align-middle">
+                      <span className="flex items-center justify-end gap-3">
+                        <button
+                          type="button"
+                          onClick={() => void openInResults(item)}
+                          disabled={isBusy}
+                          className="text-[12.5px] text-txt-primary underline underline-offset-2 hover:text-signal-bench disabled:opacity-50"
                         >
-                          {String(index + 1).padStart(2, "0")}
-                        </span>
-                      </td>
-                      {/* The pair, printed as its two plates */}
-                      <td className="max-w-[300px] px-4 py-3 align-middle">
-                        <PlatePair mono a={item.sourceA} b={item.sourceB} />
-                      </td>
-                      <td className="px-4 py-3 align-middle">
-                        <span className="badge-info">{getProgrammingLanguageLabel(item.language)}</span>
-                      </td>
-                      <td className="px-4 py-3 align-middle">
-                        <div className="flex items-center gap-2.5">
-                          <OverprintMeter value={score} className="h-2 w-16 shrink-0" label={`${score.toFixed(1)}%`} />
-                          <span className="font-display text-sm font-bold tabular-nums text-foreground" style={{ fontStretch: "108%" }}>
-                            {score.toFixed(1)}%
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 align-middle">
-                        <Stamp
-                          band={item.severity === "high" ? "flag" : item.severity === "moderate" ? "review" : "pass"}
-                          className="px-1.5 text-[9px]"
+                          {t("history.actions.open")}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void rerunAnalysis(item)}
+                          disabled={isBusy}
+                          className="text-[12.5px] text-txt-secondary underline underline-offset-2 hover:text-txt-primary disabled:opacity-50"
                         >
-                          {severityLabel(item.severity)}
-                        </Stamp>
-                      </td>
-                      <td className="press-slug px-4 py-3 align-middle normal-case tracking-normal">
-                        {getDisplayDate(item)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className={cn("flex items-center gap-1", isRTL ? "justify-start" : "justify-end")}>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                            onClick={() => void openPreview(item)}
-                            disabled={isBusy}
-                            aria-label={t("buttons.viewDetails")}
-                          >
-                            <Info className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                            onClick={() => void openInResults(item)}
-                            disabled={isBusy}
-                            aria-label={t("buttons.viewResults")}
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                            onClick={() => void rerunAnalysis(item)}
-                            disabled={isBusy}
-                            aria-label={t("buttons.rerun")}
-                          >
-                            <RefreshCw className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                            onClick={() => void exportAnalysis(item)}
-                            disabled={isBusy}
-                            aria-label={t("buttons.download")}
-                          >
-                            <Download className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                            onClick={() => confirmDelete(item)}
-                            disabled={isBusy}
-                            aria-label={t("buttons.delete")}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                          {t("history.actions.rerun")}
+                        </button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              className="flex h-6 w-6 items-center justify-center text-txt-muted hover:text-txt-primary"
+                              aria-label={t("history.table.actions")}
+                              disabled={isBusy}
+                            >
+                              <MoreHorizontal className="h-4 w-4" strokeWidth={1.5} />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-44 border-bench-strong bg-bench-raised text-txt-primary">
+                            <DropdownMenuItem className="cursor-pointer text-[13px] focus:bg-bench-hair focus:text-txt-primary" onSelect={() => void openPreview(item)}>
+                              {t("history.actions.preview")}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="cursor-pointer text-[13px] focus:bg-bench-hair focus:text-txt-primary" onSelect={() => void exportAnalysis(item)}>
+                              {t("history.actions.export")}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="cursor-pointer text-[13px] text-signal-bench focus:bg-bench-hair focus:text-signal-bench" onSelect={() => confirmDelete(item)}>
+                              {t("history.actions.delete")}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {filteredItems.length > 0 && (
+        <div className="flex h-12 items-center justify-between border-t border-bench-hair">
+          <span className="mono-filename text-txt-secondary" dir="ltr">
+            {t("history.pagination.range", { from: rangeFrom, to: rangeTo, total: filteredItems.length })}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage <= 1}
+              className="flex h-8 w-8 items-center justify-center border border-bench-strong text-txt-primary hover:border-txt-muted disabled:opacity-40"
+              aria-label={t("history.pagination.previous")}
+            >
+              <IconChevronLeft className="rtl:-scale-x-100" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+              disabled={currentPage >= pageCount}
+              className="flex h-8 w-8 items-center justify-center border border-bench-strong text-txt-primary hover:border-txt-muted disabled:opacity-40"
+              aria-label={t("history.pagination.next")}
+            >
+              <IconChevronRight className="rtl:-scale-x-100" />
+            </button>
+          </span>
         </div>
       )}
 
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent className="max-w-md border-border bg-card text-foreground">
+        <DialogContent className="max-w-md border-bench-strong bg-bench-raised text-txt-primary">
           <DialogHeader>
-            <DialogTitle>{t("history.deleteTitle")}</DialogTitle>
-            <DialogDescription className="text-sm text-muted-foreground">
+            <DialogTitle className="t-h4">{t("history.deleteTitle")}</DialogTitle>
+            <DialogDescription className="text-[13px] text-txt-secondary">
               {t("history.deleteDescription", { id: String(deleteTarget?.id ?? "") })}
             </DialogDescription>
           </DialogHeader>
@@ -481,12 +565,10 @@ const History = () => {
       </Dialog>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-5xl border-border bg-card p-0 text-foreground">
-          <DialogHeader className="border-b border-border px-6 py-5">
-            <DialogTitle className="text-lg font-semibold">
-              {t("history.previewTitle", { id: String(selectedSummary?.id ?? "") })}
-            </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground">
+        <DialogContent className="max-w-5xl border-bench-strong bg-bench-raised p-0 text-txt-primary">
+          <DialogHeader className="border-b border-bench-hair px-6 py-5">
+            <DialogTitle className="t-h4">{t("history.previewTitle", { id: String(selectedSummary?.id ?? "") })}</DialogTitle>
+            <DialogDescription className="mono-meta text-txt-muted" dir="auto">
               {selectedSummary?.sourceA} ↔ {selectedSummary?.sourceB}
             </DialogDescription>
           </DialogHeader>
@@ -494,26 +576,20 @@ const History = () => {
           {selectedAnalysis ? (
             <div className="space-y-5 p-6">
               <div className="grid gap-5 lg:grid-cols-2">
-                <div className="overflow-hidden rounded-lg border border-border bg-card">
-                  <div className="border-b border-border bg-muted px-4 py-2.5 t-label text-foreground">
-                    {t("history.table.sourceA")}
+                {([["A", selectedAnalysis.code1], ["B", selectedAnalysis.code2]] as const).map(([plate, code]) => (
+                  <div key={plate} className="plate">
+                    <div className="plate-strip">
+                      <span className="label text-plate-ink">{t(`history.columns.plate${plate}`)}</span>
+                    </div>
+                    <pre className="plate-code m-0 max-h-72 overflow-auto whitespace-pre-wrap p-4 scrollbar-thin" dir="ltr">
+                      {code}
+                    </pre>
                   </div>
-                  <pre className="code-surface m-4 max-h-72 overflow-auto whitespace-pre-wrap p-4 text-xs scrollbar-thin">
-                    {selectedAnalysis.code1}
-                  </pre>
-                </div>
-                <div className="overflow-hidden rounded-lg border border-border bg-card">
-                  <div className="border-b border-border bg-muted px-4 py-2.5 t-label text-foreground">
-                    {t("history.table.sourceB")}
-                  </div>
-                  <pre className="code-surface m-4 max-h-72 overflow-auto whitespace-pre-wrap p-4 text-xs scrollbar-thin">
-                    {selectedAnalysis.code2}
-                  </pre>
-                </div>
+                ))}
               </div>
 
               <div
-                className="analysis-markdown max-h-72 overflow-auto rounded-lg border border-border bg-card px-5 py-4 scrollbar-thin"
+                className="analysis-markdown max-h-72 overflow-auto border border-bench-hair px-5 py-4 scrollbar-thin"
                 dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedAnalysis.analysis_html ?? "") }}
               />
 
@@ -521,16 +597,18 @@ const History = () => {
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                   {t("buttons.close")}
                 </Button>
-                <Button onClick={() => void openInResults(selectedSummary!)}>
-                  {t("history.openFullResults")}
-                </Button>
+                <Button onClick={() => void openInResults(selectedSummary!)}>{t("history.openFullResults")}</Button>
               </div>
             </div>
           ) : (
-            <div className="p-6 text-sm text-muted-foreground">{t("history.loadingPreview")}</div>
+            <div className="p-6 text-sm text-txt-secondary">{t("history.loadingPreview")}</div>
           )}
         </DialogContent>
       </Dialog>
+
+      <p className="sr-only">
+        <Link to="/analysis">{t("buttons.newAnalysis")}</Link>
+      </p>
     </div>
   );
 };

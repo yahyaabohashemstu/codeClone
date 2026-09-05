@@ -66,7 +66,7 @@
       "scanCompleted": "Scan completed",
       "scanFailed": "Scan failed",
       "secretsTitle": "Webhook credentials",
-      "secretsIntro": "Save these now \u2014 the webhook secret is shown only once and cannot be retrieved later.",
+      "secretsIntro": "Save these now — the webhook secret is shown only once and cannot be retrieved later.",
       "secretsWebhookLabel": "Webhook secret",
       "secretsGithubLabel": "GitHub webhook URL",
       "secretsGitlabLabel": "GitLab webhook URL",
@@ -79,9 +79,9 @@
       "thresholdLabel": "threshold",
       "statRepos": "Repositories",
       "statCases": "Cases",
-      "statFlagged": "Flagged \u2265 threshold",
+      "statFlagged": "Flagged ≥ threshold",
       "statReviewed": "Reviewed",
-      "searchCases": "Filter by path, student, or case ID\u2026",
+      "searchCases": "Filter by path, student, or case ID…",
       "showing": "Showing",
       "colPair": "Pair",
       "colCase": "Case",
@@ -89,7 +89,8 @@
       "colType": "Clone type",
       "colStatus": "Status",
       "userHash": "User #",
-      "dossierKicker": "Workspace dossier"
+      "dossierKicker": "Workspace dossier",
+      "caseFile": "Record"
     },
     "cases": {
       "title": "Review Cases",
@@ -109,7 +110,8 @@
       "colPaths": "Artifacts",
       "colScore": "Score",
       "colType": "Clone type",
-      "colStatus": "Status"
+      "colStatus": "Status",
+      "readingsTitle": "Dispositions"
     },
     "caseDetail": {
       "back": "Back",
@@ -147,7 +149,8 @@
       "updatedDesc": "Case updated successfully.",
       "updateFailed": "Update failed",
       "feedbackSubmitted": "Feedback submitted",
-      "submissionFailed": "Submission failed"
+      "submissionFailed": "Submission failed",
+      "kicker": "Case file"
     },
     "status": {
       "all": "All",

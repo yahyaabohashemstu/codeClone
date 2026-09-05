@@ -336,7 +336,12 @@
       "sourceB": "Source B",
       "boolTrue": "True",
       "boolFalse": "False",
-      "deltaTitle": "Difference (B minus A)"
+      "deltaTitle": "Difference (B minus A)",
+      "label": "Plate metrics",
+      "plateA": "Plate A",
+      "plateB": "Plate B",
+      "delta": "Δ",
+      "agree": "{{agree}} of {{total}} metrics agree"
     },
     "pdfExport": {
       "title": "Export PDF Report",
@@ -423,6 +428,122 @@
     "disclosure": {
       "radar": "Signal radar",
       "code": "Source side-by-side"
+    },
+    "verdict": {
+      "signals": {
+        "text": "Text",
+        "token": "Token",
+        "tokenOrdered": "Token (ordered)",
+        "tokenOrderedClean": "Token (ordered, clean)",
+        "tokenUnordered": "Token (unordered)",
+        "tokenUnorderedClean": "Token (unordered, clean)",
+        "renamed": "Renamed",
+        "graph": "AST graph",
+        "semantic": "Semantic"
+      },
+      "titleFlagged": "Flagged clone",
+      "tagType": "Type-{{n}}",
+      "tagFlagged": "Flagged",
+      "tagAdvisory": "Advisory",
+      "tagNoClone": "No clone",
+      "combined": "Combined similarity",
+      "outOf": "/ 100",
+      "thresholdLabel": "Threshold {{value}}",
+      "label": "Verdict",
+      "confidenceLine": "{{level}} confidence · {{agree}} of {{total}} signals agree",
+      "signalsTable": "Weighted signals",
+      "signal": "Signal",
+      "weight": "Weight",
+      "scale": "Reading",
+      "value": "Value",
+      "formulaNote": "Combined = Σ weight × signal. Weights are fixed per engine version.",
+      "clearNote": "{{clear}} of {{total}} weighted signals clear {{threshold}}.",
+      "belowNote": "Below threshold: {{names}}."
+    },
+    "why": {
+      "label": "Why this verdict",
+      "signalAbove": "{{name}} reads {{value}} — above the {{threshold}} threshold.",
+      "signalBelow": "{{name}} reads {{value}} — below the {{threshold}} threshold.",
+      "families": "{{count}} of {{total}} clone families fired — {{names}}.",
+      "noFamilies": "None of the {{total}} clone families fired.",
+      "lines": "{{matched}} of {{total}} lines on plate A have a counterpart on plate B."
+    },
+    "comparator": {
+      "label": "Comparator",
+      "viewMode": "Comparator view",
+      "sideBySide": "Side by side",
+      "overlay": "Overlay",
+      "blink": "Blink",
+      "blinkSwitch": "Plate shown",
+      "showing": "Showing plate {{side}}",
+      "captionSide": "Matched regions are banded and numbered on both plates.",
+      "captionOverlay": "One plate: the differing lines of B laid under the lines of A.",
+      "captionBlink": "Blink alternates A and B in place — only the differences flicker.",
+      "captionBlinkStill": "Motion is reduced — switch plates with the A | B control.",
+      "plateA": "Plate A",
+      "plateB": "Plate B",
+      "noMatch": "no match",
+      "onlyA": "only in A",
+      "onlyB": "only in B",
+      "fromB": "from B",
+      "lines_one": "{{count}} line",
+      "lines_other": "{{count}} lines",
+      "footerMatched": "{{matched}} of {{total}} lines matched",
+      "footerUnmatched_one": "{{count}} unmatched",
+      "footerUnmatched_other": "{{count}} unmatched",
+      "showAll": "Show all {{count}} lines",
+      "showFewer": "Show first {{count}} lines",
+      "loading": "Aligning the plates…",
+      "failed": "The line alignment could not be loaded.",
+      "summary": "{{regions}} matched regions · {{guards}} unmatched guards",
+      "changed_one": "{{count}} changed line",
+      "changed_other": "{{count}} changed lines",
+      "truncated": "alignment capped at {{count}} lines",
+      "overlayMeta": "A {{a}} lines · B {{b}} lines",
+      "overlayFooter": "{{count}} lines from B"
+    },
+    "note": {
+      "label": "Analyst note",
+      "empty": "No analyst note was generated for this comparison.",
+      "caveat": "Generated narrative — verify against the drivers above."
+    },
+    "crumbs": {
+      "compare": "Compare",
+      "verdict": "Verdict"
+    },
+    "savedAt": "Saved to history · {{time}}",
+    "savedNoTime": "Saved to history",
+    "unsaved": "Not saved to history",
+    "share": {
+      "button": "Share",
+      "copied": "Link copied to the clipboard.",
+      "failed": "The link could not be copied."
+    },
+    "more": "More actions",
+    "checks": {
+      "label_one": "Clone-type checks · {{count}} method",
+      "label_other": "Clone-type checks · {{count}} methods",
+      "detail": "Clone profile and interpretation",
+      "on": "Detected",
+      "off": "—"
+    },
+    "sections": {
+      "structured": "Structured report",
+      "graphs": "AST graphs",
+      "radar": "Signal radar",
+      "quality": "Code quality",
+      "thread": "Analyst thread"
+    },
+    "footer": {
+      "analysis": "Analysis #{{id}}",
+      "current": "Analysis (unsaved)",
+      "openHistory": "Open in History",
+      "askAnalyst": "Ask the Analyst",
+      "matchRatio": "match ratio {{value}}",
+      "semantic": "semantic {{model}}"
+    },
+    "empty": {
+      "cta": "New comparison"
     }
   },
   "buttons": {

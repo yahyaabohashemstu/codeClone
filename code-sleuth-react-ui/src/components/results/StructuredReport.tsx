@@ -14,11 +14,11 @@ const RISK_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
 
 // Risk maps onto the calibrated green/amber/red system, never off-palette hues.
 const RISK_STYLES: Record<string, { color: string; bg: string }> = {
-  critical: { color: "text-destructive", bg: "bg-destructive/10" },
-  high: { color: "text-destructive", bg: "bg-destructive/10" },
-  moderate: { color: "text-foreground", bg: "bg-warning/10" },
-  low: { color: "text-success", bg: "bg-success/10" },
-  none: { color: "text-success", bg: "bg-success/10" },
+  critical: { color: "text-destructive", bg: "bg-transparent" },
+  high: { color: "text-destructive", bg: "bg-transparent" },
+  moderate: { color: "text-foreground", bg: "bg-transparent" },
+  low: { color: "text-txt-secondary", bg: "bg-transparent" },
+  none: { color: "text-txt-secondary", bg: "bg-transparent" },
 };
 
 const RISK_LABEL_KEYS: Record<string, string> = {
@@ -30,10 +30,10 @@ const RISK_LABEL_KEYS: Record<string, string> = {
 };
 
 const SEV_DOTS: Record<string, string> = {
-  critical: "bg-destructive",
-  high: "bg-destructive",
-  medium: "bg-warning",
-  low: "bg-success",
+  critical: "bg-signal",
+  high: "bg-signal",
+  medium: "bg-txt-primary",
+  low: "bg-txt-muted",
   info: "bg-muted-foreground",
 };
 

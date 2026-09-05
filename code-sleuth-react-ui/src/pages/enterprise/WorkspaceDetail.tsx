@@ -1,22 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import {
-  AlertCircle,
-  ArrowLeft,
-  ChevronRight,
-  Copy,
-  FileSearch,
-  GitBranch,
-  KeyRound,
-  Loader2,
-  Play,
-  Plus,
-  RefreshCw,
-  Search,
-  ShieldAlert,
-  Users,
-} from "lucide-react";
+import { Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -27,7 +12,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Masthead, FieldSheet, Field, Panel, Serial, SpecList } from "@/components/dossier/Dossier";
+import { Masthead, Panel, FieldSheet, Field, PlatePair, SpecList } from "@/components/dossier/Dossier";
+import { Reading, Scale, Tag, type TagTone } from "@/components/bench/Bench";
+import { IconChevronLeft, IconChevronRight, IconFilePlus, IconRerun, IconSearch } from "@/components/bench/icons";
+import { PageError } from "@/components/common/PageError";
+import { PageLoader } from "@/components/common/PageLoader";
 import { useLanguage } from "@/context/LanguageContext";
 import {
   addMember,
@@ -51,35 +40,37 @@ import { cn } from "@/lib/utils";
 
 type Tab = "repositories" | "cases" | "members";
 
-const STATUS_META: Record<string, { cls: string }> = {
-  open:            { cls: "bg-plate-a/10 text-plate-a-deep border-plate-a/45" },
-  in_review:       { cls: "bg-warning/15 text-foreground border-warning/30" },
-  confirmed_clone: { cls: "bg-destructive/15 text-destructive border-destructive/30" },
-  false_positive:  { cls: "bg-muted text-muted-foreground border-border/60" },
-  resolved:        { cls: "bg-success/15 text-success border-success/30" },
-  dismissed:       { cls: "bg-muted text-muted-foreground border-border/60" },
+/** Dispositions take the three tag tones: a confirmed clone is hot, a case still open is advisory. */
+const STATUS_TONE: Record<string, TagTone> = {
+  open: "advisory",
+  in_review: "advisory",
+  confirmed_clone: "hot",
+  false_positive: "neutral",
+  resolved: "neutral",
+  dismissed: "neutral",
 };
 
-const SEV_META: Record<string, { cls: string }> = {
-  critical: { cls: "bg-destructive/15 text-destructive border-destructive/30" },
-  high:     { cls: "bg-warning/15 text-foreground border-warning/30" },
-  medium:   { cls: "bg-warning/12 text-foreground border-warning/25" },
-  low:      { cls: "bg-muted text-muted-foreground border-border" },
+const SEV_TONE: Record<string, TagTone> = {
+  critical: "hot",
+  high: "hot",
+  medium: "advisory",
+  low: "neutral",
 };
 
-const ROLE_CLS: Record<string, string> = {
-  owner:    "bg-primary/15 text-primary border-primary/25",
-  admin:    "bg-destructive/15 text-destructive border-destructive/25",
-  manager:  "bg-warning/15 text-foreground border-warning/25",
-  reviewer: "bg-plate-a/10 text-plate-a-deep border-plate-a/45",
-  student:  "bg-muted text-muted-foreground border-border/60",
-};
+/** Role identity is carried by the tag text; owners and admins read one step up. */
+const roleTone = (role: string): TagTone => (role === "owner" || role === "admin" ? "advisory" : "neutral");
 
 const PROVIDER_ICON: Record<string, string> = {
   github: "GH",
   gitlab: "GL",
   local:  "LO",
 };
+
+/* Ruled readings: two columns on small screens, four from lg; hairlines between cells and rows. */
+const READINGS_ROW =
+  "grid grid-cols-2 border-y border-bench-hair lg:grid-cols-4 [&>*]:px-4 lg:[&>*]:px-6 [&>*:first-child]:ps-0 [&>*:nth-child(even)]:border-s [&>*:nth-child(n+3)]:border-t lg:[&>*:nth-child(n+3)]:border-t-0 lg:[&>*:not(:first-child)]:border-s";
+
+const TH = "label text-start font-semibold text-txt-muted";
 
 export default function WorkspaceDetail() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
@@ -291,7 +282,7 @@ export default function WorkspaceDetail() {
     { id: "members",      label: t("enterprise.workspaceDetail.members") },
   ];
 
-  // Stat calculations for masthead meta strip
+  // Readings
   const threshold = workspace ? Math.round(workspace.defaultSimilarityThreshold * 100) : 0;
   const flaggedCount = useMemo(
     () => cases.filter((c) => c.confidenceScore >= threshold).length,
@@ -312,353 +303,282 @@ export default function WorkspaceDetail() {
     });
   }, [cases, caseSearch]);
 
-  const scoreColor = (score: number): string => {
-    if (score >= 80) return "hsl(var(--destructive))";
-    if (score >= 40) return "hsl(var(--warning))";
-    return "hsl(var(--muted-foreground))";
-  };
-
-  // Live case-file readings for the masthead — folds the old stat-card row in.
   const meta = [
-    { label: "SERIAL", value: `WS-${wsId}` },
+    { label: "SERIAL", value: <span dir="ltr">{`WS-${wsId}`}</span> },
     ...(workspace
       ? [
-          { label: "REGION", value: workspace.storageRegion },
-          { label: "THRESHOLD", value: `${threshold}%` },
+          { label: "REGION", value: <span dir="ltr">{workspace.storageRegion}</span> },
+          { label: "THRESHOLD", value: <span dir="ltr">{`${threshold}%`}</span> },
         ]
       : []),
-    { label: "REPOS", value: repos.length },
-    { label: "CASES", value: cases.length },
-    { label: "FLAGGED", value: <span className="text-destructive">{flaggedCount}</span> },
-    { label: "REVIEWED", value: `${reviewedCount}/${cases.length}` },
   ];
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-6" dir={isRTL ? "rtl" : "ltr"}>
+    <div className="pt-7" dir={isRTL ? "rtl" : "ltr"}>
       {/* Breadcrumb */}
-      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+      <div className="flex items-center gap-2 pb-5 text-[12.5px] text-txt-muted">
         <button
           type="button"
           onClick={() => navigate("/enterprise/workspaces")}
-          className="flex items-center gap-1 transition-colors hover:text-foreground"
+          className="link inline-flex items-center gap-1"
         >
-          <ArrowLeft className={cn("h-3.5 w-3.5", isRTL && "rotate-180")} />
+          <IconChevronLeft className="rtl:-scale-x-100" />
           {t("enterprise.workspaceDetail.back")}
         </button>
-        <ChevronRight className={cn("h-3.5 w-3.5", isRTL && "rotate-180")} />
-        <span className="font-medium text-foreground">{workspace?.name ?? `#${wsId}`}</span>
+        <IconChevronRight className="rtl:-scale-x-100" />
+        <span className="text-txt-primary" dir="auto">{workspace?.name ?? `#${wsId}`}</span>
       </div>
 
-      {/* Workspace dossier masthead — identity + live readings, not a boxed hero */}
       <Masthead
-        kicker={t("enterprise.workspaceDetail.dossierKicker", { defaultValue: "Workspace dossier" })}
+        kicker={t("enterprise.workspaceDetail.back")}
         title={workspace?.name ?? `#${wsId}`}
         description={workspace?.description || undefined}
         meta={meta}
       />
 
-      {/* Workspace case-file record — a ruled spec sheet, not a boxed hero */}
+      {/* Readings */}
+      <div className={READINGS_ROW}>
+        <Reading label={t("enterprise.workspaceDetail.statRepos", { defaultValue: "Repositories" })} value={repos.length} />
+        <Reading label={t("enterprise.workspaceDetail.statCases", { defaultValue: "Cases" })} value={cases.length} />
+        <Reading
+          label={t("enterprise.workspaceDetail.statFlagged", { defaultValue: "Flagged ≥ threshold" })}
+          value={<span className={cn(flaggedCount > 0 && "text-signal-bench")}>{flaggedCount}</span>}
+          note={workspace ? `≥ ${threshold}` : undefined}
+        />
+        <Reading label={t("enterprise.workspaceDetail.statReviewed", { defaultValue: "Reviewed" })} value={reviewedCount} note={`/ ${cases.length}`} />
+      </div>
+
+      {/* Record */}
       {workspace && (
-        <Panel bare marker="§" label={t("enterprise.workspaceDetail.caseFile", { defaultValue: "Case file" })}>
+        <Panel className="mt-8" label={t("enterprise.workspaceDetail.caseFile", { defaultValue: "Record" })}>
           <SpecList
             rows={[
               { label: t("enterprise.workspaceDetail.specSlug", { defaultValue: "Slug" }), value: <span dir="ltr">{workspace.slug}</span> },
-              { label: t("enterprise.workspaceDetail.specRegion", { defaultValue: "Storage region" }), value: workspace.storageRegion },
-              { label: t("enterprise.workspaceDetail.specSimilarity", { defaultValue: "Similarity threshold" }), value: `${threshold}%` },
-              { label: t("enterprise.workspaceDetail.specSemantic", { defaultValue: "Semantic threshold" }), value: `${Math.round(workspace.semanticThreshold * 100)}%` },
-              { label: t("enterprise.workspaceDetail.specRole", { defaultValue: "Your role" }), value: workspace.membership ? <span className="capitalize">{workspace.membership.role}</span> : "—" },
-              { label: t("enterprise.workspaceDetail.specCreated", { defaultValue: "Opened" }), value: workspace.createdAt ? new Date(workspace.createdAt).toLocaleDateString() : "—" },
+              { label: t("enterprise.workspaceDetail.specRegion", { defaultValue: "Storage region" }), value: <span dir="ltr">{workspace.storageRegion}</span> },
+              { label: t("enterprise.workspaceDetail.specSimilarity", { defaultValue: "Similarity threshold" }), value: <span dir="ltr">{`${threshold}%`}</span> },
+              { label: t("enterprise.workspaceDetail.specSemantic", { defaultValue: "Semantic threshold" }), value: <span dir="ltr">{`${Math.round(workspace.semanticThreshold * 100)}%`}</span> },
+              { label: t("enterprise.workspaceDetail.specRole", { defaultValue: "Your role" }), value: workspace.membership ? <Tag tone={roleTone(workspace.membership.role)}>{workspace.membership.role}</Tag> : "—" },
+              { label: t("enterprise.workspaceDetail.specCreated", { defaultValue: "Opened" }), value: <span dir="ltr">{workspace.createdAt ? new Date(workspace.createdAt).toLocaleDateString() : "—"}</span> },
             ]}
           />
         </Panel>
       )}
 
-      {/* Tabs — mono ledger selectors with live counts */}
-      <div className="border-b border-border">
-        <nav className="-mb-px flex gap-6" aria-label="Workspace tabs">
+      {/* Tabs — segmented, with live counts */}
+      <div className="mt-8">
+        <div className="segment-group" role="tablist" aria-label="Workspace tabs">
           {tabs.map((tab) => {
             const active = activeTab === tab.id;
             return (
               <button
                 key={tab.id}
                 type="button"
+                role="tab"
+                aria-selected={active}
                 onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  "flex items-center gap-2 border-b-2 pb-2.5 font-mono text-[11px] uppercase tracking-[0.14em] transition-colors",
-                  active
-                    ? "border-primary text-primary"
-                    : "border-transparent text-muted-foreground hover:text-foreground",
-                )}
+                className={cn("segment gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-signal", active && "is-on")}
               >
                 {tab.label}
-                <span className={cn("tabular-nums", active ? "text-primary/70" : "text-muted-foreground/50")}>
-                  {tabCounts[tab.id]}
-                </span>
+                <span className="mono-meta-sm opacity-70" dir="ltr">{tabCounts[tab.id]}</span>
               </button>
             );
           })}
-        </nav>
+        </div>
       </div>
 
       {/* Tab content */}
-      {loadingTab ? (
-        <div className="flex items-center justify-center gap-2 rounded-lg border border-border bg-card py-16 text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-        </div>
-      ) : tabError ? (
-        <div className="flex items-center justify-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 py-12 text-destructive">
-          <AlertCircle className="h-4 w-4" />
-          {tabError}
-        </div>
-      ) : (
-        <>
-          {/* Repositories tab — a ruled repository ledger flowing on the page */}
-          {activeTab === "repositories" && (
-            <Panel
-              bare
-              marker="§"
-              label={t("enterprise.workspaceDetail.repositories")}
-              actions={
-                <Button size="sm" className="h-8 gap-1.5" onClick={() => setRepoOpen(true)}>
-                  <Plus className="h-3.5 w-3.5" />
-                  {t("enterprise.workspaceDetail.addRepo")}
-                </Button>
-              }
-            >
-              {repos.length === 0 ? (
-                <div className="flex flex-col items-center gap-3 py-14 text-center">
-                  <GitBranch className="h-5 w-5 text-muted-foreground" />
-                  <p className="t-sm">{t("enterprise.workspaceDetail.noRepos")}</p>
-                  <Button size="sm" variant="outline" onClick={() => setRepoOpen(true)} className="gap-2">
-                    <Plus className="h-3.5 w-3.5" />{t("enterprise.workspaceDetail.addRepo")}
+      <div className="pt-8">
+        {loadingTab ? (
+          <PageLoader message={t("enterprise.common.loading")} />
+        ) : tabError ? (
+          <PageError message={tabError} />
+        ) : (
+          <>
+            {/* Repositories — a ruled ledger */}
+            {activeTab === "repositories" && (
+              <Panel
+                label={t("enterprise.workspaceDetail.repositories")}
+                bodyClassName="p-0"
+                actions={
+                  <Button size="sm" onClick={() => setRepoOpen(true)}>
+                    <IconFilePlus size={16} />
+                    {t("enterprise.workspaceDetail.addRepo")}
                   </Button>
-                </div>
-              ) : (
-                <div className="divide-y divide-border">
-                  {repos.map((repo, i) => (
-                    <div key={repo.id} className="flex items-center gap-4 py-3.5">
-                      <Serial>{`R${String(i + 1).padStart(2, "0")}`}</Serial>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-foreground">{repo.name}</p>
-                        <p className="font-mono text-xs text-muted-foreground">
-                          <span className="text-foreground/70">{PROVIDER_ICON[repo.provider] ?? "??"}</span>
-                          {" · "}
-                          {repo.defaultBranch ?? "main"}
-                          {" · "}
-                          {repo.declaredRegion}
-                        </p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="shrink-0 gap-1.5"
-                        disabled={scanning === repo.id}
-                        onClick={() => handleTriggerScan(repo.id)}
-                      >
-                        {scanning === repo.id ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Play className="h-3.5 w-3.5" />
-                        )}
-                        {scanning === repo.id ? t("enterprise.workspaceDetail.scanning") : t("enterprise.workspaceDetail.scan")}
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Panel>
-          )}
-
-          {/* Cases tab — a ruled case ledger under a heavy §-rule */}
-          {activeTab === "cases" && (
-            <Panel
-              bare
-              marker="§"
-              label={t("enterprise.workspaceDetail.cases")}
-              actions={
-                <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                  {t("enterprise.workspaceDetail.showing", { defaultValue: "Showing" })} {filteredCases.length} / {cases.length}
-                </span>
-              }
-            >
-              {/* Filter row — flush to the page, no card fill */}
-              <div className="mb-4">
-                <div className="relative max-w-sm">
-                  <Search className={cn("pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground", isRTL ? "right-3" : "left-3")} />
-                  <Input
-                    value={caseSearch}
-                    onChange={(e) => setCaseSearch(e.target.value)}
-                    placeholder={t("enterprise.workspaceDetail.searchCases", { defaultValue: "Filter by path, student, or case ID…" })}
-                    className={cn("h-8 bg-card text-sm", isRTL ? "pr-8" : "pl-8")}
-                  />
-                </div>
-              </div>
-
-              {filteredCases.length === 0 ? (
-                <div className="flex flex-col items-center gap-3 py-14 text-center">
-                  <FileSearch className="h-5 w-5 text-muted-foreground" />
-                  <p className="t-sm">{t("enterprise.workspaceDetail.noCases")}</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto scrollbar-thin">
-                  <table className="w-full min-w-[820px] text-sm">
-                    <thead>
-                      <tr>
-                        {[
-                          t("enterprise.workspaceDetail.colCase", { defaultValue: "Case" }),
-                          t("enterprise.workspaceDetail.colPair", { defaultValue: "Pair" }),
-                          t("enterprise.workspaceDetail.colScore", { defaultValue: "Score" }),
-                          t("enterprise.workspaceDetail.colType", { defaultValue: "Clone type" }),
-                          t("enterprise.workspaceDetail.colStatus", { defaultValue: "Status" }),
-                        ].map((h) => (
-                          <th
-                            key={h}
-                            className={cn(
-                              "border-b-2 border-foreground px-4 py-2.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-muted-foreground",
-                              isRTL ? "text-right" : "text-left",
-                            )}
-                          >
-                            {h}
-                          </th>
-                        ))}
-                        <th className={cn("border-b-2 border-foreground px-4 py-2.5", isRTL ? "text-left" : "text-right")}>
-                          &nbsp;
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredCases.map((c) => {
-                        const sm = STATUS_META[c.status] ?? STATUS_META.open;
-                        const sv = SEV_META[c.severity] ?? SEV_META.medium;
-                        const pathA = c.match?.artifactA?.logicalPath ?? "—";
-                        const pathB = c.match?.artifactB?.logicalPath ?? "—";
-                        const score = Math.round(c.confidenceScore);
-                        const initA = pathA.split(/[/\\]/).pop()?.slice(0, 2).toUpperCase() ?? "A";
-                        const initB = pathB.split(/[/\\]/).pop()?.slice(0, 2).toUpperCase() ?? "B";
-                        return (
-                          <tr
-                            key={c.id}
-                            className="border-b border-border/40 transition-colors last:border-b-0 hover:bg-muted/30"
-                          >
-                            <td className="px-4 py-3 align-middle">
-                              <Serial>{`C${c.id}`}</Serial>
-                            </td>
-                            <td className="px-4 py-3 align-middle">
-                              <div className="flex items-center gap-2 text-xs">
-                                <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border bg-muted font-mono text-[10px] font-semibold text-muted-foreground">
-                                  {initA}
-                                </span>
-                                <span className="max-w-[120px] truncate font-mono text-foreground">{pathA.split(/[/\\]/).pop()}</span>
-                                <span className="text-muted-foreground">×</span>
-                                <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-primary/30 bg-primary/10 font-mono text-[10px] font-semibold text-primary">
-                                  {initB}
-                                </span>
-                                <span className="max-w-[120px] truncate font-mono text-foreground">{pathB.split(/[/\\]/).pop()}</span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 align-middle">
-                              <div className="flex items-center gap-2">
-                                <span className="h-1.5 w-14 overflow-hidden rounded-sm bg-muted">
-                                  <span
-                                    className="block h-full"
-                                    style={{ width: `${score}%`, background: scoreColor(score) }}
-                                  />
-                                </span>
-                                <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
-                                  {score}%
-                                </span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 align-middle">
-                              <span className="inline-flex items-center rounded-md border border-border bg-muted px-2 py-0.5 font-mono text-[11px] font-medium text-muted-foreground">
-                                {c.cloneType.replace(/_/g, " ")}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 align-middle">
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                <span className={cn("inline-flex items-center rounded-md border px-2 py-0.5 font-mono text-[11px] font-semibold capitalize", sv.cls)}>
-                                  {c.severity}
-                                </span>
-                                <span className={cn("inline-flex items-center rounded-md border px-2 py-0.5 font-mono text-[11px] font-semibold", sm.cls)}>
-                                  {t(`enterprise.status.${c.status}`, { defaultValue: c.status })}
-                                </span>
-                              </div>
-                            </td>
-                            <td className={cn("px-4 py-3 align-middle", isRTL ? "text-left" : "text-right")}>
-                              <Link
-                                to={`/enterprise/cases/${c.id}`}
-                                className="inline-flex items-center gap-1 text-xs font-medium text-foreground underline underline-offset-2 hover:opacity-70"
-                              >
-                                {t("enterprise.workspaceDetail.viewCase")}
-                                <ChevronRight className={cn("h-3 w-3", isRTL && "rotate-180")} />
-                              </Link>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </Panel>
-          )}
-
-          {/* Members tab — a ruled roster ledger flowing on the page */}
-          {activeTab === "members" && (
-            <Panel
-              bare
-              marker="§"
-              label={t("enterprise.workspaceDetail.members")}
-              actions={
-                <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => setMemberOpen(true)}>
-                  <Plus className="h-3.5 w-3.5" />
-                  {t("enterprise.workspaceDetail.addMember")}
-                </Button>
-              }
-            >
-              {members.length === 0 ? (
-                <div className="flex flex-col items-center gap-3 py-14 text-center">
-                  <Users className="h-5 w-5 text-muted-foreground" />
-                  <p className="t-sm">{t("enterprise.workspaceDetail.noMembers")}</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-border">
-                  {members.map((m) => (
-                    <div key={m.id} className="flex items-center gap-4 py-3">
-                      <Serial>{m.legacyUserId}</Serial>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-foreground">
-                          {t("enterprise.workspaceDetail.userHash", { defaultValue: "User #" })}
-                          <span className="font-mono">{m.legacyUserId}</span>
-                        </p>
-                        {m.lastActiveAt && (
-                          <p className="font-mono text-xs text-muted-foreground">
-                            {new Date(m.lastActiveAt).toLocaleDateString()}
+                }
+              >
+                {repos.length === 0 ? (
+                  <div className="flex flex-col items-center gap-4 px-6 py-20 text-center">
+                    <IconFilePlus className="text-txt-muted" />
+                    <p className="text-[15px] text-txt-primary">{t("enterprise.workspaceDetail.noRepos")}</p>
+                    <Button size="sm" variant="outline" onClick={() => setRepoOpen(true)} className="mt-2">
+                      {t("enterprise.workspaceDetail.addRepo")}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-bench-hair">
+                    {repos.map((repo, i) => (
+                      <div key={repo.id} className="flex items-center gap-4 px-5 py-3.5">
+                        <span className="mono-ordinal w-8 shrink-0 text-txt-muted" dir="ltr">{`R${String(i + 1).padStart(2, "0")}`}</span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[13px] font-semibold text-txt-primary" dir="auto">{repo.name}</p>
+                          <p className="mono-meta mt-1.5 text-txt-muted" dir="ltr">
+                            <span className="text-txt-secondary">{PROVIDER_ICON[repo.provider] ?? "??"}</span>
+                            {" · "}
+                            {repo.defaultBranch ?? "main"}
+                            {" · "}
+                            {repo.declaredRegion}
                           </p>
-                        )}
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="shrink-0"
+                          disabled={scanning === repo.id}
+                          onClick={() => handleTriggerScan(repo.id)}
+                        >
+                          <IconRerun />
+                          {scanning === repo.id ? t("enterprise.workspaceDetail.scanning") : t("enterprise.workspaceDetail.scan")}
+                        </Button>
                       </div>
-                      <span
-                        className={cn(
-                          "rounded-md border px-2 py-0.5 font-mono text-[10px] font-semibold capitalize",
-                          ROLE_CLS[m.role] ?? "bg-muted text-muted-foreground border-border/60",
-                        )}
-                      >
-                        {m.role}
-                      </span>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                )}
+              </Panel>
+            )}
+
+            {/* Cases — a hairline ledger */}
+            {activeTab === "cases" && (
+              <Panel label={t("enterprise.workspaceDetail.cases")} bodyClassName="p-0">
+                {/* Filter row */}
+                <div className="flex flex-wrap items-center gap-3 px-5 pb-4 pt-5">
+                  <label className="well w-full sm:w-[300px]">
+                    <IconSearch className="text-txt-muted" />
+                    <input
+                      type="search"
+                      value={caseSearch}
+                      onChange={(e) => setCaseSearch(e.target.value)}
+                      placeholder={t("enterprise.workspaceDetail.searchCases", { defaultValue: "Filter by path, student, or case ID…" })}
+                      aria-label={t("enterprise.workspaceDetail.searchCases", { defaultValue: "Filter by path, student, or case ID…" })}
+                    />
+                  </label>
+                  <span className="ms-auto text-[12.5px] text-txt-secondary" dir="ltr">
+                    {t("enterprise.workspaceDetail.showing", { defaultValue: "Showing" })} {filteredCases.length} / {cases.length}
+                  </span>
                 </div>
-              )}
-            </Panel>
-          )}
-        </>
-      )}
+
+                {filteredCases.length === 0 ? (
+                  <div className="flex flex-col items-center gap-4 border-y border-bench-hair px-6 py-20 text-center">
+                    <IconFilePlus className="text-txt-muted" />
+                    <p className="text-[15px] text-txt-primary">{t("enterprise.workspaceDetail.noCases")}</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto scrollbar-thin">
+                    <table className="w-full min-w-[900px] border-collapse border-y border-bench-hair">
+                      <thead>
+                        <tr className="h-9 border-b border-bench-hair">
+                          <th className={cn(TH, "w-20 ps-5")}>{t("enterprise.workspaceDetail.colCase", { defaultValue: "Case" })}</th>
+                          <th className={cn(TH, "ps-3")}>{t("enterprise.workspaceDetail.colPair", { defaultValue: "Pair" })}</th>
+                          <th className={cn(TH, "w-[190px] ps-3")}>{t("enterprise.workspaceDetail.colScore", { defaultValue: "Score" })}</th>
+                          <th className={cn(TH, "w-32 ps-3")}>{t("enterprise.workspaceDetail.colType", { defaultValue: "Clone type" })}</th>
+                          <th className={cn(TH, "w-[240px] ps-3")}>{t("enterprise.workspaceDetail.colStatus", { defaultValue: "Status" })}</th>
+                          <th className="w-28 pe-5">
+                            <span className="sr-only">{t("enterprise.workspaceDetail.viewCase")}</span>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredCases.map((c) => {
+                          const pathA = c.match?.artifactA?.logicalPath ?? "—";
+                          const pathB = c.match?.artifactB?.logicalPath ?? "—";
+                          const score = Math.round(c.confidenceScore);
+                          return (
+                            <tr key={c.id} className="h-[46px] border-b border-bench-hair last:border-b-0 hover:bg-bench-raised/60">
+                              <td className="ps-5 align-middle">
+                                <span className="mono-filename text-txt-muted" dir="ltr">{`C${c.id}`}</span>
+                              </td>
+                              <td className="max-w-[280px] ps-3 py-2 align-middle">
+                                <PlatePair mono a={pathA.split(/[/\\]/).pop() ?? pathA} b={pathB.split(/[/\\]/).pop() ?? pathB} />
+                              </td>
+                              <td className="ps-3 align-middle">
+                                <span className="flex items-center gap-3">
+                                  <Scale value={score} quiet={score < 50} className="w-[110px]" />
+                                  <span className="mono-value text-txt-primary" dir="ltr">{score}</span>
+                                </span>
+                              </td>
+                              <td className="mono-filename ps-3 align-middle text-txt-secondary" dir="ltr">
+                                {c.cloneType.replace(/_/g, " ")}
+                              </td>
+                              <td className="ps-3 align-middle">
+                                <span className="flex flex-wrap items-center gap-1.5">
+                                  <Tag tone={SEV_TONE[c.severity] ?? "neutral"}>{t(`enterprise.severity.${c.severity}`, { defaultValue: c.severity })}</Tag>
+                                  <Tag tone={STATUS_TONE[c.status] ?? "neutral"}>{t(`enterprise.status.${c.status}`, { defaultValue: c.status })}</Tag>
+                                </span>
+                              </td>
+                              <td className="pe-5 align-middle text-end">
+                                <Link to={`/enterprise/cases/${c.id}`} className="link inline-flex items-center gap-1 text-[12.5px]">
+                                  {t("enterprise.workspaceDetail.viewCase")}
+                                  <IconChevronRight className="rtl:-scale-x-100" />
+                                </Link>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </Panel>
+            )}
+
+            {/* Members — a ruled roster */}
+            {activeTab === "members" && (
+              <Panel
+                label={t("enterprise.workspaceDetail.members")}
+                bodyClassName="p-0"
+                actions={
+                  <Button size="sm" variant="outline" onClick={() => setMemberOpen(true)}>
+                    <IconFilePlus size={16} />
+                    {t("enterprise.workspaceDetail.addMember")}
+                  </Button>
+                }
+              >
+                {members.length === 0 ? (
+                  <div className="flex flex-col items-center gap-4 px-6 py-20 text-center">
+                    <IconFilePlus className="text-txt-muted" />
+                    <p className="text-[15px] text-txt-primary">{t("enterprise.workspaceDetail.noMembers")}</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-bench-hair">
+                    {members.map((m) => (
+                      <div key={m.id} className="flex h-[46px] items-center gap-4 px-5">
+                        <span className="mono-filename w-12 shrink-0 text-txt-muted" dir="ltr">{m.legacyUserId}</span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[13px] text-txt-primary">
+                            {t("enterprise.workspaceDetail.userHash", { defaultValue: "User #" })}
+                            <span className="mono-value" dir="ltr">{m.legacyUserId}</span>
+                          </p>
+                        </div>
+                        {m.lastActiveAt && (
+                          <span className="mono-filename text-txt-muted" dir="ltr">
+                            {new Date(m.lastActiveAt).toLocaleDateString()}
+                          </span>
+                        )}
+                        <Tag tone={roleTone(m.role)}>{m.role}</Tag>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Panel>
+            )}
+          </>
+        )}
+      </div>
 
       {/* Create repository dialog — margin-label fields */}
       <Dialog open={repoOpen} onOpenChange={setRepoOpen}>
-        <DialogContent className="sm:max-w-md" dir={isRTL ? "rtl" : "ltr"}>
+        <DialogContent className="border-bench-strong bg-bench-raised text-txt-primary sm:max-w-md" dir={isRTL ? "rtl" : "ltr"}>
           <DialogHeader>
-            <DialogTitle>{t("enterprise.workspaceDetail.addRepo")}</DialogTitle>
+            <DialogTitle className="t-h4">{t("enterprise.workspaceDetail.addRepo")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <FieldSheet>
@@ -667,7 +587,7 @@ export default function WorkspaceDetail() {
               </Field>
               <Field label={t("enterprise.workspaceDetail.providerLabel")} align="center">
                 <Select value={repoProvider} onValueChange={setRepoProvider}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="font-mono text-sm"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="local">local</SelectItem>
                     <SelectItem value="github">github</SelectItem>
@@ -677,13 +597,13 @@ export default function WorkspaceDetail() {
               </Field>
               {repoProvider === "local" ? (
                 <Field label={t("enterprise.workspaceDetail.localPathLabel")} align="center">
-                  <Input value={repoPath} onChange={(e) => setRepoPath(e.target.value)} placeholder="/path/to/repo" />
+                  <Input value={repoPath} onChange={(e) => setRepoPath(e.target.value)} placeholder="/path/to/repo" dir="ltr" className="font-mono text-xs" />
                 </Field>
               ) : (
                 <Field label={t("enterprise.workspaceDetail.cloneUrlLabel")}>
                   <div className="flex gap-2">
                     <Input
-                      className="flex-1"
+                      className="flex-1 font-mono text-xs"
                       value={repoUrl}
                       onChange={(e) => { setRepoUrl(e.target.value); setProbedBranches([]); setProbeError(""); }}
                       placeholder="https://github.com/owner/repo"
@@ -693,17 +613,17 @@ export default function WorkspaceDetail() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="shrink-0 gap-1.5"
+                      className="h-10 shrink-0"
                       disabled={probing || !repoUrl.trim()}
                       onClick={handleProbeUrl}
                     >
-                      {probing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                      <IconRerun />
                       {t("enterprise.workspaceDetail.probe")}
                     </Button>
                   </div>
                   {probeError && (
-                    <p className="mt-1.5 flex items-center gap-1 text-xs text-destructive">
-                      <AlertCircle className="h-3 w-3 shrink-0" />
+                    <p role="alert" className="mt-2 flex items-center gap-2 text-[12.5px] text-signal-bench">
+                      <span aria-hidden className="lamp is-on" />
                       {probeError}
                     </p>
                   )}
@@ -712,7 +632,7 @@ export default function WorkspaceDetail() {
               <Field label={t("enterprise.workspaceDetail.branchLabel")} align="center">
                 {probedBranches.length > 0 ? (
                   <Select value={repoBranch} onValueChange={setRepoBranch}>
-                    <SelectTrigger>
+                    <SelectTrigger className="font-mono text-sm">
                       <SelectValue placeholder={t("enterprise.workspaceDetail.selectBranch")} />
                     </SelectTrigger>
                     <SelectContent>
@@ -722,17 +642,13 @@ export default function WorkspaceDetail() {
                     </SelectContent>
                   </Select>
                 ) : (
-                  <Input value={repoBranch} onChange={(e) => setRepoBranch(e.target.value)} placeholder="main" />
+                  <Input value={repoBranch} onChange={(e) => setRepoBranch(e.target.value)} placeholder="main" dir="ltr" className="font-mono text-xs" />
                 )}
               </Field>
             </FieldSheet>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="ghost" onClick={() => setRepoOpen(false)}>{t("enterprise.common.cancel")}</Button>
-              <Button
-                onClick={handleCreateRepo}
-                disabled={creatingRepo || !repoName.trim()}
-              >
-                {creatingRepo && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="outline" onClick={() => setRepoOpen(false)}>{t("enterprise.common.cancel")}</Button>
+              <Button onClick={handleCreateRepo} disabled={creatingRepo || !repoName.trim()}>
                 {t("enterprise.workspaceDetail.addRepo")}
               </Button>
             </div>
@@ -740,19 +656,16 @@ export default function WorkspaceDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* One-time webhook credentials dialog — a clear reveal callout */}
+      {/* One-time webhook credentials dialog */}
       <Dialog open={!!repoSecrets} onOpenChange={(open) => { if (!open) setRepoSecrets(null); }}>
-        <DialogContent className="sm:max-w-lg" dir={isRTL ? "rtl" : "ltr"}>
+        <DialogContent className="border-bench-strong bg-bench-raised text-txt-primary sm:max-w-lg" dir={isRTL ? "rtl" : "ltr"}>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <KeyRound className="h-4 w-4 text-primary" />
-              {t("enterprise.workspaceDetail.secretsTitle")}
-            </DialogTitle>
+            <DialogTitle className="t-h4">{t("enterprise.workspaceDetail.secretsTitle")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
-            <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs">
-              <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-              <span className="text-foreground">{t("enterprise.workspaceDetail.secretsIntro")}</span>
+            <div role="status" className="flex items-start gap-3 border border-signal px-4 py-3">
+              <span aria-hidden className="lamp is-on mt-0.5" />
+              <span className="text-[13px] leading-relaxed text-txt-primary">{t("enterprise.workspaceDetail.secretsIntro")}</span>
             </div>
 
             <FieldSheet>
@@ -774,10 +687,10 @@ export default function WorkspaceDetail() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="shrink-0 gap-1.5"
+                      className="h-10 shrink-0"
                       onClick={() => field.value && copyToClipboard(field.value)}
                     >
-                      <Copy className="h-3.5 w-3.5" />
+                      <Copy strokeWidth={1.5} />
                       {t("enterprise.workspaceDetail.copy")}
                     </Button>
                   </div>
@@ -785,7 +698,7 @@ export default function WorkspaceDetail() {
               ))}
             </FieldSheet>
 
-            <p className="text-xs text-muted-foreground">{t("enterprise.workspaceDetail.secretsHint")}</p>
+            <p className="text-[12.5px] leading-relaxed text-txt-muted">{t("enterprise.workspaceDetail.secretsHint")}</p>
 
             <div className="flex justify-end pt-2">
               <Button onClick={() => setRepoSecrets(null)}>
@@ -798,9 +711,9 @@ export default function WorkspaceDetail() {
 
       {/* Add member dialog — margin-label fields */}
       <Dialog open={memberOpen} onOpenChange={setMemberOpen}>
-        <DialogContent className="sm:max-w-md" dir={isRTL ? "rtl" : "ltr"}>
+        <DialogContent className="border-bench-strong bg-bench-raised text-txt-primary sm:max-w-md" dir={isRTL ? "rtl" : "ltr"}>
           <DialogHeader>
-            <DialogTitle>{t("enterprise.workspaceDetail.addMember")}</DialogTitle>
+            <DialogTitle className="t-h4">{t("enterprise.workspaceDetail.addMember")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <FieldSheet>
@@ -811,6 +724,8 @@ export default function WorkspaceDetail() {
                   value={memberUserId}
                   onChange={(e) => setMemberUserId(e.target.value)}
                   placeholder="e.g. 2"
+                  dir="ltr"
+                  className="font-mono"
                 />
               </Field>
               <Field label={t("enterprise.workspaceDetail.roleLabel")} align="center">
@@ -826,13 +741,9 @@ export default function WorkspaceDetail() {
                 </Select>
               </Field>
             </FieldSheet>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="ghost" onClick={() => setMemberOpen(false)}>{t("enterprise.common.cancel")}</Button>
-              <Button
-                onClick={handleAddMember}
-                disabled={addingMember || !memberUserId.trim()}
-              >
-                {addingMember && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="outline" onClick={() => setMemberOpen(false)}>{t("enterprise.common.cancel")}</Button>
+              <Button onClick={handleAddMember} disabled={addingMember || !memberUserId.trim()}>
                 {t("enterprise.workspaceDetail.addMember")}
               </Button>
             </div>

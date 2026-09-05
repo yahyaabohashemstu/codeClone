@@ -53,6 +53,43 @@
     "analysisFailed": "فشل التحليل.",
     "eyebrow": "تحليل ثنائي",
     "empty": "فارغ",
-    "jobTicket": "بطاقة المهمة"
+    "jobTicket": "بطاقة المهمة",
+    "bench": {
+      "kicker": "المقارِن",
+      "title": "مقارنة جديدة",
+      "plateEmpty": "اللوح {{label}} فارغ",
+      "platesEmpty": "اللوحان فارغان",
+      "platesReady": "اللوحان جاهزان",
+      "run": "شغّل المقارنة",
+      "running": "جارٍ المقارنة…",
+      "sourceMode": "وضع المصدر",
+      "modes": {
+        "paste": "لصق",
+        "file": "ملف",
+        "zip": "ZIP",
+        "excel": "جدول"
+      },
+      "dropHint": "الصق الشيفرة، أو أسقط ملفًا على اللوح",
+      "dropFormats": ".py .java .ts .go .rs · zip · xlsx",
+      "dropFile": "أسقط ملف شيفرة على اللوح، أو انقر للاختيار",
+      "dropZip": "أسقط أرشيف ZIP على اللوح، أو انقر للاختيار",
+      "dropSheet": "أسقط جدول بيانات على اللوح، أو انقر للاختيار",
+      "footerLines_zero": "لا أسطر",
+      "footerLines_one": "سطر واحد",
+      "footerLines_two": "سطران",
+      "footerLines_few": "{{count}} أسطر",
+      "footerLines_many": "{{count}} سطرًا",
+      "footerLines_other": "{{count}} سطر",
+      "footerOf": "{{size}} من {{limit}}",
+      "sheetRow": "الصف",
+      "swap": "تبديل اللوحين",
+      "clear": "مسح اللوح",
+      "signals": "الإشارات: النص · الرموز · إعادة التسمية · رسم AST · الدلالة (UniXcoder) — ملاحظة المحلّل من Mistral",
+      "thresholdLine": "عتبة الاستنساخ {{threshold}} · معايرة 2026-07 على مجموعة موسومة",
+      "languageLabel": "اللغة",
+      "status": "الحالة",
+      "plate": "اللوح {{label}}",
+      "chooseAnother": "اختر ملفًا آخر"
+    }
   }
 }

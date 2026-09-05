@@ -28,10 +28,10 @@
   },
   "routes": {
     "/": "الرئيسية",
-    "/analysis": "تحليل جديد",
-    "/results": "نتائج التحليل",
-    "/history": "سجل التحليلات",
-    "/chat": "دردشة الذكاء الاصطناعي",
+    "/analysis": "مقارنة جديدة",
+    "/results": "الحكم",
+    "/history": "السجل",
+    "/chat": "المحلّل",
     "/help": "المساعدة والدعم",
     "/auth": "تسجيل الدخول",
     "/login": "تسجيل الدخول",
@@ -90,7 +90,8 @@
       "enterpriseKeyConfigured": "تشفير المؤسسة",
       "selfRegistration": "التسجيل الذاتي",
       "emailVerificationRequired": "تأكيد البريد الإلكتروني"
-    }
+    },
+    "checks": "الفحوصات"
   },
   "errors": {
     "generic": "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
@@ -194,7 +195,13 @@
         "title": "ملف + ZIP + Excel",
         "description": "حلّل نصوصًا ملصقة أو ملفات برمجية أو مشاريع ZIP أو عينات مستخرجة من الجداول."
       }
-    ]
+    ],
+    "kicker": "المقارِن",
+    "statement": "مقارِن تشابه الشيفرة.",
+    "lead": "ضع مصدرين على الطاولة واقرأ درجة تشابه واحدة معايَرة. تأخذ إشارات الرموز وشجرة البناء والبصمة والشبكة العصبية كلٌّ قراءتها، مع أدلة على مستوى السطر يمكنك الدفاع عنها.",
+    "calibration": "{{version}} · {{count}} لغة · معايرة {{date}}",
+    "newComparison": "مقارنة جديدة",
+    "openHistory": "فتح السجل"
   },
   "analytics": {
     "title": "لوحة التحليلات",
@@ -219,7 +226,8 @@
     "analyses": "تحليل",
     "loadError": "فشل تحميل التحليلات.",
     "eyebrow": "أرقام الاستخدام",
-    "last7Days": "آخر 7 أيام"
+    "last7Days": "آخر 7 أيام",
+    "kicker": "القراءات"
   },
   "platform": "منصة التحليل",
   "brandName": "Clone Lens",
@@ -280,6 +288,71 @@
       "open": "تعذر فتح هذا التحليل.",
       "export": "تعذر تصدير هذا التحليل.",
       "delete": "تعذر حذف هذا التحليل."
+    },
+    "kicker": "الأرشيف",
+    "title": "السجل",
+    "exportCsv": "تصدير CSV",
+    "readings": {
+      "total": "إجمالي المقارنات",
+      "thisMonth": "هذا الشهر",
+      "flagged": "استنساخات مُعلَّمة",
+      "median": "القراءة الوسيطة",
+      "sinceDate": "منذ {{date}}",
+      "allTime": "منذ البداية",
+      "remainingOn": "متبقٍ {{count}} على خطة {{plan}}",
+      "unlimitedOn": "غير محدود على خطة {{plan}}",
+      "last7": "{{count}} في آخر 7 أيام",
+      "pctOf": "{{pct}}% من المقارنات",
+      "threshold": "العتبة {{value}}"
+    },
+    "filters": {
+      "search": "ابحث في الأسماء أو البصمات أو اللغات",
+      "language": "اللغة",
+      "verdict": "الحكم",
+      "range": "المدة",
+      "clear": "مسح",
+      "results_zero": "لا نتائج",
+      "results_one": "نتيجة واحدة",
+      "results_two": "نتيجتان",
+      "results_few": "{{count}} نتائج",
+      "results_many": "{{count}} نتيجة",
+      "results_other": "{{count}} نتيجة",
+      "all": "الكل",
+      "ranges": {
+        "all": "كل الفترات",
+        "7d": "آخر 7 أيام",
+        "30d": "آخر 30 يومًا",
+        "90d": "آخر 90 يومًا"
+      }
+    },
+    "columns": {
+      "id": "#",
+      "date": "التاريخ",
+      "plateA": "اللوح A",
+      "plateB": "اللوح B",
+      "lang": "اللغة",
+      "reading": "القراءة",
+      "verdict": "الحكم"
+    },
+    "verdicts": {
+      "high": "مُعلَّم",
+      "moderate": "استشاري",
+      "low": "لا استنساخ"
+    },
+    "actions": {
+      "open": "فتح",
+      "rerun": "إعادة التشغيل",
+      "export": "تصدير",
+      "delete": "حذف",
+      "preview": "معاينة"
+    },
+    "pagination": {
+      "range": "{{from}}–{{to}} من {{total}}",
+      "previous": "الصفحة السابقة",
+      "next": "الصفحة التالية"
+    },
+    "csv": {
+      "filename": "clone-lens-history.csv"
     }
   },
   "chat": {
@@ -288,6 +361,7 @@
     "pageDescription": "اطرح أسئلة متابعة مبنية على نتيجة التحليل الحالية واحصل على إجابات واعية بالسياق.",
     "newConversation": "مراسلة جديدة",
     "previousTitle": "المراسلات",
+    "transcriptTitle": "نص المراسلة",
     "noThreadsYet": "لا شيء محفوظ بعد — أول تبادل لك يُحفظ تلقائيًا.",
     "messagesShort": "رسالة",
     "groundsOnCase": "القضية #{{id}}",
@@ -513,6 +587,29 @@
     "noPayments": "لا مدفوعات",
     "loadError": "تعذّر التحميل — أعد المحاولة.",
     "retry": "إعادة المحاولة",
-    "suspended": "موقوف"
+    "suspended": "موقوف",
+    "kicker": "لوحة التحكم",
+    "census": "الإحصاء",
+    "planDistribution": "توزيع الخطط",
+    "estimates": "تقديري",
+    "usageSummary": "استخدام الفترة",
+    "timeSeries": "النشاط اليومي",
+    "distributions": "التوزيعات",
+    "securitySummary": "الوضع الأمني",
+    "cancel": "إلغاء",
+    "confirm": "تأكيد"
+  },
+  "topbar": {
+    "modes": "الأوضاع",
+    "compare": "مقارنة",
+    "history": "السجل",
+    "analytics": "التحليلات",
+    "analyst": "المحلّل",
+    "api": "API",
+    "quota": "الحصة",
+    "quotaTitle": "استُخدم {{used}} من {{limit}} مقارنة في هذه الفترة",
+    "quotaUnlimited": "مقارنات غير محدودة",
+    "account": "قائمة الحساب",
+    "language": "اللغة"
   }
 }

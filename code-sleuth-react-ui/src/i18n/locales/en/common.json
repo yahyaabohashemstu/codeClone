@@ -28,10 +28,10 @@
   },
   "routes": {
     "/": "Home",
-    "/analysis": "New Analysis",
-    "/results": "Analysis Results",
-    "/history": "Analysis History",
-    "/chat": "AI Analysis Chat",
+    "/analysis": "New comparison",
+    "/results": "Verdict",
+    "/history": "History",
+    "/chat": "Analyst",
     "/help": "Help & Support",
     "/auth": "Sign In",
     "/login": "Sign In",
@@ -90,7 +90,8 @@
       "enterpriseKeyConfigured": "Enterprise encryption",
       "selfRegistration": "Self-registration",
       "emailVerificationRequired": "Email verification"
-    }
+    },
+    "checks": "Checks"
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",
@@ -194,7 +195,13 @@
         "title": "File + ZIP + Excel",
         "description": "Analyze pasted snippets, uploaded source files, ZIP projects, or spreadsheet-derived code samples."
       }
-    ]
+    ],
+    "kicker": "Comparator",
+    "statement": "Code-similarity comparator.",
+    "lead": "Lay two sources on the bench and read one calibrated similarity score. Token, syntax-tree, fingerprint and neural signals each take a reading, with line-level evidence you can defend.",
+    "calibration": "{{version}} · {{count}} languages · calibration {{date}}",
+    "newComparison": "New comparison",
+    "openHistory": "Open history"
   },
   "analytics": {
     "title": "Analytics Dashboard",
@@ -219,7 +226,8 @@
     "analyses": "analyses",
     "loadError": "Failed to load analytics.",
     "eyebrow": "Usage figures",
-    "last7Days": "Last 7 days"
+    "last7Days": "Last 7 days",
+    "kicker": "Readings"
   },
   "platform": "Analysis Platform",
   "brandName": "Clone Lens",
@@ -280,6 +288,67 @@
       "open": "Unable to open this analysis.",
       "export": "Unable to export this analysis.",
       "delete": "Unable to delete this analysis."
+    },
+    "kicker": "Archive",
+    "title": "History",
+    "exportCsv": "Export CSV",
+    "readings": {
+      "total": "Total comparisons",
+      "thisMonth": "This month",
+      "flagged": "Clones flagged",
+      "median": "Median reading",
+      "sinceDate": "since {{date}}",
+      "allTime": "all time",
+      "remainingOn": "{{count}} remaining on {{plan}}",
+      "unlimitedOn": "unlimited on {{plan}}",
+      "last7": "{{count}} in the last 7 days",
+      "pctOf": "{{pct}}% of comparisons",
+      "threshold": "threshold {{value}}"
+    },
+    "filters": {
+      "search": "Search names, hashes, languages",
+      "language": "Language",
+      "verdict": "Verdict",
+      "range": "Range",
+      "clear": "Clear",
+      "results_one": "{{count}} result",
+      "results_other": "{{count}} results",
+      "all": "All",
+      "ranges": {
+        "all": "All time",
+        "7d": "Last 7 days",
+        "30d": "Last 30 days",
+        "90d": "Last 90 days"
+      }
+    },
+    "columns": {
+      "id": "#",
+      "date": "Date",
+      "plateA": "Plate A",
+      "plateB": "Plate B",
+      "lang": "Lang",
+      "reading": "Reading",
+      "verdict": "Verdict"
+    },
+    "verdicts": {
+      "high": "Flagged",
+      "moderate": "Advisory",
+      "low": "No clone"
+    },
+    "actions": {
+      "open": "Open",
+      "rerun": "Re-run",
+      "export": "Export",
+      "delete": "Delete",
+      "preview": "Preview"
+    },
+    "pagination": {
+      "range": "{{from}}–{{to}} of {{total}}",
+      "previous": "Previous page",
+      "next": "Next page"
+    },
+    "csv": {
+      "filename": "clone-lens-history.csv"
     }
   },
   "chat": {
@@ -288,6 +357,7 @@
     "pageDescription": "Ask grounded follow-up questions about the current analysis result and receive context-aware answers.",
     "newConversation": "New thread",
     "previousTitle": "Correspondence",
+    "transcriptTitle": "Transcript",
     "noThreadsYet": "Nothing on file yet — your first exchange is saved automatically.",
     "messagesShort": "msgs",
     "groundsOnCase": "Case #{{id}}",
@@ -513,6 +583,29 @@
     "noPayments": "No payments",
     "loadError": "Couldn't load this — please try again.",
     "retry": "Retry",
-    "suspended": "Suspended"
+    "suspended": "Suspended",
+    "kicker": "Console",
+    "census": "Census",
+    "planDistribution": "Plan distribution",
+    "estimates": "Estimated",
+    "usageSummary": "Period usage",
+    "timeSeries": "Daily activity",
+    "distributions": "Distributions",
+    "securitySummary": "Security posture",
+    "cancel": "Cancel",
+    "confirm": "Confirm"
+  },
+  "topbar": {
+    "modes": "Modes",
+    "compare": "Compare",
+    "history": "History",
+    "analytics": "Analytics",
+    "analyst": "Analyst",
+    "api": "API",
+    "quota": "Quota",
+    "quotaTitle": "{{used}} of {{limit}} comparisons used this period",
+    "quotaUnlimited": "Unlimited comparisons",
+    "account": "Account menu",
+    "language": "Language"
   }
 }

@@ -53,6 +53,39 @@
     "analysisFailed": "Analysis failed.",
     "eyebrow": "Pairwise analysis",
     "empty": "empty",
-    "jobTicket": "Job ticket"
+    "jobTicket": "Job ticket",
+    "bench": {
+      "kicker": "Comparator",
+      "title": "New comparison",
+      "plateEmpty": "Plate {{label}} is empty",
+      "platesEmpty": "Both plates are empty",
+      "platesReady": "Both plates loaded",
+      "run": "Run comparison",
+      "running": "Comparing…",
+      "sourceMode": "Source mode",
+      "modes": {
+        "paste": "Paste",
+        "file": "File",
+        "zip": "ZIP",
+        "excel": "Sheet"
+      },
+      "dropHint": "Paste code, or drop a file on the plate",
+      "dropFormats": ".py .java .ts .go .rs · zip · xlsx",
+      "dropFile": "Drop a source file on the plate, or click to choose",
+      "dropZip": "Drop a ZIP archive on the plate, or click to choose",
+      "dropSheet": "Drop a spreadsheet on the plate, or click to choose",
+      "footerLines_one": "{{count}} line",
+      "footerLines_other": "{{count}} lines",
+      "footerOf": "{{size}} of {{limit}}",
+      "sheetRow": "Row",
+      "swap": "Swap plates",
+      "clear": "Clear plate",
+      "signals": "Signals: text · token · renamed · AST graph · semantic (UniXcoder) — analyst note by Mistral",
+      "thresholdLine": "clone threshold {{threshold}} · calibrated 2026-07 on labeled set",
+      "languageLabel": "Language",
+      "status": "Status",
+      "plate": "Plate {{label}}",
+      "chooseAnother": "Choose another file"
+    }
   }
 }

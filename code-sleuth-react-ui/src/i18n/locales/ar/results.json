@@ -336,7 +336,12 @@
       "sourceB": "المصدر B",
       "boolTrue": "نعم",
       "boolFalse": "لا",
-      "deltaTitle": "الفرق (ب ناقص أ)"
+      "deltaTitle": "الفرق (ب ناقص أ)",
+      "label": "مقاييس اللوحين",
+      "plateA": "اللوح A",
+      "plateB": "اللوح B",
+      "delta": "Δ",
+      "agree": "تتفق {{agree}} من {{total}} مقاييس"
     },
     "pdfExport": {
       "title": "تصدير تقرير PDF",
@@ -423,6 +428,138 @@
     "disclosure": {
       "radar": "رادار الإشارات",
       "code": "الشيفرة جنبًا إلى جنب"
+    },
+    "verdict": {
+      "signals": {
+        "text": "النص",
+        "token": "الرموز",
+        "tokenOrdered": "الرموز (مرتّبة)",
+        "tokenOrderedClean": "الرموز (مرتّبة، نظيفة)",
+        "tokenUnordered": "الرموز (غير مرتّبة)",
+        "tokenUnorderedClean": "الرموز (غير مرتّبة، نظيفة)",
+        "renamed": "إعادة التسمية",
+        "graph": "رسم AST",
+        "semantic": "الدلالة"
+      },
+      "titleFlagged": "استنساخ مُعلَّم",
+      "tagType": "النوع {{n}}",
+      "tagFlagged": "مُعلَّم",
+      "tagAdvisory": "استشاري",
+      "tagNoClone": "لا استنساخ",
+      "combined": "التشابه المركّب",
+      "outOf": "/ 100",
+      "thresholdLabel": "العتبة {{value}}",
+      "label": "الحكم",
+      "confidenceLine": "ثقة {{level}} · تتفق {{agree}} من {{total}} إشارات",
+      "signalsTable": "الإشارات الموزونة",
+      "signal": "الإشارة",
+      "weight": "الوزن",
+      "scale": "القراءة",
+      "value": "القيمة",
+      "formulaNote": "المركّب = مجموع الوزن × الإشارة. الأوزان ثابتة لكل إصدار من المحرّك.",
+      "clearNote": "تجاوزت {{clear}} من {{total}} إشارات موزونة العتبة {{threshold}}.",
+      "belowNote": "دون العتبة: {{names}}."
+    },
+    "why": {
+      "label": "لماذا هذا الحكم",
+      "signalAbove": "{{name}} تقرأ {{value}} — فوق العتبة {{threshold}}.",
+      "signalBelow": "{{name}} تقرأ {{value}} — دون العتبة {{threshold}}.",
+      "families": "انطلقت {{count}} من {{total}} عائلات استنساخ — {{names}}.",
+      "noFamilies": "لم تنطلق أي من عائلات الاستنساخ الـ{{total}}.",
+      "lines": "{{matched}} من {{total}} سطرًا في اللوح A لها نظير في اللوح B."
+    },
+    "comparator": {
+      "label": "المقارِن",
+      "viewMode": "وضع العرض",
+      "sideBySide": "جنبًا إلى جنب",
+      "overlay": "تراكب",
+      "blink": "وميض",
+      "blinkSwitch": "اللوح المعروض",
+      "showing": "يُعرض اللوح {{side}}",
+      "captionSide": "المناطق المتطابقة مظلّلة ومرقّمة على اللوحين.",
+      "captionOverlay": "لوح واحد: أسطر B المختلفة تحت أسطر A.",
+      "captionBlink": "يبدّل الوميض بين A وB في المكان نفسه — لا يومض إلا الاختلاف.",
+      "captionBlinkStill": "الحركة مخفّفة — بدّل اللوحين بعنصر A | B.",
+      "plateA": "اللوح A",
+      "plateB": "اللوح B",
+      "noMatch": "لا تطابق",
+      "onlyA": "في A فقط",
+      "onlyB": "في B فقط",
+      "fromB": "من B",
+      "lines_zero": "لا أسطر",
+      "lines_one": "سطر واحد",
+      "lines_two": "سطران",
+      "lines_few": "{{count}} أسطر",
+      "lines_many": "{{count}} سطرًا",
+      "lines_other": "{{count}} سطر",
+      "footerMatched": "تطابق {{matched}} من {{total}} سطرًا",
+      "footerUnmatched_zero": "لا أسطر بلا تطابق",
+      "footerUnmatched_one": "سطر بلا تطابق",
+      "footerUnmatched_two": "سطران بلا تطابق",
+      "footerUnmatched_few": "{{count}} أسطر بلا تطابق",
+      "footerUnmatched_many": "{{count}} سطرًا بلا تطابق",
+      "footerUnmatched_other": "{{count}} سطر بلا تطابق",
+      "showAll": "عرض كل الأسطر ({{count}})",
+      "showFewer": "عرض أول {{count}} سطر",
+      "loading": "جارٍ محاذاة اللوحين…",
+      "failed": "تعذّر تحميل محاذاة الأسطر.",
+      "summary": "{{regions}} مناطق متطابقة · {{guards}} حواجز بلا تطابق",
+      "changed_zero": "لا أسطر متغيّرة",
+      "changed_one": "سطر متغيّر",
+      "changed_two": "سطران متغيّران",
+      "changed_few": "{{count}} أسطر متغيّرة",
+      "changed_many": "{{count}} سطرًا متغيّرًا",
+      "changed_other": "{{count}} سطر متغيّر",
+      "truncated": "اقتصرت المحاذاة على {{count}} سطر",
+      "overlayMeta": "A {{a}} سطر · B {{b}} سطر",
+      "overlayFooter": "{{count}} سطر من B"
+    },
+    "note": {
+      "label": "ملاحظة المحلّل",
+      "empty": "لم تُولَّد ملاحظة محلّل لهذه المقارنة.",
+      "caveat": "سرد مولَّد آليًا — تحقّق منه مقابل المحرّكات أعلاه."
+    },
+    "crumbs": {
+      "compare": "مقارنة",
+      "verdict": "الحكم"
+    },
+    "savedAt": "حُفظ في السجل · {{time}}",
+    "savedNoTime": "حُفظ في السجل",
+    "unsaved": "غير محفوظ في السجل",
+    "share": {
+      "button": "مشاركة",
+      "copied": "نُسخ الرابط إلى الحافظة.",
+      "failed": "تعذّر نسخ الرابط."
+    },
+    "more": "إجراءات أخرى",
+    "checks": {
+      "label_zero": "فحوص أنواع الاستنساخ",
+      "label_one": "فحوص أنواع الاستنساخ · طريقة واحدة",
+      "label_two": "فحوص أنواع الاستنساخ · طريقتان",
+      "label_few": "فحوص أنواع الاستنساخ · {{count}} طرق",
+      "label_many": "فحوص أنواع الاستنساخ · {{count}} طريقة",
+      "label_other": "فحوص أنواع الاستنساخ · {{count}} طريقة",
+      "detail": "ملف الاستنساخ وتفسيره",
+      "on": "مُكتشَف",
+      "off": "—"
+    },
+    "sections": {
+      "structured": "التقرير المنظّم",
+      "graphs": "رسوم AST",
+      "radar": "رادار الإشارات",
+      "quality": "جودة الشيفرة",
+      "thread": "محادثة المحلّل"
+    },
+    "footer": {
+      "analysis": "التحليل #{{id}}",
+      "current": "تحليل (غير محفوظ)",
+      "openHistory": "فتح في السجل",
+      "askAnalyst": "اسأل المحلّل",
+      "matchRatio": "نسبة التطابق {{value}}",
+      "semantic": "الدلالة {{model}}"
+    },
+    "empty": {
+      "cta": "مقارنة جديدة"
     }
   },
   "buttons": {

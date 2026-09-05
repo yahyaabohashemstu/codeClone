@@ -1,393 +1,294 @@
 ---
 name: Clone Lens
-description: Press Check — every screen is a registration proof. Two code sources are two printing plates (A prints cyan, B magenta); where they coincide the ink overprints into the violet verdict.
+description: The Bench — every screen is the comparator's instrument table. Two code sources are lit paper plates laid on a warm charcoal bench; one signal colour marks everything the instrument has measured; structure is drawn with hairlines and engraved tick scales, never with shadows.
 colors:
-  overprint: "#3E2C8C"          # --primary · hsl(251 52% 36%) · cyan×magenta laid down together — the one action colour
-  ink: "#131B24"                # --foreground · hsl(216 25% 10%) · rich black with a cyan lean
-  press-slate: "#525A66"        # --muted-foreground · hsl(215 12% 36%) · secondary text, slugs
-  press-bed: "#E3E7EB"          # --background · hsl(210 14% 91%) · the machine-grey ground chrome sits on
-  proof-sheet: "#FCFDFD"        # --card · hsl(210 20% 99%) · the bright sheet all content is laid on
-  hairline: "#C6CCD3"           # --border · hsl(212 14% 80%) · structure is drawn, never shadowed
-  plate-a: "#00A0D1"            # --plate-a · hsl(194 100% 41%) · process cyan — source A's printed identity
-  plate-a-deep: "#00577A"       # --plate-a-deep · hsl(197 100% 26%) · text-capable cyan (≥4.5:1)
-  plate-b: "#E90C82"            # --plate-b · hsl(328 90% 48%) · process magenta — source B's printed identity
-  plate-b-deep: "#970F51"       # --plate-b-deep · hsl(331 85% 32%) · text-capable magenta; also --accent-suspect
-  pass-viridian: "#12684B"      # --success · hsl(160 70% 24%) · low similarity / passed
-  review-amber: "#E09A00"       # --warning · hsl(41 100% 44%) · mid similarity / review (never small text)
-  flag-red: "#BA261C"           # --destructive · hsl(4 74% 42%) · high similarity / flagged
+  bench-base: "#262624"          # --bench-base · the ground every screen sits on (also --background)
+  bench-raised: "#2e2e2b"        # --bench-raised · top bar, panels, popovers, dialogs (also --card)
+  bench-well: "#1d1d1b"          # --bench-well · inputs on the bench, meter tracks (also --muted)
+  bench-hair: "#3b3b38"          # --bench-hair · the hairline every rule and frame is drawn with (also --border)
+  bench-hair-strong: "#4a4a46"   # --bench-hair-strong · control outlines, segment frames, minor ticks (also --input)
+  bench-tick: "#6b6a65"          # --bench-tick · major ticks, hollow lamps
+  text-primary: "#e8e6e1"        # --text-primary · readings, titles, the lens of the mark (also --foreground)
+  text-secondary: "#a5a39d"      # --text-secondary · body copy, nav at rest
+  text-muted: "#908e88"          # --text-muted · labels, meta, placeholders on the bench
+  text-faint: "#75736e"          # --text-faint · ordinals at rest, kbd hints
+  signal-base: "#f2532a"         # --signal-base · THE colour: fills, needles, the L of the mark, primary buttons (also --primary)
+  signal-on-bench: "#ff6a3d"     # --signal-on-bench · the signal as small text on the bench (hot tags, links on hover)
+  signal-on-plate: "#b8391a"     # --signal-on-plate · the signal as small text on a plate (region labels)
+  plate-base: "#f4f2ec"          # --plate-base · the lit paper code is laid on (also --code-surface)
+  plate-strip: "#ebe9e2"         # --plate-strip · the plate's header strip
+  plate-hair: "#d9d6cd"          # --plate-hair · hairlines on a plate
+  plate-ink: "#1b1b19"           # --plate-ink · code and titles on a plate; the text ON the signal (also --primary-foreground)
+  plate-ink-soft: "#5e5c56"      # --plate-ink-soft · comments, secondary text on a plate
+  plate-gutter: "#6b6962"        # --plate-gutter · line numbers
+  plate-placeholder: "#9c9a93"   # --plate-placeholder · placeholders on a plate
+  plate-well: "#ffffff"          # --plate-well · inputs on a plate
+  plate-well-stroke: "#c9c6bc"   # --plate-well-stroke · input and segment outlines on a plate
+  plate-meter: "#e1ded4"         # --plate-meter · the byte meter's track
+  match-band: "#fbddd3"          # --match-band · matched-region rows on a plate
+  match-guard-band: "#eceae3"    # --match-guard-band · unmatched "guard" rows
+  match-guard-marker: "#a9a69c"  # --match-guard-marker · the guard row's 3px marker
 typography:
-  hero:
-    fontFamily: "Archivo, system-ui, sans-serif"
-    fontStretch: "122%"
-    fontSize: "clamp(2.4rem, 6.4vw, 5.5rem)"
+  display:
+    fontFamily: "Sofia Sans Extra Condensed, Sofia Sans, system-ui, sans-serif"
     fontWeight: 800
-    lineHeight: 0.96
+    lineHeight: 0.86
     letterSpacing: "-0.01em"
     textTransform: "uppercase"
-  headline:
-    fontFamily: "Archivo, system-ui, sans-serif"
-    fontStretch: "118%"
-    fontSize: "2.6rem→1.9rem"
-    fontWeight: 800
-    lineHeight: 1.04
-    textTransform: "uppercase"
-  title:
-    fontFamily: "Archivo, system-ui, sans-serif"
-    fontStretch: "106%"
-    fontSize: "1.4rem→1.05rem"
-    fontWeight: 700
-    lineHeight: 1.2
-  body:
-    fontFamily: "Archivo, system-ui, sans-serif"
-    fontSize: "1rem"
-    fontWeight: 400
-    lineHeight: 1.6
-  slug:
-    fontFamily: "Archivo, system-ui, sans-serif"
-    fontStretch: "106–108%"
-    fontSize: "0.6875rem"
+    sizes: "208px combined reading · 72px plate title · 44px reading cell"
+  statement:
+    fontFamily: "Sofia Sans, system-ui, sans-serif"
+    fontSize: "32px"
     fontWeight: 600
-    letterSpacing: "0.1–0.12em"
+    lineHeight: 1.1
+  verdict:
+    fontFamily: "Sofia Sans"
+    fontSize: "40px"
+    fontWeight: 600
+    lineHeight: 1.05
+  page:
+    fontFamily: "Sofia Sans"
+    fontSize: "26px"
+    fontWeight: 600
+    lineHeight: 1.1
+  body:
+    fontFamily: "Sofia Sans"
+    fontSize: "14px · 15px/1.55 large · 12.5px small · 13px compact"
+    fontWeight: 400
+    lineHeight: 1.4
+  label:
+    fontFamily: "Sofia Sans"
+    fontSize: "11px · 10px small · 9.5px tag"
+    fontWeight: 600
+    letterSpacing: "0.1em"
     textTransform: "uppercase"
-    fontVariantNumeric: "tabular-nums"
-  stat:
-    fontFamily: "Archivo, system-ui, sans-serif"
-    fontStretch: "120%"
-    fontSize: "3rem"
-    fontWeight: 800
-    lineHeight: 1
-    fontVariantNumeric: "tabular-nums"
   mono:
-    fontFamily: "JetBrains Mono, ui-monospace, monospace"
-    note: "Code only — diffs, hashes, pasted sources. Mono is no longer the display voice."
+    fontFamily: "IBM Plex Mono, ui-monospace, Consolas, monospace"
+    fontSize: "11px meta · 10px ordinal (tracking .06em) · 12px filename · 13px value · 12.5px/21px code"
   arabic:
     fontFamily: "IBM Plex Sans Arabic, system-ui, sans-serif"
-    note: "Under html[lang=ar] every display element falls back to the Arabic face at normal width (Archivo has no Arabic glyphs; Plex Arabic has no width axis). Handled centrally in index.css."
-rounded:
-  all: "0px"        # press geometry — everything trims flush
-  full: "9999px"    # dots, avatars, and the registration ring only
+    note: "Replaces every Latin face under html[lang=ar] with tracking reset; code and machine values stay in IBM Plex Mono, LTR."
+rounding:
+  control: "2px on every control, plate, tag, well and button"
+  round: "only dots, rings and the registration crosshair"
 spacing:
-  xs: "4px"
-  sm: "8px"
-  md: "16px"
-  lg: "24px"
-  xl: "32px"
-  2xl: "48px"
-  3xl: "64px"
-components:
-  button-primary:
-    backgroundColor: "{colors.overprint}"
-    textColor: "{colors.proof-sheet}"
-    rounded: "0"
-    padding: "10px 16px"
-  button-secondary:
-    backgroundColor: "{colors.press-bed}"
-    textColor: "{colors.ink}"
-    border: "1px solid {colors.hairline}"
-    rounded: "0"
-  card:
-    backgroundColor: "{colors.proof-sheet}"
-    textColor: "{colors.ink}"
-    rounded: "0"
-    padding: "20px"
-    border: "1px solid {colors.hairline}"
-    shadow: "none"              # structure is drawn, never shadowed
-  input:
-    backgroundColor: "{colors.proof-sheet}"
-    textColor: "{colors.ink}"
-    rounded: "0"
-    border: "1px solid hsl(212 14% 74%)"
-  badge:
-    style: "squared press label — Archivo 11px, stretch 108%, caps, 12–16% tint + same-hue 1px border"
-    variants: "success · warning (ink text on amber tint) · error · info · plate-a · plate-b"
-  stamp:
-    style: "2px currentColor border, Archivo 800 stretch 116%, caps 0.14em — the verdict, pressed on the proof"
-    variants: "pass (viridian) · review (amber border, ink text) · flag (red) · neutral"
+  base: "4px grid"
+  page: "1440px working width · 40px margins (px-10) · 28px above the page header"
+  rows: "46px ledger rows · 40px metric/lamp rows · 36px table heads · 32px signal rows · 28px section heads · 21px code lines"
 ---
 
 # Design System: Clone Lens
 
 ## 1. Overview
 
-**Creative North Star: "Press Check" — the registration proof.**
+Clone Lens is a **code-similarity comparator**. The interface is the comparator's
+bench: a warm charcoal instrument table on which two code sources are laid as lit
+paper **plates**, measured, and read off an engraved 0–100 **scale**. One colour —
+the **signal** — marks whatever the instrument has measured: the needle, the fill,
+the matched regions, the flagged tag, the L in the mark. Everything else is ink on
+the bench: hairlines, tick scales, tracked labels and monospaced machine values.
 
-The product's mechanism *is* the metaphor: Clone Lens lays two pieces of code
-over each other and reports where they coincide, which is precisely what a
-pressman does at a register check. So the interface is a pre-press proof
-sheet. **Source A is a printing plate that prints process cyan; source B
-prints process magenta; where the two plates put ink down together the colour
-overprints into a deep violet — and that violet is the product's one action
-colour.** Agreement is literally rendered as overprint.
+The design file (Figma "Clone Lens") defines four screens — **Sign in**, **New
+comparison**, **Verdict**, **History** — and a Components page. This document is
+their written form; `code-sleuth-react-ui/src/index.css` is the executable one.
 
-The spatial model is **sheet-on-bed**: chrome (the job rail, the instrument
-bar, the footer slug) sits on a cool machine-grey *press bed*; every route's
-content is laid on a bright *proof sheet* with crop marks at its corners.
-Structure is drawn with 1px hairlines and 2px rules — never shadowed — and
-**everything trims square** (base radius 0). The press vocabulary supplies
-the signature elements: registration crosshairs (⊕), crop marks, the ink
-**calibration strip**, slug lines, verdict **stamps**, and a **misregistration
-fringe** reserved for the 404 misprint.
+Rules that never bend:
 
-Dark mode is **The Negative** — the same proof read on a light table with the
-room lights off. Grounds go to film-dark; the plate inks turn luminous; the
-overprint brightens to a light violet with dark text.
-
-This system replaces the "Evidence Dossier" identity (warm paper, ink-navy,
-JetBrains Mono display voice) wholesale. Nothing cream, nothing glowing,
-nothing glass, no gradient text, no mono-as-costume: mono belongs to code
-alone now, and the display voice is **Archivo across its width axis**.
-
-**Key characteristics:**
-- Cool press-bed ground + proof-sheet surfaces; hairline-drawn structure; flat depth.
-- One Latin family (Archivo variable, wdth 62.5–125%) in three width cuts:
-  expanded-heavy caps for display, near-normal for working headings and body,
-  tracked small caps ("the slug voice") for labels. JetBrains Mono only where
-  the content is code. IBM Plex Sans Arabic owns the entire RTL surface.
-- The two-plate identity system: **A = cyan, B = magenta**, everywhere the
-  two sources appear (upload panels, diff legends, AST graphs, exhibit chips).
-- The **overprint violet** as the single action colour — buttons, active
-  states, focus rings, progress fills.
-- Square geometry throughout; `rounded-full` only for dots and the ⊕ ring.
-- The similarity scale (green < 50 / amber 50–79 / red ≥ 80) unchanged in
-  *meaning*, re-inked as pass-viridian / review-amber / flag-red.
+- **One look.** The bench is always lit from above. There is no light theme; both
+  theme classes resolve to the same palette so a stored preference can never
+  produce an undesigned surface.
+- **One signal colour.** Nothing else is coloured. Categorical charts use the
+  signal first and then the bench greys.
+- **Code lives on a plate.** Every code surface is `--plate-base` with plate ink,
+  a 3px marker column, a 41px gutter and 12.5/21 IBM Plex Mono. Never code on the
+  dark bench.
+- **Primary buttons are signal fill with ink text.** Never white on the signal.
+- **Structure is drawn.** Hairlines, rules and tick scales; no shadows, no
+  gradients, no glows, no washes.
+- **Colour is never the only channel.** A tag carries its word, a lamp its label
+  and value, a scale its numeral, a matched region its `R1` label.
+- **The reading is honest.** The needle sits at the measured value; the threshold
+  post sits at the real threshold (80); "n of 5 signals agree" counts real
+  signals; nothing on a screen is decorative data.
+- **Machine identifiers are frozen.** `codesimilar.*` storage keys and token
+  salts, `codesimilar_*` metrics, `CODESIMILAR_*` CI variables, API paths and
+  form field names never change with the visual identity.
 
 ## 2. Colors
 
-### The plates and the overprint
-- **Overprint** (`--primary`): the colour of "both plates down" — cyan ×
-  magenta multiplied. It is the only action colour: primary buttons, focus
-  rings, selection, the overlap band of every OverprintMeter. Fills take a
-  near-white foreground (≈9:1). As text on the sheet it clears AA easily.
-- **Plate A / Plate B** (`--plate-a`, `--plate-b`): full-strength process
-  inks for marks, bars, chips, and graphics. **Never body text** — for text
-  use the `-deep` cuts (`--plate-a-deep`, `--plate-b-deep`), which clear
-  4.5:1 on the sheet. `--accent-suspect` is kept as a legacy alias of plate
-  B's deep cut because the AST graph and diff components consume it.
-- **The Plate Identity Rule.** Anywhere the two sources appear side by side,
-  A is cyan and B is magenta — chips, panel headers, graph nodes, diff dots.
-  The pairing is the product's premise; do not swap or restyle it locally.
+### Surfaces
 
-### Neutrals
-- **Ink** (`--foreground`): rich black with a cyan lean; all reading text.
-- **Press Slate** (`--muted-foreground`): secondary text and slugs; ≥4.5:1 on
-  both bed and sheet. Never dilute text with `/60`-style opacity.
-- **Press Bed** (`--background`) vs **Proof Sheet** (`--card`): the bed is
-  visibly grey so the sheet reads as a physical object on it. Panels within a
-  sheet stay sheet-white and are separated by hairlines, not tone.
+| Surface | Token | Use |
+| --- | --- | --- |
+| Bench | `--bench-base` | the page ground |
+| Raised bench | `--bench-raised` | top bar, panels, dialogs, popovers, connector chips |
+| Well | `--bench-well` | inputs and meter tracks on the bench |
+| Hairline / strong | `--bench-hair` / `--bench-hair-strong` | rules, frames / control outlines, minor ticks |
+| Tick | `--bench-tick` | major ticks, hollow lamps |
+| Plate | `--plate-base` · `--plate-strip` · `--plate-hair` | the lit paper, its header strip, its rules |
+| Plate wells | `--plate-well` / `--plate-well-stroke` | inputs and segment frames on a plate |
+
+### Text
+
+Bench: `--text-primary` (readings, titles), `--text-secondary` (body, nav at
+rest), `--text-muted` (labels, meta), `--text-faint` (ordinals, kbd).
+Plate: `--plate-ink`, `--plate-ink-soft`, `--plate-gutter`, `--plate-placeholder`.
+
+### The signal
+
+`--signal-base` is a fill colour. As small text it needs its two cuts:
+`--signal-on-bench` on the bench and `--signal-on-plate` on a plate (both
+≥ 4.5:1 against their surface).
 
 ### The similarity scale
-- **Pass Viridian** (`--success`) · low similarity, healthy, passed.
-- **Review Amber** (`--warning`) · mid similarity. **Amber never appears as
-  small text** — it is shown as ink text on an amber tint, or as an amber
-  border/bar beside ink.
-- **Flag Red** (`--destructive`) · high similarity, failed, irreversible
-  actions. Distinct in hue from plate-B magenta; the two must never be
-  conflated (magenta = identity, red = verdict).
-- **The Calibrated Scale Rule.** The three bands map to the same thresholds
-  everywhere (< 50 / 50–79 / ≥ 80) and colour is always paired with a text
-  label or stamp.
+
+Three bands, one threshold. They are typographic tags, not colours:
+
+| Reading | Band | Tag | Fill |
+| --- | --- | --- | --- |
+| < 50 | neutral | `NO CLONE` — hairline, muted text | tick-toned ("quiet") |
+| 50 – 79 | advisory | `ADVISORY` — secondary outline and text | signal |
+| ≥ 80 | hot | `FLAGGED` / `TYPE-n` — signal outline and text | signal |
+
+The threshold is **80 / 100** everywhere (scale post, CI gate, history readings).
+The shadcn `--warning` token is retained for compatibility only and is never
+used as small text.
+
+### Matched regions
+
+On the comparator plates, matched rows take `--match-band` with a signal marker
+and an `R1…Rn` label; unmatched guard rows take `--match-guard-band` with a
+`--match-guard-marker` marker and the words "no match".
 
 ### Charts
-`--chart-1..5` = cyan-deep, magenta-deep, viridian, press slate, overprint —
-the printed-ink legend. For *semantic* similarity bands use the similarity
-scale directly, never the categorical palette.
+
+`--chart-1` signal, then `--chart-2…5` the bench greys from primary text down to
+faint. Grid lines are `--bench-hair`; axis text is 11px mono muted; tooltips sit on
+`--bench-raised` with a hairline.
 
 ## 3. Typography
 
-**One Latin family, three widths.** Archivo (variable, `wght` + `wdth`)
-carries display, UI, body, and labels; the *width axis* is the display voice:
+Three families, each with one job:
 
-- **`.t-hero` / `.t-h1` / `.t-h2`** — expanded (114–122%), weight 750–800,
-  UPPERCASE: the press-poster cut. Page titles are short; caps are the stamp
-  voice, not shouting. **Never case-transform user content** (file names,
-  code labels get `normal-case`).
-- **`.t-h3`–`.t-h5`** — near-normal width, sentence case: working headings.
-- **`.t-body` / `.t-sm` / `.t-xs`** — normal width; prose caps at ~65–75ch.
-- **`.press-slug`** — the signature label voice: 11px caps, stretch ~106%,
-  tracking 0.1em, tabular figures. Replaces the old mono meta entirely; used
-  for field labels, table heads, job lines, and edge annotations.
-- **`.t-stat`** — expanded 800 tabular numerals for scores and counters.
-- **`.t-mono`** — JetBrains Mono, **code only** (diffs, hashes, pasted
-  sources, code blocks). Mono used for anything that is not code is a defect.
+- **Sofia Sans** — the UI voice: statements, page titles, verdict titles, body,
+  tracked labels, buttons, nav.
+- **Sofia Sans Extra Condensed** (ExtraBold, line-height .86, uppercase) — the
+  display cut for readings: the 208px combined similarity, the 72px plate title
+  ("SIGN IN"), the 44px reading cells, the 404.
+- **IBM Plex Mono** — code, meta lines, filenames, ordinals, machine values,
+  timestamps, kbd hints. Never for prose.
+- **IBM Plex Sans Arabic** replaces every Latin face under `html[lang="ar"]`
+  (tracking reset, no uppercase); code and mono values stay LTR in Plex Mono.
 
-**The Arabic Exemption.** Under `html[lang="ar"]` every display class
-(`.t-*`, `.press-slug`, `.stamp`, `.font-display`) falls back to IBM Plex
-Sans Arabic at `font-stretch: normal`, `letter-spacing: 0` — handled once in
-`index.css`. Code and data stay LTR inside the RTL layout.
+Classes (in `index.css`): `.t-display` `.t-statement` `.t-page` `.t-verdict`
+`.t-h1…h5` · `.body-lg` `.body-compact` `.t-body` `.t-sm` `.t-xs` · `.label`
+`.label-sm` `.label-tag` · `.mono-meta` `.mono-meta-sm` `.mono-ordinal`
+`.mono-filename` `.mono-value` `.mono-code` · `.ui-nav` `.ui-control`
+`.ui-button` `.ui-wordmark`. Legacy names (`.t-hero`, `.t-label`, `.press-slug`,
+`.t-stat`, `.t-mono`) alias onto these so older pages keep compiling.
 
-## 4. Elevation & Geometry
+## 4. Geometry
 
-- **Flat.** Surfaces are separated by hairlines and the bed/sheet tone step.
-  The single neutral shadow (`--card-shadow-*`) exists only for true
-  overlays (menus, dialogs). Border **or** shadow, never both.
-- **Square.** `--radius: 0` and the whole Tailwind radius scale points at
-  0px tokens. `rounded-full` survives only for dots, avatars, spinners, and
-  the registration ring.
-- **Rules carry hierarchy.** A page's masthead sits above a **double rule**
-  (4px `double` in foreground); sections open with a single 2px rule;
-  everything else is a 1px hairline.
+- **Radius 2px** on every control, plate, tag, well, button and panel
+  (`--radius-control`; the whole Tailwind radius scale is wired to it). Only
+  dots, rings and the registration crosshair are round.
+- **Hairlines, not shadows.** Every shadow token is `none`. Overlays draw a
+  strong hairline. Hover states change a border tone or a text tone, never a
+  background wash.
+- **Scales.** 51 engraved ticks spread with space-between (every fifth one
+  major: 12px `--bench-tick`, minors 6px `--bench-hair-strong`); a 2px signal
+  fill along the baseline to the value; a 2px needle standing at it; a dashed
+  1px `--text-secondary` post at the threshold. The vertical rail on the sign-in
+  screen is the same scale turned upright (100 top, 0 bottom).
+- **Meters.** Quota: 64×8 well with hairline and signal fill. Plate bytes: 80×6
+  `--plate-meter` track with ink fill.
+- **Lamps.** 10px squares: signal-filled when a check fires, hollow tick border
+  when it does not.
 
-## 5. The Press Kit (composition primitives)
+## 5. The kit
 
-All in `src/components/dossier/Dossier.tsx` (path kept for its 15 importers):
+`src/components/bench/Bench.tsx` renders the design file's components 1:1;
+`src/components/bench/icons.tsx` carries the exported 16px stroke icons verbatim
+(1.5px, square caps, `currentColor`); `src/components/dossier/Dossier.tsx` keeps
+the older composition names (`Masthead`, `Panel`, `Field`, `SectionHead`,
+`SpecList`, `Figure`, `Stamp`, `OverprintMeter`, `ScaleRuler`…) but renders them
+in the bench voice, so every page shares one vocabulary.
 
-- **`Masthead`** — job header: slug kicker with a ⊕ reg-dot, expanded-caps
-  title, slug meta line, actions; closed by the double rule.
-- **`SectionHead` / `Panel bare`** — 2px-ruled section openers.
-- **`Panel` / `Figure`** — hairline sheets with slug header strips; figures
-  carry `FIG NN` captions.
-- **`Field` / `FieldSheet` / `SpecList` / `MetaStrip`** — printed-form rows
-  and density readouts in the slug voice.
-- **`Serial`** — plate/serial chip; tones `plate-a`, `plate-b`, `primary`,
-  `muted`.
-- **`RegMark`** — the ⊕ crosshair SVG. Brand mark (in an overprint square),
-  seam marker between the two sources, active-nav indicator, and — rotating —
-  the loading spinner.
-- **`ControlStrip`** — the ink calibration bar (9 chips: C, M, overprint, K,
-  tints, semantic inks). Decorative signature: sidebar foot, sheet footer,
-  section asides. Always `aria-hidden`.
-- **`OverprintMeter`** — the flagship instrument. Plate A's band prints from
-  the left, plate B's from the right, each spanning `50% + score/2`, so the
-  violet overlap is **exactly the similarity score**. At 0 the plates barely
-  meet; at 100 they lie in perfect register. Used on the Results verdict,
-  History rows, and the Home demo. Pass `label` for standalone use; omit it
-  when a labelled parent already announces the value.
-- **`Stamp`** — the verdict, pressed on the proof: `pass` / `review` /
-  `flag` / `neutral`. The label text carries the meaning; colour is never
-  alone.
-- **`ScaleRuler`** — the graded 0–100 instrument the verdict is read against:
-  band-tinted track (pass/review/flag), threshold ticks at 0/50/80/100, and a
-  needle at the measured value. The score is POSITIONED, not merely labelled.
-- **`PlatePair`** — the compact A-over-B lockup (ink swatch + name per plate).
-  The standard way to print "this pair" in ledgers, headers, and grounding
-  blocks. `mono` when the labels are file names/code.
-- **`.press-tabs-list` / `.press-tab`** — squared folder tabs cut into a
-  sheet edge; the active tab joins the content sheet below it (bottom edge
-  opens into the panel). Works with Radix triggers (`data-state`) and plain
-  buttons. Wraps on narrow viewports.
-- **`CropMarks`** — corner ticks for a `relative` sheet container (the
-  MainLayout content sheet, hero panels).
-- **`.misreg`** — cyan/magenta split text-shadow: the plates coming apart.
-  Reserved for the 404 misprint and at most one hero moment. Never body text.
+| Component | What it is |
+| --- | --- |
+| `TopBar` | 56px raised bar: lockup (22px mark + wordmark), numbered mode tabs `01 Compare · 02 History · 03 Analytics · 04 Analyst · 05 API` (active = 2px signal underline), quota meter, plan chip, avatar menu (Home, Billing, Settings, Help, admin routes, language, sign out). |
+| `AuthShell` | The access screen: 56px rail, 520px statement column, the ACCESS plate centred on the remaining bench, legal links bottom-right. `PlateTitle`, `PlateField`, `PlateNotice` compose the plate. |
+| `Plate` · `PlateHeader` · `PlateFooter` · `PlateMeter` | The lit paper: 40px strip (label + mono filename + segments or meta), body, 32px mono footer. |
+| Code rows | `.code-line` = 3px marker · 41px gutter · code text; `.is-match` / `.is-guard`; `.code-region` labels. The editor overlays a transparent textarea on the highlighted rows (`Analysis.tsx`). |
+| `Scale` · `ScaleTicks` · `ScaleRail` · `ScaleNumerals` | The instrument. `quiet` draws the fill in tick tone for readings under 50. |
+| `Tag` (`hot` / `advisory` / `neutral`) | Squared verdict label, 9.5px tracked caps. |
+| `Lamp` | Clone-type check row: square + label + mono value. |
+| `SegmentGroup` / `Segment` | Segmented control; 28px cells on the bench (active inverts to primary text), 24px on a plate (active inks). |
+| `BenchSelect` | Label + value + chevron in a hairline box over a native select; default 36px, large 40px. |
+| `BenchButton` / `Button` | Primary = signal fill + ink text; secondary/disabled = hairline; 40px default, 46px large; `Kbd` trailing hints. |
+| `Reading` | Ruled reading cell: label, 44px display numeral, mono note. |
+| `well` / `plate-well` | 36px dark search/input box on the bench; 44px white input on a plate. |
+| `BrandMark` / `BrandLockup` | The approved mark, sized by height (1.31:1); lens = primary text, L = signal. |
 
-## 5a. The mark
+## 6. Page compositions
 
-The logo is a **C+L monogram that is also a lens**: the C is the optic's ring,
-the L sits in its field of view, and the handle completes the instrument. It
-ships as approved artwork — two inks, no gradients, no effects:
+**Sign in** — rail 56px (100 / 50 / 0) · statement column 520px with the lockup at
+the top, "Code-similarity comparator." (32/600) with the body and the ruled scope
+note vertically centred, and the calibration strip (`v1.0 · 15 languages ·
+calibration 2026-07`) at the foot · the ACCESS plate (520px) centred in the
+remaining bench: 40px strip (`ACCOUNT` / `PLATE 00 · ACCESS`), 72px display
+title + 14px qualifier, 44px wells with 11px labels, 46px primary button with a
+trailing arrow, hairline footer (`No account yet? Create one` / `2FA prompt
+follows if enabled`). Verify-email and reset-password reuse the same plate.
 
-- **Lens + handle** — the overprint violet `#3e2c8c`, i.e. `--primary` exactly.
-- **The L** — ink; it takes `--foreground`, so it inverts to a light letter in
-  dark mode rather than disappearing.
+**New comparison** — header (kicker `COMPARATOR`, 26px title; right: plate
+status, `LANGUAGE` select, `Run comparison ⌃↵` — hairline until both plates are
+loaded, then signal) · two 576px plates with a 48px spine and the swap control ·
+plate strip = `PLATE A` + filename + `PASTE FILE ZIP SHEET` segments · code rows
+from y+14 · footer `13 lines · 402 B · UTF-8` / `402 B of 2 MB` + meter · status
+line: the signal roster on the left, `clone threshold 80 · calibrated 2026-07 on
+labeled set` on the right.
 
-Use `<BrandMark>` (`components/brand/BrandMark.tsx`), never an `<img>`: the
-inline SVG lets both inks track the live theme tokens. **Size it by height and
-let the width follow** — the artwork is 245.98 : 187.74 (≈1.31:1), so a
-square box will distort it. Pass explicit `lens` / `letter` colours only where
-the surface is fixed regardless of theme (the auth rail, which is always dark).
+**Verdict** — breadcrumb bar (`Compare / Verdict #id`, saved-at, Re-run · Share ·
+Export PDF) · verdict block: 208px reading over the 36px scale with the threshold
+post and 0/50/100, beside the 40px verdict title, `TYPE-n` tag, confidence line
+and the five-signal table (weights .20/.25/.25/.15/.15) · comparator (side by side
+/ overlay / blink) on two plates joined by numbered connectors · `WHY THIS
+VERDICT` ruled rows (ordinal · statement · mono evidence) · `CLONE-TYPE CHECKS`
+lamps, 2×6 · metrics ledger (Metric / Plate A / Plate B / Δ) beside the
+`ANALYST NOTE` · footer strip in mono with `Open in History` / `Ask the Analyst`.
 
-The mark appears at brand moments only — the sidebar head, the mobile header,
-the auth panel, the favicon, and the PDF cover. **`RegMark` (the ⊕ crosshair)
-is a different thing**: a design-system motif for seams, loaders, nav state
-and section markers. The two coexist; do not substitute one for the other.
+**History** — header (`ARCHIVE` / History, `Export CSV`) · four ruled readings
+(`TOTAL COMPARISONS`, `THIS MONTH`, `CLONES FLAGGED`, `MEDIAN READING`) · filters
+(300px search well, `LANGUAGE` / `VERDICT` / `RANGE` selects, `Clear`, `n
+results`) · ledger: 36px head, 46px rows (`#` mono muted · date mono · `A`/`B`
+filenames · lang · 110px scale + value · tag · `Open` `Re-run`) · 48px pagination
+(`1–10 of 128`, 32px chevrons).
 
-Assets: `public/brand/clone-lens.svg` (the artwork) and `public/brand/mark.svg`
-(square favicon; its L flips light under `prefers-color-scheme: dark`).
+Every page starts 28px under the top bar with a kicker label and the page title;
+every section opens with a tracked label; every table is ruled, never boxed.
 
-**App icons** are derived from the 1026×783 master in `brand/`, never redrawn:
-the mark centred on an opaque proof-sheet ground (`#FCFDFD`) — platforms
-reject transparency, and the sheet keeps the approved two inks true rather
-than knocking the artwork out to one colour. `favicon.ico` is multi-resolution
-(16→256); `apple-touch-icon.png` is 180×180 with no alpha (iOS requirement);
-`icon-192/512.png` and `icon-maskable-512.png` serve the manifest, the maskable
-one drawn at 54% so Android's circular mask never clips the lens. Regenerate
-them from the master if the mark ever changes — do not resample the icons.
+## 7. Motion
 
-## 5a-bis. Language
+One motion: the needle settling on its reading (`animate-needle-in`, 600ms,
+ease-out). Everything else is a 150–200ms colour transition. Blink mode in the
+comparator alternates plates every 700ms and falls back to a manual A|B toggle
+under `prefers-reduced-motion`, which also disables every animation globally.
 
-**English is the default; Arabic is a first-class alternative**, complete to
-the last string and mirrored RTL — not a partial translation. The resolution
-order is: stored choice → Arabic browser locale → English. Three places
-implement that one rule and must stay in agreement: the pre-paint script in
-`index.html`, `getInitialLanguage` in `LanguageContext`, and i18next's
-detector (`localStorage`, then `navigator`).
-
-The pre-paint script exists because `lang`/`dir` set only by React's effect
-arrive one frame late: an Arabic visitor would see an LTR frame snap to RTL.
-Setting them in `<head>` also lets `html[lang="ar"]` pick the Arabic face
-before first paint. Keep the script and `getInitialLanguage` in lockstep —
-if they ever disagree, the page flips direction on hydration.
-
-## 5b. Page compositions (each surface's printed form)
-
-Every section has its own press-artifact structure — recolouring a generic
-layout is a defect. The register:
-
-- **Home** — the specimen poster: registration hero (three-layer key phrase),
-  impression counters, the overlay demo with a live meter + stamp, the
-  ink-legend signals index, the drenched overprint colophon.
-- **Analysis** — the imposition desk: the two plates on the table joined at a
-  dotted registration seam; the **job ticket** rail (language, plate
-  readiness, engine checklist) travels beside them; sticky press-control bar.
-- **Results** — the proof report: one **proof block** (readout ▸ pair &
-  reading ▸ stamped disposition) closed by the **ScaleRuler**; press file
-  tabs; drivers as deep-link chips; density bars with 50/80 ticks; metrics as
-  the **registration table** (Metric · A · B · Δ); quality as A/B plate
-  dockets; the chat as a correspondence log.
-- **History** — the press log: log-numeral lines, PlatePair cells, overprint
-  meters, verdict stamps, slug dates.
-- **Analytics** — the gauge board: a 4-cell **gauge bank** behind shared
-  rules; figures as a contact sheet (activity area, language **ink-coverage
-  bar** + ledger, banded similarity bars); top pairs as a PlatePair ledger.
-- **Chat** — the grounded consultation: grounding docket (plate serials +
-  spec rows) above the correspondence log (ruled annotation entries with
-  speaker slugs — never messenger bubbles).
-- **Billing** — the subscription statement (plan block ▸ ink-coverage gauge
-  with quarter ticks) and the **rate card**: tiers as columns, attributes as
-  rows, the current tier stamped.
-- **API Keys** — the key cabinet: press tabs; issue form; the one-time token
-  on a dashed **hand-off slip** with a review stamp; the register as a
-  log-numeral ledger; docs as ruled spec sheets with numbered exhibits.
-- **Settings** — the account docket: the **ID plate** (operator name +
-  role stamp + email), the 2FA enrolment as a numbered procedure (a genuine
-  sequence), access/data control rows, and the flag-stamped **void block**.
-- **Help** — the operator's manual: contents rail with ⊕ bullets (named, not
-  numbered), the support **directory**, the route list, and the printed
-  **Q./A.** reference in plate colours.
-- **Admin** — the control room: live masthead readings, press tabs, census
-  ledgers, figure bars, and log-numeral tables (flagged rows read red).
-- **Enterprise** — Workspaces as the registry ledger (threshold shown as a
-  banded scale position); Review Cases as the case docket (PlatePair
-  artifacts, overprint meters, disposition tallies).
-
-## 6. Motion
-
-- Product surfaces: 150–300ms colour/width transitions; state, not
-  choreography. Loading is the rotating RegMark, skeletons stay quiet.
-- The one entrance: the Home hero's key phrase prints three times (cyan
-  layer, magenta layer, black impression) and slides into near-register over
-  0.9s (`animate-register-a/b`) — the brand moment, Home only.
-- The global `prefers-reduced-motion` contract in `index.css` collapses all
-  animation and pins the hero layers at their static offsets
-  (`motion-reduce:translate-x-*`).
-
-## 7. Do's and Don'ts
+## 8. Do's and Don'ts
 
 ### Do
-- Keep A = cyan and B = magenta wherever the two sources meet.
-- Spend the overprint violet on one primary action per view; let the
-  hairlines and type carry everything else.
-- Draw structure (hairline / 2px rule / double rule); trim everything square.
-- Use `.press-slug` for labels and annotations; keep mono strictly for code.
-- Pair every band colour with its label or stamp; keep the < 50 / 50–79 /
-  ≥ 80 thresholds identical everywhere.
-- Preserve the Arabic exemption and LTR code inside RTL.
+
+- Lay code on a plate; lay readings on the bench.
+- Open every section with a `label`; rule rows with `--bench-hair`.
+- Show the numeral next to every scale and the word inside every tag.
+- Keep programming-language names and code LTR under Arabic.
+- Size the mark by height and keep the L in the signal colour.
 
 ### Don't
-- Don't reintroduce the retired costumes: no glow, no glass, no gradient
-  text, no cream paper, no mono headings, no rounded blobs.
-- Don't use full-strength plate inks as small text (use the `-deep` cuts).
-- Don't put amber on small text, ever.
-- Don't case-transform user content in display styles.
-- Don't use `.misreg` outside the misprint (404) context.
-- Don't shadow a bordered surface or nest sheets inside sheets.
+
+- Don't add a second accent, a gradient, a glow, a shadow or a wash.
+- Don't put white text on the signal, or the signal as small text without its cut.
+- Don't round anything but dots and rings.
+- Don't invent data to fill a slot the design shows — omit the slot.
+- Don't rename a machine identifier to match a visual rename.

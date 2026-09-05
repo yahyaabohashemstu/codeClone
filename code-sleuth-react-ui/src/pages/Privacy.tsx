@@ -35,32 +35,32 @@ const sections = [
   },
 ] as const;
 
+/** Legal text set as ruled prose on the bench: an ordinal in the gutter, a label heading, body copy. */
 const Privacy = () => (
-  <div className="mx-auto max-w-3xl py-4">
-    <div className="t-label flex items-center gap-2.5">
-      <span className="h-px w-6 bg-primary" />
-      Legal
-    </div>
-    <h1 className="t-h2 mt-3">Privacy Policy</h1>
-    <p className="t-sm mt-1 font-mono text-muted-foreground">Last updated: 13 July 2026</p>
+  <div className="max-w-[72ch] pt-7">
+    <header className="flex flex-col gap-2.5 pb-6">
+      <span className="label text-txt-muted">Legal</span>
+      <h1 className="t-page text-txt-primary">Privacy Policy</h1>
+      <span className="mono-meta text-txt-muted">Last updated: 13 July 2026</span>
+    </header>
 
-    <dl className="mt-8 divide-y divide-border border-y border-border">
+    <dl className="divide-y divide-bench-hair border-y border-bench-hair">
       {sections.map((s) => (
-        <div key={s.n} className="grid grid-cols-[auto_1fr] gap-x-4 py-5 sm:gap-x-6">
-          <dt className="t-label pt-0.5 text-muted-foreground">{s.n}</dt>
+        <div key={s.n} className="grid grid-cols-[2.5rem_1fr] gap-x-4 py-6">
+          <dt className="mono-ordinal pt-0.5 text-txt-muted">{s.n}</dt>
           <dd>
-            <h2 className="t-h4">{s.title}</h2>
-            <p className="t-body mt-2">{s.body}</p>
+            <h2 className="label text-txt-primary">{s.title}</h2>
+            <p className="body-lg mt-2.5 text-txt-secondary">{s.body}</p>
           </dd>
         </div>
       ))}
-      <div className="grid grid-cols-[auto_1fr] gap-x-4 py-5 sm:gap-x-6">
-        <dt className="t-label pt-0.5 text-muted-foreground">07</dt>
+      <div className="grid grid-cols-[2.5rem_1fr] gap-x-4 py-6">
+        <dt className="mono-ordinal pt-0.5 text-txt-muted">07</dt>
         <dd>
-          <h2 className="t-h4">Contact</h2>
-          <p className="t-body mt-2">
+          <h2 className="label text-txt-primary">Contact</h2>
+          <p className="body-lg mt-2.5 text-txt-secondary">
             Privacy questions or requests: hello@clonelens.com. See also our{" "}
-            <Link to="/terms" className="text-foreground underline underline-offset-2 hover:opacity-70">
+            <Link to="/terms" className="link">
               Terms of Service
             </Link>
             .
@@ -70,8 +70,8 @@ const Privacy = () => (
     </dl>
 
     <p className="mt-8">
-      <Link to="/" className="text-foreground underline underline-offset-2 hover:opacity-70">
-        ← Home
+      <Link to="/" className="link text-[13px]">
+        Home
       </Link>
     </p>
   </div>
