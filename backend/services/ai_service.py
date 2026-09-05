@@ -17,6 +17,7 @@ import logging
 import os
 import re
 import threading
+import time
 
 from backend.utils.localization import (
     get_ai_response_language_name,
@@ -24,6 +25,14 @@ from backend.utils.localization import (
 )
 
 logger = logging.getLogger(__name__)
+
+# A 429 from Mistral means one of two very different things: a short-lived
+# per-second/per-minute cap, which a brief pause clears, or an exhausted plan
+# quota, which nothing but billing clears. Retrying costs little and rescues
+# the first case; the attempts stay few and short so an exhausted quota does
+# not stall an analysis for long.
+_RATE_LIMIT_RETRIES: int = max(0, int(os.environ.get("MISTRAL_RATE_LIMIT_RETRIES", "2")))
+_RATE_LIMIT_BACKOFF_SECONDS: float = max(0.0, float(os.environ.get("MISTRAL_RATE_LIMIT_BACKOFF", "2")))
 
 # ---------------------------------------------------------------------------
 # Mistral SDK import (graceful fallback)
@@ -302,6 +311,17 @@ def check_ai_health(run_live_check: bool = True) -> dict:
         }
     except Exception as exc:
         classified_error = classify_ai_health_error(str(exc))
+        # The classified message is deliberately vague ("rate or quota limit"),
+        # because it is shown to end users. The operator needs the upstream text
+        # to tell a per-second cap from an exhausted plan, so log it: WARNING
+        # reaches stderr even without a configured handler, which is what the
+        # container's log stream captures.
+        logger.warning(
+            "Mistral live health check failed (model=%s, status=%s): %s",
+            model,
+            classified_error["status"],
+            exc,
+        )
         return {
             "provider": "mistral",
             "model": model,
@@ -359,18 +379,40 @@ def generate_ai_chat(messages: list[dict[str, str]]) -> str:
         )
 
     model = _get_mistral_model()
-    try:
-        response = _mistral_client.chat.complete(
-            model=model,
-            messages=messages,
-        )
-        response_text = extract_mistral_text(response)
-        return response_text or localize_ui_message(
-            "AI analysis returned an empty response.",
-            "\u0623\u0639\u0627\u062f \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064a \u0627\u0633\u062a\u062c\u0627\u0628\u0629 \u0641\u0627\u0631\u063a\u0629.",
-        )
-    except Exception as exc:
-        return classify_ai_health_error(str(exc))["message"]
+    attempts = _RATE_LIMIT_RETRIES + 1
+    failure_message = ""
+
+    for attempt in range(attempts):
+        try:
+            response = _mistral_client.chat.complete(
+                model=model,
+                messages=messages,
+            )
+            response_text = extract_mistral_text(response)
+            return response_text or localize_ui_message(
+                "AI analysis returned an empty response.",
+                "\u0623\u0639\u0627\u062f \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064a \u0627\u0633\u062a\u062c\u0627\u0628\u0629 \u0641\u0627\u0631\u063a\u0629.",
+            )
+        except Exception as exc:
+            classified = classify_ai_health_error(str(exc))
+            failure_message = classified["message"]
+            # Log the upstream text: the message returned to the caller is the
+            # user-facing one and hides which limit was actually hit.
+            logger.warning(
+                "Mistral chat.complete failed (model=%s, attempt %d/%d, status=%s): %s",
+                model,
+                attempt + 1,
+                attempts,
+                classified["status"],
+                exc,
+            )
+            # Only a rate limit is worth waiting out; anything else (bad key,
+            # bad request, outage) will fail again identically.
+            if classified["status"] != "rate_limited" or attempt == attempts - 1:
+                break
+            time.sleep(_RATE_LIMIT_BACKOFF_SECONDS * (2 ** attempt))
+
+    return failure_message
 
 
 # ---------------------------------------------------------------------------
